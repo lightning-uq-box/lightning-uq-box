@@ -8,6 +8,9 @@ from torch.utils.data import DataLoader
 
 from uq_regression_box.eval_utils import compute_sample_mean_std_from_quantile
 
+# TODO add quantile outputs to all models so they can be conformalized
+# with the CQR wrapper
+
 
 def compute_q_hat_with_cqr(
     cal_preds: np.ndarray, cal_labels: np.ndarray, error_rate: float

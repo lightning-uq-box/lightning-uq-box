@@ -38,7 +38,6 @@ class MCDropoutModel(BaseModel):
 
         Returns:
             mean and standard deviation of MC predictions
-
         """
         self.train()
         preds = (
@@ -51,10 +50,10 @@ class MCDropoutModel(BaseModel):
         )  # shape [num_samples, batch_size, num_outputs]
 
         mean_samples = preds[:, 0, :]
-        sigma_samples = preds[:, 1, :]
 
         # assume prediction with sigma
         if preds.shape[1] == 2:
+            sigma_samples = preds[:, 1, :]
             mean = mean_samples.mean(-1)
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)
@@ -67,7 +66,7 @@ class MCDropoutModel(BaseModel):
             }
         # assume mse prediction
         else:
-            mean = preds.mean(0)
-            std = preds.std(0)
+            mean = mean_samples.mean(-1)
+            std = mean_samples.std(-1)
 
-            return {"mean": mean, "pred_uct": std}
+            return {"mean": mean, "pred_uct": std, "epistemic_uct": std}
