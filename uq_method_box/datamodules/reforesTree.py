@@ -3,7 +3,6 @@
 from typing import Any
 
 from torchgeo.datamodules import NonGeoDataModule
-
 from uq_regression_box.datasets import ReforesTreeRegression
 
 

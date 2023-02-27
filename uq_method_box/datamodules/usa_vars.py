@@ -3,6 +3,13 @@
 from typing import Any
 
 from torchgeo.datamodules import USAVarsDataModule
+from torchgeo.datasets import USAVars
+
+ds = USAVars(
+    root="/home/nils/projects/uq-regression-box/experiments/data/usa_vars",
+    download=True,
+    checksum=True,
+)
 
 
 class USAVarsDataModuleOOD(USAVarsDataModule):
