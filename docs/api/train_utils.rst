@@ -1,7 +1,7 @@
-uq_regression_box.train_utils
+uq_method_box.train_utils
 =============================
 
-.. module:: uq_regression_box.train_utils
+.. module:: uq_method_box.train_utils
 
 Loss Functions
 --------------

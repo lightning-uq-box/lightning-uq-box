@@ -1,4 +1,4 @@
-uq_regression_box.uq_methods
+uq_method_box.uq_methods
 ============================
 
 .. module:: uq_regression_box.uq_methods

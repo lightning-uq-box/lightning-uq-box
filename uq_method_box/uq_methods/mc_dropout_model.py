@@ -6,7 +6,8 @@ from typing import Any, Dict
 import numpy as np
 import torch
 import torch.nn as nn
-from uq_regression_box.eval_utils import (
+
+from uq_method_box.eval_utils import (
     compute_aleatoric_uncertainty,
     compute_epistemic_uncertainty,
     compute_predictive_uncertainty,

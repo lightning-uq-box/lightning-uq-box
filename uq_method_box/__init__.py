@@ -5,7 +5,7 @@
 Datasets, UQ-methods, and evaluation utils for Uncertainty in
 Image Regression tasks.
 
-The :mod:`uq_regression_box` package consists of several datasets, modern UQ-methods
+The :mod:`uq_method_box` package consists of several datasets, modern UQ-methods
 support for various models, and common evaluation schemes for uncertainty.
 """
 
