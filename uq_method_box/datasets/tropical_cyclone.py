@@ -5,24 +5,26 @@ import os
 from typing import Any, Callable, Dict, Optional
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
+import seaborn as sns
 import torch
 from torchgeo.datasets import TropicalCyclone
 from tqdm import tqdm
 
-ds = TropicalCyclone(
-    "/home/nils/projects/uq-regression-box/experiments/data/tropicalCyclone"
-)
+# ds = TropicalCyclone(
+#     "/home/nils/projects/uq-regression-box/experiments/data/tropicalCyclone"
+# )
 
-fig, axs = plt.subplots(ncols=3)
-for idx, i in enumerate([57, 7862, 15687]):
-    sample = ds[i]
-    plt.sca(axs[idx])
-    ds.plot(sample, ax=axs[idx])
+# fig, axs = plt.subplots(ncols=3)
+# for idx, i in enumerate([57, 7862, 15687]):
+#     sample = ds[i]
+#     plt.sca(axs[idx])
+#     ds.plot(sample, ax=axs[idx])
 
-import pdb
+# import pdb
 
-pdb.set_trace()
+# pdb.set_trace()
 
 
 # TODO
@@ -90,7 +92,10 @@ class TropicalCycloneOOD(TropicalCyclone):
         # 3. across time (currently done, I think)
 
         # create some visualization statistics here
-        fig = self.create_summary_statistics(df)
+        # fig = self.create_summary_statistics(df)
+        # fig = self.another_visualization(df)
+        df.rename(columns={"Unnamed: 0": "full_df_idx"}, inplace=True)
+        triplet_df = self.find_triplets(df)
         import pdb
 
         pdb.set_trace()
@@ -128,14 +133,77 @@ class TropicalCycloneOOD(TropicalCyclone):
 
         axs[2].hist(storm_counts, bins=50, color="lightgray")
         axs[2].set_title("Number of Images per Storm")
-        axs[2].set_xlabel("Number of Images")
-        axs[2].set_ylabel("Number of Storms")
+        axs[2].set_xlabel("Number of Images.")
+        axs[2].set_ylabel("Number of Storms.")
 
         axs[3].violinplot(df["wind_speed"].values)
         axs[3].set_title("Distribution of Wind Speeds for entire dataset.")
         axs[3].set_xlabel("Wind Speed")
 
         return fig
+
+    def another_visualization(self, df: pd.DataFrame):
+        """"""
+        fig, axs = plt.subplots(1, 3)
+        max_wind_speeds = df.groupby("storm_id")["wind_speed"].max()
+
+        axs[0].hist(max_wind_speeds, bins=50)
+        axs[0].set_title("Max wind speed against number of storms.")
+        axs[0].set_xlabel("Max wind speed.")
+        axs[0].set_ylabel("Number of storms")
+
+        # import pdb
+        # pdb.set_trace()
+        unique_ids = np.random.choice(df["storm_id"].unique(), 50)
+        sampled_storms = df[df["storm_id"].isin(unique_ids)]
+
+        for id in unique_ids:
+            unique_df = sampled_storms[sampled_storms["storm_id"] == id]
+            axs[1].plot(range(len(unique_df)), unique_df["wind_speed"], linewidth=0.5)
+
+        axs[1].set_title(
+            f"Wind speeds over time for {len(unique_ids)} randomly sampled storms."
+        )
+        axs[1].set_xlabel("Time.")
+        axs[1].set_ylabel("Wind Speed.")
+
+        axs[2] = sns.violinplot(data=df, x="ocean", y="wind_speed")
+        axs[2].set_title("Distribution of wind speed across ocean.")
+        axs[2].set_xlabel("Ocean Id")
+        axs[2].set_ylabel("Wind speed distribution")
+        return fig
+
+    def find_triplets(self, df: pd.DataFrame):
+        """Find triplet sequences of images per storm used as samples in deterministic way.
+
+        Args:
+            df: dataframe with complete annotations
+
+        """
+        unique_ids = df["storm_id"].unique().tolist()
+        samples = []
+        for id in unique_ids:
+            unique_df = df[df["storm_id"] == id]
+
+            candidates = unique_df[["wind_speed"]].rolling(window=3, step=3).max()
+
+            # maybe criteria to drop some here
+
+            # criteria to divide into train and test based on max_wind speed
+
+            # collect triplet rgb image paths that belong to a single sample
+            end_indices = candidates.index[1:]
+
+            # define individual images that make up an RGB image sample
+            sample_indices = [[idx - 2, idx - 1, idx] for idx in end_indices]
+
+            # collect samples
+            samples.extend(sample_indices)
+
+        import pdb
+
+        pdb.set_trace()
+        print(0)
 
     def retrieve_collection(self) -> Dict[str, Any]:
         """Retrieve collection from both train and val split."""
@@ -191,5 +259,26 @@ class TropicalCycloneOOD(TropicalCyclone):
 
 
 ds = TropicalCycloneOOD(
-    "/home/nils/projects/uq-regression-box/experiments/data/tropicalCyclone"
+    "/home/nils/projects/uq-method-box/experiments/data/tropicalCyclone"
 )
+
+
+unique_ids = df["storm_id"].unique().tolist()
+samples = []
+for id in unique_ids:
+    unique_df = df[df["storm_id"] == id]
+
+    candidates = unique_df[["wind_speed"]].rolling(window=3, step=3).max()
+
+    # maybe criteria to drop some here
+
+    # criteria to divide into train and test based on max_wind speed
+
+    # collect triplet rgb image paths that belong to a single sample
+    end_indices = candidates.index[1:]
+
+    # define individual images that make up an RGB image sample
+    sample_indices = [[idx - 2, idx - 1, idx] for idx in end_indices]
+
+    # collect samples
+    samples.extend(sample_indices)

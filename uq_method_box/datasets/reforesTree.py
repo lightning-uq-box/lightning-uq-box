@@ -177,7 +177,7 @@ class ReforesTreeRegression(ReforesTree):
 
 
 ds = ReforesTreeRegression(
-    root="/home/nils/projects/uq-regression-box/experiments/data/reforesTree"
+    root="/home/nils/projects/uq-method-box/experiments/data/reforesTree"
 )
 
 fig, axs = plt.subplots(ncols=3)
