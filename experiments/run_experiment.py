@@ -5,10 +5,6 @@ import os
 from datetime import datetime
 from typing import Any, Dict
 
-import numpy as np
-import pandas as pd
-import pytorch_lightning as pl
-import torch
 from experiment_generator import generate_datamodule, generate_model, generate_trainer
 from utils import read_config, save_config
 
@@ -49,7 +45,9 @@ def run(config_path):
 
     # generate trainer
     trainer = generate_trainer(config)
-    trainer.log_every_n_steps = min(len(datamodule.train_dataloader()), config["pl"]["log_every_n_steps"])  # type: ignore[attr-defined]
+    trainer.log_every_n_steps = min(  # type: ignore[attr-defined]
+        len(datamodule.train_dataloader()), config["pl"]["log_every_n_steps"]
+    )
     print(f"Training data loader length {len(datamodule.train_dataloader())}.")
     print(f"Using GPU device {trainer.device_ids}")
 

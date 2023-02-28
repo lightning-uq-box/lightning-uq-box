@@ -5,12 +5,9 @@ from typing import Any, Dict, List, Optional
 import torch.nn as nn
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 
 from uq_method_box.train_utils import NLL, QuantileLoss
-
-# from uq_method_box.datamodules import .
 from uq_method_box.uq_methods import (
     BaseModel,
     DeepEnsembleModel,
@@ -119,4 +116,5 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
         **config["pl"],
         default_root_dir=config["experiment"]["save_dir"],
         callbacks=[checkpoint_callback],
+        loggers=loggers
     )
