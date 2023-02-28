@@ -31,7 +31,7 @@ jobs:
         pip install -r requirements/style.txt
         pip list
     - name: Run black checks
-      run: black . --check --diff
+      run: black . --check --diff --line-length 88 --skip-magic-trailing-comma
   flake8:
     name: flake8
     runs-on: ubuntu-latest
@@ -54,7 +54,7 @@ jobs:
         pip install -r requirements/style.txt
         pip list
     - name: Run flake8 checks
-      run: flake8
+      run: flake8 --max-line-length=88
   isort:
     name: isort
     runs-on: ubuntu-latest
@@ -77,7 +77,7 @@ jobs:
         pip install -r requirements/style.txt
         pip list
     - name: Run isort checks
-      run: isort . --check --diff
+      run: isort . --check --diff --profile "black"
   pydocstyle:
     name: pydocstyle
     runs-on: ubuntu-latest
