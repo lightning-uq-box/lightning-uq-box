@@ -54,7 +54,7 @@ Make sure the dependencies are installed inside your virtual environment:
 ```
    $ pip install .[docs]
    $ cd docs
-   $ pip install -r requirements.txt
+   $ pip install -r requirements/requirements.txt
 ```
 
 
