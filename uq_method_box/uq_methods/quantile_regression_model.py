@@ -8,7 +8,7 @@ import torch.nn as nn
 from uq_method_box.eval_utils import compute_sample_mean_std_from_quantile
 from uq_method_box.train_utils import QuantileLoss
 
-from .base_model import BaseModel
+from .base import BaseModel
 
 # TODO if we want to conformalize these scores
 # model.fit() # quantile regression model

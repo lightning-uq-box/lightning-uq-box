@@ -13,7 +13,7 @@ from uq_method_box.eval_utils import (
     compute_predictive_uncertainty,
 )
 
-from .base_model import BaseModel
+from .base import BaseModel
 
 
 class MCDropoutModel(BaseModel):
