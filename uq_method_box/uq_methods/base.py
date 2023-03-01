@@ -1,7 +1,10 @@
 """Base Model for UQ methods."""
 
-from typing import Any, Dict
+import os
+from collections import defaultdict
+from typing import Any, Dict, List
 
+import pandas as pd
 import timm
 import torch
 import torch.nn as nn
@@ -9,13 +12,19 @@ from pytorch_lightning import LightningModule
 from torch import Tensor
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
 
+from uq_method_box.eval_utils import (
+    compute_aleatoric_uncertainty,
+    compute_epistemic_uncertainty,
+    compute_predictive_uncertainty,
+)
+
 
 class BaseModel(LightningModule):
     """Deterministic Base Trainer as LightningModule."""
 
     def __init__(
         self,
-        config: Dict[str, Any],
+        config: Dict[str, Any] = None,
         model: nn.Module = None,
         criterion: nn.Module = nn.MSELoss(),
     ) -> None:
@@ -49,6 +58,10 @@ class BaseModel(LightningModule):
         )
 
         self.criterion = criterion
+
+        self.save_hyperparameters(
+            ignore=["criterion", "train_metrics", "val_metrics", "test_metrics"]
+        )
 
     def forward(self, *args: Any, **kwargs: Any) -> Any:
         """Forward pass of the model.
@@ -147,3 +160,118 @@ class BaseModel(LightningModule):
             self.model.parameters(), lr=self.config["optimizer"]["lr"]
         )
         return {"optimizer": optimizer}
+
+
+class EnsembleModel(LightningModule):
+    """Base Class for different Ensemble Models."""
+
+    def __init__(
+        self, config: Dict[str, Any], ensemble_members: List[nn.Module]
+    ) -> None:
+        """Initialize a new instance of DeepEnsembleModel Wrapper.
+
+        Args:
+            config: configuration dictionary
+            ensemble_members: instantiated ensemble members
+        """
+        super().__init__()
+        self.config = config
+
+        self.ensemble_members = ensemble_members
+
+    def forward(self, *args: Any, **kwargs: Any) -> Tensor:
+        """Forward step of Deep Ensemble.
+
+        Args:
+            batch:
+
+        Returns:
+            Ensemble member outputs stacked over last dimension for output
+            of [batch_size, num_outputs, num_ensemble_members]
+        """
+        raise NotImplementedError
+
+    def test_step(self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0) -> Any:
+        """Compute test step for deep ensemble and log test metrics.
+
+        Args:
+            batch: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            dictionary of uncertainty outputs
+        """
+        target = batch[1]
+        out_dict = self.predict_step(batch)
+
+        self.test_metrics(torch.from_numpy(out_dict["mean"]).unsqueeze(-1), target)
+
+        out_dict["targets"] = target.detach().squeeze(-1).numpy()
+
+        return out_dict
+
+    def test_epoch_end(self, outputs: Any) -> None:
+        """Log epoch level validation metrics.
+
+        Args:
+            outputs: list of items returned by test step, dictionaries
+        """
+        # concatenate the predictions into a single dictionary
+        save_pred_dict = defaultdict(list)
+
+        for out in outputs:
+            for k, v in out.items():
+                save_pred_dict[k].extend(v.tolist())
+
+        # save the outputs, i.e. write them to file
+        df = pd.DataFrame.from_dict(save_pred_dict)
+
+        df.to_csv(
+            os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),
+            index=False,
+        )
+
+    def generate_ensemble_predictions(self, batch: Any) -> Tensor:
+        """Generate ensemble predictions.
+
+        Args:
+            batch: data batch
+
+        Returns:
+            ensemble predictions of shape [batch_size, num_outputs, num_ensemble_preds]
+        """
+        raise NotImplementedError
+
+    def predict_step(
+        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
+        """Compute prediction step for a deep ensemble.
+
+        Args:
+            batch: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            mean and standard deviation of MC predictions
+        """
+        preds = self.generate_ensemble_predictions(batch)
+
+        mean_samples = preds[:, 0, :].detach().numpy()
+
+        # assume nll prediction with sigma
+        if preds.shape[1] == 2:
+            sigma_samples = preds[:, 1, :].detach().numpy()
+            mean = mean_samples.mean(-1)
+            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
+            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
+            epistemic = compute_epistemic_uncertainty(mean_samples)
+            return {
+                "mean": mean,
+                "pred_uct": std,
+                "epistemic_uct": epistemic,
+                "aleatoric_uct": aleatoric,
+            }
+        # assume mse prediction
+        else:
+            mean = mean_samples.mean(-1)
+            std = mean_samples.std(-1)
+
+            return {"mean": mean, "pred_uct": std, "epistemic_uct": std}

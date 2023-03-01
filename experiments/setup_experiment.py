@@ -37,36 +37,52 @@ def retrieve_loss_fn(
         raise ValueError("Your loss function choice is not supported.")
 
 
-def generate_model(
+def generate_base_model(
     config: Dict[str, Any],
     model: Optional[nn.Module] = None,
     criterion: Optional[nn.Module] = None,
 ) -> LightningModule:
-    """Generate a configured forecasting model.
+    """Generate a configured base model.
 
     Args:
         config: config dictionary
 
     Returns:
-        configure pytorch lightning module
+        configured pytorch lightning module
     """
     if criterion is None:
         criterion = retrieve_loss_fn(config["model"]["loss_fn"])
 
-    if config["model"]["model"] == "base_model":
+    if config["model"]["base_model"] == "base_model":
         return BaseModel(config, model, criterion)
 
-    elif config["model"]["model"] == "mc-dropout":
+    elif config["model"]["base_model"] == "mc_dropout":
         return MCDropoutModel(config, model, criterion)
 
-    elif config["model"]["model"] == "deep-ensemble":
-        return DeepEnsembleModel(config, model, criterion)
-
-    elif config["model"]["model"] == "quantile-regression":
+    elif config["model"]["base_model"] == "quantile_regression":
         return QuantileRegressionModel(config, model)
 
     else:
-        raise ValueError("Your model choice is currently not supported.")
+        raise ValueError("Your base_model choice is currently not supported.")
+
+
+def generate_ensemble_model(
+    config: Dict[str, Any], ensemble_members: List[nn.Module]
+) -> LightningModule:
+    """Generate an ensemble model.
+
+    Args:
+        config: config dictionary
+        ensemble_members: ensemble models
+
+    Returns:
+        configureed ensemble lightning module
+    """
+    if config["model"]["ensemble"] == "deep_ensemble":
+        return DeepEnsembleModel(config, ensemble_members)
+
+    else:
+        raise ValueError("Your ensemble choice is currently not supported.")
 
 
 def generate_datamodule(config: Dict[str, Any]) -> LightningDataModule:
@@ -85,14 +101,14 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
     """Generate a pytorch lightning trainer."""
     loggers = [
         CSVLogger(config["experiment"]["save_dir"], name="csv_logs"),
-        # WandbLogger(
-        #     save_dir=config["experiment"]["save_dir"],
-        #     project=config["wandb"]["project"],
-        #     entity=config["wandb"]["entity"],
-        #     resume="allow",
-        #     config=config,
-        #     mode=config["wandb"].get("mode", "online"),
-        # ),
+        WandbLogger(
+            save_dir=config["experiment"]["save_dir"],
+            project=config["wandb"]["project"],
+            entity=config["wandb"]["entity"],
+            resume="allow",
+            config=config,
+            mode=config["wandb"].get("mode", "online"),
+        ),
     ]
 
     track_metric = "train_loss"
@@ -105,14 +121,6 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
         mode=mode,
         every_n_epochs=1,
     )
-
-    # patience = int(
-    #     (1 / config["pl"]["val_check_interval"]) * (config["pl"]["max_epochs"] / 6)
-    # )
-    # print(f"patience: {patience}")
-    # early_stopping_callback = EarlyStopping(
-    #     monitor=track_metric, mode=mode, patience=patience, min_delta=1e-5
-    # )
 
     return Trainer(
         **config["pl"],

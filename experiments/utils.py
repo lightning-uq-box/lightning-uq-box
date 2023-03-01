@@ -32,7 +32,8 @@ def create_experiment_dir(config: Dict[str, Any]) -> str:
     os.makedirs(config["experiment"]["exp_dir"], exist_ok=True)
     exp_dir_name = (
         f"{config['experiment']['experiment_name']}"
-        f"_{config['model']['model']}_{datetime.now().strftime('%m-%d-%Y_%H:%M:%S')}"
+        f"_{config['model']['base_model']}"
+        f"_{datetime.now().strftime('%m-%d-%Y_%H:%M:%S')}"
     )
     exp_dir_path = os.path.join(config["experiment"]["exp_dir"], exp_dir_name)
     os.makedirs(exp_dir_path)
