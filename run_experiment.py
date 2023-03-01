@@ -11,6 +11,8 @@ from experiments.setup_experiment import (
 from experiments.utils import create_experiment_dir, read_config, save_config
 
 # chang here
+# asldkjfasdhlkhfsa
+
 
 def run(config_path: str):
     """Training and Evaluation Script.
