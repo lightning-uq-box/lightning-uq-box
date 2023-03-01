@@ -40,7 +40,7 @@ class MLP(nn.Module):
                 nn.Dropout(dropout_p) if idx != 1 else nn.Identity(),
             ]
         layers += [nn.Linear(layer_sizes[-1], n_outputs)]
-        self.net = nn.Sequential(*layers)
+        self.model = nn.Sequential(*layers)
         self.predict_sigma = predict_sigma
 
     def forward(self, x) -> Tensor:
@@ -52,7 +52,7 @@ class MLP(nn.Module):
         Returs:
           output from neural net of dimension [batch_size, n_outputs]
         """
-        out = self.net(x)  # batch_size x (mu,sigma) or just mean
+        out = self.model(x)  # batch_size x (mu,sigma) or just mean
         # make sure output sigma is always positive
         if self.predict_sigma:
             out[:, 1] = torch.log(1 + torch.exp(out[:, 1])) + 1e-06

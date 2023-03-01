@@ -24,7 +24,7 @@ class BaseModel(LightningModule):
 
     def __init__(
         self,
-        config: Dict[str, Any] = None,
+        config: Dict[str, Any],
         model: nn.Module = None,
         criterion: nn.Module = nn.MSELoss(),
     ) -> None:
@@ -130,24 +130,29 @@ class BaseModel(LightningModule):
         self.val_metrics.reset()
 
     def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Test step."""
-        X, y = args[0]
-        out = self.forward(X)
-        loss = self.criterion(out, y)
-
-        self.log("test_loss", loss)  # logging to Logger
-        self.test_metrics(out, y)
-
-        return loss
+        """Test step is in most cases unique to the different methods."""
+        raise NotImplementedError
 
     def test_epoch_end(self, outputs: Any) -> None:
         """Log epoch level validation metrics.
 
         Args:
-            outputs: list of items returned by validation_step
+            outputs: list of items returned by test step, dictionaries
         """
-        self.log_dict(self.test_metrics.compute())
-        self.test_metrics.reset()
+        # concatenate the predictions into a single dictionary
+        save_pred_dict = defaultdict(list)
+
+        for out in outputs:
+            for k, v in out.items():
+                save_pred_dict[k].extend(v.tolist())
+
+        # save the outputs, i.e. write them to file
+        df = pd.DataFrame.from_dict(save_pred_dict)
+
+        df.to_csv(
+            os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),
+            index=False,
+        )
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -202,11 +207,7 @@ class EnsembleModel(LightningModule):
         """
         target = batch[1]
         out_dict = self.predict_step(batch)
-
-        self.test_metrics(torch.from_numpy(out_dict["mean"]).unsqueeze(-1), target)
-
         out_dict["targets"] = target.detach().squeeze(-1).numpy()
-
         return out_dict
 
     def test_epoch_end(self, outputs: Any) -> None:

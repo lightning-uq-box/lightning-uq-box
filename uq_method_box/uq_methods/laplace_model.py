@@ -6,49 +6,78 @@ import numpy as np
 import torch
 import torch.nn as nn
 from laplace import Laplace
-from pytorch_lightning import LightningModule
 from torch.utils.data import DataLoader
 
+from uq_method_box.uq_methods import BaseModel
 
-class LaplaceModel(LightningModule):
+
+class LaplaceModel(BaseModel):
     """Laplace Approximation method for regression."""
 
-    def __init__(self, model: nn.Module, train_loader: DataLoader, **kwargs) -> None:
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        train_loader: DataLoader,
+        model: nn.Module = None,
+        criterion: nn.Module = None,
+    ) -> None:
         """Initialize a new instance of Laplace Model Wrapper."""
-        super().__init__()
+        super().__init__(config, model, criterion)
         self.laplace_fitted = False
-        self.map_model = model
         self.train_loader = train_loader
-        self.laplace_args = kwargs
+
+        # get laplace args from dictionary
+        self.laplace_args = self.config["model"]["laplace"]
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
         if not self.laplace_fitted:
             # take the deterministic model we trained and fit laplace
-            self.la_model = Laplace(self.map_model, "regression", **self.laplace_args)
+            # laplace needs a nn.Module ant not a lightning module
 
-            self.la_model.fit(self.train_loader)
-            log_prior, log_sigma = torch.ones(1, requires_grad=True), torch.ones(
-                1, requires_grad=True
-            )
-            # tune the prior precision via Empirical Bayes
-            log_prior, log_sigma = torch.ones(1, requires_grad=True), torch.ones(
-                1, requires_grad=True
-            )
-            hyper_optimizer = torch.optim.Adam([log_prior, log_sigma], lr=1e-1)
-            for i in range(1000):
-                hyper_optimizer.zero_grad()
-                neg_marglik = -self.la_model.log_marginal_likelihood(
-                    log_prior.exp(), log_sigma.exp()
+            # also lightning automatically disables gradient computation during test
+            # but need it for laplace so set inference mode to false with cntx manager
+            with torch.inference_mode(False):
+                self.la_model = Laplace(
+                    self.model.model, "regression", **self.laplace_args
                 )
-                neg_marglik.backward()
-                hyper_optimizer.step()
+                self.la_model.model.train()
+
+                # fit the laplace approximation
+                self.la_model.fit(self.train_loader)
+
+                # tune the prior precision via Empirical Bayes
+                log_prior, log_sigma = torch.ones(1, requires_grad=True), torch.ones(
+                    1, requires_grad=True
+                )
+                hyper_optimizer = torch.optim.Adam([log_prior, log_sigma], lr=1e-1)
+                for i in range(1000):
+                    hyper_optimizer.zero_grad()
+                    neg_marglik = -self.la_model.log_marginal_likelihood(
+                        log_prior.exp(), log_sigma.exp()
+                    )
+                    neg_marglik.backward()
+                    hyper_optimizer.step()
 
             self.laplace_fitted = True
 
-    def test_step(self):
-        """Test step with Laplace Approximation."""
-        pass
+        # save this laplace fitted model as a checkpoint?!
+
+    def test_step(
+        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Dict[str, np.ndarray]:
+        """Test step with Laplace Approximation.
+
+        Args:
+            batch:
+
+        Returns:
+            dictionary of uncertainty outputs
+        """
+        target = batch[1]
+        out_dict = self.predict_step(batch)
+        out_dict["targets"] = target.detach().squeeze(-1).numpy()
+        return out_dict
 
     def predict_step(
         self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
@@ -57,11 +86,22 @@ class LaplaceModel(LightningModule):
         if not self.laplace_fitted:
             self.on_test_start()
 
-        laplace_mean, laplace_var = self.la_model(batch)
-        laplace_mean = laplace_mean.squeeze().detach().cpu().numpy()
-        laplace_epistemic = laplace_var.squeeze().sqrt().cpu().numpy()
-        laplace_aleatoric = self.la_model.sigma_noise.item()
-        laplace_predictive = np.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
+        # also lightning automatically disables gradient computation during test
+        # but need it for laplace so set inference mode to false with context manager
+        with torch.inference_mode(False):
+            # inference tensors are not saved for backward so need to create
+            # a clone with autograd enables
+            input = batch[0].clone().requires_grad_()
+
+            laplace_mean, laplace_var = self.la_model(input)
+            laplace_mean = laplace_mean.squeeze().detach().cpu().numpy()
+            laplace_epistemic = laplace_var.squeeze().sqrt().cpu().numpy()
+            laplace_aleatoric = (
+                np.ones_like(laplace_epistemic) * self.la_model.sigma_noise.item()
+            )
+            laplace_predictive = np.sqrt(
+                laplace_epistemic**2 + laplace_aleatoric**2
+            )
 
         return {
             "mean": laplace_mean,

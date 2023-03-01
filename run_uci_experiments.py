@@ -38,7 +38,7 @@ def run(config_path: str) -> None:
         seed_config["ds"]["seed"] = i
 
         # if no ensembling this will just execute once
-        for m in range(seed_config["model"]["ensemble_members"]):
+        for m in range(seed_config["model"].get("ensemble_members", 1)):
             run_config = copy.deepcopy(seed_config)
 
             # create subdirectory for each run within a seed and overwrite run_config
@@ -56,7 +56,14 @@ def run(config_path: str) -> None:
             mlp = MLP(**run_config["model"]["mlp"])
 
             # generate model
-            model = generate_base_model(run_config, mlp)
+            if run_config["model"]["base_model"] == "laplace":
+                # laplace requires train data loader post fit, maybe there is also
+                # a more elegant way to solve this
+                model = generate_base_model(
+                    run_config, model=mlp, train_loader=dm.train_dataloader()
+                )
+            else:
+                model = generate_base_model(run_config, model=mlp)
 
             # generate trainer
             trainer = generate_trainer(run_config)
@@ -70,16 +77,15 @@ def run(config_path: str) -> None:
                 os.path.join(run_config["experiment"]["save_dir"], "run_config.yaml"),
             )
 
-        # generate test prediction
-        if seed_config["model"]["ensemble_members"] >= 2:
-            # initialize a new trainer for the Deep Ensemble Wrapper
-            prediction_config = copy.deepcopy(seed_config)
-            pred_dir = os.path.join(
-                prediction_config["experiment"]["save_dir"], "prediction"
-            )
-            prediction_config["experiment"]["save_dir"] = pred_dir
-            os.makedirs(pred_dir)
+        prediction_config = copy.deepcopy(seed_config)
+        pred_dir = os.path.join(
+            prediction_config["experiment"]["save_dir"], "prediction"
+        )
+        prediction_config["experiment"]["save_dir"] = pred_dir
+        os.makedirs(pred_dir)
 
+        # if we want to build an ensemble
+        if seed_config["model"].get("ensemble_members", 1) >= 2:
             # make predictions with the deep ensemble wrapper
             # load all checkpoints into instantiated models
             ensemble_ckpt_paths = glob.glob(
@@ -96,14 +102,18 @@ def run(config_path: str) -> None:
 
             model = generate_ensemble_model(prediction_config, ensemble_members)
 
-            trainer = generate_trainer(prediction_config)
-
         # conformal prediction step if requested should happen here
-        if seed_config["model"]["conformalize"]:
+        if seed_config["model"].get("conformalize", False):
             # wrap model in CQR
             pass
 
-        # make predictions on test set
+        # generate trainer for test to save in prediction dir
+        trainer = generate_trainer(prediction_config)
+
+        # and update save dir in model config to save it separately
+        model.config["experiment"]["save_dir"] = pred_dir
+
+        # make predictions on test set, check that it still takes the best model?
         trainer.test(model, dataloaders=dm.test_dataloader())
 
         # save run_config to sub directory for the seed experiment directory

@@ -1,4 +1,3 @@
-
 experiment:
   experiment_name: "uci"
   exp_dir: "experiments/experiments/"
@@ -9,13 +8,15 @@ wandb:
 model:
   base_model: base_model
   postprocessing: None # options are ["laplace", "tta", "swag"]
-  ensemble: "deep_ensemble" # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
+  ensemble: None # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
   ensemble_members: 3
-  conformalize: False
   loss_fn: mse
   mlp: # all arguments for the mlp
     n_outputs: 1
     n_hidden: [50]
+  laplace:
+    hessian_structure: "full"
+    subset_of_weights: "all"
 optimizer:
   lr: 0.003
 ds:

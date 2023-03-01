@@ -11,6 +11,7 @@ from uq_method_box.train_utils import NLL, QuantileLoss
 from uq_method_box.uq_methods import (
     BaseModel,
     DeepEnsembleModel,
+    LaplaceModel,
     MCDropoutModel,
     QuantileRegressionModel,
 )
@@ -37,30 +38,32 @@ def retrieve_loss_fn(
         raise ValueError("Your loss function choice is not supported.")
 
 
-def generate_base_model(
-    config: Dict[str, Any],
-    model: Optional[nn.Module] = None,
-    criterion: Optional[nn.Module] = None,
-) -> LightningModule:
+def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
     """Generate a configured base model.
 
     Args:
         config: config dictionary
 
+    Keywoard Args:
+        model: optional to initiate a base class with a certain model
+        train_loader: needed for laplace model
+
     Returns:
         configured pytorch lightning module
     """
-    if criterion is None:
-        criterion = retrieve_loss_fn(config["model"]["loss_fn"])
+    criterion = retrieve_loss_fn(config["model"]["loss_fn"])
 
     if config["model"]["base_model"] == "base_model":
-        return BaseModel(config, model, criterion)
+        return BaseModel(config, criterion=criterion)
 
     elif config["model"]["base_model"] == "mc_dropout":
-        return MCDropoutModel(config, model, criterion)
+        return MCDropoutModel(config, criterion=criterion)
 
     elif config["model"]["base_model"] == "quantile_regression":
-        return QuantileRegressionModel(config, model)
+        return QuantileRegressionModel(config, criterion=criterion, **kwargs)
+
+    elif config["model"]["base_model"] == "laplace":
+        return LaplaceModel(config, criterion=criterion, **kwargs)
 
     else:
         raise ValueError("Your base_model choice is currently not supported.")
