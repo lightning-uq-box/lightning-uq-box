@@ -1,6 +1,7 @@
 # UQ-box
 /data/
 /experiments/data/
+/experiments/experiments/
 /*logs/
 /output/
 *.pdf

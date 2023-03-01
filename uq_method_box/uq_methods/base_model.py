@@ -43,6 +43,11 @@ class BaseModel(LightningModule):
             prefix="val_",
         )
 
+        self.test_metrics = MetricCollection(
+            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+            prefix="test_",
+        )
+
         self.criterion = criterion
 
     def forward(self, *args: Any, **kwargs: Any) -> Any:
@@ -83,7 +88,7 @@ class BaseModel(LightningModule):
         self.log_dict(self.train_metrics.compute())
         self.train_metrics.reset()
 
-    def validation_step(self, *args: Any, **kwargs: Any) -> None:
+    def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute validation loss and log example predictions.
 
         Args:
@@ -97,8 +102,8 @@ class BaseModel(LightningModule):
         out = self.forward(X)
         loss = self.criterion(out, y)
 
-        self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(out, y)
+        self.log("val_loss", loss)  # logging to Logger
+        self.val_metrics(out, y)
 
         return loss
 
@@ -111,9 +116,25 @@ class BaseModel(LightningModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def test_step(self):
+    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Test step."""
-        pass
+        X, y = args[0]
+        out = self.forward(X)
+        loss = self.criterion(out, y)
+
+        self.log("test_loss", loss)  # logging to Logger
+        self.test_metrics(out, y)
+
+        return loss
+
+    def test_epoch_end(self, outputs: Any) -> None:
+        """Log epoch level validation metrics.
+
+        Args:
+            outputs: list of items returned by validation_step
+        """
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -123,6 +144,6 @@ class BaseModel(LightningModule):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
         optimizer = torch.optim.AdamW(
-            self.model.parameters(), lr=self.config["model"]["learning_rate"]
+            self.model.parameters(), lr=self.config["optimizer"]["lr"]
         )
         return {"optimizer": optimizer}

@@ -16,7 +16,9 @@ from uq_method_box.uq_methods import (
 )
 
 
-def retrieve_loss_fn(loss_fn_name: str, quantiles: List[float]) -> nn.Module:
+def retrieve_loss_fn(
+    loss_fn_name: str, quantiles: Optional[List[float]] = None
+) -> nn.Module:
     """Retrieve the desired loss function.
 
     Args:
@@ -83,14 +85,14 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
     """Generate a pytorch lightning trainer."""
     loggers = [
         CSVLogger(config["experiment"]["save_dir"], name="csv_logs"),
-        WandbLogger(
-            save_dir=config["experiment"]["save_dir"],
-            project=config["wandb"]["project"],
-            entity=config["wandb"]["entity"],
-            resume="allow",
-            config=config,
-            mode=config["wandb"].get("mode", "online"),
-        ),
+        # WandbLogger(
+        #     save_dir=config["experiment"]["save_dir"],
+        #     project=config["wandb"]["project"],
+        #     entity=config["wandb"]["entity"],
+        #     resume="allow",
+        #     config=config,
+        #     mode=config["wandb"].get("mode", "online"),
+        # ),
     ]
 
     track_metric = "train_loss"
@@ -116,5 +118,5 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
         **config["pl"],
         default_root_dir=config["experiment"]["save_dir"],
         callbacks=[checkpoint_callback],
-        loggers=loggers
+        logger=loggers
     )

@@ -63,6 +63,8 @@ class UCIRegressionDataset:
             X_train, y_train, X_test, y_test
         )
 
+        self.num_features = self.X_train.shape[-1]
+
     def load_data(self) -> Tuple[np.ndarray]:
         """Load the data from the file."""
         raise NotImplementedError
@@ -74,7 +76,8 @@ class UCIRegressionDataset:
             TensorDataset from training data.
         """
         return TensorDataset(
-            torch.from_numpy(self.X_train), torch.from_numpy(self.y_train)
+            torch.from_numpy(self.X_train).to(torch.float32),
+            torch.from_numpy(self.y_train).to(torch.float32),
         )
 
     def test_dataset(self) -> TensorDataset:
@@ -84,7 +87,8 @@ class UCIRegressionDataset:
             TensorDataset from test data.
         """
         return TensorDataset(
-            torch.from_numpy(self.X_test), torch.from_numpy(self.y_test)
+            torch.from_numpy(self.X_test).to(torch.float32),
+            torch.from_numpy(self.y_test).to(torch.float32),
         )
 
     def compute_normalization_statistics(

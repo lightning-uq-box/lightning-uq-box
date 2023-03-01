@@ -2,36 +2,21 @@
 
 import argparse
 import os
-from datetime import datetime
-from typing import Any, Dict
 
-from experiment_generator import generate_datamodule, generate_model, generate_trainer
-from utils import read_config, save_config
+from experiments.setup_experiment import (
+    generate_datamodule,
+    generate_model,
+    generate_trainer,
+)
+from experiments.utils import create_experiment_dir, read_config, save_config
 
 
-def create_experiment_dir(config: Dict[str, Any]) -> str:
-    """Create experiment directory.
+def run(config_path: str):
+    """Training and Evaluation Script.
 
     Args:
-        config: config file
-
-    Returns:
-        config with updated save_dir
+        config_path: path to config file
     """
-    os.makedirs(config["experiment"]["exp_dir"], exist_ok=True)
-    exp_dir_name = (
-        f"{config['experiment']['experiment_name']}"
-        f"_{config['model']['model']}_{datetime.now().strftime('%m-%d-%Y_%H:%M:%S')}"
-    )
-    exp_dir_path = os.path.join(config["experiment"]["exp_dir"], exp_dir_name)
-    os.makedirs(exp_dir_path)
-    config["experiment"]["save_dir"] = exp_dir_path
-    return config
-
-
-def run(config_path):
-    """Training and Evaluation Script."""
-
     config = read_config(config_path)
     config = create_experiment_dir(config)
 
