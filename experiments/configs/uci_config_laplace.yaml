@@ -14,6 +14,8 @@ model:
   laplace: # all arguments for the laplace library
     hessian_structure: "full"
     subset_of_weights: "all"
+    n_epochs_tune_precision: 100
+    tune_precision_lr: 1e-1
   quantiles: [0.1, 0.5, 0.9] # return approx quantiles in prediction
 optimizer:
   lr: 0.003

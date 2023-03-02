@@ -29,7 +29,15 @@ class LaplaceModel(BaseModel):
         self.train_loader = train_loader
 
         # get laplace args from dictionary
-        self.laplace_args = self.config["model"]["laplace"]
+        self.laplace_args = {
+            arg: val
+            for arg, val in self.config["model"]["laplace"].items()
+            if arg not in ["n_epochs_tune_precision", "tune_precision_lr"]
+        }
+        self.tune_precision_lr = self.config["model"]["laplace"]["tune_precision_lr"]
+        self.n_epochs_tune_precision = self.config["model"]["laplace"][
+            "n_epochs_tune_precision"
+        ]
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
@@ -57,8 +65,6 @@ class LaplaceModel(BaseModel):
                 self.la_model = Laplace(
                     self.model.model, "regression", **self.laplace_args
                 )
-                self.la_model.model.train()
-
                 # fit the laplace approximation
                 self.la_model.fit(self.train_loader)
 
@@ -66,8 +72,10 @@ class LaplaceModel(BaseModel):
                 log_prior, log_sigma = torch.ones(1, requires_grad=True), torch.ones(
                     1, requires_grad=True
                 )
-                hyper_optimizer = torch.optim.Adam([log_prior, log_sigma], lr=1e-1)
-                for i in range(1000):
+                hyper_optimizer = torch.optim.Adam(
+                    [log_prior, log_sigma], lr=self.tune_precision_lr
+                )
+                for i in range(self.n_epochs_tune_precision):
                     hyper_optimizer.zero_grad()
                     neg_marglik = -self.la_model.log_marginal_likelihood(
                         log_prior.exp(), log_sigma.exp()
