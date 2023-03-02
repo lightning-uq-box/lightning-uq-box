@@ -27,6 +27,49 @@ From here, create a virtual environment:
 
 This should install dependencies required to run the code in this repo.
 
+## Run UCI Experiments
+To run UCI experiments navigate to the root directory of the project in your command line. In [configs](experiments/configs/) are examples of config files that let you 
+configure the kind of experiment you want to execute. To launch an experiment:
+
+```
+   $ python run_uci_experiments.py --config_path "./experiments/configs/name_of_config_you_want.yaml"
+```
+
+The directory structure for the results that your experiment produces looks something like that, where per seed you have M ensemble members:
+
+```
+├── uci_base_model_03-02-2023_10:52:07
+│   └── seed_0
+│       ├── model_0
+│       │   ├── csv_logs
+│       │   │   └── version_0
+│       │   │       ├── hparams.yaml
+│       │   │       └── metrics.csv  # metrics during training
+│       │   ├── epoch=9-step=30.ckpt # saved lightining checkpoint
+│       │   └──run_config.yaml
+│       │   
+│       ├── model_1
+│       │   ├── csv_logs
+│       │   │   └── version_0
+│       │   │       ├── hparams.yaml
+│       │   │       └── metrics.csv
+│       │   ├── epoch=9-step=30.ckpt
+│       │   └── run_config.yaml
+│       ├── model_2
+│       │   ├── csv_logs
+│       │   │   └── version_0
+│       │   │       ├── hparams.yaml
+│       │   │       └── metrics.csv
+│       │   ├── epoch=9-step=30.ckpt
+│       │   └── run_config.yaml
+│       └── prediction
+│           ├── csv_logs
+│           │   └── version_0
+│           │       └── hparams.yaml
+│           └── predictions.csv # stores all predictions and model outputs on test set
+```
+
+
 ## Documentation 
 We aim to provide an extensive documentation on all included UQ-methods to clearly state assumptions and pitfalls, as well as tutorials that illustrate these.
 
