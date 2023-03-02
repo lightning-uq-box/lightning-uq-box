@@ -43,11 +43,13 @@ def compute_results_over_seeds(exp_dir: str) -> pd.DataFrame:
 
     # compute mean across seeds
     seed_df = pd.concat(seed_dfs, ignore_index=True)
-    seed_df = pd.DataFrame(seed_df.mean(0)).T
+    # seed_df = pd.DataFrame(seed_df.mean(0)).T
 
     # add meta data
     for key, val in config_dict.items():
         seed_df[key] = val
+
+    seed_df["seed"] = range(len(seed_df))
 
     return seed_df
 
