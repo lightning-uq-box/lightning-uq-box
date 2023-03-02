@@ -6,13 +6,16 @@ wandb:
   entity: uq-regression
   mode: offline
 model:
-  base_model: base_model
-  ensemble: deep_ensemble # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
-  ensemble_members: 3
-  loss_fn: mse
+  base_model: mc_dropout
+  mc_samples: 10
+  ensemble: None # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
+  ensemble_members: 1
+  loss_fn: nll
   mlp: # all arguments for the mlp
-    n_outputs: 1
+    n_outputs: 2
+    predict_sigma: True
     n_hidden: [50]
+    dropout_p: 0.2
 optimizer:
   lr: 0.003
 ds:

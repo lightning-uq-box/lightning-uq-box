@@ -23,45 +23,16 @@ class QuantileRegressionModel(BaseModel):
         self.median_index = self.quantiles.index(0.5)
         self.criterion = QuantileLoss(quantiles=self.quantiles)
 
-    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Compute and return the training loss.
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract the mean/median prediction from quantile regression model.
 
         Args:
-            batch: the output of your DataLoader
+            out: output from :meth:`self.forward` [batch_size x num_outputs]
 
         Returns:
-            training loss
+            extracted mean used for metric computation [batch_size x 1]
         """
-        X, y = args[0]
-        out = self.forward(X)  # shape [batch_size x num_quantiles]
-        loss = self.criterion(out, y)
-
-        self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(
-            out[:, self.median_index : self.median_index + 1], y  # noqa: E203
-        )  # can only log median
-
-        return loss
-
-    def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Compute and return the validation loss.
-
-        Args:
-            batch: the output of your DataLoader
-
-        Returns:
-            validation loss
-        """
-        X, y = args[0]
-        out = self.forward(X)  # shape [batch_size x num_quantiles]
-        loss = self.criterion(out, y)
-
-        self.log("val_loss", loss)  # logging to Logger
-        self.val_metrics(
-            out[:, self.median_index : self.median_index + 1], y  # noqa: E203
-        )  # can only log median
-
-        return loss
+        return out[:, self.median_index : self.median_index + 1]  # noqa: E203
 
     def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute the test step.

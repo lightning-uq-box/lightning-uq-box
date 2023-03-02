@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from laplace import Laplace
+from torch import Tensor
 from torch.utils.data import DataLoader
 
 from uq_method_box.uq_methods import BaseModel
@@ -28,6 +29,20 @@ class LaplaceModel(BaseModel):
 
         # get laplace args from dictionary
         self.laplace_args = self.config["model"]["laplace"]
+
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract the mean output from model prediction.
+
+        Args:
+            out: output from :meth:`self.forward` [batch_size x (mu, sigma)]
+
+        Returns:
+            extracted mean used for metric computation [batch_size x 1]
+        """
+        assert (
+            out.shape[-1] == 1
+        ), "This model should give exactly 1 outputs due to MAP estimation."
+        return out
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""

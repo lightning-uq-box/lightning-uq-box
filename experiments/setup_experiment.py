@@ -11,6 +11,7 @@ from uq_method_box.train_utils import NLL, QuantileLoss
 from uq_method_box.uq_methods import (
     BaseModel,
     DeepEnsembleModel,
+    DeterministicGaussianModel,
     LaplaceModel,
     MCDropoutModel,
     QuantileRegressionModel,
@@ -54,16 +55,19 @@ def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
     criterion = retrieve_loss_fn(config["model"]["loss_fn"])
 
     if config["model"]["base_model"] == "base_model":
-        return BaseModel(config, criterion=criterion)
+        return BaseModel(config, criterion=criterion, **kwargs)
 
     elif config["model"]["base_model"] == "mc_dropout":
-        return MCDropoutModel(config, criterion=criterion)
+        return MCDropoutModel(config, criterion=criterion, **kwargs)
 
     elif config["model"]["base_model"] == "quantile_regression":
         return QuantileRegressionModel(config, **kwargs)
 
     elif config["model"]["base_model"] == "laplace":
         return LaplaceModel(config, criterion=criterion, **kwargs)
+
+    elif config["model"]["base_model"] == "gaussian_nll":
+        return DeterministicGaussianModel(config, **kwargs)
 
     else:
         raise ValueError("Your base_model choice is currently not supported.")

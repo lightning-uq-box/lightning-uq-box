@@ -74,6 +74,21 @@ class BaseModel(LightningModule):
         """
         return self.model(*args, **kwargs)
 
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract the mean output from model prediction.
+
+        Different models have different number of outputs, i.e. Gaussian NLL 2
+        or quantile regression but for the torchmetrics only
+        the mean/median is considered.
+
+        Args:
+            out: output from :meth:`self.forward` [batch_size x num_outputs]
+
+        Returns:
+            extracted mean used for metric computation [batch_size x 1]
+        """
+        raise NotImplementedError
+
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
 
@@ -88,7 +103,7 @@ class BaseModel(LightningModule):
         loss = self.criterion(out, y)
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(out, y)
+        self.train_metrics(self.extract_mean_output(out), y)
 
         return loss
 
@@ -116,7 +131,7 @@ class BaseModel(LightningModule):
         loss = self.criterion(out, y)
 
         self.log("val_loss", loss)  # logging to Logger
-        self.val_metrics(out, y)
+        self.val_metrics(self.extract_mean_output(out), y)
 
         return loss
 
