@@ -18,7 +18,7 @@ model:
 optimizer:
   lr: 0.003
 ds:
-  dataset_name: energy
+  dataset_name: boston
   root: "/home/nils/projects/uq-method-box/experiments/data/uci"
   train_size: 0.9
 dataloader: # arguments for dataloader

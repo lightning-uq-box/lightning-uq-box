@@ -28,14 +28,13 @@ def compute_results_all_experiments(exp_collection_dir: str) -> None:
         "results.csv",
     )
     all_exp_df.to_csv(path, index=False)
-    import pdb
-
-    pdb.set_trace()
 
 
 def compute_results_over_seeds(exp_dir: str) -> pd.DataFrame:
     """Compute the results over seeded experiments."""
     seed_dirs = glob.glob(os.path.join(exp_dir, "*"), recursive=True)
+    # remove experiment level .yaml file
+    seed_dirs = [dir for dir in seed_dirs if not dir.endswith(".yaml")]
 
     seed_dfs = []
     for seed_dir in seed_dirs:

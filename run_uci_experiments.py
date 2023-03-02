@@ -78,6 +78,7 @@ def run(config_path: str) -> None:
                 os.path.join(run_config["experiment"]["save_dir"], "run_config.yaml"),
             )
 
+        # new directory in seed directory where we save the prediction results
         prediction_config = copy.deepcopy(seed_config)
         pred_dir = os.path.join(
             prediction_config["experiment"]["save_dir"], "prediction"
