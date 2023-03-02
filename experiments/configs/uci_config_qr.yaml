@@ -1,0 +1,38 @@
+experiment:
+  experiment_name: "uci"
+  exp_dir: "experiments/experiments/"
+wandb:
+  project: uci_regression
+  entity: uq-regression
+  mode: offline
+model:
+  base_model: quantile_regression
+  ensemble: None # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
+  ensemble_members: 1
+  loss_fn: quantile
+  quantiles: [0.1, 0.5, 0.9]
+  mlp: # all arguments for the mlp
+    n_outputs: 3
+    n_hidden: [50]
+optimizer:
+  lr: 0.003
+ds:
+  dataset_name: energy
+  root: "/home/nils/projects/uq-method-box/experiments/data/uci"
+  train_size: 0.9
+dataloader: # arguments for dataloader
+  batch_size: 256
+  num_workers: 4
+pl: # all flags to pytorch lightning trainer
+  # devices: 1 
+  precision: 32
+  accelerator: cpu
+  max_epochs: 10
+  max_steps: -1
+  limit_val_batches: 0.0 # no validation set
+  limit_test_batches: 1.0
+  val_check_interval: 0.0 # no validation
+  deterministic: False
+  fast_dev_run: False
+  log_every_n_steps: 10
+  enable_progress_bar: True

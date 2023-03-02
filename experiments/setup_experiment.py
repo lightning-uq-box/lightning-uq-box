@@ -60,7 +60,7 @@ def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
         return MCDropoutModel(config, criterion=criterion)
 
     elif config["model"]["base_model"] == "quantile_regression":
-        return QuantileRegressionModel(config, criterion=criterion, **kwargs)
+        return QuantileRegressionModel(config, **kwargs)
 
     elif config["model"]["base_model"] == "laplace":
         return LaplaceModel(config, criterion=criterion, **kwargs)
