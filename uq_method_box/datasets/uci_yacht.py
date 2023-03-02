@@ -17,7 +17,13 @@ class UCIYacht(UCIRegressionDataset):
 
     filename = "yacht_hydrodynamics.data"
 
-    def __init__(self, root: str, train_size: float = 0.9, seed: int = 0) -> None:
+    def __init__(
+        self,
+        root: str,
+        train_size: float = 0.9,
+        seed: int = 0,
+        calibration_set: bool = False,
+    ) -> None:
         """Initialize a new instance of UCIYacht dataset.
 
         Args:
@@ -26,7 +32,7 @@ class UCIYacht(UCIRegressionDataset):
             train_size: proportion of data that should be used for training
             seed: seed to randomly split data
         """
-        super().__init__(root, train_size, seed)
+        super().__init__(root, train_size, seed, calibration_set)
 
     def load_data(self) -> Tuple[np.ndarray]:
         """Load the Yacht dataset."""

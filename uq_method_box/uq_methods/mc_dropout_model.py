@@ -12,6 +12,7 @@ from uq_method_box.eval_utils import (
     compute_aleatoric_uncertainty,
     compute_epistemic_uncertainty,
     compute_predictive_uncertainty,
+    compute_quantiles_from_std,
 )
 
 from .base import BaseModel
@@ -78,11 +79,16 @@ class MCDropoutModel(BaseModel):
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)
             epistemic = compute_epistemic_uncertainty(mean_samples)
+            quantiles = compute_quantiles_from_std(
+                mean, std, self.config["model"]["quantiles"]
+            )
             return {
                 "mean": mean,
                 "pred_uct": std,
                 "epistemic_uct": epistemic,
                 "aleatoric_uct": aleatoric,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
             }
         # assume mse prediction
         else:

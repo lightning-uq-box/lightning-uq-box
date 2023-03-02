@@ -41,7 +41,7 @@ class QuantileRegressionModel(BaseModel):
             batch: the output of your DataLoader
         """
         batch = args[0]
-        out_dict = self.predict_step(batch[0])
+        out_dict = self.predict_step(batch)
         out_dict["targets"] = batch[1].detach().squeeze(-1).numpy()
         return out_dict
 
@@ -56,7 +56,7 @@ class QuantileRegressionModel(BaseModel):
         Returns:
             predicted uncertainties
         """
-        out = self.model(batch).detach().numpy()  # [batch_size, len(self.quantiles)]
+        out = self.model(batch[0]).detach().numpy()  # [batch_size, len(self.quantiles)]
         median = out[:, self.median_index]
         mean, std = compute_sample_mean_std_from_quantile(out, self.quantiles)
 

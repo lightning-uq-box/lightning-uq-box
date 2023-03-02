@@ -9,6 +9,7 @@ from laplace import Laplace
 from torch import Tensor
 from torch.utils.data import DataLoader
 
+from uq_method_box.eval_utils import compute_quantiles_from_std
 from uq_method_box.uq_methods import BaseModel
 
 
@@ -117,10 +118,15 @@ class LaplaceModel(BaseModel):
             laplace_predictive = np.sqrt(
                 laplace_epistemic**2 + laplace_aleatoric**2
             )
+            quantiles = compute_quantiles_from_std(
+                laplace_mean, laplace_predictive, self.config["model"]["quantiles"]
+            )
 
         return {
             "mean": laplace_mean,
             "pred_uct": laplace_predictive,
             "epistemic_uct": laplace_epistemic,
             "aleatoric_uct": laplace_aleatoric,
+            "lower_quant": quantiles[:, 0],
+            "upper_quant": quantiles[:, -1],
         }

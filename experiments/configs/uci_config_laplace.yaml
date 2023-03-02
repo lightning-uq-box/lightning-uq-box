@@ -7,7 +7,6 @@ wandb:
   mode: offline
 model:
   base_model: laplace
-  conformalize: False
   loss_fn: mse
   mlp: # all arguments for the mlp
     n_outputs: 1
@@ -15,6 +14,7 @@ model:
   laplace: # all arguments for the laplace library
     hessian_structure: "full"
     subset_of_weights: "all"
+  quantiles: [0.1, 0.5, 0.9] # return approx quantiles in prediction
 optimizer:
   lr: 0.003
 ds:

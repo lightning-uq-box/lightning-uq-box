@@ -5,6 +5,7 @@ from typing import Any, Dict
 import torch.nn as nn
 from torch import Tensor
 
+from uq_method_box.eval_utils import compute_quantiles_from_std
 from uq_method_box.train_utils import NLL
 
 from .base import BaseModel
@@ -45,4 +46,15 @@ class DeterministicGaussianModel(BaseModel):
     ) -> Any:
         """Prediction step."""
         preds = self.model(batch[0])
-        return {"mean": preds[:, 0], "std": preds[:, 1], "aleatoric_uct": preds[:, 1]}
+        mean = preds[:, 0]
+        std = preds[:, 1]
+        quantiles = compute_quantiles_from_std(
+            mean, std, self.config["model"]["quantiles"]
+        )
+        return {
+            "mean": mean,
+            "std": std,
+            "aleatoric_uct": std,
+            "lower_quant": quantiles[:, 0],
+            "upper_quant": quantiles[:, -1],
+        }

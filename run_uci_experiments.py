@@ -13,6 +13,7 @@ from experiments.setup_experiment import (
 from experiments.utils import create_experiment_dir, read_config, save_config
 from uq_method_box.datamodules import UCIRegressionDatamodule
 from uq_method_box.models import MLP
+from uq_method_box.uq_methods import CQR
 
 
 def run(config_path: str) -> None:
@@ -95,9 +96,9 @@ def run(config_path: str) -> None:
             ensemble_members = []
             for ckpt_path in ensemble_ckpt_paths:
                 ensemble_members.append(
-                    generate_base_model(prediction_config, mlp).load_from_checkpoint(
-                        ckpt_path
-                    )
+                    generate_base_model(
+                        prediction_config, model=mlp
+                    ).load_from_checkpoint(ckpt_path)
                 )
 
             model = generate_ensemble_model(prediction_config, ensemble_members)
@@ -105,7 +106,12 @@ def run(config_path: str) -> None:
         # conformal prediction step if requested should happen here
         if seed_config["model"].get("conformalize", False):
             # wrap model in CQR
-            pass
+            model = CQR(
+                model,
+                seed_config["model"]["quantiles"],
+                dm.calibration_dataloader(),
+                seed_config,
+            )
 
         # generate trainer for test to save in prediction dir
         trainer = generate_trainer(prediction_config)

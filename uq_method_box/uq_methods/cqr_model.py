@@ -1,12 +1,15 @@
 """Conformalized Quantile Regression Model."""
 
-from typing import Any, List, Tuple
+import os
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 from pytorch_lightning import LightningModule
 from torch.utils.data import DataLoader
 
 from uq_method_box.eval_utils import compute_sample_mean_std_from_quantile
+
+from .utils import save_predictions_to_csv
 
 # TODO add quantile outputs to all models so they can be conformalized
 # with the CQR wrapper
@@ -16,6 +19,8 @@ def compute_q_hat_with_cqr(
     cal_preds: np.ndarray, cal_labels: np.ndarray, error_rate: float
 ) -> float:
     """Compute q_hat which is the adjustment factor for quantiles.
+
+    Check trusted computation here.
 
     Args:
         cal_preds: calibration set predictions
@@ -52,7 +57,11 @@ class CQR(LightningModule):
     """
 
     def __init__(
-        self, model, quantiles: List[float], calibration_loader: DataLoader
+        self,
+        model,
+        quantiles: List[float],
+        calibration_loader: DataLoader,
+        config: Dict[str, Any],
     ) -> None:
         """Initialize a new instance of CQR."""
         super().__init__()
@@ -62,8 +71,8 @@ class CQR(LightningModule):
 
         self.cqr_fitted = False
         self.calibration_loader = calibration_loader
+        self.config = config
 
-    # TODO maybe also something before on_test_start() like Laplace
     def on_test_start(self) -> None:
         """Before testing phase, compute q_hat."""
         # need to do one pass over the calibration set
@@ -82,31 +91,42 @@ class CQR(LightningModule):
         cal_labels = np.concatenate([o[1] for o in out])
         return cal_preds, cal_labels
 
-    def train_step(self):
-        """Train step."""
-        pass
-
     def test_step(self, *args: Any, **kwargs: Any) -> None:
         """Test step."""
-        pass
+        batch = args[0]
+        out_dict = self.predict_step(batch)
+        out_dict["targets"] = batch[1].detach().squeeze(-1).numpy()
+        return out_dict
 
-    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
+    def test_epoch_end(self, outputs: Any) -> None:
+        """Log epoch level validation metrics.
+
+        Args:
+            outputs: list of items returned by test step, dictionaries
+        """
+        save_predictions_to_csv(
+            outputs,
+            os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),
+        )
+
+    def predict_step(
+        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
         """Prediction step that produces conformalized prediction sets."""
         if not self.cqr_fitted:
             self.on_test_start()
-        model_preds = self.score_model.forward(batch)
+        model_preds: Dict[str, np.ndarray] = self.score_model.predict_step(batch)
         cqr_sets = np.stack(
             [
-                model_preds[:, 0] - self.q_hat,
-                model_preds[:, self.quantiles.index(0.5)],
-                model_preds[:, -1] + self.q_hat,
+                model_preds["lower_quant"] - self.q_hat,
+                model_preds["upper_quant"] + self.q_hat,
             ],
             axis=1,
         )
+
         mean, std = compute_sample_mean_std_from_quantile(cqr_sets, self.quantiles)
         return {
             "mean": mean,
-            "median": cqr_sets[:, 1],
             "pred_uct": std,
             "lower_quant": cqr_sets[:, 0],
             "upper_quant": cqr_sets[:, -1],

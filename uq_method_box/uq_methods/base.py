@@ -1,10 +1,8 @@
 """Base Model for UQ methods."""
 
 import os
-from collections import defaultdict
 from typing import Any, Dict, List
 
-import pandas as pd
 import timm
 import torch
 import torch.nn as nn
@@ -16,7 +14,10 @@ from uq_method_box.eval_utils import (
     compute_aleatoric_uncertainty,
     compute_epistemic_uncertainty,
     compute_predictive_uncertainty,
+    compute_quantiles_from_std,
 )
+
+from .utils import save_predictions_to_csv
 
 
 class BaseModel(LightningModule):
@@ -87,7 +88,7 @@ class BaseModel(LightningModule):
         Returns:
             extracted mean used for metric computation [batch_size x 1]
         """
-        raise NotImplementedError
+        return out
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
@@ -148,25 +149,15 @@ class BaseModel(LightningModule):
         """Test step is in most cases unique to the different methods."""
         raise NotImplementedError
 
-    def test_epoch_end(self, outputs: Any) -> None:
+    def test_epoch_end(self, outputs: List[Any]) -> None:
         """Log epoch level validation metrics.
 
         Args:
             outputs: list of items returned by test step, dictionaries
         """
-        # concatenate the predictions into a single dictionary
-        save_pred_dict = defaultdict(list)
-
-        for out in outputs:
-            for k, v in out.items():
-                save_pred_dict[k].extend(v.tolist())
-
-        # save the outputs, i.e. write them to file
-        df = pd.DataFrame.from_dict(save_pred_dict)
-
-        df.to_csv(
+        save_predictions_to_csv(
+            outputs,
             os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),
-            index=False,
         )
 
     def configure_optimizers(self) -> Dict[str, Any]:
@@ -231,19 +222,9 @@ class EnsembleModel(LightningModule):
         Args:
             outputs: list of items returned by test step, dictionaries
         """
-        # concatenate the predictions into a single dictionary
-        save_pred_dict = defaultdict(list)
-
-        for out in outputs:
-            for k, v in out.items():
-                save_pred_dict[k].extend(v.tolist())
-
-        # save the outputs, i.e. write them to file
-        df = pd.DataFrame.from_dict(save_pred_dict)
-
-        df.to_csv(
+        save_predictions_to_csv(
+            outputs,
             os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),
-            index=False,
         )
 
     def generate_ensemble_predictions(self, batch: Any) -> Tensor:
@@ -279,15 +260,29 @@ class EnsembleModel(LightningModule):
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)
             epistemic = compute_epistemic_uncertainty(mean_samples)
+            quantiles = compute_quantiles_from_std(
+                mean, std, self.config["model"]["quantiles"]
+            )
             return {
                 "mean": mean,
                 "pred_uct": std,
                 "epistemic_uct": epistemic,
                 "aleatoric_uct": aleatoric,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
             }
         # assume mse prediction
         else:
             mean = mean_samples.mean(-1)
             std = mean_samples.std(-1)
+            quantiles = compute_quantiles_from_std(
+                mean, std, self.config["model"]["quantiles"]
+            )
 
-            return {"mean": mean, "pred_uct": std, "epistemic_uct": std}
+            return {
+                "mean": mean,
+                "pred_uct": std,
+                "epistemic_uct": std,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
+            }
