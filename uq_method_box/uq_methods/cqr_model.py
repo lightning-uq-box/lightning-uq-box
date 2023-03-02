@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from uq_method_box.eval_utils import compute_sample_mean_std_from_quantile
 
-from .utils import save_predictions_to_csv
+from .utils import merge_list_of_dictionaries, save_predictions_to_csv
 
 # TODO add quantile outputs to all models so they can be conformalized
 # with the CQR wrapper
@@ -79,17 +79,30 @@ class CQR(LightningModule):
         # so that should be passed to the model wrapper to gather
         # cal_preds and cal_labels
         if not self.cqr_fitted:
-            cal_preds, cal_labels = self.compute_calibration_scores()
-            self.q_hat = compute_q_hat_with_cqr(cal_preds, cal_labels, self.error_rate)
+            cal_quantiles, cal_labels = self.compute_calibration_scores()
+            self.q_hat = compute_q_hat_with_cqr(
+                cal_quantiles, cal_labels, self.error_rate
+            )
             print(self.q_hat)
             self.cqr_fitted = True
 
     def compute_calibration_scores(self) -> Tuple[np.ndarray, np.ndarray]:
         """Compute calibration scores."""
-        out = [(self.score_model(X), y) for X, y in self.calibration_loader]
-        cal_preds = np.concatenate([o[0] for o in out])
-        cal_labels = np.concatenate([o[1] for o in out])
-        return cal_preds, cal_labels
+        # model predict steps return a dictionary that contains quantiles
+        outputs = [
+            (self.score_model.predict_step(batch), batch[1])
+            for batch in self.calibration_loader
+        ]
+
+        # collect the quantiles into a single vector
+        model_outputs = [o[0] for o in outputs]
+
+        model_outputs = merge_list_of_dictionaries(model_outputs)
+        cal_quantiles = np.stack(
+            [model_outputs["lower_quant"], model_outputs["upper_quant"]], axis=-1
+        )
+        cal_labels = np.concatenate([o[1] for o in outputs])
+        return cal_quantiles, cal_labels
 
     def test_step(self, *args: Any, **kwargs: Any) -> None:
         """Test step."""

@@ -1,10 +1,21 @@
 """Utilities for UQ-Method Implementations."""
 
 from collections import defaultdict
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
+
+
+def merge_list_of_dictionaries(list_of_dicts: List[Dict[str, Any]]):
+    """Merge list of dictionaries."""
+    merged_dict = defaultdict(list)
+
+    for out in list_of_dicts:
+        for k, v in out.items():
+            merged_dict[k].extend(v.tolist())
+
+    return merged_dict
 
 
 def save_predictions_to_csv(outputs: List[Dict[str, np.ndarray]], path: str) -> None:
@@ -16,15 +27,8 @@ def save_predictions_to_csv(outputs: List[Dict[str, np.ndarray]], path: str) -> 
         path: path where csv should be saved
     """
     # concatenate the predictions into a single dictionary
-    save_pred_dict = defaultdict(list)
+    save_pred_dict = merge_list_of_dictionaries(outputs)
 
-    for out in outputs:
-        for k, v in out.items():
-            save_pred_dict[k].extend(v.tolist())
-
-    import pdb
-
-    pdb.set_trace()
     # save the outputs, i.e. write them to file
     df = pd.DataFrame.from_dict(save_pred_dict)
 

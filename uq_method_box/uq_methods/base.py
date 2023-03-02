@@ -88,7 +88,8 @@ class BaseModel(LightningModule):
         Returns:
             extracted mean used for metric computation [batch_size x 1]
         """
-        return out
+        assert out.shape[-1] <= 2, "Ony support single mean or Gaussian output."
+        return out[:, 0:1]
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
