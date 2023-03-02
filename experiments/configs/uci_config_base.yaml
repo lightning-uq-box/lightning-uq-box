@@ -10,7 +10,7 @@ model:
   ensemble: deep_ensemble # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
   ensemble_members: 3
   loss_fn: mse
-  conformalize: True
+  conformalized: True
   quantiles: [0.1, 0.5, 0.9]
   mlp: # all arguments for the mlp
     n_outputs: 1

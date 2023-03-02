@@ -7,7 +7,7 @@ wandb:
   mode: offline
 model:
   base_model: quantile_regression
-  conformalize: True
+  conformalized: True
   loss_fn: quantile
   quantiles: [0.1, 0.5, 0.9]
   mlp: # all arguments for the mlp

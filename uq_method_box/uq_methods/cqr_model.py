@@ -1,4 +1,4 @@
-"""Conformalized Quantile Regression Model."""
+"""conformalized Quantile Regression Model."""
 
 import os
 from typing import Any, Dict, List, Tuple
@@ -50,7 +50,7 @@ def compute_q_hat_with_cqr(
 
 # should inherit from baseclass
 class CQR(LightningModule):
-    """Implements Conformalized Quantile Regression.
+    """Implements conformalized Quantile Regression.
 
     This should be a wrapper around any pytorch lightning model
     that conformalizes the scores and does predictions accordingly.

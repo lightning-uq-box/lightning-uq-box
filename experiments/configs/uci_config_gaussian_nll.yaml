@@ -8,6 +8,7 @@ wandb:
 model:
   base_model: gaussian_nll
   loss_fn: nll
+  conformalized: False
   quantiles: [0.1, 0.5, 0.9] # return approx quantiles in prediction
   mlp: # all arguments for the mlp
     n_outputs: 2
