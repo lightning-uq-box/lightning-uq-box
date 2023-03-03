@@ -66,7 +66,7 @@ def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
     elif config["model"]["base_model"] == "laplace":
         return LaplaceModel(config, criterion=criterion, **kwargs)
 
-    elif config["model"]["base_model"] == "gaussian_nll":
+    elif config["model"]["base_model"] == "gaussian":
         return DeterministicGaussianModel(config, **kwargs)
 
     else:

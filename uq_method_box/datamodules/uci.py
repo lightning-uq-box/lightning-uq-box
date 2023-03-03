@@ -51,7 +51,7 @@ class UCIRegressionDatamodule(LightningDataModule):
         dataset_args = {
             arg: val for arg, val in config["ds"].items() if arg not in ["dataset_name"]
         }
-        dataset_args["calibration_set"] = config["model"].get("conformalize", False)
+        dataset_args["calibration_set"] = config["model"].get("conformalized", False)
 
         return dataset_class[dataset_name](**dataset_args)
 

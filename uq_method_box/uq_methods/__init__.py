@@ -12,7 +12,7 @@ __all__ = (
     # base model
     "BaseModel",
     "EnsembleModel",
-    # Conformalized Quantile Regression
+    # conformalized Quantile Regression
     "CQR",
     # MC-Dropout
     "MCDropoutModel",

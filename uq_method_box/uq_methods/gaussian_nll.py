@@ -53,7 +53,7 @@ class DeterministicGaussianModel(BaseModel):
         )
         return {
             "mean": mean,
-            "std": std,
+            "pred_uct": std,
             "aleatoric_uct": std,
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],

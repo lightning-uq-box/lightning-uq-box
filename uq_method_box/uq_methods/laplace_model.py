@@ -34,10 +34,12 @@ class LaplaceModel(BaseModel):
             for arg, val in self.config["model"]["laplace"].items()
             if arg not in ["n_epochs_tune_precision", "tune_precision_lr"]
         }
-        self.tune_precision_lr = self.config["model"]["laplace"]["tune_precision_lr"]
-        self.n_epochs_tune_precision = self.config["model"]["laplace"][
-            "n_epochs_tune_precision"
-        ]
+        self.tune_precision_lr = self.config["model"]["laplace"].get(
+            "tune_precision_lr", 1e-2
+        )
+        self.n_epochs_tune_precision = self.config["model"]["laplace"].get(
+            "n_epochs_tune_precision", 100
+        )
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.

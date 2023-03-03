@@ -14,13 +14,13 @@ model:
   laplace: # all arguments for the laplace library
     hessian_structure: "full"
     subset_of_weights: "all"
+    tune_precision_lr: 0.1
     n_epochs_tune_precision: 100
-    tune_precision_lr: 1e-1
   quantiles: [0.1, 0.5, 0.9] # return approx quantiles in prediction
 optimizer:
   lr: 0.003
 ds:
-  dataset_name: energy
+  dataset_name: boston
   root: "/home/nils/projects/uq-method-box/experiments/data/uci"
   train_size: 0.9
 dataloader: # arguments for dataloader

@@ -6,8 +6,11 @@ wandb:
   entity: uq-regression
   mode: offline
 model:
-  base_model: gaussian_nll
+  base_model: gaussian
   loss_fn: nll
+  ensemble: "deep_ensemble"
+  ensemble_members: 3
+  conformalized: True
   quantiles: [0.1, 0.5, 0.9] # return approx quantiles in prediction
   mlp: # all arguments for the mlp
     n_outputs: 2
@@ -16,7 +19,7 @@ model:
 optimizer:
   lr: 0.003
 ds:
-  dataset_name: energy
+  dataset_name: boston
   root: "/home/nils/projects/uq-method-box/experiments/data/uci"
   train_size: 0.9
 dataloader: # arguments for dataloader

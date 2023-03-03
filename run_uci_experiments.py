@@ -78,6 +78,7 @@ def run(config_path: str) -> None:
                 os.path.join(run_config["experiment"]["save_dir"], "run_config.yaml"),
             )
 
+        # new directory in seed directory where we save the prediction results
         prediction_config = copy.deepcopy(seed_config)
         pred_dir = os.path.join(
             prediction_config["experiment"]["save_dir"], "prediction"
@@ -104,7 +105,7 @@ def run(config_path: str) -> None:
             model = generate_ensemble_model(prediction_config, ensemble_members)
 
         # conformal prediction step if requested should happen here
-        if seed_config["model"].get("conformalize", False):
+        if seed_config["model"].get("conformalized", False):
             # wrap model in CQR
             model = CQR(
                 model,
@@ -123,15 +124,14 @@ def run(config_path: str) -> None:
         trainer.test(model, dataloaders=dm.test_dataloader())
 
         # save run_config to sub directory for the seed experiment directory
-        save_config(
-            seed_config,
-            os.path.join(seed_config["experiment"]["save_dir"], "seed_config.yaml"),
-        )
+        save_config(seed_config, os.path.join(pred_dir, "seed_config.yaml"))
 
     # save the config to the upper experiment directory
     save_config(
         config,
-        os.path.join(run_config["experiment"]["save_dir"], "experiment_config.yaml"),
+        os.path.join(
+            experiment_config["experiment"]["save_dir"], "experiment_config.yaml"
+        ),
     )
 
     print("finished experiments for all seeds")
