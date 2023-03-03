@@ -7,27 +7,28 @@ from typing import Any, Dict, Tuple
 
 import pandas as pd
 import uncertainty_toolbox as uct
+from tqdm import tqdm
 
 from .utils import read_config
 
 
-def compute_results_all_experiments(exp_collection_dir: str) -> None:
-    """Compute the results over a collection of experiments."""
+def compute_results_all_experiments(exp_collection_dir: str, save_path: str) -> None:
+    """Compute the results over a collection of experiments.
 
+    Args:
+        exp_collection_dir: directory where experiments are collected
+        save_path: path where to save the results
+    """
     exp_dirs = glob.glob(os.path.join(exp_collection_dir, "*"), recursive=True)
     # remove the results directory
     exp_dirs.remove("./experiments/experiments/exp_results")
 
     exp_dfs = []
-    for exp_dir in exp_dirs:
+    for exp_dir in tqdm(exp_dirs):
         exp_dfs.append(compute_results_over_seeds(exp_dir))
 
     all_exp_df = pd.concat(exp_dfs, ignore_index=True)
-    path = os.path.join(
-        "/home/nils/projects/uq-method-box/experiments/experiments/exp_results",
-        "results.csv",
-    )
-    all_exp_df.to_csv(path, index=False)
+    all_exp_df.to_csv(save_path, index=False)
 
 
 def compute_results_over_seeds(exp_dir: str) -> pd.DataFrame:

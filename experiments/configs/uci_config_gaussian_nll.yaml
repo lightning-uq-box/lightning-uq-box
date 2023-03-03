@@ -6,7 +6,7 @@ wandb:
   entity: uq-regression
   mode: offline
 model:
-  base_model: gaussian_nll
+  base_model: gaussian
   loss_fn: nll
   ensemble: "deep_ensemble"
   ensemble_members: 3
