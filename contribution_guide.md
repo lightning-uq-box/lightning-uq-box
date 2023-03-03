@@ -77,6 +77,10 @@ be executed with the python script `compute_results_uci.py` from the project roo
 This csv file collects all the indiviual results from the `predictions.csv` in each seed directory into a big table, based on which we can write scripts for visualizations or automatic table generation for the paper. As a minimal example, I included
 a `explore_results.ipynb` notebook in the `experiments/experiments` directory. We should check some papers across the community for some great visualizations where many models are evaluated across many datasets.
 
+```
+    $ python compute_results_uci.py --exp_dir_path "./experiments/experiments/"
+```
+
 ## TODOs
 I think the UCI-Experiments are a great opportunity to both check our implementations of methods, but also be a "rehearsal" for the EO data experiments that we want to run. Therefore, we should invest some additional thoughts in criticizing the existing workflow of experiments so that we can fix problems, improve it, and make our lives easier for the EO experiments. This could be anything like
 - the experiment directory structure is silly, because we have to do XYZ in the evaluation, and ABC would make it easier
