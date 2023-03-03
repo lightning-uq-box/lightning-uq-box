@@ -7,10 +7,11 @@ from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import CSVLogger, WandbLogger
 
-from uq_method_box.train_utils import NLL, QuantileLoss
+from uq_method_box.train_utils import NLL, DERLoss, QuantileLoss
 from uq_method_box.uq_methods import (
     BaseModel,
     DeepEnsembleModel,
+    DERModel,
     DeterministicGaussianModel,
     LaplaceModel,
     MCDropoutModel,
@@ -35,6 +36,8 @@ def retrieve_loss_fn(
         return NLL()
     elif loss_fn_name == "quantile":
         return QuantileLoss(quantiles)
+    elif loss_fn_name == "der":
+        return DERLoss()
     else:
         raise ValueError("Your loss function choice is not supported.")
 
@@ -69,6 +72,8 @@ def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
     elif config["model"]["base_model"] == "gaussian":
         return DeterministicGaussianModel(config, **kwargs)
 
+    elif config["model"]["base_model"] == "der":
+        return DERModel(config, **kwargs)
     else:
         raise ValueError("Your base_model choice is currently not supported.")
 
@@ -87,6 +92,10 @@ def generate_ensemble_model(
     """
     if config["model"]["ensemble"] == "deep_ensemble":
         return DeepEnsembleModel(config, ensemble_members)
+
+    # multi swag
+
+    # mc-dropout ensemble similar to swag
 
     else:
         raise ValueError("Your ensemble choice is currently not supported.")
