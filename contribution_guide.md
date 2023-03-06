@@ -90,3 +90,19 @@ I think the UCI-Experiments are a great opportunity to both check our implementa
 
 The goal is to be "as lazy as possible" in the effort it takes to execute experiments but also have confidence in the worklfow, so anything fishy you see make a note of it and we can look into it and hopefully fix it :) 
 
+
+## Conda environment
+
+I have run the commands in this order to create a conda environment with which I am able to run experiments. Mabye the same order will work on Windows as well.
+
+```
+    $  conda create --name ninaEnv python=3.8
+    $  conda activate ninaEnv
+    $  conda install pytorch torchvision cpuonly -c pytorch
+    $  conda install -c conda-forge pytorch-lightning
+    $  conda install -c conda-forge torchgeo
+    $  conda install -c conda-forge pandas
+    $  conda install -c conda-forge laplace-torch
+    $  conda install -c conda-forge ruamel.yaml
+```
+
