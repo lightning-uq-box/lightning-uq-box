@@ -104,5 +104,8 @@ I have run the commands in this order to create a conda environment with which I
     $  conda install -c conda-forge pandas
     $  conda install -c conda-forge laplace-torch
     $  conda install -c conda-forge ruamel.yaml
+    $  conda install -c conda-forge ipykernel
+    $  conda install -c conda-forge seaborn
+    $  pip install uncertainty-toolbox
 ```
 
