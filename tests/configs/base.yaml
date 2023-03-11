@@ -1,0 +1,25 @@
+model:
+  base_model: base_model
+  loss_fn: mse
+  conformalized: False
+  mlp: # all arguments for the mlp
+    n_outputs: 1
+    n_hidden: [50]
+optimizer:
+  lr: 0.003
+dataloader: # arguments for dataloader
+  batch_size: 256
+  num_workers: 0
+pl: # all flags to pytorch lightning trainer
+  # devices: 1 
+  precision: 32
+  accelerator: cpu
+  max_epochs: 1
+  max_steps: -1
+  limit_val_batches: 0.0 # no validation set
+  limit_test_batches: 1.0
+  val_check_interval: 0.0 # no validation
+  deterministic: False
+  fast_dev_run: False
+  log_every_n_steps: 10
+  enable_progress_bar: True

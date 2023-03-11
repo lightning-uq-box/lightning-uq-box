@@ -152,9 +152,12 @@ class BaseModel(LightningModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def test_step(self, *args: Any, **kwargs: Any) -> Dict[str, Tensor]:
         """Test step is in most cases unique to the different methods."""
-        raise NotImplementedError
+        X, y = args[0]
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        return out_dict
 
     def test_epoch_end(self, outputs: List[Any]) -> None:
         """Log epoch level validation metrics.
@@ -166,6 +169,17 @@ class BaseModel(LightningModule):
             outputs,
             os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),
         )
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
+        """Predict step.
+
+        Args:
+            X: input tensor of shape [batch_size, num_inputs]
+        """
+        mean = self.extract_mean_output(self.forward(X))
+        return {"mean": mean}
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
