@@ -49,7 +49,7 @@ class DeterministicGaussianModel(BaseModel):
         mean = preds[:, 0]
         std = preds[:, 1]
         quantiles = compute_quantiles_from_std(
-            mean, std, self.config["model"]["quantiles"]
+            mean, std, self.config["model"].get("quantiles", [0.1, 0.5, 0.9])
         )
         return {
             "mean": mean,

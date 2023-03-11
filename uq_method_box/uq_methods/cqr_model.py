@@ -58,10 +58,10 @@ class CQR(LightningModule):
 
     def __init__(
         self,
-        model,
+        config: Dict[str, Any],
+        model: LightningModule,
         quantiles: List[float],
         calibration_loader: DataLoader,
-        config: Dict[str, Any],
     ) -> None:
         """Initialize a new instance of CQR."""
         super().__init__()
@@ -138,6 +138,10 @@ class CQR(LightningModule):
         )
 
         mean, std = compute_sample_mean_std_from_quantile(cqr_sets, self.quantiles)
+
+        # can happen due to overlapping quantiles
+        std[std <= 0] = 1e-6
+
         return {
             "mean": mean,
             "pred_uct": std,

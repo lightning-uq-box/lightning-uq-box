@@ -80,7 +80,7 @@ class MCDropoutModel(BaseModel):
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)
             epistemic = compute_epistemic_uncertainty(mean_samples)
             quantiles = compute_quantiles_from_std(
-                mean, std, self.config["model"]["quantiles"]
+                mean, std, self.config["model"].get("quantiles", [0.1, 0.5, 0.9])
             )
             return {
                 "mean": mean,
@@ -94,4 +94,13 @@ class MCDropoutModel(BaseModel):
         else:
             mean = mean_samples.mean(-1)
             std = mean_samples.std(-1)
-            return {"mean": mean, "pred_uct": std, "epistemic_uct": std}
+            quantiles = compute_quantiles_from_std(
+                mean, std, self.config["model"].get("quantiles", [0.1, 0.5, 0.9])
+            )
+            return {
+                "mean": mean,
+                "pred_uct": std,
+                "epistemic_uct": std,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
+            }

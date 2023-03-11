@@ -1,5 +1,6 @@
 """Utilities for computing Uncertainties."""
 
+import math
 from collections import defaultdict
 from typing import List
 
@@ -16,7 +17,7 @@ def compute_epistemic_uncertainty(sample_mean_preds: np.ndarray) -> np.ndarray:
       sample_mean_preds: sample mean predictions N x num_samples
 
     Returns:
-      epistemic uncertainty
+      epistemic uncertainty for each sample
     """
     right_term = sample_mean_preds.mean(1) ** 2
     return np.sqrt((sample_mean_preds**2).mean(axis=1) - right_term)
@@ -31,7 +32,7 @@ def compute_aleatoric_uncertainty(sample_sigma_preds: np.ndarray) -> np.ndarray:
       sample_sigma_preds: sample sigma predictions N x num_samples
 
     Returns:
-      aleatoric uncertainty
+      aleatoric uncertainty for each sample
     """
     return np.sqrt(sample_sigma_preds.mean(-1))
 
@@ -48,7 +49,7 @@ def compute_predictive_uncertainty(
       sample_sigma_preds: sample sigma predictions N x num_samples
 
     Returns:
-      predictive uncertainty
+      predictive uncertainty for each sample
     """
     return np.sqrt(
         sample_sigma_preds.mean(-1)
@@ -72,7 +73,7 @@ def compute_sample_mean_std_from_quantile(
       quantiles: specifying the corresponding quantiles
 
     Returns:
-      tuple of estimated mean and std
+      tuple of estimated mean and std for each sample
     """
     # n = inter_range_quantiles.shape[0]
     mu = inter_range_quantiles.mean(-1)
@@ -118,8 +119,24 @@ def compute_empirical_coverage(quantile_preds: np.ndarray, targets: np.ndarray):
     Args:
       quantile_preds: predicted quantiles
       labels: regression targets
+
+    Returns:
+      computed empirical coverage over all samples
     """
     targets = targets.squeeze()
     return (
         (targets >= quantile_preds[:, 0]) & (targets <= quantile_preds[:, -1])
     ).mean()
+
+
+def compute_predictive_entropy(std: np.ndarray) -> np.ndarray:
+    """Compute differential entropy for a Gaussian Distribution.
+
+    Args:
+      mean:
+      std:
+
+    Returns:
+      predictive entropy per sample
+    """
+    return 0.5 + 0.5 * math.log(2 * math.pi) + np.log(std)

@@ -8,6 +8,7 @@ import torch.nn as nn
 from laplace import Laplace
 from torch import Tensor
 from torch.utils.data import DataLoader
+from tqdm import trange
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
 from uq_method_box.uq_methods import BaseModel
@@ -77,13 +78,16 @@ class LaplaceModel(BaseModel):
                 hyper_optimizer = torch.optim.Adam(
                     [log_prior, log_sigma], lr=self.tune_precision_lr
                 )
-                for i in range(self.n_epochs_tune_precision):
+                bar = trange(self.n_epochs_tune_precision)
+                # find out why this is so extremely slow?
+                for i in bar:
                     hyper_optimizer.zero_grad()
                     neg_marglik = -self.la_model.log_marginal_likelihood(
                         log_prior.exp(), log_sigma.exp()
                     )
                     neg_marglik.backward()
                     hyper_optimizer.step()
+                    bar.set_postfix(neg_marglik=f"{neg_marglik.detach().cpu().item()}")
 
             self.laplace_fitted = True
 
@@ -129,7 +133,9 @@ class LaplaceModel(BaseModel):
                 laplace_epistemic**2 + laplace_aleatoric**2
             )
             quantiles = compute_quantiles_from_std(
-                laplace_mean, laplace_predictive, self.config["model"]["quantiles"]
+                laplace_mean,
+                laplace_predictive,
+                self.config["model"].get("quantiles", [0.1, 0.5, 0.9]),
             )
 
         return {
