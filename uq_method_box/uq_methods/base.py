@@ -3,12 +3,12 @@
 import os
 from typing import Any, Dict, List
 
+import pyro
 import timm
 import torch
 import torch.nn as nn
 from pytorch_lightning import LightningModule
 from torch import Tensor
-from torch.nn import functional as F
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
 
 from uq_method_box.eval_utils import (
@@ -294,10 +294,12 @@ class EnsembleModel(LightningModule):
 class PyroOptWrap(pyro.infer.SVI):
     """Wrapper for Pytorch Lightning to give a state_dict."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize a new wrapper."""
         super().__init__(*args, **kwargs)
 
     def state_dict(self):
+        """Return dummy state dict."""
         return {}
 
 
@@ -308,9 +310,9 @@ class PyroBNNBase(BaseModel):
         """Initialize a new instance of BNN_LV.
 
         Args:
-
+            config:
         """
-        super().__init__(self.config, None, None)  # no criterion
+        super().__init__(config, None, None)  # no criterion
 
         # how to save checkpoints from this model not sure
         # https://pyro4ci.readthedocs.io/en/latest/_modules/pyro/params/param_store.html
@@ -345,10 +347,8 @@ class PyroBNNBase(BaseModel):
         """Compute training Step for BNN+LV with SVI.
 
         Args:
-
-
-        Returns:
-
+            batch:
+            batch_idx:
         """
         loss = self.svi.step(batch)
         loss = torch.tensor(loss).requires_grad_(True)
@@ -358,9 +358,8 @@ class PyroBNNBase(BaseModel):
         """Compute validation Step for BNN+LV with SVI.
 
         Args:
-
-        Returns:
-
+            batch:
+            batch_idx:
         """
         loss = self.svi.evaluate_loss(batch)
         return loss
