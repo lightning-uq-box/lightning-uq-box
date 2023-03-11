@@ -8,6 +8,7 @@ import torch.nn as nn
 from laplace import Laplace
 from torch import Tensor
 from torch.utils.data import DataLoader
+from tqdm import trange
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
 from uq_method_box.uq_methods import BaseModel
@@ -77,21 +78,22 @@ class LaplaceModel(BaseModel):
                 hyper_optimizer = torch.optim.Adam(
                     [log_prior, log_sigma], lr=self.tune_precision_lr
                 )
-                for i in range(self.n_epochs_tune_precision):
+                bar = trange(self.n_epochs_tune_precision)
+                # find out why this is so extremely slow?
+                for i in bar:
                     hyper_optimizer.zero_grad()
                     neg_marglik = -self.la_model.log_marginal_likelihood(
                         log_prior.exp(), log_sigma.exp()
                     )
                     neg_marglik.backward()
                     hyper_optimizer.step()
+                    bar.set_postfix(neg_marglik=f"{neg_marglik.detach().cpu().item()}")
 
             self.laplace_fitted = True
 
         # save this laplace fitted model as a checkpoint?!
 
-    def test_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    def test_step(self, *args: Any, **kwargs: Any) -> Dict[str, np.ndarray]:
         """Test step with Laplace Approximation.
 
         Args:
@@ -100,15 +102,22 @@ class LaplaceModel(BaseModel):
         Returns:
             dictionary of uncertainty outputs
         """
-        target = batch[1]
-        out_dict = self.predict_step(batch)
-        out_dict["targets"] = target.detach().squeeze(-1).numpy()
+        X, y = args[0]
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
 
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Dict[str, np.ndarray]:
-        """Predict step with Laplace Approximation."""
+        """Predict step with Laplace Approximation.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            prediction dictionary
+        """
         if not self.laplace_fitted:
             self.on_test_start()
 
@@ -117,7 +126,7 @@ class LaplaceModel(BaseModel):
         with torch.inference_mode(False):
             # inference tensors are not saved for backward so need to create
             # a clone with autograd enables
-            input = batch[0].clone().requires_grad_()
+            input = X.clone().requires_grad_()
 
             laplace_mean, laplace_var = self.la_model(input)
             laplace_mean = laplace_mean.squeeze().detach().cpu().numpy()
@@ -129,7 +138,9 @@ class LaplaceModel(BaseModel):
                 laplace_epistemic**2 + laplace_aleatoric**2
             )
             quantiles = compute_quantiles_from_std(
-                laplace_mean, laplace_predictive, self.config["model"]["quantiles"]
+                laplace_mean,
+                laplace_predictive,
+                self.config["model"].get("quantiles", [0.1, 0.5, 0.9]),
             )
 
         return {
