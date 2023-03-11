@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 from pytorch_lightning import LightningModule
+from torch import Tensor
 from torch.utils.data import DataLoader
 
 from uq_method_box.eval_utils import compute_sample_mean_std_from_quantile
@@ -58,12 +59,19 @@ class CQR(LightningModule):
 
     def __init__(
         self,
-        model,
+        config: Dict[str, Any],
+        model: LightningModule,
         quantiles: List[float],
         calibration_loader: DataLoader,
-        config: Dict[str, Any],
     ) -> None:
-        """Initialize a new instance of CQR."""
+        """Initialize a new instance of CQR.
+
+        Args:
+            config:
+            model:
+            quantiles:
+            calibration_loader:
+        """
         super().__init__()
         self.score_model = model
         self.quantiles = quantiles
@@ -90,7 +98,7 @@ class CQR(LightningModule):
         """Compute calibration scores."""
         # model predict steps return a dictionary that contains quantiles
         outputs = [
-            (self.score_model.predict_step(batch), batch[1])
+            (self.score_model.predict_step(batch[0]), batch[1])
             for batch in self.calibration_loader
         ]
 
@@ -106,9 +114,9 @@ class CQR(LightningModule):
 
     def test_step(self, *args: Any, **kwargs: Any) -> None:
         """Test step."""
-        batch = args[0]
-        out_dict = self.predict_step(batch)
-        out_dict["targets"] = batch[1].detach().squeeze(-1).numpy()
+        X, y = args[0]
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
 
     def test_epoch_end(self, outputs: Any) -> None:
@@ -123,12 +131,19 @@ class CQR(LightningModule):
         )
 
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Any:
-        """Prediction step that produces conformalized prediction sets."""
+        """Prediction step that produces conformalized prediction sets.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            prediction dictionary
+        """
         if not self.cqr_fitted:
             self.on_test_start()
-        model_preds: Dict[str, np.ndarray] = self.score_model.predict_step(batch)
+        model_preds: Dict[str, np.ndarray] = self.score_model.predict_step(X)
         cqr_sets = np.stack(
             [
                 model_preds["lower_quant"] - self.q_hat,
@@ -138,6 +153,10 @@ class CQR(LightningModule):
         )
 
         mean, std = compute_sample_mean_std_from_quantile(cqr_sets, self.quantiles)
+
+        # can happen due to overlapping quantiles
+        std[std <= 0] = 1e-6
+
         return {
             "mean": mean,
             "pred_uct": std,

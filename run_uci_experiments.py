@@ -108,10 +108,10 @@ def run(config_path: str) -> None:
         if seed_config["model"].get("conformalized", False):
             # wrap model in CQR
             model = CQR(
+                seed_config,
                 model,
                 seed_config["model"]["quantiles"],
                 dm.calibration_dataloader(),
-                seed_config,
             )
 
         # generate trainer for test to save in prediction dir

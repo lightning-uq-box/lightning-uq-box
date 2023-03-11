@@ -2,6 +2,7 @@
 
 from typing import Any, Dict
 
+import numpy as np
 import torch.nn as nn
 from torch import Tensor
 
@@ -36,20 +37,24 @@ class DeterministicGaussianModel(BaseModel):
 
     def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Test Step Deterministic Gaussian Model."""
-        batch = args[0]
-        out_dict = self.predict_step(batch)
-        out_dict["targets"] = batch[1].detach().squeeze(-1).numpy()
+        X, y = args[0]
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
 
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Any:
-        """Prediction step."""
-        preds = self.model(batch[0])
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Dict[str, np.ndarray]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+        """
+        preds = self.model(X)
         mean = preds[:, 0]
         std = preds[:, 1]
         quantiles = compute_quantiles_from_std(
-            mean, std, self.config["model"]["quantiles"]
+            mean, std, self.config["model"].get("quantiles", [0.1, 0.5, 0.9])
         )
         return {
             "mean": mean,
