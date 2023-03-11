@@ -10,6 +10,7 @@ from pytorch_lightning.loggers import CSVLogger, WandbLogger
 from uq_method_box.train_utils import NLL, QuantileLoss
 from uq_method_box.uq_methods import (
     BaseModel,
+    BayesByBackpropModel,
     DeepEnsembleModel,
     DeterministicGaussianModel,
     LaplaceModel,
@@ -68,6 +69,9 @@ def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
 
     elif config["model"]["base_model"] == "gaussian":
         return DeterministicGaussianModel(config, **kwargs)
+
+    elif config["model"]["base_model"] == "bayes_by_backprop":
+        return BayesByBackpropModel(config, **kwargs)
 
     else:
         raise ValueError("Your base_model choice is currently not supported.")
