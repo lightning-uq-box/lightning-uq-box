@@ -64,16 +64,16 @@ class BaseModel(LightningModule):
             ignore=["criterion", "train_metrics", "val_metrics", "test_metrics"]
         )
 
-    def forward(self, *args: Any, **kwargs: Any) -> Any:
+    def forward(self, X: Tensor, **kwargs: Any) -> Any:
         """Forward pass of the model.
 
         Args:
-            x: tensor of data to run through the model
+            X: tensor of data to run through the model [batch_size, input_dim]
 
         Returns:
             output from the model
         """
-        return self.model(*args, **kwargs)
+        return self.model(X, **kwargs)
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
@@ -212,9 +212,9 @@ class EnsembleModel(LightningModule):
         Returns:
             dictionary of uncertainty outputs
         """
-        target = batch[1]
-        out_dict = self.predict_step(batch)
-        out_dict["targets"] = target.detach().squeeze(-1).numpy()
+        X, y = batch
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
 
     def test_epoch_end(self, outputs: Any) -> None:
@@ -240,17 +240,17 @@ class EnsembleModel(LightningModule):
         raise NotImplementedError
 
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Any:
         """Compute prediction step for a deep ensemble.
 
         Args:
-            batch: prediction batch of shape [batch_size x input_dims]
+            X: input tensor of shape [batch_size, input_di]
 
         Returns:
             mean and standard deviation of MC predictions
         """
-        preds = self.generate_ensemble_predictions(batch)
+        preds = self.generate_ensemble_predictions(X)
 
         mean_samples = preds[:, 0, :].detach().numpy()
 

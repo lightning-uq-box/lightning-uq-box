@@ -93,9 +93,7 @@ class LaplaceModel(BaseModel):
 
         # save this laplace fitted model as a checkpoint?!
 
-    def test_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    def test_step(self, *args: Any, **kwargs: Any) -> Dict[str, np.ndarray]:
         """Test step with Laplace Approximation.
 
         Args:
@@ -104,15 +102,22 @@ class LaplaceModel(BaseModel):
         Returns:
             dictionary of uncertainty outputs
         """
-        target = batch[1]
-        out_dict = self.predict_step(batch)
-        out_dict["targets"] = target.detach().squeeze(-1).numpy()
+        X, y = args[0]
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
 
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Dict[str, np.ndarray]:
-        """Predict step with Laplace Approximation."""
+        """Predict step with Laplace Approximation.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            prediction dictionary
+        """
         if not self.laplace_fitted:
             self.on_test_start()
 
@@ -121,7 +126,7 @@ class LaplaceModel(BaseModel):
         with torch.inference_mode(False):
             # inference tensors are not saved for backward so need to create
             # a clone with autograd enables
-            input = batch[0].clone().requires_grad_()
+            input = X.clone().requires_grad_()
 
             laplace_mean, laplace_var = self.la_model(input)
             laplace_mean = laplace_mean.squeeze().detach().cpu().numpy()

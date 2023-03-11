@@ -40,23 +40,23 @@ class QuantileRegressionModel(BaseModel):
         Args:
             batch: the output of your DataLoader
         """
-        batch = args[0]
-        out_dict = self.predict_step(batch)
-        out_dict["targets"] = batch[1].detach().squeeze(-1).numpy()
+        X, y = args[0]
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
 
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Dict[str, np.ndarray]:
         """Predict step with Quantile Regression.
 
         Args:
-            batch:
+            X: prediction batch of shape [batch_size x input_dims]
 
         Returns:
             predicted uncertainties
         """
-        out = self.model(batch[0]).detach().numpy()  # [batch_size, len(self.quantiles)]
+        out = self.model(X).detach().numpy()  # [batch_size, len(self.quantiles)]
         median = out[:, self.median_index]
         mean, std = compute_sample_mean_std_from_quantile(out, self.quantiles)
 
