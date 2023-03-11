@@ -109,3 +109,8 @@ I have run the commands in this order to create a conda environment with which I
     $  pip install uncertainty-toolbox
 ```
 
+## Code Reviews 
+All updates to the code base should go through a review process. We use GitHub Pull Requests for this. You can head over to
+[GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
+information on using pull requests.
+
