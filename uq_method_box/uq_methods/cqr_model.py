@@ -75,7 +75,7 @@ class CQR(LightningModule):
 
         self.quantiles = quantiles
         self.error_rate = 1 - max(self.quantiles)  # 1-alpha is the desired coverage
-
+        self.score_model = score_model
         self.cqr_fitted = False
         self.calibration_loader = calibration_loader
         self.config = config

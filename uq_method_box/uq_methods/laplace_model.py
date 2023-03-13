@@ -28,6 +28,8 @@ class LaplaceModel(BaseModel):
         self.laplace_fitted = False
         self.train_loader = train_loader
 
+        self.model = model_class
+
         # get laplace args from dictionary
         self.laplace_args = {
             arg: val
