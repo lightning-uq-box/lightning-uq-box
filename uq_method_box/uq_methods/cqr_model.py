@@ -4,7 +4,6 @@ import os
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
-import torch.nn as nn
 from pytorch_lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
@@ -61,7 +60,7 @@ class CQR(LightningModule):
     def __init__(
         self,
         config: Dict[str, Any],
-        score_model: type[nn.Module],
+        model: LightningModule,
         quantiles: List[float],
         calibration_loader: DataLoader,
     ) -> None:
@@ -69,13 +68,19 @@ class CQR(LightningModule):
 
         Args:
             config: configuration dict
-            model_class: Model Class that can be initialized with arguments from dict.
+            model: initialized underlying LightningModule which is the base model
+                to conformalize
+            quantiles: quantiles used for training and prediction
+            calibration_loader: calibration data loader
         """
         super().__init__()
 
         self.quantiles = quantiles
         self.error_rate = 1 - max(self.quantiles)  # 1-alpha is the desired coverage
-        self.score_model = score_model
+
+        # load model from checkpoint to conformalize it
+        self.score_model = model
+
         self.cqr_fitted = False
         self.calibration_loader = calibration_loader
         self.config = config
