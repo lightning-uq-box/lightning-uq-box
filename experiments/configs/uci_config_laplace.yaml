@@ -8,7 +8,7 @@ wandb:
 model:
   base_model: laplace
   loss_fn: mse
-  mlp: # all arguments for the mlp
+  model_args: # all arguments for the mlp
     n_outputs: 1
     n_hidden: [50]
   laplace: # all arguments for the laplace library

@@ -1,13 +1,11 @@
 """Experiment generator to setup an experiment based on a config file."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Union
 
-import torch.nn as nn
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import CSVLogger, WandbLogger
+from pytorch_lightning.loggers import CSVLogger
 
-from uq_method_box.train_utils import NLL, QuantileLoss
 from uq_method_box.uq_methods import (
     BaseModel,
     DeepEnsembleModel,
@@ -18,27 +16,6 @@ from uq_method_box.uq_methods import (
 )
 
 
-def retrieve_loss_fn(
-    loss_fn_name: str, quantiles: Optional[List[float]] = None
-) -> nn.Module:
-    """Retrieve the desired loss function.
-
-    Args:
-        loss_fn_name: name of the loss function, one of ['mse', 'nll', 'quantile']
-
-    Returns
-        desired loss function module
-    """
-    if loss_fn_name == "mse":
-        return nn.MSELoss()
-    elif loss_fn_name == "nll":
-        return NLL()
-    elif loss_fn_name == "quantile":
-        return QuantileLoss(quantiles)
-    else:
-        raise ValueError("Your loss function choice is not supported.")
-
-
 def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
     """Generate a configured base model.
 
@@ -46,25 +23,23 @@ def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
         config: config dictionary
 
     Keywoard Args:
-        model: optional to initiate a base class with a certain model
+        model_class: optional to initiate a base class with a certain model
         train_loader: needed for laplace model
 
     Returns:
         configured pytorch lightning module
     """
-    criterion = retrieve_loss_fn(config["model"]["loss_fn"])
-
     if config["model"]["base_model"] == "base_model":
-        return BaseModel(config, criterion=criterion, **kwargs)
+        return BaseModel(config, **kwargs)
 
     elif config["model"]["base_model"] == "mc_dropout":
-        return MCDropoutModel(config, criterion=criterion, **kwargs)
+        return MCDropoutModel(config, **kwargs)
 
     elif config["model"]["base_model"] == "quantile_regression":
         return QuantileRegressionModel(config, **kwargs)
 
     elif config["model"]["base_model"] == "laplace":
-        return LaplaceModel(config, criterion=criterion, **kwargs)
+        return LaplaceModel(config, **kwargs)
 
     elif config["model"]["base_model"] == "gaussian":
         return DeterministicGaussianModel(config, **kwargs)
@@ -74,7 +49,8 @@ def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
 
 
 def generate_ensemble_model(
-    config: Dict[str, Any], ensemble_members: List[nn.Module]
+    config: Dict[str, Any],
+    ensemble_members: List[Dict[str, Union[type[LightningModule], str]]],
 ) -> LightningModule:
     """Generate an ensemble model.
 

@@ -51,20 +51,20 @@ def run(config_path: str) -> None:
             dm = UCIRegressionDatamodule(config)
 
             # get the number of features to update the number of inputs to model
-            run_config["model"]["mlp"]["n_inputs"] = dm.uci_ds.num_features
+            run_config["model"]["model_args"]["n_inputs"] = dm.uci_ds.num_features
 
             # generate mlp
-            mlp = MLP(**run_config["model"]["mlp"])
+            # mlp = MLP(**run_config["model"]["mlp"])
 
             # generate model
             if run_config["model"]["base_model"] == "laplace":
                 # laplace requires train data loader post fit, maybe there is also
                 # a more elegant way to solve this
                 model = generate_base_model(
-                    run_config, model=mlp, train_loader=dm.train_dataloader()
+                    run_config, model_class=MLP, train_loader=dm.train_dataloader()
                 )
             else:
-                model = generate_base_model(run_config, model=mlp)
+                model = generate_base_model(run_config, model_class=MLP)
 
             # generate trainer
             trainer = generate_trainer(run_config)
@@ -96,10 +96,10 @@ def run(config_path: str) -> None:
             )
             ensemble_members = []
             for ckpt_path in ensemble_ckpt_paths:
+                # import pdb
+                # pdb.set_trace()
                 ensemble_members.append(
-                    generate_base_model(
-                        prediction_config, model=mlp
-                    ).load_from_checkpoint(ckpt_path)
+                    {"model_class": type(model), "ckpt_path": ckpt_path}
                 )
 
             model = generate_ensemble_model(prediction_config, ensemble_members)

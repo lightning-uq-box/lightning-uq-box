@@ -16,21 +16,22 @@ from uq_method_box.eval_utils import (
 )
 
 from .base import BaseModel
+from .utils import retrieve_loss_fn
 
 
 class MCDropoutModel(BaseModel):
     """MC-Dropout Model."""
 
     def __init__(
-        self,
-        config: Dict[str, Any],
-        model: nn.Module = None,
-        criterion: nn.Module = nn.MSELoss(),
+        self, config: Dict[str, Any], model_class: type[nn.Module] = None
     ) -> None:
         """Initialize a new instance of MCDropoutModel."""
-        super().__init__(config, model, criterion)
+        super().__init__(config, model_class)
 
         self.num_mc_samples = self.config["model"]["mc_samples"]
+
+        # TODO decide criterion here
+        self.criterion = retrieve_loss_fn(config["model"]["loss_fn"])
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.

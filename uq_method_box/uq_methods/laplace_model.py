@@ -21,11 +21,10 @@ class LaplaceModel(BaseModel):
         self,
         config: Dict[str, Any],
         train_loader: DataLoader,
-        model: nn.Module = None,
-        criterion: nn.Module = None,
+        model_class: type[nn.Module] = None,
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper."""
-        super().__init__(config, model, criterion)
+        super().__init__(config, model_class)
         self.laplace_fitted = False
         self.train_loader = train_loader
 
