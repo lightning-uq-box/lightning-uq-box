@@ -7,6 +7,7 @@ from .gaussian_nll import DeterministicGaussianModel
 from .laplace_model import LaplaceModel
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
+from .sgld_nll import SGLDModel
 
 __all__ = (
     # base model
@@ -24,4 +25,6 @@ __all__ = (
     "DeepEnsembleModel",
     # Deterministic Gaussin Model
     "DeterministicGaussianModel",
+    #SGLD Model.
+    "SGLDModel"
 )

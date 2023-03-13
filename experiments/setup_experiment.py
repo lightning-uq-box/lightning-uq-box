@@ -15,6 +15,7 @@ from uq_method_box.uq_methods import (
     LaplaceModel,
     MCDropoutModel,
     QuantileRegressionModel,
+    SGLDModel,
 )
 
 
@@ -68,6 +69,9 @@ def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
 
     elif config["model"]["base_model"] == "gaussian_nll":
         return DeterministicGaussianModel(config, **kwargs)
+    
+    elif config["model"]["base_model"] == "sgld":
+        return SGLDModel(config, **kwargs)
 
     else:
         raise ValueError("Your base_model choice is currently not supported.")
