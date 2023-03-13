@@ -25,8 +25,8 @@ class BaseModel(LightningModule):
 
     def __init__(
         self,
-        config: Dict[str, Any],
-        model: nn.Module = None,
+        model: nn.Module,
+        config: Dict[str, Any] = None,
         criterion: nn.Module = nn.MSELoss(),
     ) -> None:
         """Initialize a new Base Model."""
@@ -66,7 +66,7 @@ class BaseModel(LightningModule):
                 "train_metrics",
                 "val_metrics",
                 "test_metrics",
-                "model",
+                # "model",
             ]
         )
 

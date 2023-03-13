@@ -5,6 +5,7 @@ import sys
 import tempfile
 
 import pytest
+import torch
 from pytorch_lightning import Trainer
 
 # required to make the path visible to import the tools
@@ -32,7 +33,7 @@ class TestBaseModel:
         # instantiate datamodule
         datamodule = ToyHeteroscedasticDatamodule()
 
-        model = BaseModel(conf_dict, MLP(**conf_dict["model"]["mlp"]))
+        model = BaseModel(MLP(**conf_dict["model"]["mlp"]), conf_dict)
 
         # Instantiate trainer
         trainer = Trainer(log_every_n_steps=1, max_epochs=1)
@@ -59,7 +60,7 @@ class TestBaseEnsembleModel:
             datamodule = ToyHeteroscedasticDatamodule()
 
             mlp = MLP(**conf_dict["model"]["mlp"])
-            model = BaseModel(conf_dict, mlp)
+            model = BaseModel(mlp, conf_dict)
 
             # Instantiate trainer
             trainer = Trainer(
@@ -81,7 +82,11 @@ class TestBaseEnsembleModel:
         # wrap Deep Ensemble Model
         ensemble_members = []
         for ckpt_path in model_paths:
-            ensemble_members.append(BaseModel.load_from_checkpoint(ckpt_path))
+            import pdb
+
+            pdb.set_trace()
+            checkpoint = torch.load(ckpt_path)
+            ensemble_members.append(BaseModel(mlp).load_from_checkpoint(ckpt_path))
 
         ensemble_dict = OmegaConf.to_object(conf)
         ensemble_dict["experiment"]["save_dir"] = os.path.join(exp_root, "prediction")
