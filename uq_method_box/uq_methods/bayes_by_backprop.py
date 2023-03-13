@@ -22,14 +22,16 @@ class BayesByBackpropModel(BaseModel):
     * https://github.com/IntelLabs/bayesian-torch
     """
 
-    def __init__(self, config: Dict[str, Any], model: nn.Module = None) -> None:
+    def __init__(
+        self, config: Dict[str, Any], model_class: type[nn.Module] = None
+    ) -> None:
         """Initialize a new instance of Bayes By Backprop model.
 
         Args:
             config:
             model: base model to be converted to bayes by backprop model
         """
-        super().__init__(config, model, None)  # no criterion
+        super().__init__(config, model_class)
 
         # get dnn_to_bnn args from dictionary
         self.bayes_bc_backprop_args = self.config["model"]["bayes_by_backprop"]
