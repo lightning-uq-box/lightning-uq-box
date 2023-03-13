@@ -96,8 +96,6 @@ def run(config_path: str) -> None:
             )
             ensemble_members = []
             for ckpt_path in ensemble_ckpt_paths:
-                # import pdb
-                # pdb.set_trace()
                 ensemble_members.append(
                     {"model_class": type(model), "ckpt_path": ckpt_path}
                 )

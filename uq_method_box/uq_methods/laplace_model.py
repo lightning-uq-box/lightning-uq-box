@@ -1,6 +1,6 @@
 """Laplace Approximation model."""
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import numpy as np
 import torch
@@ -21,14 +21,28 @@ class LaplaceModel(BaseModel):
         self,
         config: Dict[str, Any],
         train_loader: DataLoader,
-        model_class: type[nn.Module] = None,
+        model_class: type[nn.Module],
+        ckpt_path: Optional[str] = None,
     ) -> None:
-        """Initialize a new instance of Laplace Model Wrapper."""
+        """Initialize a new instance of Laplace Model Wrapper.
+
+        Args:
+            config: configuration dictionary
+            train_loader: train loader to be used but maybe this can
+                also be accessed through the trainer or write a
+                train_dataloader() method for this model based on the config?
+            model_class: model class type to initialize with arguments
+            ckpt_path: if want to use a pretrained model, the model class will
+                be loaded from that checkpoint
+        """
         super().__init__(config, model_class)
         self.laplace_fitted = False
         self.train_loader = train_loader
 
-        self.model = model_class
+        # I think model should be loaded from checkpoint to make it most compatible,
+        # even if it is a bit more work
+        if ckpt_path is not None:
+            self.model = model_class.load_from_checkpoint(ckpt_path)
 
         # get laplace args from dictionary
         self.laplace_args = {
