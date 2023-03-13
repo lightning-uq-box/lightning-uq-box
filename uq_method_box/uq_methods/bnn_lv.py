@@ -22,10 +22,13 @@ class BNN_LV(PyroBNNBase):
         super().__init__(config)
 
     def model(self, batch):
+        """Define the Pyro model here."""
         return super().model(batch)
 
     def guide(self, batch):
+        """Define the Pyro Guide here."""
         return super().guide(batch)
 
     def forward(self, x):
+        """Put the part where the input is forwarded through the network here to produce an output."""  # noqa: E501
         return super().forward(x)
