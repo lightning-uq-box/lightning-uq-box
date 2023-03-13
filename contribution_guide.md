@@ -30,8 +30,10 @@ The intended use is to implement all datasets and uq_methods under the [uq_metho
 - [uq_methods](uq_methods_box/uq_methods): Here each UQ-Method should be implemented as its own class (and python file) in the form of a PytorchLightning [LightningModule](https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html). If possible it should inherit from the base class to minimize code duplication. The methods should be "model-agnostic" in the sense that they should work with any backbone like ResNet etc. and support large datasets if applicable.
 
 ## Run UCI Experiments
-To run UCI experiments navigate to the root directory of the project in your command line. In [configs](experiments/configs/) are examples of config files that let you 
-configure the kind of experiment you want to execute. To launch an experiment:
+Before running experiments for the first time, create the folder experiments in the folder experiments, i.e. \eperiments\experiments. Also create a folder data in experiments, \experiments\data.
+
+
+To run UCI experiments navigate to the root directory of the project in your command line. In [configs](experiments/configs/) are examples of config files that let you configure the kind of experiment you want to execute. To launch an experiment, change the directory under root in the config file:
 
 ```
    $ python run_uci_experiments.py --config_path "./experiments/configs/name_of_config_you_want.yaml"
@@ -72,6 +74,9 @@ The directory structure for the results that your experiment produces looks some
 ```
 
 ## Evaluation setup
+
+Before evaluating experiments for the first time, before create the folder exp_results \experiments\experiments\exp_results.
+
 There exists some utility functions that iterate over the experiment collection directory (so the directory where all the individual experiments are stored) in `experiments/eval_utils.py`. This script can
 be executed with the python script `compute_results_uci.py` from the project root directory (same place you also execute `run_uci_experiments.py`). This will generate a csv file in `experiments/experiments/` with the name `results.csv`.
 This csv file collects all the indiviual results from the `predictions.csv` in each seed directory into a big table, based on which we can write scripts for visualizations or automatic table generation for the paper. As a minimal example, I included
@@ -79,6 +84,8 @@ a `explore_results.ipynb` notebook in the `experiments/experiments` directory. W
 
 ```
     $ python compute_results_uci.py --exp_dir_path "./experiments/experiments/"
+    #with new code
+    $ python compute_results_uci.py --exp_dir_path ".\experiments\experiments" --save_path ".\experiments\experiments\exp_results"
 ```
 
 ## TODOs
@@ -93,7 +100,7 @@ The goal is to be "as lazy as possible" in the effort it takes to execute experi
 
 ## Conda environment
 
-I have run the commands in this order to create a conda environment with which I am able to run experiments. Mabye the same order will work on Windows as well.
+I have run the commands in this order to create a conda environment with which I am able to run experiments. Mabye the same order will work on Windows as well. If conda install does not work, try using pip install instead.
 
 ```
     $  conda create --name ninaEnv python=3.8
