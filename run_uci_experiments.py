@@ -13,7 +13,7 @@ from experiments.setup_experiment import (
 from experiments.utils import create_experiment_dir, read_config, save_config
 from uq_method_box.datamodules import UCIRegressionDatamodule
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import CQR
+from uq_method_box.uq_methods import CQR, LaplaceModel
 
 
 def run(config_path: str) -> None:
@@ -53,18 +53,7 @@ def run(config_path: str) -> None:
             # get the number of features to update the number of inputs to model
             run_config["model"]["model_args"]["n_inputs"] = dm.uci_ds.num_features
 
-            # generate mlp
-            # mlp = MLP(**run_config["model"]["mlp"])
-
-            # generate model
-            if run_config["model"]["base_model"] == "laplace":
-                # laplace requires train data loader post fit, maybe there is also
-                # a more elegant way to solve this
-                model = generate_base_model(
-                    run_config, model_class=MLP, train_loader=dm.train_dataloader()
-                )
-            else:
-                model = generate_base_model(run_config, model_class=MLP)
+            model = generate_base_model(run_config, model_class=MLP)
 
             # generate trainer
             trainer = generate_trainer(run_config)
@@ -85,6 +74,12 @@ def run(config_path: str) -> None:
         )
         prediction_config["experiment"]["save_dir"] = pred_dir
         os.makedirs(pred_dir)
+
+        # Laplace Model Wrapper
+        if "laplace" in run_config["model"]:
+            # laplace requires train data loader post fit, maybe there is also
+            # a more elegant way to solve this
+            model = LaplaceModel(prediction_config, model, dm.train_dataloader())
 
         # if we want to build an ensemble
         if seed_config["model"].get("ensemble_members", 1) >= 2:

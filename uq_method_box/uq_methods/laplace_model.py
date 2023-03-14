@@ -1,28 +1,26 @@
 """Laplace Approximation model."""
 
-from typing import Any, Dict, Optional
+import os
+from typing import Any, Dict
 
 import numpy as np
 import torch
-import torch.nn as nn
 from laplace import Laplace
+from pytorch_lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import trange
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
-from uq_method_box.uq_methods import BaseModel
+
+from .utils import save_predictions_to_csv
 
 
-class LaplaceModel(BaseModel):
+class LaplaceModel(LightningModule):
     """Laplace Approximation method for regression."""
 
     def __init__(
-        self,
-        config: Dict[str, Any],
-        train_loader: DataLoader,
-        model_class: type[nn.Module],
-        ckpt_path: Optional[str] = None,
+        self, config: Dict[str, Any], model: LightningModule, train_loader: DataLoader
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
@@ -31,18 +29,14 @@ class LaplaceModel(BaseModel):
             train_loader: train loader to be used but maybe this can
                 also be accessed through the trainer or write a
                 train_dataloader() method for this model based on the config?
-            model_class: model class type to initialize with arguments
-            ckpt_path: if want to use a pretrained model, the model class will
-                be loaded from that checkpoint
+            model: lightning module to use as underlying model
         """
-        super().__init__(config, model_class)
+        super().__init__()
+        self.config = config
         self.laplace_fitted = False
         self.train_loader = train_loader
 
-        # I think model should be loaded from checkpoint to make it most compatible,
-        # even if it is a bit more work
-        if ckpt_path is not None:
-            self.model = model_class.load_from_checkpoint(ckpt_path)
+        self.model = model
 
         # get laplace args from dictionary
         self.laplace_args = {
@@ -121,6 +115,17 @@ class LaplaceModel(BaseModel):
         out_dict = self.predict_step(X)
         out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
+
+    def test_epoch_end(self, outputs: Any) -> None:
+        """Log epoch level validation metrics.
+
+        Args:
+            outputs: list of items returned by test step, dictionaries
+        """
+        save_predictions_to_csv(
+            outputs,
+            os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),
+        )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0

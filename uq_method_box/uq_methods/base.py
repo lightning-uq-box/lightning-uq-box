@@ -50,7 +50,13 @@ class BaseModel(LightningModule):
         )
 
         self.save_hyperparameters(
-            ignore=["criterion", "train_metrics", "val_metrics", "test_metrics"]
+            ignore=[
+                "criterion",
+                "train_metrics",
+                "val_metrics",
+                "test_metrics",
+                "model",
+            ]
         )
 
         self._build_model()

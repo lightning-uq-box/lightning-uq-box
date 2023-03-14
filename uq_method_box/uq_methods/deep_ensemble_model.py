@@ -35,8 +35,8 @@ class DeepEnsembleModel(EnsembleModel):
         """
         super().__init__(config, ensemble_members)
 
-    def forward(self, X: torch.Tensor) -> torch.Tensor:
-        """Forward pass over ensemble.
+    def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
+        """Forward step of Deep Ensemble.
 
         Args:
             X: input tensor of shape [batch_size, input_di]

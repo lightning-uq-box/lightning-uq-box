@@ -6,7 +6,7 @@ wandb:
   entity: uq-regression
   mode: offline
 model:
-  base_model: laplace
+  base_model: base_model
   loss_fn: mse
   model_args: # all arguments for the mlp
     n_outputs: 1
