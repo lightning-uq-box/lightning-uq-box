@@ -3,12 +3,13 @@ experiment:
   exp_dir: "experiments/experiments/"
 wandb:
   project: uci_regression
-  entity: uq-regression
-  mode: offline
+  entity: nina-maria-gottschling
+  mode: online
 model:
   base_model: sgld
-  n_burnin_epochs: 100
-  n_sgld_samples: 20
+  n_burnin_epochs: 10
+  n_sgld_samples: 5
+  weight_decay: 0.1
   ensemble: None # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
   ensemble_members: 1
   loss_fn: nll
@@ -29,7 +30,7 @@ pl: # all flags to pytorch lightning trainer
   # devices: 1 
   precision: 32
   accelerator: cpu
-  max_epochs: 120
+  max_epochs: 15
   max_steps: -1
   limit_val_batches: 0.0 # no validation set
   limit_test_batches: 1.0

@@ -1,5 +1,6 @@
 """Stochastic Gradient Langevin Dynamics (SGLD) model."""
 
+import copy
 from typing import Any, Dict, List
 
 import numpy as np
@@ -8,6 +9,7 @@ import torch.nn as nn
 from torch.optim.optimizer import Optimizer, required
 from torch import Tensor
 from torch.utils.data import DataLoader
+
 
 from uq_method_box.eval_utils import (
     compute_aleatoric_uncertainty,
@@ -22,13 +24,21 @@ from uq_method_box.train_utils import NLL
 
 
 class SGLD(Optimizer):
-    def __init__(self, params, lr=required, noise_factor=1.0, weight_decay=0):
+    """ SGLD Optimizer
+    Adapted from https://github.com/izmailovpavel/understandingbdl/blob/master/swag/posteriors/sgld.py
+    
+    based on [1]
+    [1]: Welling, Max, and Yee W. Teh. 
+    "Bayesian learning via stochastic gradient Langevin dynamics." 
+    Proceedings of the 28th international conference on machine learning (ICML-11). 2011."""
+    def __init__(self, params, lr=required, noise_factor=1.0, weight_decay=float):
         if lr is not required and lr < 0.0:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if weight_decay < 0.0:
             raise ValueError("Invalid weight_decay value: {}".format(weight_decay))
 
         defaults = dict(lr=lr, noise_factor=noise_factor, weight_decay=weight_decay)
+        self.lr = lr
         super(SGLD, self).__init__(params, defaults)
 
     def step(self, closure=None):
@@ -75,8 +85,9 @@ class SGLDModel(BaseModel):
         self.max_epochs=self.config["pl"]["max_epochs"]  
         self.models: List[nn.Module] = []
         self.quantiles = self.config["model"]["quantiles"]
+        self.weight_decay=self.config["model"]["weight_decay"]
 
-        assert( self.n_sgld_samples + self.n_burnin_epochs <= self.config["pl"]["max_epochs"]), "The number of max epochs needs to be larger than the sum of the burnin phase and model gathering"
+        assert( self.n_sgld_samples + self.n_burnin_epochs == self.config["pl"]["max_epochs"]), "The number of max epochs needs to be the sum of the burnin phase and sample numbers"
 
         
     def configure_optimizers(self) -> Dict[str, Any]:
@@ -87,7 +98,7 @@ class SGLDModel(BaseModel):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers, with SGLD optimizer.
         """
         optimizer = SGLD(
-            self.model.parameters(), lr=self.config["optimizer"]["lr"]
+            self.model.parameters(), lr=self.config["optimizer"]["lr"], weight_decay=self.weight_decay
         )
         return {"optimizer": optimizer}
 
@@ -113,7 +124,7 @@ class SGLDModel(BaseModel):
         if self.current_epoch > self.n_burnin_epochs: 
             self.models.append(copy.deepcopy(self.model))
 
-        return loss, self.models
+        return loss
 
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
