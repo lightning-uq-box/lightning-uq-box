@@ -64,18 +64,22 @@ class CQR(LightningModule):
         quantiles: List[float],
         calibration_loader: DataLoader,
     ) -> None:
-        """Initialize a new instance of CQR.
+        """Initialize a new Base Model.
 
         Args:
-            config:
-            model:
-            quantiles:
-            calibration_loader:
+            config: configuration dict
+            model: initialized underlying LightningModule which is the base model
+                to conformalize
+            quantiles: quantiles used for training and prediction
+            calibration_loader: calibration data loader
         """
         super().__init__()
-        self.score_model = model
+
         self.quantiles = quantiles
         self.error_rate = 1 - max(self.quantiles)  # 1-alpha is the desired coverage
+
+        # load model from checkpoint to conformalize it
+        self.score_model = model
 
         self.cqr_fitted = False
         self.calibration_loader = calibration_loader

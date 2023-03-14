@@ -1,7 +1,7 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import timm
 import torch
@@ -17,31 +17,22 @@ from uq_method_box.eval_utils import (
     compute_quantiles_from_std,
 )
 
-from .utils import save_predictions_to_csv
+from .utils import retrieve_loss_fn, save_predictions_to_csv
 
 
 class BaseModel(LightningModule):
     """Deterministic Base Trainer as LightningModule."""
 
-    def __init__(
-        self,
-        config: Dict[str, Any],
-        model: nn.Module = None,
-        criterion: nn.Module = nn.MSELoss(),
-    ) -> None:
-        """Initialize a new Base Model."""
+    def __init__(self, config: Dict[str, Any], model_class: type[nn.Module]) -> None:
+        """Initialize a new Base Model.
+
+        Args:
+            config: configuration dict
+            model_class: Model Class that can be initialized with arguments from dict.
+        """
         super().__init__()
         self.config = config
-
-        if model is not None:
-            self.model = model
-        else:
-            self.model = timm.create_model(
-                config["model"]["model_name"],
-                pretrained=True,
-                in_chans=self.config["model"]["in_chans"],
-                num_classes=self.config["model"]["num_outputs"],
-            )
+        self.model_class = model_class
 
         self.train_metrics = MetricCollection(
             {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
@@ -58,8 +49,6 @@ class BaseModel(LightningModule):
             prefix="test_",
         )
 
-        self.criterion = criterion
-
         self.save_hyperparameters(
             ignore=[
                 "criterion",
@@ -69,6 +58,25 @@ class BaseModel(LightningModule):
                 "model",
             ]
         )
+
+        self._build_model()
+
+    def _build_model(self) -> None:
+        """Build the underlying model and loss function."""
+        # TODO this check should also handle timm arguments to not blow up the dict
+        if self.model_class is not None:
+            self.model = self.model_class(**self.config["model"]["model_args"])
+        elif type(self.model_class) == str:
+            self.model = timm.create_model(
+                self.config["model"]["model_name"],
+                pretrained=True,
+                in_chans=self.config["model"]["in_chans"],
+                num_classes=self.config["model"]["num_outputs"],
+            )
+        else:
+            raise ValueError("The specified model class is invalid.")
+
+        self.criterion = retrieve_loss_fn(self.config["model"]["loss_fn"])
 
     def forward(self, X: Tensor, **kwargs: Any) -> Any:
         """Forward pass of the model.
@@ -184,13 +192,16 @@ class EnsembleModel(LightningModule):
     """Base Class for different Ensemble Models."""
 
     def __init__(
-        self, config: Dict[str, Any], ensemble_members: List[nn.Module]
+        self,
+        config: Dict[str, Any],
+        ensemble_members: List[Dict[str, Union[type[LightningModule], str]]],
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
         Args:
             config: configuration dictionary
-            ensemble_members: instantiated ensemble members
+            ensemble_members: List of dicts where each element specifies the
+                LightningModule class and a path to a checkpoint
         """
         super().__init__()
         self.config = config

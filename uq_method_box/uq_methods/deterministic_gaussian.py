@@ -15,9 +15,11 @@ from .base import BaseModel
 class DeterministicGaussianModel(BaseModel):
     """Deterministic Gaussian Model that is trained with NLL."""
 
-    def __init__(self, config: Dict[str, Any], model: nn.Module = None) -> None:
+    def __init__(
+        self, config: Dict[str, Any], model_class: type[nn.Module] = None
+    ) -> None:
         """Initialize a new instace of Deterministic Gaussian Model."""
-        super().__init__(config, model, None)
+        super().__init__(config, model_class)
 
         self.criterion = NLL()
 

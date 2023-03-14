@@ -15,9 +15,11 @@ from .base import BaseModel
 class QuantileRegressionModel(BaseModel):
     """Quantile Regression Model Wrapper."""
 
-    def __init__(self, config: Dict[str, Any], model: nn.Module = None) -> None:
+    def __init__(
+        self, config: Dict[str, Any], model_class: type[nn.Module] = None
+    ) -> None:
         """Initialize a new instance of Quantile Regression Model."""
-        super().__init__(config, model, None)
+        super().__init__(config, model_class)
 
         self.quantiles = config["model"]["quantiles"]
         self.median_index = self.quantiles.index(0.5)

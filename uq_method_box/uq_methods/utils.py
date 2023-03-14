@@ -1,10 +1,34 @@
 """Utilities for UQ-Method Implementations."""
 
 from collections import defaultdict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+import torch.nn as nn
+
+from uq_method_box.train_utils import NLL, QuantileLoss
+
+
+def retrieve_loss_fn(
+    loss_fn_name: str, quantiles: Optional[List[float]] = None
+) -> nn.Module:
+    """Retrieve the desired loss function.
+
+    Args:
+        loss_fn_name: name of the loss function, one of ['mse', 'nll', 'quantile']
+
+    Returns
+        desired loss function module
+    """
+    if loss_fn_name == "mse":
+        return nn.MSELoss()
+    elif loss_fn_name == "nll":
+        return NLL()
+    elif loss_fn_name == "quantile":
+        return QuantileLoss(quantiles)
+    else:
+        raise ValueError("Your loss function choice is not supported.")
 
 
 def merge_list_of_dictionaries(list_of_dicts: List[Dict[str, Any]]):
