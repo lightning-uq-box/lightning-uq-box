@@ -9,6 +9,7 @@ import torch.nn as nn
 from torch.optim.optimizer import Optimizer, required
 from torch import Tensor
 from torch.utils.data import DataLoader
+from fractions import Fraction
 
 
 from uq_method_box.eval_utils import (
@@ -31,7 +32,7 @@ class SGLD(Optimizer):
     [1]: Welling, Max, and Yee W. Teh. 
     "Bayesian learning via stochastic gradient Langevin dynamics." 
     Proceedings of the 28th international conference on machine learning (ICML-11). 2011."""
-    def __init__(self, params, lr=required, noise_factor=1.0, weight_decay=float):
+    def __init__(self, params, lr=required, noise_factor=1.0, weight_decay=0.1, batch_size=256):
         if lr is not required and lr < 0.0:
             raise ValueError("Invalid learning rate: {}".format(lr))
         if weight_decay < 0.0:
@@ -39,14 +40,15 @@ class SGLD(Optimizer):
 
         defaults = dict(lr=lr, noise_factor=noise_factor, weight_decay=weight_decay)
         self.lr = lr
+        self.batch_size = batch_size
         super(SGLD, self).__init__(params, defaults)
 
     def step(self, closure=None):
         """Performs a single optimization step.
         Arguments:
             closure (callable, optional): A closure that reevaluates the model
-                and returns the loss.
-        """
+                and returns the loss."""
+        factor = 1/self.batch_size 
         loss = None
         if closure is not None:
             loss = closure()
@@ -63,10 +65,11 @@ class SGLD(Optimizer):
                     d_p.add_(weight_decay, p.data)
 
                 p.data.add_(-group['lr'], d_p)
-                p.data.add_(noise_factor * (2.0 * group['lr']) ** 0.5, torch.randn_like(d_p))
+                p.data.add_(noise_factor * (2.0 * group['lr']) ** 0.5, factor*torch.randn_like(d_p))
 
         return loss
     
+
 
 class SGLDModel(BaseModel):
     """SGLD method for regression."""
@@ -75,7 +78,7 @@ class SGLDModel(BaseModel):
         self,
         config: Dict[str, Any],
         model: nn.Module = None,
-        criterion: nn.Module =  NLL(),
+        criterion: nn.Module = nn.MSELoss(),
     ) -> None:
         
         super().__init__(config, model, criterion)
@@ -98,7 +101,7 @@ class SGLDModel(BaseModel):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers, with SGLD optimizer.
         """
         optimizer = SGLD(
-            self.model.parameters(), lr=self.config["optimizer"]["lr"], weight_decay=self.weight_decay
+            self.model.parameters(), lr=self.config["optimizer"]["lr"]
         )
         return {"optimizer": optimizer}
 
@@ -136,15 +139,13 @@ class SGLDModel(BaseModel):
         Returns:
             extracted mean used for metric computation [batch_size x 1]
         """
-        assert (
-            out.shape[-1] == 2
-        ), "This model should give exactly 2 outputs due to NLL loss estimation."
+        
         return out[:, 0:1]
     
     
    
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Dict[str, np.ndarray]:
         """Predict step with SGLD, take n_sgld_sampled models in list of models obtained after n_burnin_epochs and corresponding learning rates (initially constant), get mean and variance like for ensembles.
         Args: 
@@ -162,30 +163,46 @@ class SGLDModel(BaseModel):
         
 
         preds = (
-            torch.stack([self.model(batch) for self.model in self.models], dim=-1)
+            torch.stack([self.model(X) for self.model in self.models], dim=-1)
             .detach()
             .numpy()
         )  # shape [n_sgld_samples, batch_size, num_outputs]
         
         # Prediction gives two outputs, due to NLL loss
         mean_samples = preds[:, 0, :]
-        sigma_samples = preds[:, 1, :]
 
-        sgld_mean = mean_samples.mean(-1)
-        sgld_std = compute_predictive_uncertainty(mean_samples, sigma_samples)
-        sgld_aleatoric = compute_aleatoric_uncertainty(sigma_samples)
-        sgld_epistemic = compute_epistemic_uncertainty(mean_samples)
+        # assume prediction with sigma
+        if preds.shape[1] == 2:
+            sigma_samples = preds[:, 1, :]
+            sgld_mean = mean_samples.mean(-1)
+            sgld_std = compute_predictive_uncertainty(mean_samples, sigma_samples)
+            sgld_aleatoric = compute_aleatoric_uncertainty(sigma_samples)
+            sgld_epistemic = compute_epistemic_uncertainty(mean_samples)
+            sgld_quantiles = compute_quantiles_from_std(
+                sgld_mean, sgld_std, self.config["model"].get("quantiles", [0.1, 0.5, 0.9])
+            )
+            return {
+                "mean": sgld_mean,
+                "pred_uct": sgld_std,
+                "epistemic_uct": sgld_epistemic,
+                "aleatoric_uct": sgld_aleatoric,
+                "lower_quant": sgld_quantiles[:, 0],
+                "upper_quant": sgld_quantiles[:, -1],
+            }
+        # assume mse prediction
+        else:
+            sgld_mean = mean_samples.mean(-1)
+            sgld_std = mean_samples.std(-1)
+            sgld_quantiles = compute_quantiles_from_std(
+                sgld_mean, sgld_std, self.config["model"].get("quantiles", [0.1, 0.5, 0.9])
+            )
+            return {
+                "mean": sgld_mean,
+                "pred_uct": sgld_std,
+                "epistemic_uct": sgld_std,
+                "lower_quant": sgld_quantiles[:, 0],
+                "upper_quant": sgld_quantiles[:, -1],
+            }
 
-        #now compute quantiles, dimension is len(self.quantiles)
-
-        sgld_quantiles = compute_quantiles_from_std(sgld_mean, sgld_std, self.quantiles)
-
-        return {
-            "mean": sgld_mean,
-            "pred_uct": sgld_std,
-            "epistemic_uct": sgld_epistemic,
-            "aleatoric_uct": sgld_aleatoric,
-            "quantiles": sgld_quantiles
-        }
     
     

@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 import timm
 import torch
 import torch.nn as nn
+import numpy as np
 from pytorch_lightning import LightningModule
 from torch import Tensor
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
@@ -152,9 +153,19 @@ class BaseModel(LightningModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Test step is in most cases unique to the different methods."""
-        raise NotImplementedError
+    def test_step(self, *args: Any, **kwargs: Any) -> Dict[str, np.ndarray]:
+        """Test step with Laplace Approximation.
+
+        Args:
+            batch:
+
+        Returns:
+            dictionary of uncertainty outputs
+        """
+        X, y = args[0]
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        return out_dict
 
     def test_epoch_end(self, outputs: List[Any]) -> None:
         """Log epoch level validation metrics.
