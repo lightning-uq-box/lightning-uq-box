@@ -67,7 +67,7 @@ def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
     elif config["model"]["base_model"] == "laplace":
         return LaplaceModel(config, criterion=criterion, **kwargs)
 
-    elif config["model"]["base_model"] == "gaussian_nll":
+    elif config["model"]["base_model"] == "gaussian":
         return DeterministicGaussianModel(config, **kwargs)
     
     elif config["model"]["base_model"] == "sgld":
@@ -112,14 +112,14 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
     """Generate a pytorch lightning trainer."""
     loggers = [
         CSVLogger(config["experiment"]["save_dir"], name="csv_logs"),
-        WandbLogger(
-            save_dir=config["experiment"]["save_dir"],
-            project=config["wandb"]["project"],
-            entity=config["wandb"]["entity"],
-            resume="allow",
-            config=config,
-            mode=config["wandb"].get("mode", "online"),
-        ),
+        # WandbLogger(
+        #     save_dir=config["experiment"]["save_dir"],
+        #     project=config["wandb"]["project"],
+        #     entity=config["wandb"]["entity"],
+        #     resume="allow",
+        #     config=config,
+        #     mode=config["wandb"].get("mode", "online"),
+        # ),
     ]
 
     track_metric = "train_loss"

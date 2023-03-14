@@ -28,26 +28,25 @@ class DeepEnsembleModel(EnsembleModel):
         """
         super().__init__(config, ensemble_members)
 
-    def forward(self, *args: Any, **kwargs: Any) -> Tensor:
+    def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
         """Forward step of Deep Ensemble.
 
         Args:
-            batch:
+            X: input tensor of shape [batch_size, input_di]
 
         Returns:
             Ensemble member outputs stacked over last dimension for output
             of [batch_size, num_outputs, num_ensemble_members]
         """
-        X = args[0][0]
         return torch.stack([member(X) for member in self.ensemble_members], -1)
 
-    def generate_ensemble_predictions(self, batch: Any) -> Tensor:
+    def generate_ensemble_predictions(self, X: Tensor) -> Tensor:
         """Generate DeepEnsemble Predictions.
 
         Args:
-            batch:
+            X: input tensor of shape [batch_size, input_di]
 
         Returns:
             the ensemble predictions
         """
-        return self.forward(batch)  # [batch_size, num_outputs, num_ensemble_members]
+        return self.forward(X)  # [batch_size, num_outputs, num_ensemble_members]

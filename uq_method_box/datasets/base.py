@@ -5,6 +5,7 @@ from typing import Tuple
 
 import numpy as np
 import torch
+from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset
 from torchgeo.datasets.utils import download_and_extract_archive
 from torchvision.datasets.utils import download_url
@@ -19,7 +20,13 @@ class UCIRegressionDataset:
     dataset_name = "base"
     filename = "dataset_filename"
 
-    def __init__(self, root: str, train_size: float = 0.9, seed: int = 0) -> None:
+    def __init__(
+        self,
+        root: str,
+        train_size: float = 0.9,
+        seed: int = 0,
+        calibration_set: bool = False,
+    ) -> None:
         """Initiate a new instance of UCI Regression Dataset.
 
         Args:
@@ -31,6 +38,7 @@ class UCIRegressionDataset:
         super().__init__()
         self.root = root
         self.train_size = train_size
+        self.calibration_set = calibration_set
 
         self.url = self.uci_base_url + self.data_url
 
@@ -42,26 +50,47 @@ class UCIRegressionDataset:
         # load data
         X, y = self.load_data()
 
-        # split data into train and test
-        ind = np.arange(X.shape[0])
-        np.random.seed(self.BASE_SEED + seed)
-        np.random.shuffle(ind)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X,
+            y,
+            train_size=train_size,
+            random_state=self.BASE_SEED + seed,
+            shuffle=True,
+        )
 
-        n = int(X.shape[0] * self.train_size)
+        if calibration_set:
+            X_train, X_calib, y_train, y_calib = train_test_split(
+                X_train,
+                y_train,
+                train_size=train_size,
+                random_state=self.BASE_SEED + seed,
+                shuffle=True,
+            )
 
-        X_train = X[ind[:n]]
-        y_train = y[ind[:n]]
+        # # split data into train and test
+        # ind = np.arange(X.shape[0])
+        # np.random.shuffle(ind)
 
-        X_test = X[ind[n:]]
-        y_test = y[ind[n:]]
+        # n = int(X.shape[0] * self.train_size)
+
+        # X_train = X[ind[:n]]
+        # y_train = y[ind[:n]]
+
+        # # if
+
+        # X_test = X[ind[n:]]
+        # y_test = y[ind[n:]]
 
         # compute normalization statistics on train set
         self.compute_normalization_statistics(X_train, y_train)
 
-        # normalize data
-        self.X_train, self.y_train, self.X_test, self.y_test = self.preprocess(
-            X_train, y_train, X_test, y_test
-        )
+        # normalize data, make this separately for each split
+        self.X_train, self.y_train = self.preprocess(X_train, y_train)
+
+        if calibration_set:
+            self.X_calib, self.y_calib = self.preprocess(X_calib, y_calib)
+
+        self.X_test, self.y_test = self.preprocess(X_test, y_test)
 
         self.num_features = self.X_train.shape[-1]
 
@@ -79,6 +108,20 @@ class UCIRegressionDataset:
             torch.from_numpy(self.X_train).to(torch.float32),
             torch.from_numpy(self.y_train).to(torch.float32),
         )
+
+    def calibration_dataset(self) -> TensorDataset:
+        """Calibration dataset for conformal prediction experiments.
+
+        Returns:
+            TensorDataset from calibration data.
+        """
+        if self.calibration_set:
+            return TensorDataset(
+                torch.from_numpy(self.X_calib).to(torch.float32),
+                torch.from_numpy(self.y_calib).to(torch.float32),
+            )
+        else:
+            raise ValueError
 
     def test_dataset(self) -> TensorDataset:
         """Create the Testing Dataset.
@@ -103,31 +146,17 @@ class UCIRegressionDataset:
         self.X_mean, self.X_std = X_train.mean(axis=0), X_train.std(axis=0)
         self.y_mean, self.y_std = y_train.mean(axis=0), y_train.std(axis=0)
 
-    def preprocess(
-        self,
-        X_train: np.ndarray,
-        y_train: np.ndarray,
-        X_test: np.ndarray,
-        y_test: np.ndarray,
-    ) -> Tuple[np.ndarray]:
+    def preprocess(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray]:
         """Preprocess the training and testing data.
 
         Args:
-            X_train: training features of shape [N x num_features]
-            y_train: training targets of shape [N x 1]
-            X_test: testing features of shape [N* x num_features]
-            y_test: testing targets of shape [N* x 1]
+            X: feature matrix of shape [N x num_features]
+            y: targets of shape [N x 1]
 
         Returns:
             processed versions of data
         """
-        X_train = (X_train - self.X_mean) / self.X_std
-        y_train = (y_train - self.y_mean) / self.y_std
-
-        X_test = (X_test - self.X_mean) / self.X_std
-        y_test = (y_test - self.y_mean) / self.y_std
-
-        return X_train, y_train, X_test, y_test
+        return (X - self.X_mean) / self.X_std, (y - self.y_mean) / self.y_std
 
     def verify(self) -> None:
         """Verify presence of data."""

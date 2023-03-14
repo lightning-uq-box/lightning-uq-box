@@ -13,6 +13,7 @@ from experiments.setup_experiment import (
 from experiments.utils import create_experiment_dir, read_config, save_config
 from uq_method_box.datamodules import UCIRegressionDatamodule
 from uq_method_box.models import MLP
+from uq_method_box.uq_methods import CQR
 
 
 def run(config_path: str) -> None:
@@ -77,6 +78,7 @@ def run(config_path: str) -> None:
                 os.path.join(run_config["experiment"]["save_dir"], "run_config.yaml"),
             )
 
+        # new directory in seed directory where we save the prediction results
         prediction_config = copy.deepcopy(seed_config)
         pred_dir = os.path.join(
             prediction_config["experiment"]["save_dir"], "prediction"
@@ -95,17 +97,22 @@ def run(config_path: str) -> None:
             ensemble_members = []
             for ckpt_path in ensemble_ckpt_paths:
                 ensemble_members.append(
-                    generate_base_model(prediction_config, mlp).load_from_checkpoint(
-                        ckpt_path
-                    )
+                    generate_base_model(
+                        prediction_config, model=mlp
+                    ).load_from_checkpoint(ckpt_path)
                 )
 
             model = generate_ensemble_model(prediction_config, ensemble_members)
 
         # conformal prediction step if requested should happen here
-        if seed_config["model"].get("conformalize", False):
+        if seed_config["model"].get("conformalized", False):
             # wrap model in CQR
-            pass
+            model = CQR(
+                seed_config,
+                model,
+                seed_config["model"]["quantiles"],
+                dm.calibration_dataloader(),
+            )
 
         # generate trainer for test to save in prediction dir
         trainer = generate_trainer(prediction_config)
@@ -117,15 +124,14 @@ def run(config_path: str) -> None:
         trainer.test(model, dataloaders=dm.test_dataloader())
 
         # save run_config to sub directory for the seed experiment directory
-        save_config(
-            seed_config,
-            os.path.join(seed_config["experiment"]["save_dir"], "seed_config.yaml"),
-        )
+        save_config(seed_config, os.path.join(pred_dir, "seed_config.yaml"))
 
     # save the config to the upper experiment directory
     save_config(
         config,
-        os.path.join(run_config["experiment"]["save_dir"], "experiment_config.yaml"),
+        os.path.join(
+            experiment_config["experiment"]["save_dir"], "experiment_config.yaml"
+        ),
     )
 
     print("finished experiments for all seeds")

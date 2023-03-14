@@ -12,6 +12,7 @@ from uq_method_box.eval_utils import (
     compute_aleatoric_uncertainty,
     compute_epistemic_uncertainty,
     compute_predictive_uncertainty,
+    compute_quantiles_from_std,
 )
 
 from .base import BaseModel
@@ -46,25 +47,25 @@ class MCDropoutModel(BaseModel):
 
     def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Test Step."""
-        batch = args[0]
-        out_dict = self.predict_step(batch[0])
-        out_dict["targets"] = batch[1].detach().squeeze(-1).numpy()
+        X, y = args[0]
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
 
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Dict[str, np.ndarray]:
         """Predict steps via Monte Carlo Sampling.
 
         Args:
-            batch: prediction batch of shape [batch_size x input_dims]
+            X: prediction batch of shape [batch_size x input_dims]
 
         Returns:
             mean and standard deviation of MC predictions
         """
         self.model.train()  # activate dropout during prediction
         preds = (
-            torch.stack([self.model(batch) for _ in range(self.num_mc_samples)], dim=-1)
+            torch.stack([self.model(X) for _ in range(self.num_mc_samples)], dim=-1)
             .detach()
             .numpy()
         )  # shape [num_samples, batch_size, num_outputs]
@@ -78,14 +79,28 @@ class MCDropoutModel(BaseModel):
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)
             epistemic = compute_epistemic_uncertainty(mean_samples)
+            quantiles = compute_quantiles_from_std(
+                mean, std, self.config["model"].get("quantiles", [0.1, 0.5, 0.9])
+            )
             return {
                 "mean": mean,
                 "pred_uct": std,
                 "epistemic_uct": epistemic,
                 "aleatoric_uct": aleatoric,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
             }
         # assume mse prediction
         else:
             mean = mean_samples.mean(-1)
             std = mean_samples.std(-1)
-            return {"mean": mean, "pred_uct": std, "epistemic_uct": std}
+            quantiles = compute_quantiles_from_std(
+                mean, std, self.config["model"].get("quantiles", [0.1, 0.5, 0.9])
+            )
+            return {
+                "mean": mean,
+                "pred_uct": std,
+                "epistemic_uct": std,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
+            }

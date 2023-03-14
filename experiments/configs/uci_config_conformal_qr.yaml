@@ -6,15 +6,12 @@ wandb:
   entity: uq-regression
   mode: offline
 model:
-  base_model: gaussian
-  loss_fn: nll
-  ensemble: "deep_ensemble"
-  ensemble_members: 3
+  base_model: quantile_regression
   conformalized: True
-  quantiles: [0.1, 0.5, 0.9] # return approx quantiles in prediction
+  loss_fn: quantile
+  quantiles: [0.1, 0.5, 0.9]
   mlp: # all arguments for the mlp
-    n_outputs: 2
-    predict_sigma: True
+    n_outputs: 3
     n_hidden: [50]
 optimizer:
   lr: 0.003

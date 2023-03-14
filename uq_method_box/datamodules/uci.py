@@ -51,6 +51,7 @@ class UCIRegressionDatamodule(LightningDataModule):
         dataset_args = {
             arg: val for arg, val in config["ds"].items() if arg not in ["dataset_name"]
         }
+        dataset_args["calibration_set"] = config["model"].get("conformalized", False)
 
         return dataset_class[dataset_name](**dataset_args)
 
@@ -61,3 +62,9 @@ class UCIRegressionDatamodule(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         """Return a dataloader for the testing set."""
         return DataLoader(self.uci_ds.test_dataset(), **self.config["dataloader"])
+
+    def calibration_dataloader(self) -> DataLoader:
+        """Return a calibration dataloader for conformal prediction."""
+        return DataLoader(
+            self.uci_ds.calibration_dataset(), **self.config["dataloader"]
+        )

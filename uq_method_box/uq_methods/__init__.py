@@ -3,7 +3,7 @@
 from .base import BaseModel, EnsembleModel
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
-from .gaussian_nll import DeterministicGaussianModel
+from .deterministic_gaussian import DeterministicGaussianModel
 from .laplace_model import LaplaceModel
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
@@ -13,7 +13,7 @@ __all__ = (
     # base model
     "BaseModel",
     "EnsembleModel",
-    # Conformalized Quantile Regression
+    # conformalized Quantile Regression
     "CQR",
     # MC-Dropout
     "MCDropoutModel",
