@@ -125,12 +125,12 @@ information on using pull requests.
 
 From [Torchgeo](https://github.com/microsoft/torchgeo/blob/main/docs/user/contributing.rst)
 
-In order to remain `PEP-8 <https://peps.python.org/pep-0008/>`_ compliant and maintain a high-quality codebase, we use several linting tools:
+In order to remain [PEP-8](https://peps.python.org/pep-0008/) compliant and maintain a high-quality codebase, we use several linting tools:
 
-- `black <https://black.readthedocs.io/>`_ for code formatting
-- `isort <https://pycqa.github.io/isort/>`_ for import ordering
-- `flake8 <https://flake8.pycqa.org/>`_ for code formatting
-- `pydocstyle <https://www.pydocstyle.org/>`_ for docstrings
+- [black](https://black.readthedocs.io/) for code formatting
+- [isort](https://pycqa.github.io/isort/) for import ordering
+- [flake8](https://flake8.pycqa.org/) for code formatting
+- [pydocstyle](https://www.pydocstyle.org/) for docstrings
 
 All of these tools should be used from the root of the project to ensure that our configuration files are found. Black, and isort are relatively easy to use, and will automatically format your code for you:
 
@@ -146,7 +146,7 @@ Flake8 and pydocstyle won't format your code for you, but they will warn you abo
    $ pydocstyle
 ```
 
-You can also use `git pre-commit hooks <https://pre-commit.com/>`_ to automatically run these checks before each commit. pre-commit is a tool that automatically runs linters locally, so that you don't have to remember to run them manually and then have your code flagged by CI. You can setup pre-commit with:
+You can also use [git pre-commit hooks](https://pre-commit.com/) to automatically run these checks before each commit. pre-commit is a tool that automatically runs linters locally, so that you don't have to remember to run them manually and then have your code flagged by CI. You can setup pre-commit with:
 
 ```
    $ pip install pre-commit
@@ -154,5 +154,5 @@ You can also use `git pre-commit hooks <https://pre-commit.com/>`_ to automatica
    $ pre-commit run --all-files
 ```
 
-Now, every time you run ``git commit``, pre-commit will run and let you know if any of the files that you changed fail the linters. If pre-commit passes then your code should be ready (style-wise) for a pull request. Note that you will need to run ``pre-commit run --all-files`` if any of the hooks in ``.pre-commit-config.yaml`` change, see `here <https://pre-commit.com/#4-optional-run-against-all-the-files>`__.
+Now, every time you run ``git commit``, pre-commit will run and let you know if any of the files that you changed fail the linters. If pre-commit passes then your code should be ready (style-wise) for a pull request. Note that you will need to run ``pre-commit run --all-files`` if any of the hooks in ``.pre-commit-config.yaml`` change, see [here](https://pre-commit.com/#4-optional-run-against-all-the-files>).
 
