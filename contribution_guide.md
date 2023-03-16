@@ -156,3 +156,25 @@ You can also use [git pre-commit hooks](https://pre-commit.com/) to automaticall
 
 Now, every time you run ``git commit``, pre-commit will run and let you know if any of the files that you changed fail the linters. If pre-commit passes then your code should be ready (style-wise) for a pull request. Note that you will need to run ``pre-commit run --all-files`` if any of the hooks in ``.pre-commit-config.yaml`` change, see [here](https://pre-commit.com/#4-optional-run-against-all-the-files>).
 
+### Documentation
+We aim to provide extensive documentation. All the docstrings written inside the python files are generated into a readable documentation with the help of [Sphinx](https://www.sphinx-doc.org/en/master/) and [ReadTheDocs](https://readthedocs.org/). This means that all functions and classes should be clearly documented. We can extend the documentation by writing tutorials or additional information in the corresponding .rst file in the [api](docs/api/). In order, to preview the documentation locally you can do the following:
+
+
+Make sure the dependencies are installed inside your virtual environment:
+
+```
+   $ pip install .[docs]
+   $ cd docs
+   $ pip install -r requirements/requirements.txt
+```
+
+
+Then run the following commands:
+
+```
+   $ make clean
+   $ make html
+```
+
+The resulting HTML files can be found in ``_build/html``. Open ``index.html`` in your browser to navigate the project documentation. If you fix something, make sure to run ``make clean`` before running ``make html`` or Sphinx won't rebuild all of the documentation.
+
