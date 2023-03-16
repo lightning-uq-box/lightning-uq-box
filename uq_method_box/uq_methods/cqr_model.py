@@ -4,7 +4,7 @@ import os
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
-from pytorch_lightning import LightningModule
+from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
 
@@ -123,12 +123,14 @@ class CQR(LightningModule):
         out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
 
-    def test_epoch_end(self, outputs: Any) -> None:
-        """Log epoch level validation metrics.
-
-        Args:
-            outputs: list of items returned by test step, dictionaries
-        """
+    def on_test_batch_end(
+        self,
+        outputs: Dict[str, np.ndarray],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx=0,
+    ):
+        """Test batch end save predictions."""
         save_predictions_to_csv(
             outputs,
             os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),

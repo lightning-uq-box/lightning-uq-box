@@ -13,10 +13,7 @@ def collect_results(exp_collection_dir: str, save_path: str):
         exp_collection_dir: path pointing to root dir of experiments
         save_path: path where to save results
     """
-    path = os.path.join(
-        save_path,
-        "results.csv",
-    )
+    path = os.path.join(save_path, "results.csv")
     if not os.path.exists(os.path.dirname(path)):
         os.makedirs(os.path.dirname(path))
     compute_results_all_experiments(exp_collection_dir, path)
@@ -34,9 +31,7 @@ def start() -> None:
         "--exp_dir_path", help="Path to the root of experiments", required=True
     )
 
-    parser.add_argument(
-        "--save_path", help="Path where to save results", required=True
-    )
+    parser.add_argument("--save_path", help="Path where to save results", required=True)
 
     args = parser.parse_args()
 

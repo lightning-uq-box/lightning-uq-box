@@ -2,9 +2,9 @@
 
 from typing import Any, Dict, List, Union
 
-from pytorch_lightning import LightningDataModule, LightningModule, Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import CSVLogger
+from lightning import LightningDataModule, LightningModule, Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.loggers import CSVLogger
 
 from uq_method_box.uq_methods import (
     BaseModel,
@@ -109,5 +109,5 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
         **config["pl"],
         default_root_dir=config["experiment"]["save_dir"],
         callbacks=[checkpoint_callback],
-        logger=loggers
+        logger=loggers,
     )

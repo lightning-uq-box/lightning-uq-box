@@ -5,7 +5,7 @@
 from typing import Any, Dict, List, Union
 
 import torch
-from pytorch_lightning import LightningModule
+from lightning import LightningModule
 from torch import Tensor
 
 from uq_method_box.uq_methods import EnsembleModel
