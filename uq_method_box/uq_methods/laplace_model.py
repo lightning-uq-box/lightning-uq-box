@@ -1,7 +1,7 @@
 """Laplace Approximation model."""
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import torch
@@ -20,36 +20,43 @@ class LaplaceModel(LightningModule):
     """Laplace Approximation method for regression."""
 
     def __init__(
-        self, config: Dict[str, Any], model: LightningModule, train_loader: DataLoader
+        self,
+        model: LightningModule,
+        laplace_args: Dict[str, Union[float, str]],
+        train_loader: DataLoader,
+        save_dir: str,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
-            config: configuration dictionary
+            model: lightning module to use as underlying model
+            laplace_args: laplace arguments to initialize a Laplace Model
             train_loader: train loader to be used but maybe this can
                 also be accessed through the trainer or write a
                 train_dataloader() method for this model based on the config?
-            model: lightning module to use as underlying model
         """
         super().__init__()
-        self.config = config
+        self.save_hyperparameters(ignore=["model", "train_loader"])
         self.laplace_fitted = False
         self.train_loader = train_loader
 
         self.model = model
 
-        # get laplace args from dictionary
-        self.laplace_args = {
-            arg: val
-            for arg, val in self.config["model"]["laplace"].items()
-            if arg not in ["n_epochs_tune_precision", "tune_precision_lr"]
-        }
-        self.tune_precision_lr = self.config["model"]["laplace"].get(
+        self.tune_precision_lr = self.hparams.laplace_args.get(
             "tune_precision_lr", 1e-2
         )
-        self.n_epochs_tune_precision = self.config["model"]["laplace"].get(
+        self.n_epochs_tune_precision = self.hparams.laplace_args.get(
             "n_epochs_tune_precision", 100
         )
+        # get laplace args from dictionary
+        self.hparams.laplace_args = {
+            arg: val
+            for arg, val in self.hparams.laplace_args.items()
+            if arg not in ["n_epochs_tune_precision", "tune_precision_lr"]
+        }
+
+        self.quantiles = quantiles
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
@@ -75,7 +82,7 @@ class LaplaceModel(LightningModule):
             # but need it for laplace so set inference mode to false with cntx manager
             with torch.inference_mode(False):
                 self.la_model = Laplace(
-                    self.model.model, "regression", **self.laplace_args
+                    self.model.model, "regression", **self.hparams.laplace_args
                 )
                 # fit the laplace approximation
                 self.la_model.fit(self.train_loader)
@@ -102,20 +109,6 @@ class LaplaceModel(LightningModule):
 
         # save this laplace fitted model as a checkpoint?!
 
-    def test_step(self, *args: Any, **kwargs: Any) -> Dict[str, np.ndarray]:
-        """Test step with Laplace Approximation.
-
-        Args:
-            batch:
-
-        Returns:
-            dictionary of uncertainty outputs
-        """
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
-        return out_dict
-
     def on_test_batch_end(
         self,
         outputs: Dict[str, np.ndarray],
@@ -125,8 +118,7 @@ class LaplaceModel(LightningModule):
     ):
         """Test batch end save predictions."""
         save_predictions_to_csv(
-            outputs,
-            os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),
+            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
         )
 
     def predict_step(
@@ -160,9 +152,7 @@ class LaplaceModel(LightningModule):
                 laplace_epistemic**2 + laplace_aleatoric**2
             )
             quantiles = compute_quantiles_from_std(
-                laplace_mean,
-                laplace_predictive,
-                self.config["model"].get("quantiles", [0.1, 0.5, 0.9]),
+                laplace_mean, laplace_predictive, self.quantiles
             )
 
         return {

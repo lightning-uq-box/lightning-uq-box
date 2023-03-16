@@ -93,7 +93,10 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
     def val_dataloader(self) -> DataLoader:
         """Return val dataloader."""
-        pass
+        # TODO Validation data
+        return DataLoader(
+            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size
+        )
 
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""

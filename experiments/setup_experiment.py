@@ -2,6 +2,7 @@
 
 from typing import Any, Dict, List, Union
 
+import torch.nn as nn
 from lightning import LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger
@@ -10,13 +11,14 @@ from uq_method_box.uq_methods import (
     BaseModel,
     DeepEnsembleModel,
     DeterministicGaussianModel,
-    LaplaceModel,
     MCDropoutModel,
     QuantileRegressionModel,
 )
 
 
-def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
+def generate_base_model(
+    config: Dict[str, Any], model_class: type[nn.Module]
+) -> LightningModule:
     """Generate a configured base model.
 
     Args:
@@ -30,19 +32,41 @@ def generate_base_model(config: Dict[str, Any], **kwargs) -> LightningModule:
         configured pytorch lightning module
     """
     if config["model"]["base_model"] == "base_model":
-        return BaseModel(config, **kwargs)
+        return BaseModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            lr=config["optimizer"]["lr"],
+            loss_fn=config["model"]["loss_fn"],
+            save_dir=config["experiment"]["save_dir"],
+        )
 
     elif config["model"]["base_model"] == "mc_dropout":
-        return MCDropoutModel(config, **kwargs)
+        return MCDropoutModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            num_mc_samples=config["model"]["num_mc_samples"],
+            lr=config["optimizer"]["lr"],
+            loss_fn=config["model"]["loss_fn"],
+            save_dir=config["experiment"]["save_dir"],
+        )
 
     elif config["model"]["base_model"] == "quantile_regression":
-        return QuantileRegressionModel(config, **kwargs)
-
-    elif config["model"]["base_model"] == "laplace":
-        return LaplaceModel(config, **kwargs)
+        return QuantileRegressionModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            lr=config["optimizer"]["lr"],
+            save_dir=config["experiment"]["save_dir"],
+            quantiles=config["model"]["quantiles"],
+        )
 
     elif config["model"]["base_model"] == "gaussian":
-        return DeterministicGaussianModel(config, **kwargs)
+        return DeterministicGaussianModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            lr=config["optimizer"]["lr"],
+            loss_fn=config["model"]["loss_fn"],
+            save_dir=config["experiment"]["save_dir"],
+        )
 
     else:
         raise ValueError("Your base_model choice is currently not supported.")
@@ -62,7 +86,11 @@ def generate_ensemble_model(
         configureed ensemble lightning module
     """
     if config["model"]["ensemble"] == "deep_ensemble":
-        return DeepEnsembleModel(config, ensemble_members)
+        return DeepEnsembleModel(
+            ensemble_members,
+            config["experiment"]["save_dir"],
+            config["model"]["quantiles"],
+        )
 
     else:
         raise ValueError("Your ensemble choice is currently not supported.")

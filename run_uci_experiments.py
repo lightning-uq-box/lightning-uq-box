@@ -79,7 +79,12 @@ def run(config_path: str) -> None:
         if "laplace" in run_config["model"]:
             # laplace requires train data loader post fit, maybe there is also
             # a more elegant way to solve this
-            model = LaplaceModel(prediction_config, model, dm.train_dataloader())
+            model = LaplaceModel(
+                model,
+                prediction_config["model"]["laplace_args"],
+                dm.train_dataloader(),
+                prediction_config["experiment"]["save_dir"],
+            )
 
         # if we want to build an ensemble
         if seed_config["model"].get("ensemble_members", 1) >= 2:
@@ -101,17 +106,17 @@ def run(config_path: str) -> None:
         if seed_config["model"].get("conformalized", False):
             # wrap model in CQR
             model = CQR(
-                seed_config,
                 model,
                 seed_config["model"]["quantiles"],
                 dm.calibration_dataloader(),
+                seed_config["experiment"]["save_dir"],
             )
 
         # generate trainer for test to save in prediction dir
         trainer = generate_trainer(prediction_config)
 
         # and update save dir in model config to save it separately
-        model.config["experiment"]["save_dir"] = pred_dir
+        model.hparams.save_dir = pred_dir
 
         # make predictions on test set, check that it still takes the best model?
         trainer.test(model, dataloaders=dm.test_dataloader())
