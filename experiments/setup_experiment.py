@@ -109,5 +109,5 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
         **config["pl"],
         default_root_dir=config["experiment"]["save_dir"],
         callbacks=[checkpoint_callback],
-        logger=loggers
+        logger=loggers,
     )
