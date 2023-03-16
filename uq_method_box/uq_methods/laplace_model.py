@@ -43,16 +43,20 @@ class LaplaceModel(LightningModule):
 
         self.model = model
 
-        # get laplace args from dictionary
-        self.tune_precision_args = {
-            arg: val
-            for arg, val in self.hparams.laplace_args
-            if arg not in ["n_epochs_tune_precision", "tune_precision_lr"]
-        }
-        self.tune_precision_lr = self.tune_precision_args.get("tune_precision_lr", 1e-2)
-        self.n_epochs_tune_precision = self.tune_precision_args.get(
+        self.tune_precision_lr = self.hparams.laplace_args.get(
+            "tune_precision_lr", 1e-2
+        )
+        self.n_epochs_tune_precision = self.hparams.laplace_args.get(
             "n_epochs_tune_precision", 100
         )
+        # get laplace args from dictionary
+        self.hparams.laplace_args = {
+            arg: val
+            for arg, val in self.hparams.laplace_args.items()
+            if arg not in ["n_epochs_tune_precision", "tune_precision_lr"]
+        }
+
+        self.quantiles = quantiles
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
