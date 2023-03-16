@@ -25,6 +25,6 @@ __all__ = (
     "DeepEnsembleModel",
     # Deterministic Gaussin Model
     "DeterministicGaussianModel",
-    #SGLD Model.
-    "SGLDModel"
+    # SGLD Model.
+    "SGLDModel",
 )
