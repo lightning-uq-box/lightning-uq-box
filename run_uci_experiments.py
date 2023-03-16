@@ -13,7 +13,7 @@ from experiments.setup_experiment import (
 from experiments.utils import create_experiment_dir, read_config, save_config
 from uq_method_box.datamodules import UCIRegressionDatamodule
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import CQR, LaplaceModel
+from uq_method_box.uq_methods import CQR, LaplaceModel, SWAGModel
 
 
 def run(config_path: str) -> None:
@@ -76,12 +76,23 @@ def run(config_path: str) -> None:
         os.makedirs(pred_dir)
 
         # Laplace Model Wrapper
-        if "laplace" in run_config["model"]:
+        if "laplace_args" in run_config["model"]:
             # laplace requires train data loader post fit, maybe there is also
             # a more elegant way to solve this
             model = LaplaceModel(
                 model,
                 prediction_config["model"]["laplace_args"],
+                dm.train_dataloader(),
+                prediction_config["experiment"]["save_dir"],
+            )
+
+        # SWAG Model Wrapper
+        if "swag_args" in run_config["model"]:
+            # swag requires train data loader post fit, maybe also more elegant way
+            # to solve this
+            model = SWAGModel(
+                model,
+                prediction_config["model"]["swag_args"],
                 dm.train_dataloader(),
                 prediction_config["experiment"]["save_dir"],
             )

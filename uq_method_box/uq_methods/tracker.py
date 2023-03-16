@@ -1,12 +1,11 @@
 """Implementation for Checkpoint Tracking.
 
-These are heavily inspired by https://github.com/GSK-AI/afterglow, however, 
+These are heavily inspired by https://github.com/GSK-AI/afterglow, however,
 the ideas are adopted to be integrated within lightning.
 """
 
 import math
 from collections import OrderedDict
-from copy import deepcopy
 from pathlib import Path
 from typing import Dict, Optional, Union
 
