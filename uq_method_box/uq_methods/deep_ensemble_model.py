@@ -20,20 +20,20 @@ class DeepEnsembleModel(EnsembleModel):
 
     def __init__(
         self,
-        config: Dict[str, Any],
         ensemble_members: List[Dict[str, Union[type[LightningModule], str]]],
+        save_dir: str,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
         Args:
-            config: configuration dictionary
             ensemble_members: List of dicts where each element specifies the
                 LightningModule class and a path to a checkpoint
 
         Checkpoint files should be pytorch model checkpoints and
         not lightning checkpoints.
         """
-        super().__init__(config, ensemble_members)
+        super().__init__(ensemble_members, save_dir, quantiles)
 
     def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
         """Forward step of Deep Ensemble.
@@ -46,7 +46,7 @@ class DeepEnsembleModel(EnsembleModel):
             of [batch_size, num_outputs, num_ensemble_members]
         """
         out: List[torch.Tensor] = []
-        for model_config in self.ensemble_members:
+        for model_config in self.hparams.ensemble_members:
             loaded_model = model_config["model_class"].load_from_checkpoint(
                 model_config["ckpt_path"]
             )

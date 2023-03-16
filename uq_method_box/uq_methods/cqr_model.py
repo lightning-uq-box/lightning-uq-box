@@ -59,31 +59,32 @@ class CQR(LightningModule):
 
     def __init__(
         self,
-        config: Dict[str, Any],
         model: LightningModule,
         quantiles: List[float],
         calibration_loader: DataLoader,
+        save_dir: str,
     ) -> None:
         """Initialize a new Base Model.
 
         Args:
-            config: configuration dict
             model: initialized underlying LightningModule which is the base model
                 to conformalize
             quantiles: quantiles used for training and prediction
             calibration_loader: calibration data loader
+            save_dir: path to directory where to save predictions
         """
         super().__init__()
+        self.save_hyperparameters(ignore=["model", "calibration_loader"])
 
-        self.quantiles = quantiles
-        self.error_rate = 1 - max(self.quantiles)  # 1-alpha is the desired coverage
+        self.error_rate = 1 - max(
+            self.hparams.quantiles
+        )  # 1-alpha is the desired coverage
 
         # load model from checkpoint to conformalize it
         self.score_model = model
 
         self.cqr_fitted = False
         self.calibration_loader = calibration_loader
-        self.config = config
 
     def on_test_start(self) -> None:
         """Before testing phase, compute q_hat."""
@@ -95,7 +96,6 @@ class CQR(LightningModule):
             self.q_hat = compute_q_hat_with_cqr(
                 cal_quantiles, cal_labels, self.error_rate
             )
-            print(self.q_hat)
             self.cqr_fitted = True
 
     def compute_calibration_scores(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -132,8 +132,7 @@ class CQR(LightningModule):
     ):
         """Test batch end save predictions."""
         save_predictions_to_csv(
-            outputs,
-            os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),
+            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
         )
 
     def predict_step(
@@ -158,7 +157,9 @@ class CQR(LightningModule):
             axis=1,
         )
 
-        mean, std = compute_sample_mean_std_from_quantile(cqr_sets, self.quantiles)
+        mean, std = compute_sample_mean_std_from_quantile(
+            cqr_sets, self.hparams.quantiles
+        )
 
         # can happen due to overlapping quantiles
         std[std <= 0] = 1e-6

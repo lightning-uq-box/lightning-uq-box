@@ -1,6 +1,6 @@
 """Implement Quantile Regression Model."""
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import torch.nn as nn
@@ -16,14 +16,18 @@ class QuantileRegressionModel(BaseModel):
     """Quantile Regression Model Wrapper."""
 
     def __init__(
-        self, config: Dict[str, Any], model_class: type[nn.Module] = None
+        self,
+        model_class: Union[type[nn.Module], str],
+        model_args: Dict[str, Any],
+        lr: float,
+        save_dir: str,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Quantile Regression Model."""
-        super().__init__(config, model_class)
+        super().__init__(model_class, model_args, lr, "quantile", save_dir)
 
-        self.quantiles = config["model"]["quantiles"]
-        self.median_index = self.quantiles.index(0.5)
-        self.criterion = QuantileLoss(quantiles=self.quantiles)
+        self.median_index = self.hparams.quantiles.index(0.5)
+        self.criterion = QuantileLoss(quantiles=self.hparams.quantiles)
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean/median prediction from quantile regression model.
@@ -35,17 +39,6 @@ class QuantileRegressionModel(BaseModel):
             extracted mean used for metric computation [batch_size x 1]
         """
         return out[:, self.median_index : self.median_index + 1]  # noqa: E203
-
-    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Compute the test step.
-
-        Args:
-            batch: the output of your DataLoader
-        """
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
-        return out_dict
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -60,7 +53,7 @@ class QuantileRegressionModel(BaseModel):
         """
         out = self.model(X).detach().numpy()  # [batch_size, len(self.quantiles)]
         median = out[:, self.median_index]
-        mean, std = compute_sample_mean_std_from_quantile(out, self.quantiles)
+        mean, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
 
         # can happen due to overlapping quantiles
         std[std <= 0] = 1e-6
