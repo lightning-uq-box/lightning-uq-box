@@ -1,0 +1,10 @@
+[tool.black]
+target-version = ["py38", "py39", "py310"]
+color = true
+skip_magic_trailing_comma = true
+line-length = 88 
+
+[tool.isort]
+profile = "black"
+skip_gitignore = true
+color_output = true

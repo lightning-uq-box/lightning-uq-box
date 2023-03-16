@@ -1,5 +1,6 @@
 """Utilities for UQ-Method Implementations."""
 
+import os
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
@@ -42,18 +43,21 @@ def merge_list_of_dictionaries(list_of_dicts: List[Dict[str, Any]]):
     return merged_dict
 
 
-def save_predictions_to_csv(outputs: List[Dict[str, np.ndarray]], path: str) -> None:
+def save_predictions_to_csv(outputs: Dict[str, np.ndarray], path: str) -> None:
     """Save model predictions to csv file.
 
     Args:
-        outputs: a NxO array where N is the number of predictions and
-            O the number of variables to be stored
+        outputs: metrics and values to be saved
         path: path where csv should be saved
     """
     # concatenate the predictions into a single dictionary
-    save_pred_dict = merge_list_of_dictionaries(outputs)
+    # save_pred_dict = merge_list_of_dictionaries(outputs)
 
     # save the outputs, i.e. write them to file
-    df = pd.DataFrame.from_dict(save_pred_dict)
+    df = pd.DataFrame.from_dict(outputs)
 
-    df.to_csv(path, index=False)
+    # check if path already exists, then just append
+    if os.path.exists(path):
+        df.to_csv(path, mode="a", index=False, header=False)
+    else:  # create new csv
+        df.to_csv(path, index=False)
