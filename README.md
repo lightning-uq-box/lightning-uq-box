@@ -13,9 +13,5 @@ We aim to provide an extensive documentation on all included UQ-methods to clear
 ## Experiments
 The experiments conducted for our paper "Title here." are contained in the [experiments](experiments/) directory. To reproduce the results in our paper follow these instructions.
 
-### Tests
-We will have to write unit tests to make sure our code runs as expected. This is good practice to check our own working and a necessity before open-sourcing the repo. Tests should follow the exact directory structure of the `uq_method_box` directory for each individual python file with the name `test_[filename].py`.
-
-
 ## Citation
 If you use this software in your work, please cite...
