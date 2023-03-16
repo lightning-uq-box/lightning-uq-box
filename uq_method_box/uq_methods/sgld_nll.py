@@ -1,7 +1,7 @@
 """Stochastic Gradient Langevin Dynamics (SGLD) model."""
 
 import copy
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import torch
@@ -87,18 +87,21 @@ class SGLDModel(BaseModel):
 
     def __init__(
         self,
-        config: Dict[str, Any],
-        model: nn.Module = None,
-        criterion: nn.Module = nn.MSELoss(),
+        model_class: Union[type[nn.Module], str],
+        model_args: Dict[str, Any],
+        lr: float,
+        loss_fn: str,
+        save_dir: str,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of SGLD model."""
-        super().__init__(config, model, criterion)
+        super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
         self.n_burnin_epochs = self.config["model"]["n_burnin_epochs"]
         self.n_sgld_samples = self.config["model"]["n_sgld_samples"]
         self.max_epochs = self.config["pl"]["max_epochs"]
         self.models: List[nn.Module] = []
-        self.quantiles = self.config["model"]["quantiles"]
+        self.quantiles = quantiles
         self.weight_decay = self.config["model"]["weight_decay"]
 
         assert (
