@@ -7,10 +7,10 @@ wandb:
   mode: offline
 model:
   base_model: mc_dropout
-  mc_samples: 10
+  num_mc_samples: 10
   loss_fn: nll
   quantiles: [0.1, 0.5, 0.9] # return approx quantiles in prediction
-  mlp: # all arguments for the mlp
+  model_args: # all arguments for the mlp
     n_outputs: 2
     predict_sigma: True
     n_hidden: [50]

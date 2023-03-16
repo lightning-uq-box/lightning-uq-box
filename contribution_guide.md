@@ -121,3 +121,62 @@ All updates to the code base should go through a review process. We use GitHub P
 [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more
 information on using pull requests.
 
+## Linters
+
+From [Torchgeo](https://github.com/microsoft/torchgeo/blob/main/docs/user/contributing.rst)
+
+In order to remain [PEP-8](https://peps.python.org/pep-0008/) compliant and maintain a high-quality codebase, we use several linting tools:
+
+- [black](https://black.readthedocs.io/) for code formatting
+- [isort](https://pycqa.github.io/isort/) for import ordering
+- [flake8](https://flake8.pycqa.org/) for code formatting
+- [pydocstyle](https://www.pydocstyle.org/) for docstrings
+
+All of these tools should be used from the root of the project to ensure that our configuration files are found. Black, and isort are relatively easy to use, and will automatically format your code for you:
+
+```
+   $ black .
+   $ isort .
+```
+
+Flake8 and pydocstyle won't format your code for you, but they will warn you about potential issues with your code or docstrings:
+
+```
+   $ flake8
+   $ pydocstyle
+```
+
+You can also use [git pre-commit hooks](https://pre-commit.com/) to automatically run these checks before each commit. pre-commit is a tool that automatically runs linters locally, so that you don't have to remember to run them manually and then have your code flagged by CI. You can setup pre-commit with:
+
+```
+   $ pip install pre-commit
+   $ pre-commit install
+   $ pre-commit run --all-files
+```
+
+Now, every time you run ``git commit``, pre-commit will run and let you know if any of the files that you changed fail the linters. If pre-commit passes then your code should be ready (style-wise) for a pull request. Note that you will need to run ``pre-commit run --all-files`` if any of the hooks in ``.pre-commit-config.yaml`` change, see [here](https://pre-commit.com/#4-optional-run-against-all-the-files>).
+
+### Tests
+We will have to write unit tests to make sure our code runs as expected. This is good practice to check our own working and a necessity before open-sourcing the repo. Tests should follow the exact directory structure of the `uq_method_box` directory for each individual python file with the name `test_[filename].py`.
+
+### Documentation
+We aim to provide extensive documentation. All the docstrings written inside the python files are generated into a readable documentation with the help of [Sphinx](https://www.sphinx-doc.org/en/master/) and [ReadTheDocs](https://readthedocs.org/). This means that all functions and classes should be clearly documented. We can extend the documentation by writing tutorials or additional information in the corresponding .rst file in the [api](docs/api/). In order, to preview the documentation locally you can do the following:
+
+
+Make sure the dependencies are installed inside your virtual environment:
+
+```
+   $ pip install .[docs]
+   $ cd docs
+   $ pip install -r requirements/requirements.txt
+```
+
+
+Then run the following commands:
+
+```
+   $ make clean
+   $ make html
+```
+
+The resulting HTML files can be found in ``_build/html``. Open ``index.html`` in your browser to navigate the project documentation. If you fix something, make sure to run ``make clean`` before running ``make html`` or Sphinx won't rebuild all of the documentation.

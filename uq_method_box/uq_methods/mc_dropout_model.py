@@ -1,7 +1,7 @@
 """Mc-Dropout module."""
 
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import torch
@@ -23,14 +23,25 @@ class MCDropoutModel(BaseModel):
 
     def __init__(
         self,
-        config: Dict[str, Any],
-        model: nn.Module = None,
-        criterion: nn.Module = nn.MSELoss(),
+        model_class: Union[type[nn.Module], str],
+        model_args: Dict[str, Any],
+        num_mc_samples: int,
+        lr: float,
+        loss_fn: str,
+        save_dir: str,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new instance of MCDropoutModel."""
-        super().__init__(config, model, criterion)
+        """Initialize a new instance of MCDropoutModel.
 
-        self.num_mc_samples = self.config["model"]["mc_samples"]
+        Args:
+            model_class:
+            model_args:
+            num_mc_samples: number of MC samples during prediction
+        """
+        super().__init__(model_class, model_args, lr, loss_fn, save_dir)
+
+        self.quantiles = quantiles
+        self.num_mc_samples = num_mc_samples
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
@@ -49,7 +60,7 @@ class MCDropoutModel(BaseModel):
         """Test Step."""
         X, y = args[0]
         out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        out_dict["targets"] = y.detach().squeeze(-1).cpu().numpy()
         return out_dict
 
     def predict_step(
@@ -79,9 +90,7 @@ class MCDropoutModel(BaseModel):
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)
             epistemic = compute_epistemic_uncertainty(mean_samples)
-            quantiles = compute_quantiles_from_std(
-                mean, std, self.config["model"].get("quantiles", [0.1, 0.5, 0.9])
-            )
+            quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
             return {
                 "mean": mean,
                 "pred_uct": std,
@@ -94,9 +103,7 @@ class MCDropoutModel(BaseModel):
         else:
             mean = mean_samples.mean(-1)
             std = mean_samples.std(-1)
-            quantiles = compute_quantiles_from_std(
-                mean, std, self.config["model"].get("quantiles", [0.1, 0.5, 0.9])
-            )
+            quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
             return {
                 "mean": mean,
                 "pred_uct": std,
