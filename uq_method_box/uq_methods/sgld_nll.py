@@ -92,18 +92,22 @@ class SGLDModel(BaseModel):
         lr: float,
         loss_fn: str,
         save_dir: str,
+        max_epochs: int,
+        weight_decay: float,
+        n_burnin_epochs: int,
+        n_sgld_samples: int,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of SGLD model."""
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
-        self.n_burnin_epochs = self.model_args.get("n_burnin_epochs")
-        self.n_sgld_samples = self.model_args.get("n_sgld_samples")
-        self.max_epochs = self.model_args.get("max_epochs")
+        self.n_burnin_epochs = n_burnin_epochs
+        self.n_sgld_samples = n_sgld_samples
+        self.max_epochs = max_epochs
         self.models: List[nn.Module] = []
         self.quantiles = quantiles
-        self.weight_decay = self.model_args.get("weight_decay")
-        self.lr = self.model_args.get("lr")
+        self.weight_decay = weight_decay
+        self.lr = lr
 
         assert (
             self.n_sgld_samples + self.n_burnin_epochs == self.max_epochs
