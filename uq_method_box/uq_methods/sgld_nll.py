@@ -87,7 +87,7 @@ class SGLDModel(BaseModel):
 
     def __init__(
         self,
-        model_class: Union[type[nn.Module], str],
+        model_class: Union[List[nn.Module], str],
         model_args: Dict[str, Any],
         lr: float,
         loss_fn: str,

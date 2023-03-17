@@ -199,7 +199,7 @@ class EnsembleModel(LightningModule):
 
     def __init__(
         self,
-        ensemble_members: List[Dict[str, Union[type[LightningModule], str]]],
+        ensemble_members,  # List[Dict[str, Union[type[LightningModule], str]]],
         save_dir: str,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
