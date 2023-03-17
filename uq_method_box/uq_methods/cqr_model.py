@@ -4,6 +4,7 @@ import os
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
+import torch
 from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
@@ -148,7 +149,9 @@ class CQR(LightningModule):
         """
         if not self.cqr_fitted:
             self.on_test_start()
-        model_preds: Dict[str, np.ndarray] = self.score_model.predict_step(X)
+
+        with torch.no_grad():
+            model_preds: Dict[str, np.ndarray] = self.score_model.predict_step(X)
         cqr_sets = np.stack(
             [
                 model_preds["lower_quant"] - self.q_hat,

@@ -165,7 +165,8 @@ class BaseModel(LightningModule):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        out = self.forward(X)
+        with torch.no_grad():
+            out = self.forward(X)
         return {
             "mean": self.extract_mean_output(out).squeeze(-1).detach().cpu().numpy()
         }
@@ -274,7 +275,8 @@ class EnsembleModel(LightningModule):
         Returns:
             mean and standard deviation of MC predictions
         """
-        preds = self.generate_ensemble_predictions(X)
+        with torch.no_grad():
+            preds = self.generate_ensemble_predictions(X)
 
         mean_samples = preds[:, 0, :].detach().cpu().numpy()
 
