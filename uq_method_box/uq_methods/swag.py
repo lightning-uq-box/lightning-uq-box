@@ -1,4 +1,7 @@
-"""Stochastic Weight Averaging - Gaussian."""
+"""Stochastic Weight Averaging - Gaussian.
+
+Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/trackers.py # noqa: E501
+"""
 
 import math
 import os
@@ -24,10 +27,6 @@ from uq_method_box.eval_utils import (
 
 from .utils import retrieve_loss_fn, save_predictions_to_csv
 
-# make a single lightning module for SWAG
-# with a single predict step
-# swag model like CRQ and Laplace as post-fitting method?
-
 
 class SWAGModel(LightningModule):
     """Stochastic Weight Averaging - Gaussian (SWAG)."""
@@ -37,12 +36,13 @@ class SWAGModel(LightningModule):
         model: LightningModule,
         num_swag_epochs: int,
         max_swag_snapshots: int,
+        snapshot_freq: int,
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: str,
         train_loader: DataLoader,
         save_dir: str,
-        num_datapoints_for_bn_update: Optional[int] = 10,
+        num_datapoints_for_bn_update: Optional[int] = None,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
@@ -55,25 +55,35 @@ class SWAGModel(LightningModule):
                 train_dataloader() method for this model based on the config?
         """
         super().__init__()
+
         self.save_hyperparameters(ignore=["model", "train_loader"])
-        self.swag_fitted = False
+
         self.train_loader = train_loader
         self.model = model  # lightning model
-
         self.module = model.model  # nn.Module
 
-        self.num_mc_samples = num_mc_samples
-        self.swag_lr = swag_lr
         self.num_swag_epochs = num_swag_epochs
         self.max_swag_snapshots = max_swag_snapshots
-        self.criterion = retrieve_loss_fn(self.loss_fn)
-        self.num_datapoints_for_bn_update = num_datapoints_for_bn_update
+        self.snapshot_freq = snapshot_freq
+        self.num_mc_samples = num_mc_samples
+        self.swag_lr = swag_lr
+        self.criterion = retrieve_loss_fn(loss_fn)
         self.save_dir = save_dir
+        self.num_datapoints_for_bn_update = num_datapoints_for_bn_update
         self.quantiles = quantiles
+
+        self.swag_fitted = False
+        self.current_iteration = 0
         self.num_tracked = 0
+
         self._create_swag_buffers(self.module)
 
-    def _create_swag_buffers(self, instance: nn.Module):
+    def _create_swag_buffers(self, instance: nn.Module) -> None:
+        """Create swawg buffers for an underlying module.
+
+        Args:
+            instance: underlying model instance for which to create buffers
+        """
         for name, parameter in instance.named_parameters():
             name = name.replace(".", "_")
             instance.register_buffer(f"{name}_mean", deepcopy(parameter))
@@ -88,7 +98,13 @@ class SWAGModel(LightningModule):
             )
         instance.register_buffer("num_snapshots_tracked", torch.tensor(0, dtype=int))
 
-    def _get_buffer_for_param(self, param_name, buffer_name):
+    def _get_buffer_for_param(self, param_name: str, buffer_name: str):
+        """Get buffer for parameter name.
+
+        Args:
+            param_name: parameter name
+            buffer_name: buffer_name
+        """
         safe_name = param_name.replace(".", "_")
         return getattr(self.module, f"{safe_name}_{buffer_name}")
 
@@ -96,7 +112,15 @@ class SWAGModel(LightningModule):
         safe_name = param_name.replace(".", "_")
         setattr(self.module, f"{safe_name}_{buffer_name}", value)
 
-    def _update_tracked_state_dict(self, state_dict: Dict[str, nn.Parameter]):
+    def _update_tracked_state_dict(self, state_dict: Dict[str, nn.Parameter]) -> None:
+        """Update tracked state_dict.
+
+        Args:
+            state_dict: model state_dict
+
+        Returns:
+            state_dict
+        """
         # PyTorch uses OrderedDicts for state_dict because they can have
         # attributes. It gives state_dict a _metadata attribute which can
         # affect how the state_dict is loaded. We have to copy this here.
@@ -105,7 +129,8 @@ class SWAGModel(LightningModule):
 
         self.module.load_state_dict(full_state_dict)
 
-    def _untracked_state_dict(self):
+    def _untracked_state_dict(self) -> Dict[str, nn.Parameter]:
+        """Return filtered untracked state dict."""
         filtered_state_dict = {}
         tracked_keys = {name for name, _ in self.module.named_parameters()}
         for k, v in self.module.state_dict().items():
@@ -114,6 +139,7 @@ class SWAGModel(LightningModule):
         return filtered_state_dict
 
     def _sample_state_dict(self) -> dict:
+        """Sample the underlying model state dict."""
         if self.num_tracked == 0:
             raise RuntimeError(
                 "Attempted to sample weights using a tracker that has "
@@ -184,16 +210,14 @@ class SWAGModel(LightningModule):
         self.num_tracked += 1
 
     def sample_state(self):
-        """Update the state of the tracker's :code:`module` with a sample from
-        the estimated distribution over parameters.
-        """
+        """Update the state with a sample."""
         sampled_state_dict = self._sample_state_dict()
         self._update_tracked_state_dict(sampled_state_dict)
-        if self.train_dataloader is not None:
+        if self.train_loader is not None:
             # tracking_was_enabled = self.module.trajectory_tracking_enabled
             # self.module.trajectory_tracking_enabled = False
             update_bn(
-                self.train_dataloader,
+                self.train_loader,
                 self.module,
                 device=self.device,
                 num_datapoints=self.num_datapoints_for_bn_update,
@@ -207,15 +231,16 @@ class SWAGModel(LightningModule):
                 self.module.model.parameters(), lr=self.swag_lr
             )
 
-            # also lightning automatically disables gradient computation during test
+            # lightning automatically disables gradient computation during test
             with torch.inference_mode(False):
                 bar = trange(self.num_swag_epochs)
                 # num epochs
                 for i in bar:
                     for X, y in self.train_loader:
-                        # take snapshot of weights
-                        # decide how often to take snapshot
-                        self.update_uncertainty_buffers()
+                        if self.current_iteration % self.snapshot_freq == 0:
+                            self.update_uncertainty_buffers()
+
+                        self.current_iteration += 1
 
                         # do model forward pass and sgd update
                         swag_optimizer.zero_grad()
@@ -300,15 +325,18 @@ class SWAGModel(LightningModule):
             }
 
 
+# Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501
 def update_bn(
     loader: torch.utils.data.DataLoader,
     model: torch.nn.Module,
     device: Optional[Union[str, torch.device]] = None,
     num_datapoints: Optional[int] = None,
 ):
-    r"""Updates BatchNorm running_mean, running_var buffers in the model.
+    """Update BatchNorm running_mean, running_var buffers in the model.
+
     It performs one pass over data in `loader` to estimate the activation
     statistics for BatchNorm layers in the model.
+
     Args:
         loader: dataset loader to compute the
             activation statistics on. Each data batch should be either a
@@ -319,9 +347,7 @@ def update_bn(
         device: If set, data will be transferred to
             :attr:`device` before being passed into :attr:`model`.
         num_datapoints: number of examples to use to perform the update.
-    Example:
-        >>> loader, model = ...
-        >>> torch.optim.swa_utils.update_bn(loader, model)
+
     .. note::
         The `update_bn` utility assumes that each data batch in :attr:`loader`
         is either a tensor or a list or tuple of tensors; in the latter case it

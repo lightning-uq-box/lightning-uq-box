@@ -92,9 +92,9 @@ def run(config_path: str) -> None:
             # to solve this
             model = SWAGModel(
                 model,
-                prediction_config["model"]["swag_args"],
-                dm.train_dataloader(),
-                prediction_config["experiment"]["save_dir"],
+                train_loader=dm.train_dataloader(),
+                save_dir=prediction_config["experiment"]["save_dir"],
+                **prediction_config["model"]["swag_args"],
             )
 
         # if we want to build an ensemble
