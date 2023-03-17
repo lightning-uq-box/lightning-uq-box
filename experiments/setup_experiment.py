@@ -69,6 +69,19 @@ def generate_base_model(
             save_dir=config["experiment"]["save_dir"],
         )
 
+    elif config["model"]["base_model"] == "sgld":
+        return SGLDModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            n_sgld_samples=config["model"]["n_sgld_samples"],
+            lr=config["optimizer"]["lr"],
+            loss_fn=config["model"]["loss_fn"],
+            save_dir=config["experiment"]["save_dir"],
+            weight_decay=config["model"]["weight_decay"],
+            n_burnin_epochs=config["model"]["n_burnin_epochs"],
+            max_epochs=config["pl"]["max_epochs"],
+        )
+
     else:
         raise ValueError("Your base_model choice is currently not supported.")
 
@@ -113,14 +126,14 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
     """Generate a pytorch lightning trainer."""
     loggers = [
         CSVLogger(config["experiment"]["save_dir"], name="csv_logs"),
-        WandbLogger(
-            save_dir=config["experiment"]["save_dir"],
-            project=config["wandb"]["project"],
-            entity=config["wandb"]["entity"],
-            resume="allow",
-            config=config,
-            mode=config["wandb"].get("mode", "online"),
-        ),
+        # WandbLogger(
+        #   save_dir=config["experiment"]["save_dir"],
+        #    project=config["wandb"]["project"],
+        #    entity=config["wandb"]["entity"],
+        #    resume="allow",
+        #    config=config,
+        #    mode=config["wandb"].get("mode", "online"),
+        # ),
     ]
 
     track_metric = "train_loss"

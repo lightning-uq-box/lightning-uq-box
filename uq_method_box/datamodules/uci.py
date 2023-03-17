@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 
-from lightning import LightningDataModule
+from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
 from uq_method_box.datasets import (
