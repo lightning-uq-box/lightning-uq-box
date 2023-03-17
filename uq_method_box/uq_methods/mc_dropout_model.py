@@ -75,11 +75,12 @@ class MCDropoutModel(BaseModel):
             mean and standard deviation of MC predictions
         """
         self.model.train()  # activate dropout during prediction
-        preds = (
-            torch.stack([self.model(X) for _ in range(self.num_mc_samples)], dim=-1)
-            .detach()
-            .numpy()
-        )  # shape [num_samples, batch_size, num_outputs]
+        with torch.no_grad():
+            preds = (
+                torch.stack([self.model(X) for _ in range(self.num_mc_samples)], dim=-1)
+                .detach()
+                .numpy()
+            )  # shape [num_samples, batch_size, num_outputs]
 
         mean_samples = preds[:, 0, :]
 

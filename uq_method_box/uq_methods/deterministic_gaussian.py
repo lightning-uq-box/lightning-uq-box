@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Union
 
 import numpy as np
+import torch
 import torch.nn as nn
 from torch import Tensor
 
@@ -52,7 +53,8 @@ class DeterministicGaussianModel(BaseModel):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        preds = self.model(X)
+        with torch.no_grad():
+            preds = self.model(X)
         mean = preds[:, 0]
         std = preds[:, 1]
         quantiles = compute_quantiles_from_std(mean, std, self.quantiles)

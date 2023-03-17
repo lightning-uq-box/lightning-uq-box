@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Union
 
 import numpy as np
+import torch
 import torch.nn as nn
 from torch import Tensor
 
@@ -51,7 +52,8 @@ class QuantileRegressionModel(BaseModel):
         Returns:
             predicted uncertainties
         """
-        out = self.model(X).detach().numpy()  # [batch_size, len(self.quantiles)]
+        with torch.no_grad():
+            out = self.model(X).numpy()  # [batch_size, len(self.quantiles)]
         median = out[:, self.median_index]
         mean, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
 
