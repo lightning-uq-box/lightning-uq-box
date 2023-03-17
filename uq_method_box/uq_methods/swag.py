@@ -3,6 +3,7 @@
 import math
 import os
 from collections import OrderedDict
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -34,9 +35,14 @@ class SWAGModel(LightningModule):
     def __init__(
         self,
         model: LightningModule,
-        swag_args: Dict[str, Union[float, str]],  # swag args shoudl be made explicit
+        num_swag_epochs: int,
+        max_swag_snapshots: int,
+        num_mc_samples: int,
+        swag_lr: float,
+        loss_fn: str,
         train_loader: DataLoader,
         save_dir: str,
+        num_datapoints_for_bn_update: Optional[int] = 10,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
@@ -52,9 +58,35 @@ class SWAGModel(LightningModule):
         self.save_hyperparameters(ignore=["model", "train_loader"])
         self.swag_fitted = False
         self.train_loader = train_loader
-        self.model = model
-        self.criterion = retrieve_loss_fn(self.hparams.loss_fn)
-        self.num_mc_samples = self.hparams.swag_args.num_mc_samples
+        self.model = model  # lightning model
+
+        self.module = model.model  # nn.Module
+
+        self.num_mc_samples = num_mc_samples
+        self.swag_lr = swag_lr
+        self.num_swag_epochs = num_swag_epochs
+        self.max_swag_snapshots = max_swag_snapshots
+        self.criterion = retrieve_loss_fn(self.loss_fn)
+        self.num_datapoints_for_bn_update = num_datapoints_for_bn_update
+        self.save_dir = save_dir
+        self.quantiles = quantiles
+        self.num_tracked = 0
+        self._create_swag_buffers(self.module)
+
+    def _create_swag_buffers(self, instance: nn.Module):
+        for name, parameter in instance.named_parameters():
+            name = name.replace(".", "_")
+            instance.register_buffer(f"{name}_mean", deepcopy(parameter))
+            instance.register_buffer(
+                f"{name}_squared_mean", torch.zeros_like(parameter)
+            )
+            instance.register_buffer(
+                f"{name}_D_block",
+                torch.zeros(
+                    (self.max_swag_snapshots, *parameter.shape), device=parameter.device
+                ),
+            )
+        instance.register_buffer("num_snapshots_tracked", torch.tensor(0, dtype=int))
 
     def _get_buffer_for_param(self, param_name, buffer_name):
         safe_name = param_name.replace(".", "_")
@@ -82,7 +114,7 @@ class SWAGModel(LightningModule):
         return filtered_state_dict
 
     def _sample_state_dict(self) -> dict:
-        if self.module.num_snapshots_tracked == 0:
+        if self.num_tracked == 0:
             raise RuntimeError(
                 "Attempted to sample weights using a tracker that has "
                 "recorded no snapshots"
@@ -92,7 +124,10 @@ class SWAGModel(LightningModule):
 
         _, first_param = next(iter(self.module.named_parameters()))
         K_sample = (
-            Normal(torch.zeros(self.max_cols), torch.ones(self.max_cols))
+            Normal(
+                torch.zeros(self.max_swag_snapshots),
+                torch.ones(self.max_swag_snapshots),
+            )
             .sample()
             .to(first_param.device)  # should have lightning device
         )
@@ -107,16 +142,16 @@ class SWAGModel(LightningModule):
                 (0.5 * (squared_mean - mean.pow(2)).clamp(1e-30)).sqrt(),
             ).sample()
             shape = d_block.shape[1:]
-            aux = d_block.reshape(self.max_cols, -1)
+            aux = d_block.reshape(self.max_swag_snapshots, -1)
             p3 = torch.matmul(K_sample, aux).reshape(shape) / math.sqrt(
-                2 * (self.max_cols - 1)
+                2 * (self.max_swag_snapshots - 1)
             )
             sampled[name] = p1 + p2 + p3
         return sampled
 
     def update_uncertainty_buffers(self):
         """Update the running average over weights."""
-        if self.module.num_snapshots_tracked == 0:
+        if self.num_tracked == 0:
             with torch.no_grad():
                 for name, parameter in self.module.named_parameters():
                     mean = self._get_buffer_for_param(name, "mean")
@@ -134,23 +169,19 @@ class SWAGModel(LightningModule):
                     self._set_buffer_for_param(
                         name,
                         "mean",
-                        (self.module.num_snapshots_tracked * mean + parameter)
-                        / (self.module.num_snapshots_tracked + 1),
+                        (self.num_tracked * mean + parameter) / (self.num_tracked + 1),
                     )
                     self._set_buffer_for_param(
                         name,
                         "squared_mean",
-                        (
-                            self.module.num_snapshots_tracked * squared_mean
-                            + parameter.pow(2)
-                        )
-                        / (self.module.num_snapshots_tracked + 1),
+                        (self.num_tracked * squared_mean + parameter.pow(2))
+                        / (self.num_tracked + 1),
                     )
                     d_block = d_block.roll(1, dims=0)
                     d_block[0] = parameter - mean
                     self._set_buffer_for_param(name, "D_block", d_block)
 
-        self.module.num_snapshots_tracked += 1
+        self.num_tracked += 1
 
     def sample_state(self):
         """Update the state of the tracker's :code:`module` with a sample from
@@ -158,28 +189,27 @@ class SWAGModel(LightningModule):
         """
         sampled_state_dict = self._sample_state_dict()
         self._update_tracked_state_dict(sampled_state_dict)
-        if self.dataloader_for_batchnorm is not None:
-            tracking_was_enabled = self.module.trajectory_tracking_enabled
-            self.module.trajectory_tracking_enabled = False
+        if self.train_dataloader is not None:
+            # tracking_was_enabled = self.module.trajectory_tracking_enabled
+            # self.module.trajectory_tracking_enabled = False
             update_bn(
-                self.dataloader_for_batchnorm,
+                self.train_dataloader,
                 self.module,
                 device=self.device,
                 num_datapoints=self.num_datapoints_for_bn_update,
             )
-            self.module.trajectory_tracking_enabled = tracking_was_enabled
+            # self.module.trajectory_tracking_enabled = tracking_was_enabled
 
     def on_test_start(self) -> None:
         """Fit the SWAG approximation."""
-        self.hparams.swag_args
         if not self.swag_fitted:
             swag_optimizer = torch.optim.SGD(
-                self.model.model.parameters(), lr=self.hparams.swag_args["lr"]
+                self.module.model.parameters(), lr=self.swag_lr
             )
 
             # also lightning automatically disables gradient computation during test
             with torch.inference_mode(False):
-                bar = trange(self.n_epochs_tune_precision)
+                bar = trange(self.num_swag_epochs)
                 # num epochs
                 for i in bar:
                     for X, y in self.train_loader:
@@ -232,7 +262,8 @@ class SWAGModel(LightningModule):
         for i in range(self.num_mc_samples):
             # sample weights
             self.sample_state()
-            preds.append(self.model.model(X))
+            with torch.no_grad():
+                preds.append(self.model.model(X))
 
         preds = torch.stack(preds, dim=-1)
 
