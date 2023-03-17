@@ -97,16 +97,16 @@ class SGLDModel(BaseModel):
         """Initialize a new instance of SGLD model."""
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
-        self.n_burnin_epochs = self.config["model"]["n_burnin_epochs"]
-        self.n_sgld_samples = self.config["model"]["n_sgld_samples"]
-        self.max_epochs = self.config["pl"]["max_epochs"]
+        self.n_burnin_epochs = self.model_args.get("n_burnin_epochs")
+        self.n_sgld_samples = self.model_args.get("n_sgld_samples")
+        self.max_epochs = self.model_args.get("max_epochs")
         self.models: List[nn.Module] = []
         self.quantiles = quantiles
-        self.weight_decay = self.config["model"]["weight_decay"]
+        self.weight_decay = self.model_args.get("weight_decay")
+        self.lr = self.model_args.get("lr")
 
         assert (
-            self.n_sgld_samples + self.n_burnin_epochs
-            == self.config["pl"]["max_epochs"]
+            self.n_sgld_samples + self.n_burnin_epochs == self.max_epochs
         ), "The max_epochs needs to be the sum of the burnin phase and sample numbers"
 
     def configure_optimizers(self) -> Dict[str, Any]:
@@ -117,7 +117,7 @@ class SGLDModel(BaseModel):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers,
             with SGLD optimizer.
         """
-        optimizer = SGLD(self.model.parameters(), lr=self.config["optimizer"]["lr"])
+        optimizer = SGLD(self.model.parameters(), lr=self.lr)
         return {"optimizer": optimizer}
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
@@ -186,9 +186,7 @@ class SGLDModel(BaseModel):
             sgld_aleatoric = compute_aleatoric_uncertainty(sigma_samples)
             sgld_epistemic = compute_epistemic_uncertainty(mean_samples)
             sgld_quantiles = compute_quantiles_from_std(
-                sgld_mean,
-                sgld_std,
-                self.config["model"].get("quantiles", [0.1, 0.5, 0.9]),
+                sgld_mean, sgld_std, self.quantiles
             )
             return {
                 "mean": sgld_mean,
@@ -203,9 +201,7 @@ class SGLDModel(BaseModel):
             sgld_mean = mean_samples.mean(-1)
             sgld_std = mean_samples.std(-1)
             sgld_quantiles = compute_quantiles_from_std(
-                sgld_mean,
-                sgld_std,
-                self.config["model"].get("quantiles", [0.1, 0.5, 0.9]),
+                sgld_mean, sgld_std, self.quantiles
             )
             return {
                 "mean": sgld_mean,

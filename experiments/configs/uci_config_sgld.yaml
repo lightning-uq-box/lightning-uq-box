@@ -10,6 +10,8 @@ model:
   n_burnin_epochs: 5
   n_sgld_samples: 30
   weight_decay: 0.1
+  max_epochs: 35
+  lr: 0.0001
   ensemble: None # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
   ensemble_members: 1
   loss_fn: mse
