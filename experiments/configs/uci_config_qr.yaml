@@ -9,7 +9,7 @@ model:
   base_model: quantile_regression
   loss_fn: quantile
   quantiles: [0.1, 0.5, 0.9]
-  mlp: # all arguments for the mlp
+  model_args: # all arguments for the mlp
     n_outputs: 3
     n_hidden: [50]
 optimizer:
