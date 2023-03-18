@@ -4,7 +4,7 @@ model:
   model_args: # all arguments for the mlp
     n_outputs: 3
     n_inputs: 1
-    n_hidden: [50]
+    n_hidden: [10]
   quantiles: [0.1, 0.5, 0.9]
 optimizer:
   lr: 0.003

@@ -5,6 +5,6 @@ model:
   conformalized: False
   model_args: # all arguments for the mlp
     n_outputs: 1
-    n_hidden: [50]
+    n_hidden: [10]
 optimizer:
   lr: 0.003

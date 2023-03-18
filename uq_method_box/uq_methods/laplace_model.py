@@ -58,6 +58,20 @@ class LaplaceModel(LightningModule):
 
         self.quantiles = quantiles
 
+    def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
+        """Fitted Laplace Model Forward Pass.
+
+        Args:
+            X: tensor of data to run through the model [batch_size, input_dim]
+
+        Returns:
+            output from the laplace model
+        """
+        if not self.laplace_fitted:
+            self.on_test_start()
+
+        return self.la_model(X)
+
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
 
@@ -109,6 +123,13 @@ class LaplaceModel(LightningModule):
 
         # save this laplace fitted model as a checkpoint?!
 
+    def test_step(self, *args: Any, **kwargs: Any) -> None:
+        """Test step."""
+        X, y = args[0]
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        return out_dict
+
     def on_test_batch_end(
         self,
         outputs: Dict[str, np.ndarray],
@@ -142,7 +163,7 @@ class LaplaceModel(LightningModule):
             # a clone with autograd enables
             input = X.clone().requires_grad_()
 
-            laplace_mean, laplace_var = self.la_model(input)
+            laplace_mean, laplace_var = self.forward(input)
             laplace_mean = laplace_mean.squeeze().detach().cpu().numpy()
             laplace_epistemic = laplace_var.squeeze().sqrt().cpu().numpy()
             laplace_aleatoric = (
