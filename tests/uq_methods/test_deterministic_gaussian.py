@@ -1,4 +1,4 @@
-"""Test Determinist Gaussian Model."""
+"""Unit tests for Base Model."""
 
 import os
 import sys
@@ -17,39 +17,39 @@ from omegaconf import OmegaConf
 
 from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import BaseModel
+from uq_method_box.uq_methods import DeterministicGaussianModel
 
 
-class TestBaseModel:
+class TestDeterministicGaussianModel:
     @pytest.fixture
-    def base_model(self, tmp_path: Path) -> BaseModel:
+    def det_nll_model(self, tmp_path: Path) -> DeterministicGaussianModel:
         """Create a base model being used for different tests."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "base.yaml"))
+        conf = OmegaConf.load(os.path.join("tests", "configs", "gaussian_nll.yaml"))
         conf_dict = OmegaConf.to_object(conf)
-        return BaseModel(
+        return DeterministicGaussianModel(
             MLP,
             model_args=conf_dict["model"]["model_args"],
             lr=1e-3,
-            loss_fn="mse",
+            loss_fn="nll",
             save_dir=tmp_path,
         )
 
-    def test_forward(self, base_model: BaseModel) -> None:
+    def test_forward(self, det_nll_model: DeterministicGaussianModel) -> None:
         """Test forward pass of base model."""
-        n_inputs = base_model.hparams.model_args["n_inputs"]
-        n_outputs = base_model.hparams.model_args["n_outputs"]
+        n_inputs = det_nll_model.hparams.model_args["n_inputs"]
+        n_outputs = det_nll_model.hparams.model_args["n_outputs"]
         X = torch.randn(5, n_inputs)
-        out = base_model(X)
+        out = det_nll_model(X)
         assert out.shape[-1] == n_outputs
 
-    def test_trainer(self, base_model: BaseModel) -> None:
+    def test_trainer(self, det_nll_model: DeterministicGaussianModel) -> None:
         """Test Base Model with a Lightning Trainer."""
         # instantiate datamodule
         datamodule = ToyHeteroscedasticDatamodule()
         trainer = Trainer(
             log_every_n_steps=1,
             max_epochs=1,
-            default_root_dir=base_model.hparams.save_dir,
+            default_root_dir=det_nll_model.hparams.save_dir,
         )
-        trainer.fit(model=base_model, datamodule=datamodule)
-        trainer.test(model=base_model, datamodule=datamodule)
+        trainer.fit(model=det_nll_model, datamodule=datamodule)
+        trainer.test(model=det_nll_model, datamodule=datamodule)

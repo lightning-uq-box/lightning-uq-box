@@ -31,6 +31,10 @@ class DeterministicGaussianModel(BaseModel):
         self.criterion = NLL()
         self.quantiles = quantiles
 
+        assert (
+            self.n_outputs == 2
+        ), f"Model output should be 2D but found {self.n_outputs} dimensions."
+
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
 
