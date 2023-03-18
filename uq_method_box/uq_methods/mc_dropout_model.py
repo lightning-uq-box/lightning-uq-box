@@ -89,6 +89,8 @@ class MCDropoutModel(BaseModel):
             sigma_samples = preds[:, 1, :]
             mean = mean_samples.mean(-1)
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
+            # can happen in early stages of training
+            std[std <= 0] = 1e-6
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)
             epistemic = compute_epistemic_uncertainty(mean_samples)
             quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
@@ -104,6 +106,8 @@ class MCDropoutModel(BaseModel):
         else:
             mean = mean_samples.mean(-1)
             std = mean_samples.std(-1)
+            # can happen in early stages of training
+            std[std <= 0] = 1e-6
             quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
             return {
                 "mean": mean,
