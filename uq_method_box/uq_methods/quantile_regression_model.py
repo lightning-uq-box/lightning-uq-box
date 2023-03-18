@@ -27,6 +27,7 @@ class QuantileRegressionModel(BaseModel):
         """Initialize a new instance of Quantile Regression Model."""
         super().__init__(model_class, model_args, lr, "quantile", save_dir)
 
+        self.quantiles = quantiles
         self.median_index = self.hparams.quantiles.index(0.5)
         self.criterion = QuantileLoss(quantiles=self.hparams.quantiles)
 
