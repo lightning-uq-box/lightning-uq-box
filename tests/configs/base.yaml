@@ -2,8 +2,9 @@ model:
   base_model: base_model
   loss_fn: mse
   conformalized: False
-  mlp: # all arguments for the mlp
+  model_args: # all arguments for the mlp
     n_outputs: 1
+    n_inputs: 1
     n_hidden: [50]
 optimizer:
   lr: 0.003

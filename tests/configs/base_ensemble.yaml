@@ -4,7 +4,7 @@ model:
   ensemble: deep_ensemble # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
   ensemble_members: 3
   conformalized: False
-  mlp: # all arguments for the mlp
+  model_args: # all arguments for the mlp
     n_outputs: 1
     n_hidden: [50]
 optimizer:

@@ -73,6 +73,10 @@ class BaseModel(LightningModule):
         # if own nn module
         else:
             self.model = self.hparams.model_class(**self.hparams.model_args)
+            # specific hack for MLP, maybe torchgeo has function that can find
+            # first and last layer
+            self.n_inputs = self.model.model[0].in_features
+            self.n_outputs = self.model.model[-1].out_features
 
         self.criterion = retrieve_loss_fn(self.hparams.loss_fn)
 
@@ -215,17 +219,23 @@ class EnsembleModel(LightningModule):
         # make hparams accessible
         self.save_hyperparameters()
 
-    def forward(self, *args: Any, **kwargs: Any) -> Tensor:
+    def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
         """Forward step of Deep Ensemble.
 
         Args:
-            batch:
+            X: input tensor of shape [batch_size, input_di]
 
         Returns:
             Ensemble member outputs stacked over last dimension for output
             of [batch_size, num_outputs, num_ensemble_members]
         """
-        raise NotImplementedError
+        out: List[torch.Tensor] = []
+        for model_config in self.hparams.ensemble_members:
+            loaded_model = model_config["model_class"].load_from_checkpoint(
+                model_config["ckpt_path"]
+            )
+            out.append(loaded_model(X))
+        return torch.stack(out, dim=-1)
 
     def test_step(self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0) -> Any:
         """Compute test step for deep ensemble and log test metrics.
@@ -253,16 +263,16 @@ class EnsembleModel(LightningModule):
             outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
         )
 
-    def generate_ensemble_predictions(self, batch: Any) -> Tensor:
-        """Generate ensemble predictions.
+    def generate_ensemble_predictions(self, X: Tensor) -> Tensor:
+        """Generate DeepEnsemble Predictions.
 
         Args:
-            batch: data batch
+            X: input tensor of shape [batch_size, input_di]
 
         Returns:
-            ensemble predictions of shape [batch_size, num_outputs, num_ensemble_preds]
+            the ensemble predictions
         """
-        raise NotImplementedError
+        return self.forward(X)  # [batch_size, num_outputs, num_ensemble_members]
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
