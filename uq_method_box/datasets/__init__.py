@@ -1,7 +1,7 @@
 """UQ-Regression-Box Datasets."""
 
 # from .reforesTree import ReforesTreeRegression
-from .base import UCIRegressionDataset
+from .uci import UCIRegressionDataset
 from .uci_boston import UCIBoston
 from .uci_concrete import UCIConcrete
 from .uci_energy import UCIEnergy
