@@ -27,7 +27,7 @@ def run(config_path: str) -> None:
     # main directory for the
     experiment_config = create_experiment_dir(config)
 
-    for i in range(3):  # 20 random seeds
+    for i in range(5):  # 20 random seeds
         seed_config = copy.deepcopy(experiment_config)
 
         # create a subdirectory for this seed
@@ -94,6 +94,7 @@ def run(config_path: str) -> None:
                 model,
                 train_loader=dm.train_dataloader(),
                 save_dir=prediction_config["experiment"]["save_dir"],
+                target_scaler=dm.uci_ds.target_scaler,
                 **prediction_config["model"]["swag_args"],
             )
 

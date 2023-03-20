@@ -13,6 +13,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from sklearn.preprocessing import StandardScaler
 from torch import Tensor
 from torch.distributions import Normal
 from torch.utils.data import DataLoader
@@ -43,6 +44,7 @@ class SWAGModel(LightningModule):
         train_loader: DataLoader,
         save_dir: str,
         num_datapoints_for_bn_update: Optional[int] = None,
+        target_scaler: StandardScaler = None,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
@@ -75,6 +77,7 @@ class SWAGModel(LightningModule):
         self.swag_fitted = False
         self.current_iteration = 0
         self.num_tracked = 0
+        self.target_scaler = target_scaler
 
         self._create_swag_buffers(self.module)
 
@@ -254,7 +257,9 @@ class SWAGModel(LightningModule):
         """Test step."""
         X, y = args[0]
         out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        if self.target_scaler:
+            y = self.target_scaler.inverse_transform(y.cpu().numpy())
+        out_dict["targets"] = y.squeeze(-1)
         return out_dict
 
     def on_test_batch_end(
@@ -288,9 +293,12 @@ class SWAGModel(LightningModule):
             # sample weights
             self.sample_state()
             with torch.no_grad():
-                preds.append(self.model.model(X))
+                pred = self.model.model(X).cpu().numpy()
+                if self.target_scaler:
+                    pred = self.target_scaler.inverse_transform(pred)
+                preds.append(pred)
 
-        preds = torch.stack(preds, dim=-1)
+        preds = np.stack(preds, axis=-1)
 
         mean_samples = preds[:, 0, :]
 

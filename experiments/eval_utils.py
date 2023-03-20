@@ -95,7 +95,7 @@ def compute_metrics_for_single_seed(
         "conformalized": seed_config["model"].get("conformalized", False),
         "dataset_name": seed_config["ds"]["dataset_name"],
         "pred_log_dir": seed_config["experiment"]["save_dir"],
-        "mlp_n_outputs": seed_config["model"]["mlp"]["n_outputs"],
+        "mlp_n_outputs": seed_config["model"]["model_args"]["n_outputs"],
         "date": date_time,
     }
 
