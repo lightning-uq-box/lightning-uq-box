@@ -157,6 +157,18 @@ class BaseModel(LightningModule):
         out_dict["targets"] = y.detach().squeeze(-1).cpu().numpy()
         return out_dict
 
+    def on_test_batch_end(
+        self,
+        outputs: Dict[str, np.ndarray],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx=0,
+    ):
+        """Test batch end save predictions."""
+        save_predictions_to_csv(
+            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+        )
+
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Dict[str, np.ndarray]:
@@ -171,18 +183,6 @@ class BaseModel(LightningModule):
             "mean": self.extract_mean_output(out).squeeze(-1).detach().cpu().numpy()
         }
 
-    def on_test_batch_end(
-        self,
-        outputs: Dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
-        )
-
     def configure_optimizers(self) -> Dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
@@ -190,7 +190,7 @@ class BaseModel(LightningModule):
             a "lr dict" according to the pytorch lightning documentation --
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.hparams.lr)
         return {"optimizer": optimizer}
 
 
