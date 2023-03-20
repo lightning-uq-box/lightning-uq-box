@@ -66,17 +66,27 @@ class TestLaplaceModel:
         n_inputs = laplace_model.model.hparams.model_args["n_inputs"]
         n_outputs = laplace_model.model.hparams.model_args["n_outputs"]
         X = torch.randn(5, n_inputs)
-        out = laplace_model(X)
-        assert out.shape[-1] == n_outputs
+        # backpack expects a torch.nn.sequential but also works otherwise
+        with pytest.raises(
+            UserWarning,
+            match="Extension saving to grad_batch does not have an extension",
+        ):
+            out = laplace_model(X)
+            assert out.shape[-1] == n_outputs
 
     def test_predict_step(self, laplace_model: LaplaceModel) -> None:
         """Test predict step outside of Lightning Trainer."""
         n_inputs = laplace_model.model.hparams.model_args["n_inputs"]
         X = torch.randn(5, n_inputs)
-        out = laplace_model.predict_step(X)
-        assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 5
+        # backpack expects a torch.nn.sequential but also works otherwise
+        with pytest.raises(
+            UserWarning,
+            match="Extension saving to grad_batch does not have an extension",
+        ):
+            out = laplace_model.predict_step(X)
+            assert isinstance(out, dict)
+            assert isinstance(out["mean"], np.ndarray)
+            assert out["mean"].shape[0] == 5
 
     def test_trainer(self, laplace_model: LaplaceModel) -> None:
         """Test QR Model with a Lightning Trainer."""
@@ -87,4 +97,9 @@ class TestLaplaceModel:
             max_epochs=1,
             default_root_dir=laplace_model.hparams.save_dir,
         )
-        trainer.test(model=laplace_model, datamodule=datamodule)
+        # backpack expects a torch.nn.sequential but also works otherwise
+        with pytest.raises(
+            UserWarning,
+            match="Extension saving to grad_batch does not have an extension",
+        ):
+            trainer.test(model=laplace_model, datamodule=datamodule)
