@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from torch.optim.optimizer import Optimizer, required
 
 from uq_method_box.eval_utils import (
@@ -19,36 +20,19 @@ from uq_method_box.uq_methods import BaseModel
 
 
 class SGLD(Optimizer):
-    """SGLD Optimizer.
+    """SGLD Optimzer."""
 
-    Adapted from
-    https://github.com/izmailovpavel/understandingbdl/blob/master/swag/posteriors/sgld.py
-    based on [1]: Welling, Max, and Yee W. Teh.
-    "Bayesian learning via stochastic gradient Langevin dynamics."
-    Proceedings of the 28th international
-    conference on machine learning (ICML-11). 2011.
-    """
-
-    def __init__(
-        self, params, lr=required, noise_factor=1.0, weight_decay=0.1, batch_size=256
-    ):
-        """Initialize new instance of SGLD Optimizer.
-
-        Args:
-            lr: learning rate
-            noise_factor: noise
-            weight_decay: variance of Gaussian prior on weights
-            batch_size: batch size
-        """
+    def __init__(self, params, lr=required, noise_factor=0.7, weight_decay=0):
+        """Initialize new instance of SGLD Optimier."""
         if lr is not required and lr < 0.0:
             raise ValueError(f"Invalid learning rate: {lr}")
         if weight_decay < 0.0:
             raise ValueError(f"Invalid weight_decay value: {weight_decay}")
 
         defaults = dict(lr=lr, noise_factor=noise_factor, weight_decay=weight_decay)
-        self.lr = lr
-        self.batch_size = batch_size
         super().__init__(params, defaults)
+        self.params = params
+        self.lr = lr
 
     def step(self, closure=None):
         """Perform a single optimization step.
@@ -57,7 +41,6 @@ class SGLD(Optimizer):
             closure (callable, optional): A closure that reevaluates the model
         Returns: updated loss.
         """
-        factor = 1 / self.batch_size
         loss = None
         if closure is not None:
             loss = closure()
@@ -75,8 +58,7 @@ class SGLD(Optimizer):
 
                 p.data.add_(-group["lr"], d_p)
                 p.data.add_(
-                    noise_factor * (2.0 * group["lr"]) ** 0.5,
-                    factor * torch.randn_like(d_p),
+                    noise_factor * (2.0 * group["lr"]) ** 0.5, torch.randn_like(d_p)
                 )
 
         return loss
@@ -96,11 +78,13 @@ class SGLDModel(BaseModel):
         weight_decay: float,
         n_burnin_epochs: int,
         n_sgld_samples: int,
+        restart_cosine: int,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of SGLD model."""
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
+        self.automatic_optimization = False
         self.n_burnin_epochs = n_burnin_epochs
         self.n_sgld_samples = n_sgld_samples
         self.max_epochs = max_epochs
@@ -108,6 +92,7 @@ class SGLDModel(BaseModel):
         self.quantiles = quantiles
         self.weight_decay = weight_decay
         self.lr = lr
+        self.restart_cosine = restart_cosine
 
         assert (
             self.n_sgld_samples + self.n_burnin_epochs == self.max_epochs
@@ -121,9 +106,19 @@ class SGLDModel(BaseModel):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers,
             with SGLD optimizer.
         """
-        optimizer = SGLD(self.model.parameters(), lr=self.lr)
-        return {"optimizer": optimizer}
+        optimizer = SGLD(params=self.model.parameters(), lr=self.lr)
+        scheduler = CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=self.restart_cosine,
+            T_mult=1,
+            eta_min=0,
+            last_epoch=-1,
+            verbose=False,
+        )
+        return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
 
+    # {"optimizer": optimizer}
+    #
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
 
@@ -133,9 +128,16 @@ class SGLDModel(BaseModel):
         Returns:
             training loss and List of models
         """
+        sch = self.lr_schedulers()
+        sch.step()
+
+        opt = self.optimizers()
+        opt.zero_grad()
         X, y = args[0]
         out = self.forward(X)
         loss = self.criterion(out, y)
+        self.manual_backward(loss)
+        opt.step()
 
         self.log("train_loss", loss)  # logging to Logger
         self.train_metrics(self.extract_mean_output(out), y)

@@ -80,6 +80,7 @@ def generate_base_model(
             weight_decay=config["model"]["weight_decay"],
             n_burnin_epochs=config["model"]["n_burnin_epochs"],
             max_epochs=config["pl"]["max_epochs"],
+            restart_cosine=config["model"]["restart_cosine"],
         )
 
     else:
