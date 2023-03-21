@@ -4,4 +4,5 @@ torchvision==0.14.1
 tqdm==4.64.1
 lightning[extra]==2.0.0
 timm==0.6.12
-
+scipy==1.10.0
+laplace-torch==0.1a2
