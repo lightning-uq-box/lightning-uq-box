@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from _pytest.fixtures import SubRequest
 from lightning import Trainer
 from omegaconf import OmegaConf
 
@@ -15,10 +16,10 @@ from uq_method_box.uq_methods import MCDropoutModel
 
 # TODO test different both mse and nll
 class TestMCDropoutModel:
-    @pytest.fixture
-    def mc_model(self, tmp_path: Path) -> MCDropoutModel:
+    @pytest.fixture(params=["mc_dropout_mse.yaml", "mc_dropout_nll.yaml"])
+    def mc_model(self, tmp_path: Path, request: SubRequest) -> MCDropoutModel:
         """Create a QR model being used for different tests."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "mc_dropout.yaml"))
+        conf = OmegaConf.load(os.path.join("tests", "configs", request.param))
         conf_dict = OmegaConf.to_object(conf)
         return MCDropoutModel(
             MLP,
@@ -52,7 +53,7 @@ class TestMCDropoutModel:
         datamodule = ToyHeteroscedasticDatamodule()
         trainer = Trainer(
             log_every_n_steps=1,
-            max_epochs=1,
+            max_epochs=10,
             default_root_dir=mc_model.hparams.save_dir,
         )
         trainer.fit(model=mc_model, datamodule=datamodule)

@@ -1,0 +1,12 @@
+model:
+  loss_fn: nll
+  conformalized: False
+  num_mc_samples: 3
+  model_args: # all arguments for the mlp
+    n_outputs: 2
+    dropout_p: 0.1
+    predict_sigma: True
+    n_inputs: 1
+    n_hidden: [10]
+optimizer:
+  lr: 0.003
