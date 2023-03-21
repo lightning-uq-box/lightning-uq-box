@@ -162,10 +162,10 @@ timm==0.6.12
 tinycss2==1.2.1
 tokenize-rt==5.0.0
 tomli==2.0.1
-torch==2.0.0
+torch==1.13.0
 torchgeo==0.4.0
 torchmetrics==0.11.4
-torchvision==0.15.1
+torchvision==0.14.1
 tornado==6.2
 tqdm==4.64.1
 traitlets==5.9.0
