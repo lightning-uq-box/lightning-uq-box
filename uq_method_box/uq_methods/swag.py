@@ -62,7 +62,7 @@ class SWAGModel(LightningModule):
 
         self.train_loader = train_loader
         self.model = model  # lightning model
-        self.module = model.model  # nn.Module
+        self.module = deepcopy(model.model)  # nn.Module
 
         self.num_swag_epochs = num_swag_epochs
         self.max_swag_snapshots = max_swag_snapshots
@@ -230,9 +230,7 @@ class SWAGModel(LightningModule):
     def on_test_start(self) -> None:
         """Fit the SWAG approximation."""
         if not self.swag_fitted:
-            swag_optimizer = torch.optim.SGD(
-                self.module.model.parameters(), lr=self.swag_lr
-            )
+            swag_optimizer = torch.optim.SGD(self.module.parameters(), lr=self.swag_lr)
 
             # lightning automatically disables gradient computation during test
             with torch.inference_mode(False):
@@ -247,9 +245,10 @@ class SWAGModel(LightningModule):
 
                         # do model forward pass and sgd update
                         swag_optimizer.zero_grad()
-                        out = self.model.model(X)
+                        out = self.module(X)
                         loss = self.criterion(out, y)
                         loss.backward()
+                        swag_optimizer.step()
 
             self.swag_fitted = True
 
@@ -293,7 +292,7 @@ class SWAGModel(LightningModule):
             # sample weights
             self.sample_state()
             with torch.no_grad():
-                pred = self.model.model(X).cpu().numpy()
+                pred = self.module(X).cpu().numpy()
                 if self.target_scaler:
                     pred = self.target_scaler.inverse_transform(pred)
                 preds.append(pred)
