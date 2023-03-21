@@ -1,3 +1,7 @@
+# setup
+setuptools==67.6.0
+
+# install
 torch==1.13.1
 torchmetrics==0.11.4
 torchvision==0.14.1
@@ -6,3 +10,4 @@ lightning[extra]==2.0.0
 timm==0.6.12
 scipy==1.10.0
 laplace-torch==0.1a2
+scikit-learn==1.2.2
