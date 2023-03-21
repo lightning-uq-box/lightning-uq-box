@@ -14,6 +14,11 @@ color_output = true
 # Skip slow tests by default
 addopts = "-m 'not slow'"
 # https://docs.pytest.org/en/latest/how-to/capture-warnings.html
+
+# add uq_method_box to path
+pythonpath = [
+  "."
+]
 filterwarnings = [
     # Treat all warnings as errors
     "error",

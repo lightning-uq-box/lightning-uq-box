@@ -41,7 +41,10 @@ class LaplaceModel(LightningModule):
         self.laplace_fitted = False
         self.train_loader = train_loader
 
-        self.model = model
+        self.model = model  # lightning model
+
+        # TODO: find the sequential within the model
+        self.module = self.model.model.model  # nn.Sequential
 
         self.tune_precision_lr = self.hparams.laplace_args.get(
             "tune_precision_lr", 1e-2
@@ -72,20 +75,6 @@ class LaplaceModel(LightningModule):
 
         return self.la_model(X)
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean output from model prediction.
-
-        Args:
-            out: output from :meth:`self.forward` [batch_size x (mu, sigma)]
-
-        Returns:
-            extracted mean used for metric computation [batch_size x 1]
-        """
-        assert (
-            out.shape[-1] == 1
-        ), "This model should give exactly 1 outputs due to MAP estimation."
-        return out
-
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
         if not self.laplace_fitted:
@@ -96,7 +85,7 @@ class LaplaceModel(LightningModule):
             # but need it for laplace so set inference mode to false with cntx manager
             with torch.inference_mode(False):
                 self.la_model = Laplace(
-                    self.model.model, "regression", **self.hparams.laplace_args
+                    self.module, "regression", **self.hparams.laplace_args
                 )
                 # fit the laplace approximation
                 self.la_model.fit(self.train_loader)

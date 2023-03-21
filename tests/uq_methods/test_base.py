@@ -1,19 +1,12 @@
 """Test Determinist Gaussian Model."""
 
 import os
-import sys
 from pathlib import Path
 
 import pytest
 import torch
 from _pytest.fixtures import SubRequest
 from lightning import Trainer
-
-# required to make the path visible to import the tools
-# this will change in public notebooks to be "pip install uq-regression-box"
-if os.getcwd() not in sys.path:
-    sys.path.append(os.getcwd())
-
 from omegaconf import OmegaConf
 
 from uq_method_box.datamodules import (

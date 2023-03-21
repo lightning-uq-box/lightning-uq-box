@@ -1,19 +1,12 @@
 """Test Laplace Model."""
 
 import os
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 import torch
 from lightning import Trainer
-
-# required to make the path visible to import the tools
-# this will change in public notebooks to be "pip install uq-regression-box"
-if os.getcwd() not in sys.path:
-    sys.path.append(os.getcwd())
-
 from omegaconf import OmegaConf
 
 from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
@@ -64,29 +57,22 @@ class TestLaplaceModel:
     def test_forward(self, laplace_model: LaplaceModel) -> None:
         """Test forward pass of conformalized model."""
         n_inputs = laplace_model.model.hparams.model_args["n_inputs"]
-        n_outputs = laplace_model.model.hparams.model_args["n_outputs"]
         X = torch.randn(5, n_inputs)
-        # backpack expects a torch.nn.sequential but also works otherwise
-        with pytest.raises(
-            UserWarning,
-            match="Extension saving to grad_batch does not have an extension",
-        ):
-            out = laplace_model(X)
-            assert out.shape[-1] == n_outputs
+        # output of laplace like it is in the libray
+        out = laplace_model(X)
+        assert isinstance(out, tuple)
+        assert out[0].shape[-1] == 1
+        assert out[-1].shape[-1] == 1
 
     def test_predict_step(self, laplace_model: LaplaceModel) -> None:
         """Test predict step outside of Lightning Trainer."""
         n_inputs = laplace_model.model.hparams.model_args["n_inputs"]
         X = torch.randn(5, n_inputs)
         # backpack expects a torch.nn.sequential but also works otherwise
-        with pytest.raises(
-            UserWarning,
-            match="Extension saving to grad_batch does not have an extension",
-        ):
-            out = laplace_model.predict_step(X)
-            assert isinstance(out, dict)
-            assert isinstance(out["mean"], np.ndarray)
-            assert out["mean"].shape[0] == 5
+        out = laplace_model.predict_step(X)
+        assert isinstance(out, dict)
+        assert isinstance(out["mean"], np.ndarray)
+        assert out["mean"].shape[0] == 5
 
     def test_trainer(self, laplace_model: LaplaceModel) -> None:
         """Test QR Model with a Lightning Trainer."""
@@ -98,8 +84,4 @@ class TestLaplaceModel:
             default_root_dir=laplace_model.hparams.save_dir,
         )
         # backpack expects a torch.nn.sequential but also works otherwise
-        with pytest.raises(
-            UserWarning,
-            match="Extension saving to grad_batch does not have an extension",
-        ):
-            trainer.test(model=laplace_model, datamodule=datamodule)
+        trainer.test(model=laplace_model, datamodule=datamodule)
