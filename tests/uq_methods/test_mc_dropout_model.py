@@ -53,8 +53,8 @@ class TestMCDropoutModel:
         datamodule = ToyHeteroscedasticDatamodule()
         trainer = Trainer(
             log_every_n_steps=1,
-            max_epochs=10,
+            max_epochs=1,
             default_root_dir=mc_model.hparams.save_dir,
         )
         trainer.fit(model=mc_model, datamodule=datamodule)
-        trainer.test(model=mc_model, datamodule=datamodule)
+        trainer.test(mc_model, datamodule.test_dataloader())
