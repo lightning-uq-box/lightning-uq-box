@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from _pytest.fixtures import SubRequest
 from lightning import Trainer
 from omegaconf import OmegaConf
 
@@ -15,10 +16,10 @@ from uq_method_box.uq_methods import BaseModel, DeepEnsembleModel
 
 
 class TestBaseEnsembleModel:
-    @pytest.fixture
-    def ensemble_model(self, tmp_path: Path) -> DeepEnsembleModel:
+    @pytest.fixture(params=["deep_ensemble_mse.yaml", "deep_ensemble_nll.yaml"])
+    def ensemble_model(self, tmp_path: Path, request: SubRequest) -> DeepEnsembleModel:
         """Create a Deep Ensemble Model being used for tests."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "deep_ensemble.yaml"))
+        conf = OmegaConf.load(os.path.join("tests", "configs", request.param))
         conf_dict = OmegaConf.to_object(conf)
 
         model_paths = []
@@ -35,7 +36,7 @@ class TestBaseEnsembleModel:
                 MLP,
                 model_args=conf_dict["model"]["model_args"],
                 lr=1e-3,
-                loss_fn="mse",
+                loss_fn=conf_dict["model"]["loss_fn"],
                 save_dir=save_path,
             )
 
