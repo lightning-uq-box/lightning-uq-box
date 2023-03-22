@@ -2,7 +2,6 @@
 
 from typing import List
 
-import torch
 import torch.nn as nn
 from torch import Tensor
 
@@ -55,7 +54,4 @@ class MLP(nn.Module):
           output from neural net of dimension [batch_size, n_outputs]
         """
         out = self.model(x)  # batch_size x (mu,sigma) or just mean
-        # make sure output sigma is always positive
-        if self.predict_sigma:
-            out[:, 1] = torch.log(1 + torch.exp(out[:, 1])) + 1e-06
         return out
