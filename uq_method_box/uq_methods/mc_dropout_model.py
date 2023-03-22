@@ -86,7 +86,9 @@ class MCDropoutModel(BaseModel):
 
         # assume prediction with sigma
         if preds.shape[1] == 2:
-            sigma_samples = preds[:, 1, :]
+            log_sigma_2 = preds[:, 1, :]
+            eps = np.ones_like(torch.from_numpy(log_sigma_2)) * 1e-6
+            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2))
             mean = mean_samples.mean(-1)
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)

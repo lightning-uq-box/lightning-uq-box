@@ -42,7 +42,7 @@ class DeterministicGaussianModel(BaseModel):
         """
         assert (
             out.shape[-1] == 2
-        ), "This model should give exactly 2 outputs (mu, sigma)"
+        ), "This model should give exactly 2 outputs (mu, log_sigma_2)"
         return out[:, 0:1]
 
     def predict_step(
@@ -55,8 +55,10 @@ class DeterministicGaussianModel(BaseModel):
         """
         with torch.no_grad():
             preds = self.model(X)
-        mean = preds[:, 0]
-        std = preds[:, 1]
+        mean = preds[:, 0].detach().cpu().numpy()
+        log_sigma_2 = preds[:, 1].detach().cpu().numpy()
+        eps = np.ones_like(torch.from_numpy(log_sigma_2)) * 1e-6
+        std = np.sqrt(eps + np.exp(log_sigma_2))
         quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
         return {
             "mean": mean,

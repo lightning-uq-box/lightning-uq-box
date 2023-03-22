@@ -3,7 +3,7 @@
 from typing import Union
 
 import torch
-from lightning import LightningDataModule
+from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, TensorDataset
 
 

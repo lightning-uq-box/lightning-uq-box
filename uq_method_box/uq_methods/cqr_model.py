@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import torch
-from lightning import LightningModule
+from pytorch_lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
 
