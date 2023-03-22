@@ -32,6 +32,29 @@ class NLL(nn.Module):
         return loss
 
 
+class MSE(nn.Module):
+    """MSE loss."""
+
+    def __init__(self):
+        """Initialize a new instance of MSE."""
+        super().__init__()
+
+    def forward(self, preds: Tensor, target: Tensor):
+        """Compute MSE Loss.
+
+        Args:
+          preds: batch_size x 1, consisting of mu
+          target: batch_size x 1, regression targets
+
+        Returns:
+          computed loss for the entire batch
+        """
+        mu = preds[:, 0].unsqueeze(-1)
+        loss = torch.pow((target - mu), 2)
+        loss = torch.mean(loss, dim=0)
+        return loss
+
+
 class QuantileLoss(nn.Module):
     """Quantile or Pinball Loss function."""
 

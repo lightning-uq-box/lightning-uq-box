@@ -14,6 +14,7 @@ from uq_method_box.eval_utils import (
     compute_predictive_uncertainty,
     compute_quantiles_from_std,
 )
+from uq_method_box.train_utils import MSE, NLL
 
 from .base import BaseModel
 
@@ -28,6 +29,8 @@ class MCDropoutModel(BaseModel):
         num_mc_samples: int,
         lr: float,
         loss_fn: str,
+        burnin_epochs: int,
+        max_epochs: int,
         save_dir: str,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -40,8 +43,16 @@ class MCDropoutModel(BaseModel):
         """
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
+        self.criterion = NLL()
+        self.MSE = MSE()
         self.quantiles = quantiles
         self.num_mc_samples = num_mc_samples
+        self.burnin_epochs = burnin_epochs
+        self.max_epochs = max_epochs
+
+        assert (
+            self.burnin_epochs <= self.max_epochs
+        ), "The max_epochs needs to be larger than the burnin phase."
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
@@ -55,6 +66,32 @@ class MCDropoutModel(BaseModel):
             extracted mean used for metric computation [batch_size x 1]
         """
         return out[:, 0:1]
+
+    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
+        """Compute and return the training loss.
+
+        Args:
+            batch: the output of your DataLoader
+
+        Returns:
+            training loss
+        """
+        X, y = args[0]
+        out = self.forward(X)
+        loss = self.MSE(self.extract_mean_output(out), y)
+
+        self.log("train_loss", loss)  # logging to Logger
+        self.train_metrics(self.extract_mean_output(out), y)
+
+        if self.current_epoch >= self.burnin_epochs:
+            X, y = args[0]
+            out = self.forward(X)
+            loss = self.criterion(out, y)
+
+            self.log("train_loss", loss)  # logging to Logger
+            self.train_metrics(self.extract_mean_output(out), y)
+
+        return loss
 
     def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Test Step."""

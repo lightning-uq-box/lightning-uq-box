@@ -7,7 +7,7 @@ wandb:
   mode: offline
 model:
   base_model: gaussian
-  loss_fn: nll
+  burnin_epochs: 20
   ensemble: "deep_ensemble"
   ensemble_members: 3
   conformalized: True
