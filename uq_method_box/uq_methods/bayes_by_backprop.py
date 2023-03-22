@@ -51,6 +51,7 @@ class BayesByBackpropModel(BaseModel):
             prior_sigma: prior variance value for bayesian layer
             posterior_mu_init: mean initialization value for approximate posterior
             posterior_rho_init: variance initialization value for approximate posterior
+                through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `Flipout` or `Reparameterization`
         """
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
