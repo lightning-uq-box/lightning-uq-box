@@ -1,0 +1,8 @@
+model:
+  loss_fn: mse
+  model_args: # all arguments for the timm model
+    num_classes: 1
+    in_chans: 3
+    pretrained: True
+optimizer:
+  lr: 0.003

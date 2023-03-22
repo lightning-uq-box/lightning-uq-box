@@ -1,60 +1,79 @@
 """Laplace Approximation model."""
 
-from typing import Any, Dict
+import os
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import torch
-import torch.nn as nn
 from laplace import Laplace
+from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import trange
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
-from uq_method_box.uq_methods import BaseModel
+
+from .utils import save_predictions_to_csv
 
 
-class LaplaceModel(BaseModel):
+class LaplaceModel(LightningModule):
     """Laplace Approximation method for regression."""
 
     def __init__(
         self,
-        config: Dict[str, Any],
+        model: LightningModule,
+        laplace_args: Dict[str, Union[float, str]],
         train_loader: DataLoader,
-        model: nn.Module = None,
-        criterion: nn.Module = None,
+        save_dir: str,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new instance of Laplace Model Wrapper."""
-        super().__init__(config, model, criterion)
+        """Initialize a new instance of Laplace Model Wrapper.
+
+        Args:
+            model: lightning module to use as underlying model
+            laplace_args: laplace arguments to initialize a Laplace Model
+            train_loader: train loader to be used but maybe this can
+                also be accessed through the trainer or write a
+                train_dataloader() method for this model based on the config?
+        """
+        super().__init__()
+        self.save_hyperparameters(ignore=["model", "train_loader"])
         self.laplace_fitted = False
         self.train_loader = train_loader
 
-        # get laplace args from dictionary
-        self.laplace_args = {
-            arg: val
-            for arg, val in self.config["model"]["laplace"].items()
-            if arg not in ["n_epochs_tune_precision", "tune_precision_lr"]
-        }
-        self.tune_precision_lr = self.config["model"]["laplace"].get(
+        self.model = model  # lightning model
+
+        # TODO: find the sequential within the model
+        self.module = self.model.model.model  # nn.Sequential
+
+        self.tune_precision_lr = self.hparams.laplace_args.get(
             "tune_precision_lr", 1e-2
         )
-        self.n_epochs_tune_precision = self.config["model"]["laplace"].get(
+        self.n_epochs_tune_precision = self.hparams.laplace_args.get(
             "n_epochs_tune_precision", 100
         )
+        # get laplace args from dictionary
+        self.hparams.laplace_args = {
+            arg: val
+            for arg, val in self.hparams.laplace_args.items()
+            if arg not in ["n_epochs_tune_precision", "tune_precision_lr"]
+        }
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean output from model prediction.
+        self.quantiles = quantiles
+
+    def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
+        """Fitted Laplace Model Forward Pass.
 
         Args:
-            out: output from :meth:`self.forward` [batch_size x (mu, sigma)]
+            X: tensor of data to run through the model [batch_size, input_dim]
 
         Returns:
-            extracted mean used for metric computation [batch_size x 1]
+            output from the laplace model
         """
-        assert (
-            out.shape[-1] == 1
-        ), "This model should give exactly 1 outputs due to MAP estimation."
-        return out
+        if not self.laplace_fitted:
+            self.on_test_start()
+
+        return self.la_model(X)
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
@@ -66,7 +85,7 @@ class LaplaceModel(BaseModel):
             # but need it for laplace so set inference mode to false with cntx manager
             with torch.inference_mode(False):
                 self.la_model = Laplace(
-                    self.model.model, "regression", **self.laplace_args
+                    self.module, "regression", **self.hparams.laplace_args
                 )
                 # fit the laplace approximation
                 self.la_model.fit(self.train_loader)
@@ -93,19 +112,24 @@ class LaplaceModel(BaseModel):
 
         # save this laplace fitted model as a checkpoint?!
 
-    def test_step(self, *args: Any, **kwargs: Any) -> Dict[str, np.ndarray]:
-        """Test step with Laplace Approximation.
-
-        Args:
-            batch:
-
-        Returns:
-            dictionary of uncertainty outputs
-        """
+    def test_step(self, *args: Any, **kwargs: Any) -> None:
+        """Test step."""
         X, y = args[0]
         out_dict = self.predict_step(X)
         out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
+
+    def on_test_batch_end(
+        self,
+        outputs: Dict[str, np.ndarray],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx=0,
+    ):
+        """Test batch end save predictions."""
+        save_predictions_to_csv(
+            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+        )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -128,7 +152,7 @@ class LaplaceModel(BaseModel):
             # a clone with autograd enables
             input = X.clone().requires_grad_()
 
-            laplace_mean, laplace_var = self.la_model(input)
+            laplace_mean, laplace_var = self.forward(input)
             laplace_mean = laplace_mean.squeeze().detach().cpu().numpy()
             laplace_epistemic = laplace_var.squeeze().sqrt().cpu().numpy()
             laplace_aleatoric = (
@@ -138,9 +162,7 @@ class LaplaceModel(BaseModel):
                 laplace_epistemic**2 + laplace_aleatoric**2
             )
             quantiles = compute_quantiles_from_std(
-                laplace_mean,
-                laplace_predictive,
-                self.config["model"].get("quantiles", [0.1, 0.5, 0.9]),
+                laplace_mean, laplace_predictive, self.quantiles
             )
 
         return {

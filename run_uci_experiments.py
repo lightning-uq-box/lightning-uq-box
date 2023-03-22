@@ -13,7 +13,7 @@ from experiments.setup_experiment import (
 from experiments.utils import create_experiment_dir, read_config, save_config
 from uq_method_box.datamodules import UCIRegressionDatamodule
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import CQR
+from uq_method_box.uq_methods import CQR, LaplaceModel
 
 
 def run(config_path: str) -> None:
@@ -51,20 +51,9 @@ def run(config_path: str) -> None:
             dm = UCIRegressionDatamodule(config)
 
             # get the number of features to update the number of inputs to model
-            run_config["model"]["mlp"]["n_inputs"] = dm.uci_ds.num_features
+            run_config["model"]["model_args"]["n_inputs"] = dm.uci_ds.num_features
 
-            # generate mlp
-            mlp = MLP(**run_config["model"]["mlp"])
-
-            # generate model
-            if run_config["model"]["base_model"] == "laplace":
-                # laplace requires train data loader post fit, maybe there is also
-                # a more elegant way to solve this
-                model = generate_base_model(
-                    run_config, model=mlp, train_loader=dm.train_dataloader()
-                )
-            else:
-                model = generate_base_model(run_config, model=mlp)
+            model = generate_base_model(run_config, model_class=MLP)
 
             # generate trainer
             trainer = generate_trainer(run_config)
@@ -86,6 +75,17 @@ def run(config_path: str) -> None:
         prediction_config["experiment"]["save_dir"] = pred_dir
         os.makedirs(pred_dir)
 
+        # Laplace Model Wrapper
+        if "laplace" in run_config["model"]:
+            # laplace requires train data loader post fit, maybe there is also
+            # a more elegant way to solve this
+            model = LaplaceModel(
+                model,
+                prediction_config["model"]["laplace_args"],
+                dm.train_dataloader(),
+                prediction_config["experiment"]["save_dir"],
+            )
+
         # if we want to build an ensemble
         if seed_config["model"].get("ensemble_members", 1) >= 2:
             # make predictions with the deep ensemble wrapper
@@ -97,9 +97,7 @@ def run(config_path: str) -> None:
             ensemble_members = []
             for ckpt_path in ensemble_ckpt_paths:
                 ensemble_members.append(
-                    generate_base_model(
-                        prediction_config, model=mlp
-                    ).load_from_checkpoint(ckpt_path)
+                    {"model_class": type(model), "ckpt_path": ckpt_path}
                 )
 
             model = generate_ensemble_model(prediction_config, ensemble_members)
@@ -108,17 +106,17 @@ def run(config_path: str) -> None:
         if seed_config["model"].get("conformalized", False):
             # wrap model in CQR
             model = CQR(
-                seed_config,
                 model,
                 seed_config["model"]["quantiles"],
                 dm.calibration_dataloader(),
+                seed_config["experiment"]["save_dir"],
             )
 
         # generate trainer for test to save in prediction dir
         trainer = generate_trainer(prediction_config)
 
         # and update save dir in model config to save it separately
-        model.config["experiment"]["save_dir"] = pred_dir
+        model.hparams.save_dir = pred_dir
 
         # make predictions on test set, check that it still takes the best model?
         trainer.test(model, dataloaders=dm.test_dataloader())

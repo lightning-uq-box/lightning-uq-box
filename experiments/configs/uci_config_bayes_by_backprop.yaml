@@ -21,9 +21,7 @@ model:
     prior_sigma: 1.0
     posterior_mu_init: 0.0
     posterior_rho_init: -3.0
-    type: "Reparameterization"  # Flipout or Reparameterization
-    moped_enable: False  # True initialize mu/sigma from the pretrained
-    moped_delta: 0.5
+    bayesian_layer_type: "Reparameterization"  # Flipout or Reparameterization
 optimizer:
   lr: 0.003
 ds:

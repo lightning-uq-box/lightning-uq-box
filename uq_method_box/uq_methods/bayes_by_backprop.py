@@ -1,6 +1,6 @@
 """Bayes By Backprop Model."""
 
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 import numpy as np
 import torch
@@ -23,25 +23,48 @@ class BayesByBackpropModel(BaseModel):
     """
 
     def __init__(
-        self, config: Dict[str, Any], model_class: type[nn.Module] = None
+        self,
+        model_class: Union[type[nn.Module], str],
+        model_args: Dict[str, Any],
+        lr: float,
+        loss_fn: str,
+        save_dir: str,
+        num_mc_samples: int = 30,
+        prior_mu: float = 0.0,
+        prior_sigma: float = 1.0,
+        posterior_mu_init: float = 0.0,
+        posterior_rho_init: float = -3.0,
+        bayesian_layer_type: str = "Reparameterization",
     ) -> None:
-        """Initialize a new instance of Bayes By Backprop model.
+        """Initialize a new Base Model.
 
         Args:
-            config:
-            model: base model to be converted to bayes by backprop model
+            model_class: Model Class that can be initialized with arguments from dict,
+                or timm backbone name
+            model_args: arguments to initialize model_class
+            lr: learning rate for adam otimizer
+            loss_fn: string name of loss function to use
+            save_dir: directory path to save
+            num_mc_samples:
+            prior_mu: prior mean value for bayesian layer
+            prior_sigma: prior variance value for bayesian layer
+            posterior_mu_init: mean initialization value for approximate posterior
+            posterior_rho_init: variance initialization value for approximate posterior
+            bayesian_layer_type: `Flipout` or `Reparameterization`
         """
-        super().__init__(config, model_class)
+        super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
-        # get dnn_to_bnn args from dictionary
-        self.bayes_bc_backprop_args = self.config["model"]["bayes_by_backprop"]
-
+        self.bnn_args = {
+            "prior_mu": prior_mu,
+            "prior_sigma": prior_sigma,
+            "posterior_mu_init": posterior_mu_init,
+            "posterior_rho_init": posterior_rho_init,
+            "type": bayesian_layer_type,
+        }
         # convert model to Bayes by Backprop model
-        dnn_to_bnn(self.model, self.bayes_bc_backprop_args)
+        dnn_to_bnn(self.model, self.bnn_args)
 
-        self.num_mc_samples = self.config["model"]["mc_samples"]
-
-        self.criterion = nn.MSELoss()
+        self.num_mc_samples = num_mc_samples
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute the training loss.
@@ -115,9 +138,7 @@ class BayesByBackpropModel(BaseModel):
 
         mean = preds.mean(-1)
         std = preds.std(-1)
-        quantiles = compute_quantiles_from_std(
-            mean, std, self.config["model"]["quantiles"]
-        )
+        quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
         return {
             "mean": mean,
             "pred_uct": std,
