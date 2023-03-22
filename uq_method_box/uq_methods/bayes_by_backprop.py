@@ -1,6 +1,6 @@
 """Bayes By Backprop Model."""
 
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import torch
@@ -35,6 +35,7 @@ class BayesByBackpropModel(BaseModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bayesian_layer_type: str = "Reparameterization",
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Base Model.
 
@@ -60,11 +61,13 @@ class BayesByBackpropModel(BaseModel):
             "posterior_mu_init": posterior_mu_init,
             "posterior_rho_init": posterior_rho_init,
             "type": bayesian_layer_type,
+            "moped_enable": False,
         }
         # convert model to Bayes by Backprop model
         dnn_to_bnn(self.model, self.bnn_args)
 
         self.num_mc_samples = num_mc_samples
+        self.quantiles = quantiles
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute the training loss.
@@ -136,9 +139,9 @@ class BayesByBackpropModel(BaseModel):
             .numpy()
         )  # shape [num_samples, batch_size, num_outputs]
 
-        mean = preds.mean(-1)
-        std = preds.std(-1)
-        quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
+        mean = preds.mean(-1).squeeze(-1)
+        std = preds.std(-1).squeeze(-1)
+        quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
         return {
             "mean": mean,
             "pred_uct": std,
