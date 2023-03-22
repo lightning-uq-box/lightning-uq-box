@@ -14,11 +14,11 @@ model:
     predict_sigma: True
     n_hidden: [50]
   swag_args:
-    num_swag_epochs: 25
+    num_swag_epochs: 20
     max_swag_snapshots: 20
     snapshot_freq: 1
     num_mc_samples: 30
-    swag_lr: 0.03
+    swag_lr: 0.001
     loss_fn: "nll"
 optimizer:
   lr: 0.03

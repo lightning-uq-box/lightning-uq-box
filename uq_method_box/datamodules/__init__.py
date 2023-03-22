@@ -9,4 +9,5 @@ __all__ = (
     "ToySineDatamodule",
     "UCIRegressionDatamodule",
     "ToyHeteroscedasticDatamodule",
+    "ToyUncertaintyGaps",
 )
