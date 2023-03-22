@@ -1,6 +1,6 @@
 """Deep Evidential Regression."""
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import torch
@@ -34,7 +34,9 @@ class DERLayer(nn.Module):
         Returns:
             DER outputs of shape [batch_size x 4]
         """
+        assert x.dim() == 2, "Input X should be 2D."
         assert x.shape[-1] == 4, "DER method expects 4 inputs per sample."
+
         gamma = x[:, 0]
         nu = nn.functional.softplus(x[:, 1])
         alpha = nn.functional.softplus(x[:, 2]) + 1.0
@@ -55,15 +57,24 @@ class DERModel(BaseModel):
     """
 
     def __init__(
-        self, config: Dict[str, Any], model: nn.Module = None, **kwargs
+        self,
+        model_class: Union[type[nn.Module], str],
+        model_args: Dict[str, Any],
+        lr: float,
+        save_dir: str,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new Deep Evidential Regression model.
+        """Initialize a new Base Model.
 
         Args:
-            config: config dictionary
-            model: 'backbone' model on top of which DER Layer is places
+            model_class: Model Class that can be initialized with arguments from dict,
+                or timm backbone name
+            model_args: arguments to initialize model_class
+            lr: learning rate for adam otimizer
+            loss_fn: string name of loss function to use
+            save_dir: directory path to save predictions
         """
-        super().__init__(config, model, None)
+        super().__init__(model_class, model_args, lr, None, save_dir)
 
         # check that output is 4 dimensional
         # _, output_module = list(self.model.named_children())[-1]
@@ -77,6 +88,8 @@ class DERModel(BaseModel):
         self.criterion = (
             DERLoss()
         )  # need to give control over the coeff through config or argument
+
+        self.quantiles = quantiles
 
     def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Test step with Laplace Approximation.
@@ -94,16 +107,16 @@ class DERModel(BaseModel):
         return out_dict
 
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Dict[str, Any]:
         """Prediction Step Deep Evidential Regression.
 
         Args:
-
+            X: prediction batch of shape [batch_size x input_dims]
         Returns:
             dictionary with predictions and uncertainty measures
         """
-        pred = self.forward(batch[0])  # [batch_size x 4]
+        pred = self.forward(X)  # [batch_size x 4]
 
         gamma, nu, alpha, beta = pred[:, 0], pred[:, 1], pred[:, 2], pred[:, 3]
 
@@ -111,9 +124,7 @@ class DERModel(BaseModel):
         aleatoric_uct = self.compute_aleatoric_uct(beta, alpha, nu)
         pred_uct = epistemic_uct + aleatoric_uct
 
-        quantiles = compute_quantiles_from_std(
-            gamma, pred_uct, self.config["model"]["quantiles"]
-        )
+        quantiles = compute_quantiles_from_std(gamma, pred_uct, self.quantiles)
 
         return {
             "mean": gamma,

@@ -81,58 +81,6 @@ class QuantileLoss(nn.Module):
         return loss.mean()
 
 
-class QuantileLossAlt(nn.Module):
-    """Alternative Quantile Loss.
-
-    Taken from https://www.kaggle.com/code/abiolatti/deep-quantile-regression-in-keras
-    """
-
-    def __init__(self, quantiles: List[float], delta=1e-4) -> None:
-        """Initialize a new instance of the loss function.
-
-        Args:
-          quantiles: the quantiles that the model is predicting
-          delta: scaler, see https://pytorch.org/docs/stable/generated/
-            torch.nn.HuberLoss.html
-        """
-        super().__init__()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.quantiles = torch.Tensor(quantiles).unsqueeze(0).to(self.device)
-        self.delta = delta
-
-    def forward(self, preds: Tensor, targets: Tensor):
-        """Compute Pinball Loss.
-
-        Args:
-          preds: model quantile predictions [batch_size, num_quantiles]
-          target: target data [batch_size, 1]
-
-        Returns:
-          computed Pinball loss over the entire batch
-        """
-        Idx = (targets <= preds).type(torch.float32)
-        d = torch.abs(targets - preds)
-        correction = Idx * (1 - self.quantiles) + (1 - Idx) * self.quantiles
-
-        # huber loss
-        huber_loss = torch.sum(
-            correction
-            * torch.where(
-                d <= self.delta, 0.5 * d**2 / self.delta, d - 0.5 * self.delta
-            ),
-            dim=-1,
-        )
-        # order loss
-        q_order_loss = torch.sum(
-            torch.maximum(
-                torch.Tensor([0.0]).to(self.device), preds[:, :-1] - preds[:, 1:] + 1e-6
-            ),
-            -1,
-        )
-
-        return (huber_loss + q_order_loss).mean()  # mean over batch
-
-
 class DERLoss(nn.Module):
     """Deep Evidential Regression Loss.
 

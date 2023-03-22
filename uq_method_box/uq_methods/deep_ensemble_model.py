@@ -1,53 +1,141 @@
-"""Implement a deep ensemble model, trained sequentially."""
-# TODO should also support being able to load multiple checkpoints
-# that can form an ensemble during inference
+"""Implement a Deep Ensemble Model for prediction."""
 
-from typing import Any, Dict, List
+import os
+from typing import Any, Dict, List, Union
 
+import numpy as np
 import torch
-import torch.nn as nn
+from lightning import LightningModule
 from torch import Tensor
 
-from uq_method_box.uq_methods import EnsembleModel
+from uq_method_box.eval_utils import (
+    compute_aleatoric_uncertainty,
+    compute_epistemic_uncertainty,
+    compute_predictive_uncertainty,
+    compute_quantiles_from_std,
+)
+
+from .utils import save_predictions_to_csv
 
 
-class DeepEnsembleModel(EnsembleModel):
-    """Deep Ensemble Wrapper.
-
-    Should accept a list of instantiated models and run
-    inference for them.
-    """
+class DeepEnsembleModel(LightningModule):
+    """Base Class for different Ensemble Models."""
 
     def __init__(
-        self, config: Dict[str, Any], ensemble_members: List[nn.Module]
+        self,
+        ensemble_members: List[Dict[str, Union[type[LightningModule], str]]],
+        save_dir: str,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
-        Checkpoint files should be pytorch model checkpoints and
-        not lightning checkpoints.
+        Args:
+            ensemble_members: List of dicts where each element specifies the
+                LightningModule class and a path to a checkpoint
+            save_dir: path to directory where to store prediction
+            quantiles: quantile values to compute for prediction
         """
-        super().__init__(config, ensemble_members)
+        super().__init__()
+        # make hparams accessible
+        self.save_hyperparameters()
 
-    def forward(self, batch: Any, **kwargs: Any) -> Tensor:
+    def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
         """Forward step of Deep Ensemble.
 
         Args:
-            batch:
+            X: input tensor of shape [batch_size, input_di]
 
         Returns:
             Ensemble member outputs stacked over last dimension for output
             of [batch_size, num_outputs, num_ensemble_members]
         """
-        X = batch[0]
-        return torch.stack([member(X) for member in self.ensemble_members], -1)
+        out: List[torch.Tensor] = []
+        for model_config in self.hparams.ensemble_members:
+            loaded_model = model_config["model_class"].load_from_checkpoint(
+                model_config["ckpt_path"]
+            )
+            out.append(loaded_model(X))
+        return torch.stack(out, dim=-1)
 
-    def generate_ensemble_predictions(self, batch: Any) -> Tensor:
+    def test_step(self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0) -> Any:
+        """Compute test step for deep ensemble and log test metrics.
+
+        Args:
+            batch: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            dictionary of uncertainty outputs
+        """
+        X, y = batch
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        return out_dict
+
+    def on_test_batch_end(
+        self,
+        outputs: Dict[str, np.ndarray],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx=0,
+    ):
+        """Test batch end save predictions."""
+        save_predictions_to_csv(
+            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+        )
+
+    def generate_ensemble_predictions(self, X: Tensor) -> Tensor:
         """Generate DeepEnsemble Predictions.
 
         Args:
-            batch:
+            X: input tensor of shape [batch_size, input_di]
 
         Returns:
             the ensemble predictions
         """
-        return self.forward(batch)  # [batch_size, num_outputs, num_ensemble_members]
+        return self.forward(X)  # [batch_size, num_outputs, num_ensemble_members]
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
+        """Compute prediction step for a deep ensemble.
+
+        Args:
+            X: input tensor of shape [batch_size, input_di]
+
+        Returns:
+            mean and standard deviation of MC predictions
+        """
+        with torch.no_grad():
+            preds = self.generate_ensemble_predictions(X).cpu().numpy()
+
+        mean_samples = preds[:, 0, :]
+
+        # assume nll prediction with sigma
+        if preds.shape[1] == 2:
+            sigma_samples = preds[:, 1, :]
+            mean = mean_samples.mean(-1)
+            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
+            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
+            epistemic = compute_epistemic_uncertainty(mean_samples)
+            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
+            return {
+                "mean": mean,
+                "pred_uct": std,
+                "epistemic_uct": epistemic,
+                "aleatoric_uct": aleatoric,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
+            }
+        # assume mse prediction
+        else:
+            mean = mean_samples.mean(-1)
+            std = mean_samples.std(-1)
+            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
+
+            return {
+                "mean": mean,
+                "pred_uct": std,
+                "epistemic_uct": std,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
+            }

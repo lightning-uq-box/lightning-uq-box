@@ -4,7 +4,9 @@ import os
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
-from pytorch_lightning import LightningModule
+import torch
+from lightning import LightningModule
+from torch import Tensor
 from torch.utils.data import DataLoader
 
 from uq_method_box.eval_utils import compute_sample_mean_std_from_quantile
@@ -42,13 +44,12 @@ def compute_q_hat_with_cqr(
 
     # Get the score quantile
     q_hat = np.quantile(
-        cal_scores, np.ceil((n + 1) * (1 - error_rate)) / n, interpolation="higher"
+        cal_scores, np.ceil((n + 1) * (1 - error_rate)) / n, method="higher"
     )
 
     return q_hat
 
 
-# should inherit from baseclass
 class CQR(LightningModule):
     """Implements conformalized Quantile Regression.
 
@@ -58,20 +59,60 @@ class CQR(LightningModule):
 
     def __init__(
         self,
-        model,
+        model: LightningModule,
         quantiles: List[float],
         calibration_loader: DataLoader,
-        config: Dict[str, Any],
+        save_dir: str,
     ) -> None:
-        """Initialize a new instance of CQR."""
+        """Initialize a new Base Model.
+
+        Args:
+            model: initialized underlying LightningModule which is the base model
+                to conformalize
+            quantiles: quantiles used for training and prediction
+            calibration_loader: calibration data loader
+            save_dir: path to directory where to save predictions
+        """
         super().__init__()
-        self.score_model = model
-        self.quantiles = quantiles
-        self.error_rate = 1 - max(self.quantiles)  # 1-alpha is the desired coverage
+        self.save_hyperparameters(ignore=["model", "calibration_loader"])
+
+        self.error_rate = 1 - max(
+            self.hparams.quantiles
+        )  # 1-alpha is the desired coverage
+
+        # load model from checkpoint to conformalize it
+        self.model = model
 
         self.cqr_fitted = False
         self.calibration_loader = calibration_loader
-        self.config = config
+
+    def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
+        """Conformalized Forward Pass.
+
+        Args:
+            X: tensor of data to run through the model [batch_size, input_dim]
+
+        Returns:
+            output from the model
+        """
+        if not self.cqr_fitted:
+            self.on_test_start()
+
+        # predict with underlying model
+        with torch.no_grad():
+            model_preds: Dict[str, np.ndarray] = self.model.predict_step(X)
+
+        # conformalize predictions
+        cqr_sets = np.stack(
+            [
+                model_preds["lower_quant"] - self.q_hat,
+                model_preds["mean"],
+                model_preds["upper_quant"] + self.q_hat,
+            ],
+            axis=1,
+        )
+
+        return cqr_sets
 
     def on_test_start(self) -> None:
         """Before testing phase, compute q_hat."""
@@ -83,14 +124,13 @@ class CQR(LightningModule):
             self.q_hat = compute_q_hat_with_cqr(
                 cal_quantiles, cal_labels, self.error_rate
             )
-            print(self.q_hat)
             self.cqr_fitted = True
 
     def compute_calibration_scores(self) -> Tuple[np.ndarray, np.ndarray]:
         """Compute calibration scores."""
         # model predict steps return a dictionary that contains quantiles
         outputs = [
-            (self.score_model.predict_step(batch), batch[1])
+            (self.model.predict_step(batch[0]), batch[1])
             for batch in self.calibration_loader
         ]
 
@@ -106,38 +146,46 @@ class CQR(LightningModule):
 
     def test_step(self, *args: Any, **kwargs: Any) -> None:
         """Test step."""
-        batch = args[0]
-        out_dict = self.predict_step(batch)
-        out_dict["targets"] = batch[1].detach().squeeze(-1).numpy()
+        X, y = args[0]
+        out_dict = self.predict_step(X)
+        out_dict["targets"] = y.detach().squeeze(-1).numpy()
         return out_dict
 
-    def test_epoch_end(self, outputs: Any) -> None:
-        """Log epoch level validation metrics.
-
-        Args:
-            outputs: list of items returned by test step, dictionaries
-        """
+    def on_test_batch_end(
+        self,
+        outputs: Dict[str, np.ndarray],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx=0,
+    ):
+        """Test batch end save predictions."""
         save_predictions_to_csv(
-            outputs,
-            os.path.join(self.config["experiment"]["save_dir"], "predictions.csv"),
+            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
         )
 
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Any:
-        """Prediction step that produces conformalized prediction sets."""
+        """Prediction step that produces conformalized prediction sets.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            prediction dictionary
+        """
         if not self.cqr_fitted:
             self.on_test_start()
-        model_preds: Dict[str, np.ndarray] = self.score_model.predict_step(batch)
-        cqr_sets = np.stack(
-            [
-                model_preds["lower_quant"] - self.q_hat,
-                model_preds["upper_quant"] + self.q_hat,
-            ],
-            axis=1,
+
+        cqr_sets = self.forward(X)
+
+        mean, std = compute_sample_mean_std_from_quantile(
+            cqr_sets, self.hparams.quantiles
         )
 
-        mean, std = compute_sample_mean_std_from_quantile(cqr_sets, self.quantiles)
+        # can happen due to overlapping quantiles
+        std[std <= 0] = 1e-6
+
         return {
             "mean": mean,
             "pred_uct": std,

@@ -21,7 +21,7 @@ def compute_results_all_experiments(exp_collection_dir: str, save_path: str) -> 
     """
     exp_dirs = glob.glob(os.path.join(exp_collection_dir, "*"), recursive=True)
     # remove the results directory
-    exp_dirs.remove("./experiments/experiments/exp_results")
+    exp_dirs.remove(os.path.join(exp_collection_dir, "exp_results"))
 
     exp_dfs = []
     for exp_dir in tqdm(exp_dirs):
@@ -61,7 +61,6 @@ def compute_metrics_for_single_seed(
     """Compute the metrics for a single seed."""
     pred_dir = os.path.join(seed_dir, "prediction")
     pred_csv = os.path.join(pred_dir, "predictions.csv")
-
     pred_df = pd.read_csv(pred_csv)
 
     uq_metrics = uct.metrics.get_all_metrics(
@@ -86,7 +85,7 @@ def compute_metrics_for_single_seed(
 
     # extract date
     date = "_".join(os.path.basename(os.path.dirname(seed_dir)).split("_")[-2:])
-    date_time = datetime.strptime(date, "%m-%d-%Y_%H:%M:%S")
+    date_time = datetime.strptime(date, "%m-%d-%Y_%H-%M-%S")
 
     config_dict = {
         "base_model": seed_config["model"]["base_model"],

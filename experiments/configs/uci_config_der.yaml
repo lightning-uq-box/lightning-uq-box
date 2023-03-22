@@ -12,7 +12,7 @@ model:
   loss_fn: der
   conformalized: True
   quantiles: [0.1, 0.5, 0.9]
-  mlp: # all arguments for the mlp
+  model_args: # all arguments for the mlp
     n_outputs: 4
     n_hidden: [50]
 optimizer:

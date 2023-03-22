@@ -1,8 +1,9 @@
 """Implement Quantile Regression Model."""
 
-from typing import Any, Dict
+from typing import Any, Dict, List, Union
 
 import numpy as np
+import torch
 import torch.nn as nn
 from torch import Tensor
 
@@ -15,13 +16,20 @@ from .base import BaseModel
 class QuantileRegressionModel(BaseModel):
     """Quantile Regression Model Wrapper."""
 
-    def __init__(self, config: Dict[str, Any], model: nn.Module = None) -> None:
+    def __init__(
+        self,
+        model_class: Union[type[nn.Module], str],
+        model_args: Dict[str, Any],
+        lr: float,
+        save_dir: str,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
+    ) -> None:
         """Initialize a new instance of Quantile Regression Model."""
-        super().__init__(config, model, None)
+        super().__init__(model_class, model_args, lr, "quantile", save_dir)
 
-        self.quantiles = config["model"]["quantiles"]
-        self.median_index = self.quantiles.index(0.5)
-        self.criterion = QuantileLoss(quantiles=self.quantiles)
+        self.quantiles = quantiles
+        self.median_index = self.hparams.quantiles.index(0.5)
+        self.criterion = QuantileLoss(quantiles=self.hparams.quantiles)
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean/median prediction from quantile regression model.
@@ -34,31 +42,21 @@ class QuantileRegressionModel(BaseModel):
         """
         return out[:, self.median_index : self.median_index + 1]  # noqa: E203
 
-    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Compute the test step.
-
-        Args:
-            batch: the output of your DataLoader
-        """
-        batch = args[0]
-        out_dict = self.predict_step(batch)
-        out_dict["targets"] = batch[1].detach().squeeze(-1).numpy()
-        return out_dict
-
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Dict[str, np.ndarray]:
         """Predict step with Quantile Regression.
 
         Args:
-            batch:
+            X: prediction batch of shape [batch_size x input_dims]
 
         Returns:
             predicted uncertainties
         """
-        out = self.model(batch[0]).detach().numpy()  # [batch_size, len(self.quantiles)]
+        with torch.no_grad():
+            out = self.model(X).numpy()  # [batch_size, len(self.quantiles)]
         median = out[:, self.median_index]
-        mean, std = compute_sample_mean_std_from_quantile(out, self.quantiles)
+        mean, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
 
         # can happen due to overlapping quantiles
         std[std <= 0] = 1e-6
