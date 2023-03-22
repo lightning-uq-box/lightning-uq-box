@@ -5,7 +5,7 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-from uq_method_box.datasets.base import UCIRegressionDataset
+from uq_method_box.datasets.uci import UCIRegressionDataset
 
 
 class UCIYacht(UCIRegressionDataset):

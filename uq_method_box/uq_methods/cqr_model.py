@@ -44,13 +44,12 @@ def compute_q_hat_with_cqr(
 
     # Get the score quantile
     q_hat = np.quantile(
-        cal_scores, np.ceil((n + 1) * (1 - error_rate)) / n, interpolation="higher"
+        cal_scores, np.ceil((n + 1) * (1 - error_rate)) / n, method="higher"
     )
 
     return q_hat
 
 
-# should inherit from baseclass
 class CQR(LightningModule):
     """Implements conformalized Quantile Regression.
 
@@ -82,10 +81,38 @@ class CQR(LightningModule):
         )  # 1-alpha is the desired coverage
 
         # load model from checkpoint to conformalize it
-        self.score_model = model
+        self.model = model
 
         self.cqr_fitted = False
         self.calibration_loader = calibration_loader
+
+    def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
+        """Conformalized Forward Pass.
+
+        Args:
+            X: tensor of data to run through the model [batch_size, input_dim]
+
+        Returns:
+            output from the model
+        """
+        if not self.cqr_fitted:
+            self.on_test_start()
+
+        # predict with underlying model
+        with torch.no_grad():
+            model_preds: Dict[str, np.ndarray] = self.model.predict_step(X)
+
+        # conformalize predictions
+        cqr_sets = np.stack(
+            [
+                model_preds["lower_quant"] - self.q_hat,
+                model_preds["mean"],
+                model_preds["upper_quant"] + self.q_hat,
+            ],
+            axis=1,
+        )
+
+        return cqr_sets
 
     def on_test_start(self) -> None:
         """Before testing phase, compute q_hat."""
@@ -103,7 +130,7 @@ class CQR(LightningModule):
         """Compute calibration scores."""
         # model predict steps return a dictionary that contains quantiles
         outputs = [
-            (self.score_model.predict_step(batch[0]), batch[1])
+            (self.model.predict_step(batch[0]), batch[1])
             for batch in self.calibration_loader
         ]
 
@@ -150,15 +177,7 @@ class CQR(LightningModule):
         if not self.cqr_fitted:
             self.on_test_start()
 
-        with torch.no_grad():
-            model_preds: Dict[str, np.ndarray] = self.score_model.predict_step(X)
-        cqr_sets = np.stack(
-            [
-                model_preds["lower_quant"] - self.q_hat,
-                model_preds["upper_quant"] + self.q_hat,
-            ],
-            axis=1,
-        )
+        cqr_sets = self.forward(X)
 
         mean, std = compute_sample_mean_std_from_quantile(
             cqr_sets, self.hparams.quantiles

@@ -1,0 +1,10 @@
+model:
+  loss_fn: mse
+  ensemble: deep_ensemble # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
+  ensemble_members: 3
+  conformalized: False
+  model_args: # all arguments for the mlp
+    n_outputs: 1
+    n_hidden: [10]
+optimizer:
+  lr: 0.003
