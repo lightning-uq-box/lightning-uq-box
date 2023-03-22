@@ -157,7 +157,60 @@ You can also use [git pre-commit hooks](https://pre-commit.com/) to automaticall
 Now, every time you run ``git commit``, pre-commit will run and let you know if any of the files that you changed fail the linters. If pre-commit passes then your code should be ready (style-wise) for a pull request. Note that you will need to run ``pre-commit run --all-files`` if any of the hooks in ``.pre-commit-config.yaml`` change, see [here](https://pre-commit.com/#4-optional-run-against-all-the-files>).
 
 ### Tests
-We will have to write unit tests to make sure our code runs as expected. This is good practice to check our own working and a necessity before open-sourcing the repo. Tests should follow the exact directory structure of the `uq_method_box` directory for each individual python file with the name `test_[filename].py`.
+We are using unit tests to make sure our code runs as expected. This is merely checking the "mechanics", for example that our implementations work with trainers or in Toy Examples. It does not give you any guarantees about the "correctness" of the implementation. Tests should follow the exact directory structure of the `uq_method_box` directory for each individual python file with the name `test_[filename].py`. Later this tests will also be run automatically on every commit and will be required to pass before a PR can be merged to the main branch. We use [pytest](https://docs.pytest.org/en/7.2.x/) for the implementation of unit tests. Additionally, we also use [pytest-cov](https://pytest-cov.readthedocs.io/en/latest/) which tests the coverage of our unit tests meaning which written lines of code are actually tested or covered by our tests.
+
+To test your code install the following two libraries in your environment:
+
+```
+   $ pip install pytest
+   $ pip install pytest-cov
+```
+
+If you implement a new method for example which is placed in `uq_method_box/uq_methods/my_new_method.py`, there should be a corresponding file in `tests/uq_methods/test_my_new_method.py` which implements unit tests for your implementation. To execute the tests use the following command:
+
+```
+   $ pytest --cov=uq_method_box/uq_methods/ --cov-report=term-missing tests/uq_methods/test_my_new_method.py
+```
+
+The command above only executes the tests in `test_my_new_method.py` but gives you a coverage report of all files contained in `uq_method_box/uq_methods/`. The below output is an example of running the tests on all files under `uq_method_box/uq_methods/`:
+
+```
+   $ pytest --cov=uq_method_box/uq_methods --cov-report=term-missing tests/uq_methods/
+   platform linux -- Python 3.9.12, pytest-7.2.2, pluggy-1.0.0
+   plugins: anyio-3.6.2, hydra-core-1.3.1, cov-4.0.0
+   collected 32 items                                                                                                                                                                                                                                            
+
+   tests/uq_methods/test_base.py ....                                                 [ 12%]
+   tests/uq_methods/test_cqr_model.py ...                                             [ 21%]
+   tests/uq_methods/test_deep_ensemble_model.py ....                                  [ 34%]
+   tests/uq_methods/test_deep_evidential_regression.py ...                            [ 43%]
+   tests/uq_methods/test_deterministic_gaussian.py ..                                 [ 50%]
+   tests/uq_methods/test_laplace_model.py ...                                         [ 59%]
+   tests/uq_methods/test_mc_dropout_model.py ......                                   [ 78%]
+   tests/uq_methods/test_quantile_regression_model.py ...                             [ 87%]
+   tests/uq_methods/test_utils.py ....                                                [100%]
+
+   ---------- coverage: platform linux, python 3.9.12-final-0 -----------
+   Name                                                     Stmts   Miss  Cover   Missing
+   --------------------------------------------------------------------------------------
+   uq_method_box/uq_methods/__init__.py                         9      0   100%
+   uq_method_box/uq_methods/base.py                            64      0   100%
+   uq_method_box/uq_methods/cqr_model.py                       58      0   100%
+   uq_method_box/uq_methods/deep_ensemble_model.py             43      0   100%
+   uq_method_box/uq_methods/deep_evidential_regression.py      46      0   100%
+   uq_method_box/uq_methods/deterministic_gaussian.py          24      0   100%
+   uq_method_box/uq_methods/laplace_model.py                   61      0   100%
+   uq_method_box/uq_methods/mc_dropout_model.py                36      0   100%
+   uq_method_box/uq_methods/quantile_regression_model.py       23      0   100%
+   uq_method_box/uq_methods/utils.py                           28      0   100%
+   --------------------------------------------------------------------------------------
+   TOTAL                                                      392      0   100%
+
+
+   ================================== 32 passed in 9.74s =======================================
+```
+
+If certain lines are not coverd by the unit tests, they will be explicitly listed in the "Missing" column any you can adjust your tests accordingly (or remove bugs or unecessary code as needed).
 
 ### Documentation
 We aim to provide extensive documentation. All the docstrings written inside the python files are generated into a readable documentation with the help of [Sphinx](https://www.sphinx-doc.org/en/master/) and [ReadTheDocs](https://readthedocs.org/). This means that all functions and classes should be clearly documented. We can extend the documentation by writing tutorials or additional information in the corresponding .rst file in the [api](docs/api/). In order, to preview the documentation locally you can do the following:
