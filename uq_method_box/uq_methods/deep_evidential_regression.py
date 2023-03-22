@@ -102,7 +102,7 @@ class DERModel(BaseModel):
         """
         batch = args[0]
         target = batch[1]
-        out_dict = self.predict_step(batch)
+        out_dict = self.predict_step(batch[0])
         out_dict["targets"] = target.detach().squeeze(-1).numpy()
         return out_dict
 
@@ -116,7 +116,8 @@ class DERModel(BaseModel):
         Returns:
             dictionary with predictions and uncertainty measures
         """
-        pred = self.forward(X)  # [batch_size x 4]
+        with torch.no_grad():
+            pred = self.model(X).cpu().numpy()  # [batch_size x 4]
 
         gamma, nu, alpha, beta = pred[:, 0], pred[:, 1], pred[:, 2], pred[:, 3]
 
