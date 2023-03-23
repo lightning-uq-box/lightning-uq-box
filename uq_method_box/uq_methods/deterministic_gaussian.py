@@ -70,8 +70,7 @@ class DeterministicGaussianModel(BaseModel):
         out = self.forward(X)
 
         if self.current_epoch < self.burnin_epochs:
-            loss = nn.funnctional.mse_loss(self.extract_mean_output(out), y)
-
+            loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
         else:
             loss = self.criterion(out, y)
 
@@ -90,9 +89,8 @@ class DeterministicGaussianModel(BaseModel):
         """
         with torch.no_grad():
             preds = self.model(X).cpu().numpy()
-        mean = preds[:, 0]
-        log_sigma_2 = preds[:, 1]
-        eps = np.ones_like(torch.from_numpy(log_sigma_2)) * 1e-6
+        mean, log_sigma_2 = preds[:, 0], preds[:, 1]
+        eps = np.ones_like(log_sigma_2) * 1e-6
         std = np.sqrt(eps + np.exp(log_sigma_2))
         quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
         return {

@@ -15,7 +15,6 @@ class MLP(nn.Module):
         n_inputs: int = 1,
         n_hidden: List[int] = [100],
         n_outputs: int = 1,
-        predict_sigma: bool = False,
         activation_fn: nn.Module = nn.Tanh(),
     ) -> None:
         """Initialize a new instance of MLP.
@@ -42,7 +41,6 @@ class MLP(nn.Module):
         # add output layer
         layers += [nn.Linear(layer_sizes[-1], n_outputs)]
         self.model = nn.Sequential(*layers)
-        self.predict_sigma = predict_sigma
 
     def forward(self, x) -> Tensor:
         """Forward pass through the neural network.
@@ -53,5 +51,4 @@ class MLP(nn.Module):
         Returs:
           output from neural net of dimension [batch_size, n_outputs]
         """
-        out = self.model(x)  # batch_size x (mu,sigma) or just mean
-        return out
+        return self.model(x)

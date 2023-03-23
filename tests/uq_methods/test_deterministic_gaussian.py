@@ -24,6 +24,8 @@ class TestDeterministicGaussianModel:
             model_args=conf_dict["model"]["model_args"],
             lr=1e-3,
             loss_fn="nll",
+            burnin_epochs=conf_dict["model"]["burnin_epochs"],
+            max_epochs=conf_dict["model"]["max_epochs"],
             save_dir=tmp_path,
         )
 
@@ -41,7 +43,7 @@ class TestDeterministicGaussianModel:
         datamodule = ToyHeteroscedasticDatamodule()
         trainer = Trainer(
             log_every_n_steps=1,
-            max_epochs=1,
+            max_epochs=2,
             default_root_dir=det_nll_model.hparams.save_dir,
         )
         trainer.fit(model=det_nll_model, datamodule=datamodule)

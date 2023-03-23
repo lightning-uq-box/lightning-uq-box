@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Union
 import numpy as np
 import torch
 from laplace import Laplace
-from pytorch_lightning import LightningModule
+from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm import trange
