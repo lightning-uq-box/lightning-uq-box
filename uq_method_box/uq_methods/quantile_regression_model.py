@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Union
 
 import numpy as np
+import torch
 import torch.nn as nn
 from torch import Tensor
 
@@ -26,6 +27,7 @@ class QuantileRegressionModel(BaseModel):
         """Initialize a new instance of Quantile Regression Model."""
         super().__init__(model_class, model_args, lr, "quantile", save_dir)
 
+        self.quantiles = quantiles
         self.median_index = self.hparams.quantiles.index(0.5)
         self.criterion = QuantileLoss(quantiles=self.hparams.quantiles)
 
@@ -51,7 +53,8 @@ class QuantileRegressionModel(BaseModel):
         Returns:
             predicted uncertainties
         """
-        out = self.model(X).detach().numpy()  # [batch_size, len(self.quantiles)]
+        with torch.no_grad():
+            out = self.model(X).numpy()  # [batch_size, len(self.quantiles)]
         median = out[:, self.median_index]
         mean, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
 

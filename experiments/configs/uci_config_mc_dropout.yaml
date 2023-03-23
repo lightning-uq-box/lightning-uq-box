@@ -7,12 +7,12 @@ wandb:
   mode: offline
 model:
   base_model: mc_dropout
-  num_mc_samples: 10
   loss_fn: nll
+  num_mc_samples: 10
+  burnin_epochs: 20 #if burnin_epochs and outputs= 1 this is model trained with mse
   quantiles: [0.1, 0.5, 0.9] # return approx quantiles in prediction
   model_args: # all arguments for the mlp
     n_outputs: 2
-    predict_sigma: True
     n_hidden: [50]
     dropout_p: 0.2
 optimizer:

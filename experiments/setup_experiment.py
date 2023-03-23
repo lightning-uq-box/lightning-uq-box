@@ -48,6 +48,8 @@ def generate_base_model(
             lr=config["optimizer"]["lr"],
             loss_fn=config["model"]["loss_fn"],
             save_dir=config["experiment"]["save_dir"],
+            burnin_epochs=config["model"]["burnin_epochs"],
+            max_epochs=config["pl"]["max_epochs"],
         )
 
     elif config["model"]["base_model"] == "quantile_regression":
@@ -66,6 +68,8 @@ def generate_base_model(
             lr=config["optimizer"]["lr"],
             loss_fn=config["model"]["loss_fn"],
             save_dir=config["experiment"]["save_dir"],
+            burnin_epochs=config["model"]["burnin_epochs"],
+            max_epochs=config["pl"]["max_epochs"],
         )
 
     else:

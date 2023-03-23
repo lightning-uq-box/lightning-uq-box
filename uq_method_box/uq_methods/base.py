@@ -1,7 +1,7 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, Union
 
 import numpy as np
 import timm
@@ -10,13 +10,6 @@ import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
-
-from uq_method_box.eval_utils import (
-    compute_aleatoric_uncertainty,
-    compute_epistemic_uncertainty,
-    compute_predictive_uncertainty,
-    compute_quantiles_from_std,
-)
 
 from .utils import retrieve_loss_fn, save_predictions_to_csv
 
@@ -73,6 +66,10 @@ class BaseModel(LightningModule):
         # if own nn module
         else:
             self.model = self.hparams.model_class(**self.hparams.model_args)
+            # specific hack for MLP, maybe torchgeo has function that can find
+            # first and last layer
+            self.n_inputs = self.model.model[0].in_features
+            self.n_outputs = self.model.model[-1].out_features
 
         self.criterion = retrieve_loss_fn(self.hparams.loss_fn)
 
@@ -165,7 +162,8 @@ class BaseModel(LightningModule):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        out = self.forward(X)
+        with torch.no_grad():
+            out = self.forward(X)
         return {
             "mean": self.extract_mean_output(out).squeeze(-1).detach().cpu().numpy()
         }
@@ -191,119 +189,3 @@ class BaseModel(LightningModule):
         """
         optimizer = torch.optim.SGD(self.model.parameters(), lr=self.hparams.lr)
         return {"optimizer": optimizer}
-
-
-class EnsembleModel(LightningModule):
-    """Base Class for different Ensemble Models."""
-
-    def __init__(
-        self,
-        ensemble_members: List[Dict[str, Union[type[LightningModule], str]]],
-        save_dir: str,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
-    ) -> None:
-        """Initialize a new instance of DeepEnsembleModel Wrapper.
-
-        Args:
-            ensemble_members: List of dicts where each element specifies the
-                LightningModule class and a path to a checkpoint
-            save_dir: path to directory where to store prediction
-            quantiles: quantile values to compute for prediction
-        """
-        super().__init__()
-        # make hparams accessible
-        self.save_hyperparameters()
-
-    def forward(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Forward step of Deep Ensemble.
-
-        Args:
-            batch:
-
-        Returns:
-            Ensemble member outputs stacked over last dimension for output
-            of [batch_size, num_outputs, num_ensemble_members]
-        """
-        raise NotImplementedError
-
-    def test_step(self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0) -> Any:
-        """Compute test step for deep ensemble and log test metrics.
-
-        Args:
-            batch: prediction batch of shape [batch_size x input_dims]
-
-        Returns:
-            dictionary of uncertainty outputs
-        """
-        X, y = batch
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
-        return out_dict
-
-    def on_test_batch_end(
-        self,
-        outputs: Dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
-        )
-
-    def generate_ensemble_predictions(self, batch: Any) -> Tensor:
-        """Generate ensemble predictions.
-
-        Args:
-            batch: data batch
-
-        Returns:
-            ensemble predictions of shape [batch_size, num_outputs, num_ensemble_preds]
-        """
-        raise NotImplementedError
-
-    def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Any:
-        """Compute prediction step for a deep ensemble.
-
-        Args:
-            X: input tensor of shape [batch_size, input_di]
-
-        Returns:
-            mean and standard deviation of MC predictions
-        """
-        preds = self.generate_ensemble_predictions(X)
-
-        mean_samples = preds[:, 0, :].detach().cpu().numpy()
-
-        # assume nll prediction with sigma
-        if preds.shape[1] == 2:
-            sigma_samples = preds[:, 1, :].detach().cpu().numpy()
-            mean = mean_samples.mean(-1)
-            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
-            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
-            epistemic = compute_epistemic_uncertainty(mean_samples)
-            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": epistemic,
-                "aleatoric_uct": aleatoric,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
-        # assume mse prediction
-        else:
-            mean = mean_samples.mean(-1)
-            std = mean_samples.std(-1)
-            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": std,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }

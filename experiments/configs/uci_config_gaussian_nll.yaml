@@ -8,13 +8,13 @@ wandb:
 model:
   base_model: gaussian
   loss_fn: nll
+  burnin_epochs: 20
   ensemble: "deep_ensemble"
   ensemble_members: 3
   conformalized: True
   quantiles: [0.1, 0.5, 0.9] # return approx quantiles in prediction
   model_args: # all arguments for the mlp
     n_outputs: 2
-    predict_sigma: True
     n_hidden: [50]
 optimizer:
   lr: 0.003
