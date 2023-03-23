@@ -106,7 +106,7 @@ I have run the commands in this order to create a conda environment with which I
     $  conda create --name ninaEnv python=3.8
     $  conda activate ninaEnv
     $  conda install pytorch torchvision cpuonly -c pytorch
-    $  conda install -c conda-forge pytorch-lightning
+    $  conda install -c conda-forge lightning
     $  conda install -c conda-forge torchgeo
     $  conda install -c conda-forge pandas
     $  conda install -c conda-forge laplace-torch

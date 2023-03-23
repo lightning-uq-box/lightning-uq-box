@@ -1,4 +1,6 @@
 """Stochastic Gradient Langevin Dynamics (SGLD) model."""
+# TO DO:
+#
 
 import copy
 from typing import Any, Dict, List, Union
