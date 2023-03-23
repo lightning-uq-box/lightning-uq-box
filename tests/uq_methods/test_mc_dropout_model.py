@@ -16,7 +16,7 @@ from uq_method_box.uq_methods import MCDropoutModel
 
 # TODO test different both mse and nll
 class TestMCDropoutModel:
-    @pytest.fixture(params=["mc_dropout_mse.yaml", "mc_dropout_nll.yaml"])
+    @pytest.fixture(params=["mc_dropout_nll.yaml", "mc_dropout_mse.yaml"])
     def mc_model(self, tmp_path: Path, request: SubRequest) -> MCDropoutModel:
         """Create a QR model being used for different tests."""
         conf = OmegaConf.load(os.path.join("tests", "configs", request.param))
@@ -27,6 +27,8 @@ class TestMCDropoutModel:
             num_mc_samples=conf_dict["model"]["num_mc_samples"],
             lr=1e-3,
             loss_fn=conf_dict["model"]["loss_fn"],
+            burnin_epochs=conf_dict["model"]["burnin_epochs"],
+            max_epochs=conf_dict["model"]["max_epochs"],
             save_dir=tmp_path,
         )
 
@@ -53,7 +55,7 @@ class TestMCDropoutModel:
         datamodule = ToyHeteroscedasticDatamodule()
         trainer = Trainer(
             log_every_n_steps=1,
-            max_epochs=1,
+            max_epochs=2,
             default_root_dir=mc_model.hparams.save_dir,
         )
         trainer.fit(model=mc_model, datamodule=datamodule)

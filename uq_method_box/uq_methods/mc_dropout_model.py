@@ -14,7 +14,6 @@ from uq_method_box.eval_utils import (
     compute_predictive_uncertainty,
     compute_quantiles_from_std,
 )
-from uq_method_box.train_utils import NLL
 
 from .base import BaseModel
 
@@ -43,7 +42,6 @@ class MCDropoutModel(BaseModel):
         """
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
-        self.criterion = NLL()
         self.quantiles = quantiles
         self.num_mc_samples = num_mc_samples
         self.burnin_epochs = burnin_epochs
@@ -79,8 +77,7 @@ class MCDropoutModel(BaseModel):
         out = self.forward(X)
 
         if self.current_epoch < self.burnin_epochs:
-            loss = nn.funnctional.mse_loss(self.extract_mean_output(out), y)
-
+            loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
         else:
             loss = self.criterion(out, y)
 
