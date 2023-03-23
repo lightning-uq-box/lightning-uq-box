@@ -8,7 +8,7 @@ import torch.nn as nn
 from torch import Tensor
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
-from uq_method_box.train_utils import MSE, NLL
+from uq_method_box.train_utils import NLL
 
 from .base import BaseModel
 
@@ -31,7 +31,6 @@ class DeterministicGaussianModel(BaseModel):
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
         self.criterion = NLL()
-        self.MSE = MSE()
         self.quantiles = quantiles
         self.burnin_epochs = burnin_epochs
         self.max_epochs = max_epochs
@@ -39,6 +38,10 @@ class DeterministicGaussianModel(BaseModel):
         assert (
             self.burnin_epochs <= self.max_epochs
         ), "The max_epochs needs to be larger than the burnin phase."
+
+        assert (
+            self.n_outputs == 2
+        ), f"Model output should be 2D but found {self.n_outputs} dimensions."
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
@@ -65,18 +68,15 @@ class DeterministicGaussianModel(BaseModel):
         """
         X, y = args[0]
         out = self.forward(X)
-        loss = self.MSE(self.extract_mean_output(out), y)
+
+        if self.current_epoch < self.burnin_epochs:
+            loss = nn.funnctional.mse_loss(self.extract_mean_output(out), y)
+
+        else:
+            loss = self.criterion(out, y)
 
         self.log("train_loss", loss)  # logging to Logger
         self.train_metrics(self.extract_mean_output(out), y)
-
-        if self.current_epoch >= self.burnin_epochs:
-            X, y = args[0]
-            out = self.forward(X)
-            loss = self.criterion(out, y)
-
-            self.log("train_loss", loss)  # logging to Logger
-            self.train_metrics(self.extract_mean_output(out), y)
 
         return loss
 
@@ -89,9 +89,9 @@ class DeterministicGaussianModel(BaseModel):
             X: prediction batch of shape [batch_size x input_dims]
         """
         with torch.no_grad():
-            preds = self.model(X)
-        mean = preds[:, 0].detach().cpu().numpy()
-        log_sigma_2 = preds[:, 1].detach().cpu().numpy()
+            preds = self.model(X).cpu().numpy()
+        mean = preds[:, 0]
+        log_sigma_2 = preds[:, 1]
         eps = np.ones_like(torch.from_numpy(log_sigma_2)) * 1e-6
         std = np.sqrt(eps + np.exp(log_sigma_2))
         quantiles = compute_quantiles_from_std(mean, std, self.quantiles)

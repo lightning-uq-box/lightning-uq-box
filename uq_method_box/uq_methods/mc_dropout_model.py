@@ -14,7 +14,7 @@ from uq_method_box.eval_utils import (
     compute_predictive_uncertainty,
     compute_quantiles_from_std,
 )
-from uq_method_box.train_utils import MSE, NLL
+from uq_method_box.train_utils import NLL
 
 from .base import BaseModel
 
@@ -44,7 +44,6 @@ class MCDropoutModel(BaseModel):
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
         self.criterion = NLL()
-        self.MSE = MSE()
         self.quantiles = quantiles
         self.num_mc_samples = num_mc_samples
         self.burnin_epochs = burnin_epochs
@@ -78,18 +77,15 @@ class MCDropoutModel(BaseModel):
         """
         X, y = args[0]
         out = self.forward(X)
-        loss = self.MSE(self.extract_mean_output(out), y)
+
+        if self.current_epoch < self.burnin_epochs:
+            loss = nn.funnctional.mse_loss(self.extract_mean_output(out), y)
+
+        else:
+            loss = self.criterion(out, y)
 
         self.log("train_loss", loss)  # logging to Logger
         self.train_metrics(self.extract_mean_output(out), y)
-
-        if self.current_epoch >= self.burnin_epochs:
-            X, y = args[0]
-            out = self.forward(X)
-            loss = self.criterion(out, y)
-
-            self.log("train_loss", loss)  # logging to Logger
-            self.train_metrics(self.extract_mean_output(out), y)
 
         return loss
 
@@ -124,7 +120,7 @@ class MCDropoutModel(BaseModel):
         # assume prediction with sigma
         if preds.shape[1] == 2:
             log_sigma_2 = preds[:, 1, :]
-            eps = np.ones_like(torch.from_numpy(log_sigma_2)) * 1e-6
+            eps = np.ones_like(log_sigma_2) * 1e-6
             sigma_samples = np.sqrt(eps + np.exp(log_sigma_2))
             mean = mean_samples.mean(-1)
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
