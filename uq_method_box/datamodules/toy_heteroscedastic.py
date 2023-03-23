@@ -4,7 +4,7 @@ from typing import Callable, Union
 
 import numpy as np
 import torch
-from pytorch_lightning import LightningDataModule
+from lightning import LightningDataModule
 from scipy import stats
 from torch.utils.data import DataLoader, TensorDataset
 

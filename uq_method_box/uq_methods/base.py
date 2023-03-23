@@ -7,7 +7,7 @@ import numpy as np
 import timm
 import torch
 import torch.nn as nn
-from pytorch_lightning import LightningModule
+from lightning import LightningModule
 from torch import Tensor
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
 
