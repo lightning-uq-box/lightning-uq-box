@@ -1,19 +1,16 @@
 experiment:
-  experiment_name: "uci"
+  experiment_name: "test_sgd"
   exp_dir: "experiments/experiments/"
 wandb:
   project: uci_regression
   entity: uq-regression
   mode: offline
 model:
-  base_model: base_model
-  ensemble: deep_ensemble # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
-  ensemble_members: 3
-  loss_fn: mse
-  conformalized: True
+  base_model: gaussian
+  loss_fn: nll
   quantiles: [0.1, 0.5, 0.9]
   model_args: # all arguments for the mlp
-    n_outputs: 1
+    n_outputs: 2
     n_hidden: [50]
 optimizer:
   lr: 0.003
@@ -27,7 +24,7 @@ pl: # all flags to pytorch lightning trainer
   # devices: 1 
   precision: 32
   accelerator: cpu
-  max_epochs: 10
+  max_epochs: 50
   max_steps: -1
   limit_val_batches: 0.0 # no validation set
   limit_test_batches: 1.0

@@ -63,12 +63,17 @@ def compute_metrics_for_single_seed(
     pred_csv = os.path.join(pred_dir, "predictions.csv")
     pred_df = pd.read_csv(pred_csv)
 
-    uq_metrics = uct.metrics.get_all_metrics(
-        pred_df["mean"].values.squeeze(),
-        pred_df["pred_uct"].values.squeeze(),
-        pred_df["targets"].values.squeeze(),
-        verbose=False,
-    )
+    try:
+        uq_metrics = uct.metrics.get_all_metrics(
+            pred_df["mean"].values.squeeze(),
+            pred_df["pred_uct"].values.squeeze(),
+            pred_df["targets"].values.squeeze(),
+            verbose=False,
+        )
+    except:
+        import pdb
+
+        pdb.set_trace()
 
     uq_metric_categories = ["scoring_rule", "avg_calibration", "sharpness", "accuracy"]
     metrics_dict = {uq_cat: uq_metrics[uq_cat] for uq_cat in uq_metric_categories}

@@ -189,7 +189,7 @@ class BaseModel(LightningModule):
             a "lr dict" according to the pytorch lightning documentation --
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
+        optimizer = torch.optim.SGD(self.model.parameters(), lr=self.hparams.lr)
         return {"optimizer": optimizer}
 
 

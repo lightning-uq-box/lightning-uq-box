@@ -27,7 +27,7 @@ ds:
   root: "/home/nils/projects/uq-method-box/experiments/data/uci"
   train_size: 0.9
 dataloader: # arguments for dataloader
-  batch_size: 256
+  
   num_workers: 0
 pl: # all flags to pytorch lightning trainer
   # devices: 1 

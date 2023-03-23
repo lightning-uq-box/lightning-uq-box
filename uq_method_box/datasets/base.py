@@ -51,6 +51,8 @@ class UCIRegressionDataset:
         # load data
         X, y = self.load_data()
 
+        self.N = X.shape[0]
+
         X_train, X_test, y_train, y_test = train_test_split(
             X,
             y,
@@ -67,9 +69,6 @@ class UCIRegressionDataset:
                 random_state=self.BASE_SEED + seed,
                 shuffle=True,
             )
-
-        # compute normalization statistics on train set
-        # self.compute_normalization_statistics(X_train, y_train)
 
         self.input_scaler = StandardScaler()
         self.X_train = self.input_scaler.fit_transform(X_train)
