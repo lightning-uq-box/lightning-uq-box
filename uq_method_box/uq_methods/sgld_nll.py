@@ -116,7 +116,8 @@ class SGLDModel(BaseModel):
         Returns:
             a "lr dict" according to the pytorch lightning documentation,
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers,
-            with SGLD optimizer.
+            with SGLD optimizer and cosine lr scheduler,
+            https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.html
         """
         optimizer = SGLD(params=self.model.parameters(), lr=self.lr)
         scheduler = CosineAnnealingWarmRestarts(
