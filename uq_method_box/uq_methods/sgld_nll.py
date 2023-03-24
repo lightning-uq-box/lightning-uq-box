@@ -1,9 +1,10 @@
 """Stochastic Gradient Langevin Dynamics (SGLD) model."""
 # TO DO:
+# SGLD with ensembles
+# load params from checkpoints
 #
-
-import copy
-from typing import Any, Dict, List, Union
+import os
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -24,7 +25,9 @@ from uq_method_box.uq_methods import BaseModel
 class SGLD(Optimizer):
     """SGLD Optimzer."""
 
-    def __init__(self, params, lr=required, noise_factor=0.7, weight_decay=0):
+    def __init__(
+        self, params, lr: float, noise_factor: float = 0.7, weight_decay: float = 0
+    ):
         """Initialize new instance of SGLD Optimier."""
         if lr is not required and lr < 0.0:
             raise ValueError(f"Invalid learning rate: {lr}")
@@ -36,7 +39,7 @@ class SGLD(Optimizer):
         self.params = params
         self.lr = lr
 
-    def step(self, closure=None):
+    def step(self, closure: Optional[callable] = None):
         """Perform a single optimization step.
 
         Args:
@@ -86,6 +89,12 @@ class SGLDModel(BaseModel):
         """Initialize a new instance of SGLD model."""
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
+        # makes self.hparams accesible
+        self.save_hyperparameters()
+
+        self.snapshot_dir = os.path.join(self.hparams.save_dir, "model_snapshots")
+        os.makedirs(self.snapshot_dir)
+
         self.automatic_optimization = False
         self.n_burnin_epochs = n_burnin_epochs
         self.n_sgld_samples = n_sgld_samples
@@ -95,6 +104,7 @@ class SGLDModel(BaseModel):
         self.weight_decay = weight_decay
         self.lr = lr
         self.restart_cosine = restart_cosine
+        self.dir_list = []
 
         assert (
             self.n_sgld_samples + self.n_burnin_epochs == self.max_epochs
@@ -144,10 +154,18 @@ class SGLDModel(BaseModel):
         self.log("train_loss", loss)  # logging to Logger
         self.train_metrics(self.extract_mean_output(out), y)
 
-        if self.current_epoch > self.n_burnin_epochs:
-            self.models.append(copy.deepcopy(self.model))
-
         return loss
+
+    def on_train_epoch_end(self) -> List:
+        """Save model checkpoints after train epochs."""
+        if self.current_epoch > self.n_burnin_epochs:
+            torch.save(
+                self.model.state_dict(),
+                os.path.join(self.snapshot_dir, f"{self.current_epoch}_model.ckpt"),
+            )
+            self.dir_list.append(
+                os.path.join(self.snapshot_dir, f"{self.current_epoch}_model.ckpt")
+            )
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
@@ -177,11 +195,14 @@ class SGLDModel(BaseModel):
             "aleatoric_uct": sgld_aleatoric, aleatoric uncertainty, averaged over models
             "quantiles": sgld_quantiles, quantiles assuming output is Gaussian
         """
-        preds = (
-            torch.stack([self.model(X) for self.model in self.models], dim=-1)
-            .detach()
-            .numpy()
-        )  # shape [n_sgld_samples, batch_size, num_outputs]
+        # create predictions from models loaded from checkpoints
+        preds: List[torch.Tensor] = []
+        for ckpt_path in self.dir_list:
+            self.model.load_state_dict(torch.load(ckpt_path))
+            preds.append(self.model(X))
+
+        preds = torch.stack(preds, dim=-1).detach().numpy()
+        # shape [batch_size, n_sgld_samples, num_outputs]
 
         # Prediction gives two outputs, due to NLL loss
         mean_samples = preds[:, 0, :]
