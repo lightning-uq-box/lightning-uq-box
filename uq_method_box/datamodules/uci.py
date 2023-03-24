@@ -29,7 +29,7 @@ class UCIRegressionDatamodule(LightningDataModule):
         self.config = config
         self.uci_ds = self.initialize_dataset(config)
 
-        self.batch_size = int(self.uci_ds.N / 10)
+        # self.batch_size = int(self.uci_ds.N / 10)
 
     def initialize_dataset(self, config: Dict[str, Any]) -> UCIRegressionDataset:
         """Initialize the desired UCI Regression Dataset.
@@ -60,23 +60,15 @@ class UCIRegressionDatamodule(LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         """Return a dataloader for the training set."""
         return DataLoader(
-            self.uci_ds.train_dataset(),
-            batch_size=self.batch_size,
-            **self.config["dataloader"],
+            self.uci_ds.train_dataset(), shuffle=True, **self.config["dataloader"]
         )
 
     def test_dataloader(self) -> DataLoader:
         """Return a dataloader for the testing set."""
-        return DataLoader(
-            self.uci_ds.test_dataset(),
-            batch_size=self.batch_size,
-            **self.config["dataloader"],
-        )
+        return DataLoader(self.uci_ds.test_dataset(), **self.config["dataloader"])
 
     def calibration_dataloader(self) -> DataLoader:
         """Return a calibration dataloader for conformal prediction."""
         return DataLoader(
-            self.uci_ds.calibration_dataset(),
-            batch_size=self.batch_size,
-            **self.config["dataloader"],
+            self.uci_ds.calibration_dataset(), **self.config["dataloader"]
         )

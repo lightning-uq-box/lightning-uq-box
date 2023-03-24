@@ -34,7 +34,7 @@ class SWAGModel(LightningModule):
 
     def __init__(
         self,
-        model: LightningModule,
+        model: nn.Module,
         num_swag_epochs: int,
         max_swag_snapshots: int,
         snapshot_freq: int,
@@ -61,8 +61,7 @@ class SWAGModel(LightningModule):
         self.save_hyperparameters(ignore=["model", "train_loader"])
 
         self.train_loader = train_loader
-        self.model = model  # lightning model
-        self.module = deepcopy(model.model)  # nn.Module
+        self.model = model
 
         self.num_swag_epochs = num_swag_epochs
         self.max_swag_snapshots = max_swag_snapshots
@@ -79,7 +78,7 @@ class SWAGModel(LightningModule):
         self.num_tracked = 0
         self.target_scaler = target_scaler
 
-        self._create_swag_buffers(self.module)
+        self._create_swag_buffers(self.model)
 
     def _create_swag_buffers(self, instance: nn.Module) -> None:
         """Create swawg buffers for an underlying module.
@@ -109,11 +108,11 @@ class SWAGModel(LightningModule):
             buffer_name: buffer_name
         """
         safe_name = param_name.replace(".", "_")
-        return getattr(self.module, f"{safe_name}_{buffer_name}")
+        return getattr(self.model, f"{safe_name}_{buffer_name}")
 
     def _set_buffer_for_param(self, param_name, buffer_name, value):
         safe_name = param_name.replace(".", "_")
-        setattr(self.module, f"{safe_name}_{buffer_name}", value)
+        setattr(self.model, f"{safe_name}_{buffer_name}", value)
 
     def _update_tracked_state_dict(self, state_dict: Dict[str, nn.Parameter]) -> None:
         """Update tracked state_dict.
@@ -128,15 +127,15 @@ class SWAGModel(LightningModule):
         # attributes. It gives state_dict a _metadata attribute which can
         # affect how the state_dict is loaded. We have to copy this here.
         full_state_dict = OrderedDict({**state_dict, **self._untracked_state_dict()})
-        full_state_dict._metadata = getattr(self.module.state_dict(), "_metadata", None)
+        full_state_dict._metadata = getattr(self.model.state_dict(), "_metadata", None)
 
-        self.module.load_state_dict(full_state_dict)
+        self.model.load_state_dict(full_state_dict)
 
     def _untracked_state_dict(self) -> Dict[str, nn.Parameter]:
         """Return filtered untracked state dict."""
         filtered_state_dict = {}
-        tracked_keys = {name for name, _ in self.module.named_parameters()}
-        for k, v in self.module.state_dict().items():
+        tracked_keys = {name for name, _ in self.model.named_parameters()}
+        for k, v in self.model.state_dict().items():
             if k not in tracked_keys:
                 filtered_state_dict[k] = v
         return filtered_state_dict
@@ -151,7 +150,7 @@ class SWAGModel(LightningModule):
 
         sampled = {}
 
-        _, first_param = next(iter(self.module.named_parameters()))
+        _, first_param = next(iter(self.model.named_parameters()))
         K_sample = (
             Normal(
                 torch.zeros(self.max_swag_snapshots),
@@ -161,7 +160,7 @@ class SWAGModel(LightningModule):
             .to(first_param.device)  # should have lightning device
         )
 
-        for name, _ in self.module.named_parameters():
+        for name, _ in self.model.named_parameters():
             mean = self._get_buffer_for_param(name, "mean")
             squared_mean = self._get_buffer_for_param(name, "squared_mean")
             d_block = self._get_buffer_for_param(name, "D_block")
@@ -182,7 +181,7 @@ class SWAGModel(LightningModule):
         """Update the running average over weights."""
         if self.num_tracked == 0:
             with torch.no_grad():
-                for name, parameter in self.module.named_parameters():
+                for name, parameter in self.model.named_parameters():
                     mean = self._get_buffer_for_param(name, "mean")
                     squared_mean = self._get_buffer_for_param(name, "squared_mean")
                     self._set_buffer_for_param(name, "mean", mean + parameter)
@@ -191,7 +190,7 @@ class SWAGModel(LightningModule):
                     )
         else:
             with torch.no_grad():
-                for name, parameter in self.module.named_parameters():
+                for name, parameter in self.model.named_parameters():
                     mean = self._get_buffer_for_param(name, "mean")
                     squared_mean = self._get_buffer_for_param(name, "squared_mean")
                     d_block = self._get_buffer_for_param(name, "D_block")
@@ -217,20 +216,20 @@ class SWAGModel(LightningModule):
         sampled_state_dict = self._sample_state_dict()
         self._update_tracked_state_dict(sampled_state_dict)
         if self.train_loader is not None:
-            # tracking_was_enabled = self.module.trajectory_tracking_enabled
-            # self.module.trajectory_tracking_enabled = False
+            # tracking_was_enabled = self.model.trajectory_tracking_enabled
+            # self.model.trajectory_tracking_enabled = False
             update_bn(
                 self.train_loader,
-                self.module,
+                self.model,
                 device=self.device,
                 num_datapoints=self.num_datapoints_for_bn_update,
             )
-            # self.module.trajectory_tracking_enabled = tracking_was_enabled
+            # self.model.trajectory_tracking_enabled = tracking_was_enabled
 
     def on_test_start(self) -> None:
         """Fit the SWAG approximation."""
         if not self.swag_fitted:
-            swag_optimizer = torch.optim.SGD(self.module.parameters(), lr=self.swag_lr)
+            swag_optimizer = torch.optim.SGD(self.model.parameters(), lr=self.swag_lr)
 
             # lightning automatically disables gradient computation during test
             with torch.inference_mode(False):
@@ -245,7 +244,7 @@ class SWAGModel(LightningModule):
 
                         # do model forward pass and sgd update
                         swag_optimizer.zero_grad()
-                        out = self.module(X)
+                        out = self.model(X)
                         loss = self.criterion(out, y)
                         loss.backward()
                         swag_optimizer.step()
@@ -256,9 +255,7 @@ class SWAGModel(LightningModule):
         """Test step."""
         X, y = args[0]
         out_dict = self.predict_step(X)
-        if self.target_scaler:
-            y = self.target_scaler.inverse_transform(y.cpu().numpy())
-        out_dict["targets"] = y.squeeze(-1)
+        out_dict["targets"] = y.squeeze(-1).numpy()
         return out_dict
 
     def on_test_batch_end(
@@ -292,10 +289,8 @@ class SWAGModel(LightningModule):
             # sample weights
             self.sample_state()
             with torch.no_grad():
-                pred = self.module(X).cpu().numpy()
-                if self.target_scaler:
-                    pred = self.target_scaler.inverse_transform(pred)
-                preds.append(pred)
+                pred = self.model(X).cpu().numpy()
+            preds.append(pred)
 
         preds = np.stack(preds, axis=-1)
 
@@ -304,7 +299,9 @@ class SWAGModel(LightningModule):
         # assume prediction with sigma
         # this is also quiet common across models so standardize this
         if preds.shape[1] == 2:
-            sigma_samples = preds[:, 1, :]
+            log_sigma_2_samples = preds[:, 1, :]
+            eps = np.ones_like(log_sigma_2_samples) * 1e-6
+            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
             mean = mean_samples.mean(-1)
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)

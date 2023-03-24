@@ -70,10 +70,13 @@ class UCIRegressionDataset:
                 shuffle=True,
             )
 
+        # this is how the Wilson group does it in their paper
         self.input_scaler = StandardScaler()
-        self.X_train = self.input_scaler.fit_transform(X_train)
+        self.input_scaler.fit(X)
+        self.X_train = self.input_scaler.transform(X_train)
         self.target_scaler = StandardScaler()
-        self.y_train = self.target_scaler.fit_transform(y_train)
+        self.target_scaler.fit(y)
+        self.y_train = self.target_scaler.transform(y_train)
 
         if calibration_set:
             self.X_calib = self.input_scaler.transform(X_calib)

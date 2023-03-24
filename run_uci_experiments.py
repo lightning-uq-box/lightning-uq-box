@@ -91,7 +91,7 @@ def run(config_path: str) -> None:
             # swag requires train data loader post fit, maybe also more elegant way
             # to solve this
             model = SWAGModel(
-                model,
+                model.model,
                 train_loader=dm.train_dataloader(),
                 save_dir=prediction_config["experiment"]["save_dir"],
                 target_scaler=dm.uci_ds.target_scaler,

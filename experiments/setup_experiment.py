@@ -14,6 +14,7 @@ from uq_method_box.uq_methods import (
     MCDropoutModel,
     QuantileRegressionModel,
 )
+from uq_method_box.uq_methods.utils import retrieve_optimizer
 
 
 def generate_base_model(
@@ -35,6 +36,8 @@ def generate_base_model(
         return BaseModel(
             model_class,
             model_args=config["model"]["model_args"],
+            optimizer=retrieve_optimizer(config["optimizer"]),
+            optimizer_args=config["optimizer_args"],
             lr=config["optimizer"]["lr"],
             loss_fn=config["model"]["loss_fn"],
             save_dir=config["experiment"]["save_dir"],
@@ -65,7 +68,8 @@ def generate_base_model(
         return DeterministicGaussianModel(
             model_class,
             model_args=config["model"]["model_args"],
-            lr=config["optimizer"]["lr"],
+            optimizer=retrieve_optimizer(config["optimizer"]),
+            optimizer_args=config["optimizer_args"],
             loss_fn=config["model"]["loss_fn"],
             save_dir=config["experiment"]["save_dir"],
             burnin_epochs=config["model"]["burnin_epochs"],

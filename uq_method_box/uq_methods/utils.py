@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 import torch.nn as nn
+from torch.optim import SGD, Adam
 
 from uq_method_box.train_utils import NLL, QuantileLoss
 
@@ -30,6 +31,14 @@ def retrieve_loss_fn(
         return QuantileLoss(quantiles)
     else:
         raise ValueError("Your loss function choice is not supported.")
+
+
+def retrieve_optimizer(optimizer_name: str):
+    """Retrieve an optimizer."""
+    if optimizer_name == "sgd":
+        return SGD
+    elif optimizer_name == "adam":
+        return Adam
 
 
 def merge_list_of_dictionaries(list_of_dicts: List[Dict[str, Any]]):
