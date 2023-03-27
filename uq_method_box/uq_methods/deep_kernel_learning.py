@@ -86,10 +86,11 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
 
     def _build_model(self) -> None:
         """Build the model."""
-        self.gp = self.hparams.gp(**self.hparams.gp_args)
+        self.gp_layer = self.hparams.gp(**self.hparams.gp_args)
 
+        self.likelihood = GaussianLikelihood()
         self.elbo_fn = self.hparams.elbo_fn(
-            GaussianLikelihood(), self.gp, num_data=self.hparams.n_train_points
+            self.likelihood, self.gp_layer, num_data=self.hparams.n_train_points
         )
 
     def forward(self, X: Tensor, **kwargs) -> Tensor:
@@ -101,7 +102,7 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Returns:
             output from GP
         """
-        return self.gp(self.feature_extractor(X))
+        return self.gp_layer(self.feature_extractor(X))
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Training step for DKL model."""
@@ -201,7 +202,19 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers # noqa: E501
         """
         # in the paper they use SGD? Does it matter?
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        # optimizer = (self.parameters(), lr=self.hparams.lr)
+        optimizer = torch.optim.Adam(
+            [
+                {"params": self.feature_extractor.parameters(), "weight_decay": 1e-4},
+                {
+                    "params": self.gp_layer.hyperparameters(),
+                    "lr": self.hparams.lr * 0.01,
+                },
+                {"params": self.gp_layer.variational_parameters()},
+                {"params": self.likelihood.parameters()},
+            ],
+            lr=self.hparams.lr,
+        )
         return {"optimizer": optimizer}
 
 
