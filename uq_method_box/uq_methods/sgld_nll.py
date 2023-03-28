@@ -81,7 +81,7 @@ class SGLDModel(BaseModel):
         save_dir: str,
         max_epochs: int,
         weight_decay: float,
-        n_burnin_epochs: int,
+        burnin_epochs: int,
         n_sgld_samples: int,
         restart_cosine: int,
         quantiles: List[float] = [0.1, 0.5, 0.9],
@@ -96,7 +96,7 @@ class SGLDModel(BaseModel):
         os.makedirs(self.snapshot_dir)
 
         self.automatic_optimization = False
-        self.n_burnin_epochs = n_burnin_epochs
+        self.burnin_epochs = burnin_epochs
         self.n_sgld_samples = n_sgld_samples
         self.max_epochs = max_epochs
         self.models: List[nn.Module] = []
@@ -107,7 +107,7 @@ class SGLDModel(BaseModel):
         self.dir_list = []
 
         assert (
-            self.n_sgld_samples + self.n_burnin_epochs == self.max_epochs
+            self.n_sgld_samples + self.burnin_epochs <= self.max_epochs
         ), "The max_epochs needs to be the sum of the burnin phase and sample numbers"
 
     def configure_optimizers(self) -> Dict[str, Any]:
@@ -146,9 +146,15 @@ class SGLDModel(BaseModel):
 
         opt = self.optimizers()
         opt.zero_grad()
+
         X, y = args[0]
         out = self.forward(X)
-        loss = self.criterion(out, y)
+
+        if self.current_epoch < self.burnin_epochs:
+            loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
+        else:
+            loss = self.criterion(out, y)
+
         self.manual_backward(loss)
         opt.step()
 
@@ -159,7 +165,7 @@ class SGLDModel(BaseModel):
 
     def on_train_epoch_end(self) -> List:
         """Save model checkpoints after train epochs."""
-        if self.current_epoch > self.n_burnin_epochs:
+        if self.current_epoch > (self.max_epochs - self.n_sgld_samples):
             torch.save(
                 self.model.state_dict(),
                 os.path.join(self.snapshot_dir, f"{self.current_epoch}_model.ckpt"),
@@ -203,29 +209,30 @@ class SGLDModel(BaseModel):
             preds.append(self.model(X))
 
         preds = torch.stack(preds, dim=-1).detach().numpy()
-        # shape [batch_size, n_sgld_samples, num_outputs]
+        # shape [batch_size, num_outputs, n_sgld_samples]
 
         # Prediction gives two outputs, due to NLL loss
         mean_samples = preds[:, 0, :]
 
         # assume prediction with sigma
         if preds.shape[1] == 2:
-            sigma_samples = preds[:, 1, :]
-            sgld_mean = mean_samples.mean(-1)
-            sgld_std = compute_predictive_uncertainty(mean_samples, sigma_samples)
-            sgld_aleatoric = compute_aleatoric_uncertainty(sigma_samples)
-            sgld_epistemic = compute_epistemic_uncertainty(mean_samples)
-            sgld_quantiles = compute_quantiles_from_std(
-                sgld_mean, sgld_std, self.quantiles
-            )
+            log_sigma_2_samples = preds[:, 1, :]
+            eps = np.ones_like(log_sigma_2_samples) * 1e-6
+            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
+            mean = mean_samples.mean(-1)
+            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
+            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
+            epistemic = compute_epistemic_uncertainty(mean_samples)
+            quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
             return {
-                "mean": sgld_mean,
-                "pred_uct": sgld_std,
-                "epistemic_uct": sgld_epistemic,
-                "aleatoric_uct": sgld_aleatoric,
-                "lower_quant": sgld_quantiles[:, 0],
-                "upper_quant": sgld_quantiles[:, -1],
+                "mean": mean,
+                "pred_uct": std,
+                "epistemic_uct": epistemic,
+                "aleatoric_uct": aleatoric,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
             }
+
         # assume mse prediction
         else:
             sgld_mean = mean_samples.mean(-1)

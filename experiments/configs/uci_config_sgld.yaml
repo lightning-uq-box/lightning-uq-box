@@ -7,7 +7,7 @@ wandb:
   mode: offline
 model:
   base_model: sgld
-  n_burnin_epochs: 100
+  burnin_epochs: 100
   n_sgld_samples: 5
   weight_decay: 0.1
   restart_cosine: 100 #Number of iterations for the first restart of CosineAnnealingWarmRestarts lr scheduler
@@ -16,7 +16,7 @@ model:
   loss_fn: mse
   quantiles: [0.1, 0.9]
   model_args: # all arguments for the mlp
-    n_outputs: 1
+    n_outputs: 2
     n_hidden: [50]
 optimizer:
   lr: 0.0001
