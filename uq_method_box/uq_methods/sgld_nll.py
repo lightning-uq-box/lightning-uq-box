@@ -61,9 +61,10 @@ class SGLD(Optimizer):
                 if weight_decay != 0:
                     d_p.add_(weight_decay, p.data)
 
-                p.data.add_(-group["lr"], d_p)
+                p.data.add_(d_p, alpha=-group["lr"])
                 p.data.add_(
-                    noise_factor * (2.0 * group["lr"]) ** 0.5, torch.randn_like(d_p)
+                    torch.randn_like(d_p),
+                    alpha=noise_factor * (2.0 * group["lr"]) ** 0.5,
                 )
 
         return loss
