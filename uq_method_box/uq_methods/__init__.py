@@ -9,6 +9,7 @@ from .deterministic_gaussian import DeterministicGaussianModel
 from .laplace_model import LaplaceModel
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
+from .sgld import SGLDModel
 
 __all__ = (
     # base model
@@ -25,6 +26,8 @@ __all__ = (
     "DeepEnsembleModel",
     # Deterministic Gaussian Model
     "DeterministicGaussianModel",
+    # SGLD Model.
+    "SGLDModel",
     # Bayes by Backprop
     "BayesByBackpropModel",
     # Deep Evidential Regression Model

@@ -18,7 +18,7 @@ from uq_method_box.uq_methods import MCDropoutModel
 class TestMCDropoutModel:
     @pytest.fixture(params=["mc_dropout_nll.yaml", "mc_dropout_mse.yaml"])
     def mc_model(self, tmp_path: Path, request: SubRequest) -> MCDropoutModel:
-        """Create a QR model being used for different tests."""
+        """Create a MC Dropout model being used for different tests."""
         conf = OmegaConf.load(os.path.join("tests", "configs", request.param))
         conf_dict = OmegaConf.to_object(conf)
         return MCDropoutModel(
@@ -33,7 +33,7 @@ class TestMCDropoutModel:
         )
 
     def test_forward(self, mc_model: MCDropoutModel) -> None:
-        """Test forward pass of QR model."""
+        """Test forward pass of MC dropout model."""
         n_inputs = mc_model.hparams.model_args["n_inputs"]
         n_outputs = mc_model.hparams.model_args["n_outputs"]
         X = torch.randn(5, n_inputs)
@@ -50,7 +50,7 @@ class TestMCDropoutModel:
         assert out["mean"].shape[0] == 5
 
     def test_trainer(self, mc_model: MCDropoutModel) -> None:
-        """Test QR Model with a Lightning Trainer."""
+        """Test MC Dropout Model with a Lightning Trainer."""
         # instantiate datamodule
         datamodule = ToyHeteroscedasticDatamodule()
         trainer = Trainer(

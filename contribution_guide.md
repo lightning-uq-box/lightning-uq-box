@@ -103,10 +103,10 @@ The goal is to be "as lazy as possible" in the effort it takes to execute experi
 I have run the commands in this order to create a conda environment with which I am able to run experiments. Mabye the same order will work on Windows as well. If conda install does not work, try using pip install instead.
 
 ```
-    $  conda create --name ninaEnv python=3.8
+    $  conda create --name ninaEnv python=3.9
     $  conda activate ninaEnv
     $  conda install pytorch torchvision cpuonly -c pytorch
-    $  conda install -c conda-forge pytorch-lightning
+    $  conda install -c conda-forge lightning
     $  conda install -c conda-forge torchgeo
     $  conda install -c conda-forge pandas
     $  conda install -c conda-forge laplace-torch

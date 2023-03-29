@@ -4,8 +4,8 @@ from typing import Any, Dict, List, Union
 
 import torch.nn as nn
 from lightning import LightningDataModule, LightningModule, Trainer
-from lightning.pytorch.callbacks import ModelCheckpoint
-from lightning.pytorch.loggers import CSVLogger
+from lightning.callbacks import ModelCheckpoint
+from lightning.loggers import CSVLogger
 
 from uq_method_box.uq_methods import (
     BaseModel,
@@ -15,6 +15,7 @@ from uq_method_box.uq_methods import (
     DeterministicGaussianModel,
     MCDropoutModel,
     QuantileRegressionModel,
+    SGLDModel,
 )
 
 
@@ -72,6 +73,19 @@ def generate_base_model(
             save_dir=config["experiment"]["save_dir"],
             burnin_epochs=config["model"]["burnin_epochs"],
             max_epochs=config["pl"]["max_epochs"],
+        )
+
+    elif config["model"]["base_model"] == "sgld":
+        return SGLDModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            n_sgld_samples=config["model"]["n_sgld_samples"],
+            burnin_epochs=config["model"]["burnin_epochs"],
+            loss_fn=config["model"]["loss_fn"],
+            save_dir=config["experiment"]["save_dir"],
+            lr=config["optimizer"]["lr"],
+            weight_decay=config["optimizer"]["weight_decay"],
+            noise_factor=config["optimizer"]["noise_factor"],
         )
 
     elif config["model"]["base_model"] == "bayes_by_backprop":
@@ -140,12 +154,12 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
     loggers = [
         CSVLogger(config["experiment"]["save_dir"], name="csv_logs"),
         # WandbLogger(
-        #     save_dir=config["experiment"]["save_dir"],
-        #     project=config["wandb"]["project"],
-        #     entity=config["wandb"]["entity"],
-        #     resume="allow",
-        #     config=config,
-        #     mode=config["wandb"].get("mode", "online"),
+        #   save_dir=config["experiment"]["save_dir"],
+        #    project=config["wandb"]["project"],
+        #    entity=config["wandb"]["entity"],
+        #    resume="allow",
+        #    config=config,
+        #    mode=config["wandb"].get("mode", "online"),
         # ),
     ]
 
