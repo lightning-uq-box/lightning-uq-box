@@ -1,0 +1,12 @@
+model:
+  loss_fn: mse
+  n_burnin_epochs: 1
+  n_sgld_samples: 2
+  model_args: # all arguments for the mlp
+    n_outputs: 1
+    n_inputs: 1
+    n_hidden: [10]
+optimizer:
+  lr: 0.003
+  weight_decay: 0.1
+  noise_factor: 0.2

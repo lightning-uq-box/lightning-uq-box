@@ -84,8 +84,6 @@ def generate_base_model(
             lr=config["optimizer"]["lr"],
             weight_decay=config["optimizer"]["weight_decay"],
             noise_factor=config["optimizer"]["noise_factor"],
-            # restart_cosine=config["optimizer"]["restart_cosine"],
-            max_epochs=config["pl"]["max_epochs"],
         )
 
     else:

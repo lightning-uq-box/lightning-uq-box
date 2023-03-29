@@ -4,14 +4,13 @@
 
 
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
-from torch.optim.optimizer import Optimizer, required
+from torch.optim.optimizer import Optimizer
 
 from uq_method_box.eval_utils import (
     compute_aleatoric_uncertainty,
@@ -24,20 +23,25 @@ from uq_method_box.uq_methods import BaseModel
 
 # SGLD Optimizer from Izmailov, currently in __init__.py
 class SGLD(Optimizer):
-    """SGLD Optimzer."""
+    """Stochastic Gradient Langevian Dynamics Optimzer."""
 
     def __init__(
-        self, params, lr: float, noise_factor: float = 0.8, weight_decay: float = 0
-    ):
-        """Initialize new instance of SGLD Optimier."""
-        if lr is not required and lr < 0.0:
-            raise ValueError(f"Invalid learning rate: {lr}")
-        if weight_decay < 0.0:
-            raise ValueError(f"Invalid weight_decay value: {weight_decay}")
+        self,
+        params: Iterator[torch.nn.Parameter],
+        lr: float,
+        noise_factor: float = 0.3,
+        weight_decay: float = 0.0,
+    ) -> None:
+        """Initialize new instance of SGLD Optimier.
 
+        Args:
+            params: model parameters
+            lr: initial learning rate
+            noise_factor: parameter denoting how much noise to inject in the SGD update
+            weight_decay: weight decay parameter for SGLD optimizer
+        """
         defaults = dict(lr=lr, noise_factor=noise_factor, weight_decay=weight_decay)
         super().__init__(params, defaults)
-        self.params = params
         self.lr = lr
 
     def step(self, closure: Optional[callable] = None):
@@ -45,7 +49,9 @@ class SGLD(Optimizer):
 
         Args:
             closure (callable, optional): A closure that reevaluates the model
-        Returns: updated loss.
+
+        Returns:
+            updated loss
         """
         loss = None
         if closure is not None:
@@ -59,8 +65,9 @@ class SGLD(Optimizer):
                 if p.grad is None:
                     continue
                 d_p = p.grad.data
+
                 if weight_decay != 0:
-                    d_p.add_(weight_decay, p.data)
+                    d_p.add_(p.data, alpha=weight_decay)
 
                 p.data.add_(d_p, alpha=-group["lr"])
                 p.data.add_(
@@ -72,7 +79,7 @@ class SGLD(Optimizer):
 
 
 class SGLDModel(BaseModel):
-    """SGLD method for regression."""
+    """Storchastic Gradient Langevian Dynamics method for regression."""
 
     def __init__(
         self,
@@ -81,14 +88,27 @@ class SGLDModel(BaseModel):
         lr: float,
         loss_fn: str,
         save_dir: str,
-        max_epochs: int,
         weight_decay: float,
-        burnin_epochs: int,
+        noise_factor: float,
+        n_burnin_epochs: int,
         n_sgld_samples: int,
-        restart_cosine: int,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new instance of SGLD model."""
+        """Initialize a new instance of SGLD model.
+
+        Args:
+            model_class: underlying model class
+            model_args: arguments to initialize *model_class*
+            lr: initial learning rate
+            loss_fn: choice of loss function
+            save_dir: directory where to save SGLD snapshots
+            weight_decay: weight decay parameter for SGLD optimizer
+            noise_factor: parameter denoting how much noise to inject in the SGD update
+            burnin_epochs: number of epochs to fit mse loss
+            n_sgld_samples: number of sgld samples to collect
+            quantiles:
+
+        """
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
         # makes self.hparams accesible
@@ -97,43 +117,40 @@ class SGLDModel(BaseModel):
         self.snapshot_dir = os.path.join(self.hparams.save_dir, "model_snapshots")
         os.makedirs(self.snapshot_dir)
 
-        self.automatic_optimization = False
-        self.burnin_epochs = burnin_epochs
+        self.burnin_epochs = n_burnin_epochs
         self.n_sgld_samples = n_sgld_samples
-        self.max_epochs = max_epochs
         self.models: List[nn.Module] = []
         self.quantiles = quantiles
         self.weight_decay = weight_decay
+        self.noise_factor = noise_factor
         self.lr = lr
-        self.restart_cosine = restart_cosine
         self.dir_list = []
 
-        assert (
-            self.n_sgld_samples + self.burnin_epochs <= self.max_epochs
-        ), "The max_epochs needs to be the sum of the burnin phase and sample numbers"
+        # manual optimization with SGLD optimizer
+        self.automatic_optimization = False
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
-            a "lr dict" according to the pytorch lightning documentation,
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers,
-            with SGLD optimizer and cosine lr scheduler,
-            https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.html
+            SGLD optimizer and scheduler
         """
-        optimizer = SGLD(params=self.model.parameters(), lr=self.lr)
-        scheduler = CosineAnnealingWarmRestarts(
-            optimizer,
-            T_0=self.restart_cosine,
-            T_mult=1,
-            eta_min=0,
-            last_epoch=-1,
-            verbose=False,
+        # optimizer = SGLDAlt(params=self.parameters(), lr=self.lr)
+        optimizer = SGLD(
+            params=self.parameters(),
+            lr=self.lr,
+            weight_decay=self.weight_decay,
+            noise_factor=self.noise_factor,
         )
-        return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
+        return {
+            "optimizer": optimizer,
+            # "lr_scheduler": {
+            #     "scheduler": scheduler,
+            #     # "monitor": "train_loss",
+            #     "interval": "epoch"
+            # },
+        }
 
-    # {"optimizer": optimizer}
-    #
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
 
@@ -141,47 +158,43 @@ class SGLDModel(BaseModel):
             batch: the output of your DataLoader
 
         Returns:
-            training loss and List of models
+            training loss
         """
-        # lr scheduler, step after every training step,
-        # could also be call on_train_epoch_end
-        sch = self.lr_schedulers()
-        sch.step()
+        sgld_opt = self.optimizers()
+        sgld_opt.zero_grad()
 
-        opt = self.optimizers()
-
-        # manual optimization does not handle gradient accumulation
-        # - maybe this is necessary?
         X, y = args[0]
         out = self.forward(X)
 
-        # burnin phase for nll with mse loss
-        if self.current_epoch < self.burnin_epochs:
-            loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
-        # after train with nll
-        else:
+        def closure():
+            """Closure function for optimizer."""
+            sgld_opt.zero_grad()
+            if self.current_epoch < self.burnin_epochs:
+                loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
+            # after train with nll
+            else:
+                loss = self.criterion(out, y)
             loss = self.criterion(out, y)
+            sgld_opt.zero_grad()
+            self.manual_backward(loss)
+            return loss
 
-        # apparently it can change convergence vastly
-        # based on where you call opt.zero_grad(),
-        #  this is from
-        # https://lightning.ai/docs/pytorch/stable/common/optimization.html
-        opt.zero_grad()
-        self.manual_backward(loss)
-        # clip gradients
-        self.clip_gradients(opt, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
-
-        opt.step()
+        loss = sgld_opt.step(closure=closure)
 
         self.log("train_loss", loss)  # logging to Logger
         self.train_metrics(self.extract_mean_output(out), y)
+
+        # scheduler step every N epochs
+        # scheduler = self.lr_schedulers()
+        # if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % 1 == 0:
+        #     scheduler.step()
 
         return loss
 
     def on_train_epoch_end(self) -> List:
         """Save model ckpts after epoch and log training metrics."""
         # save ckpts for n_sgld_sample epochs before end (max_epochs)
-        if self.current_epoch > (self.max_epochs - self.n_sgld_samples):
+        if self.current_epoch >= (self.trainer.max_epochs - self.n_sgld_samples):
             torch.save(
                 self.model.state_dict(),
                 os.path.join(self.snapshot_dir, f"{self.current_epoch}_model.ckpt"),
@@ -190,6 +203,7 @@ class SGLDModel(BaseModel):
                 os.path.join(self.snapshot_dir, f"{self.current_epoch}_model.ckpt")
             )
 
+        # log train metrics
         self.log_dict(self.train_metrics.compute())
         self.train_metrics.reset()
 
@@ -215,11 +229,7 @@ class SGLDModel(BaseModel):
             dataloader_idx: default int=0
 
         Returns:
-            "mean": sgld_mean, mean prediction over models
-            "pred_uct": sgld_std, predictive uncertainty
-            "epistemic_uct": sgld_epistemic, epistemic uncertainty
-            "aleatoric_uct": sgld_aleatoric, aleatoric uncertainty, averaged over models
-            "quantiles": sgld_quantiles, quantiles assuming output is Gaussian
+            output dictionary with uncertainty estimates
         """
         # create predictions from models loaded from checkpoints
         preds: List[torch.Tensor] = []
@@ -227,6 +237,8 @@ class SGLDModel(BaseModel):
             self.model.load_state_dict(torch.load(ckpt_path))
             preds.append(self.model(X))
 
+        # import pdb
+        # pdb.set_trace()
         preds = torch.stack(preds, dim=-1).detach().numpy()
         # shape [batch_size, num_outputs, n_sgld_samples]
 
