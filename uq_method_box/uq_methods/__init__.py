@@ -7,7 +7,7 @@ from .deterministic_gaussian import DeterministicGaussianModel
 from .laplace_model import LaplaceModel
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
-from .sgld_nll_old import SGLDModel
+from .sgld_nll import SGLDModel
 
 __all__ = (
     # base model
