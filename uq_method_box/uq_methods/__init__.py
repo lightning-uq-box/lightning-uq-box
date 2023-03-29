@@ -6,11 +6,18 @@ from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
 from .deep_evidential_regression import DERModel
 from .deep_kernel_learning import DeepKernelLearningModel, DKLGPLayer, initial_values
-from .deep_uncertainty_estimation import DUEModel
 from .deterministic_gaussian import DeterministicGaussianModel
+from .deterministic_uncertainty_estimation import DUEModel
 from .laplace_model import LaplaceModel
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
+from .spectral_normalized_layers import (
+    SpectralBatchNorm1d,
+    SpectralBatchNorm2d,
+    SpectralNormConv,
+    SpectralNormFC,
+    spectral_normalize_model_layers,
+)
 
 __all__ = (
     # base model
@@ -38,4 +45,10 @@ __all__ = (
     "BayesByBackpropModel",
     # Deep Evidential Regression Model
     "DERModel",
+    # Spectral Normalization Layers
+    "SpectralBatchNorm1d",
+    "SpectralBatchNorm2d",
+    "SpectralNormConv",
+    "SpectralNormFC",
+    "spectral_normalize_model_layers",
 )
