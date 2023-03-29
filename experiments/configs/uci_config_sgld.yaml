@@ -9,8 +9,6 @@ model:
   base_model: sgld
   burnin_epochs: 100
   n_sgld_samples: 5
-  weight_decay: 0.1
-  restart_cosine: 100 #Number of iterations for the first restart of CosineAnnealingWarmRestarts lr scheduler
   ensemble: None #options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
   ensemble_members: 1
   loss_fn: mse
@@ -20,6 +18,9 @@ model:
     n_hidden: [50]
 optimizer:
   lr: 0.0001
+  weight_decay: 0.1
+  noise_factor: 0.2 #for toy data between 0 and 0.5 worked
+  restart_cosine: 100 #Number of iterations for the first restart of CosineAnnealingWarmRestarts lr scheduler
 ds:
   dataset_name: yacht
   root: "/ASUS/UQ_methods/uq-method-box/experiments/data/uci"

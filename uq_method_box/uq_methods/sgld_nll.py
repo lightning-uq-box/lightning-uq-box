@@ -10,9 +10,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, StepLR
+
+# from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, StepLR
 from torch.optim.optimizer import Optimizer, required
-from torch_sgld import SGLD as SGLDAlt
 
 from uq_method_box.eval_utils import (
     compute_aleatoric_uncertainty,
@@ -22,13 +22,15 @@ from uq_method_box.eval_utils import (
 )
 from uq_method_box.uq_methods import BaseModel
 
+# from torch_sgld import SGLD as SGLDAlt
+
 
 # SGLD Optimizer from Izmailov, currently in __init__.py
 class SGLD(Optimizer):
     """SGLD Optimzer."""
 
     def __init__(
-        self, params, lr: float, noise_factor: float = 0.8, weight_decay: float = 0
+        self, params, lr: float, noise_factor: float = 0.3, weight_decay: float = 0.0
     ):
         """Initialize new instance of SGLD Optimier."""
         if lr is not required and lr < 0.0:
@@ -86,9 +88,10 @@ class SGLDModel(BaseModel):
         save_dir: str,
         max_epochs: int,
         weight_decay: float,
-        n_burnin_epochs: int,
+        noise_factor: float,
+        burnin_epochs: int,
         n_sgld_samples: int,
-        restart_cosine: int,
+        # restart_cosine: int,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of SGLD model."""
@@ -101,14 +104,15 @@ class SGLDModel(BaseModel):
         os.makedirs(self.snapshot_dir)
 
         self.automatic_optimization = False
-        self.burnin_epochs = n_burnin_epochs
+        self.burnin_epochs = burnin_epochs
         self.n_sgld_samples = n_sgld_samples
         self.max_epochs = max_epochs
         self.models: List[nn.Module] = []
         self.quantiles = quantiles
         self.weight_decay = weight_decay
+        self.noise_factor = noise_factor
         self.lr = lr
-        self.restart_cosine = restart_cosine
+        # self.restart_cosine = restart_cosine
         self.dir_list = []
 
         assert (
@@ -128,8 +132,8 @@ class SGLDModel(BaseModel):
         optimizer = SGLD(
             params=self.parameters(),
             lr=self.lr,
-            noise_factor=0.5,
             weight_decay=self.weight_decay,
+            noise_factor=self.noise_factor,
         )
         # optimizer = torch.optim.SGD(self.parameters(), lr=self.lr, momentum=0.95)
         # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
@@ -151,8 +155,6 @@ class SGLDModel(BaseModel):
         }
         # return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
 
-    # {"optimizer": optimizer}
-    #
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
 
@@ -170,7 +172,7 @@ class SGLDModel(BaseModel):
 
         def closure():
             sgld_opt.zero_grad()
-            if self.current_epoch < 100:  # self.burnin_epochs:
+            if self.current_epoch < self.burnin_epochs:  # self.burnin_epochs:
                 loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
             # after train with nll
             else:

@@ -78,13 +78,14 @@ def generate_base_model(
             model_class,
             model_args=config["model"]["model_args"],
             n_sgld_samples=config["model"]["n_sgld_samples"],
-            lr=config["optimizer"]["lr"],
+            burnin_epochs=config["model"]["burnin_epochs"],
             loss_fn=config["model"]["loss_fn"],
             save_dir=config["experiment"]["save_dir"],
-            weight_decay=config["model"]["weight_decay"],
-            n_burnin_epochs=config["model"]["burnin_epochs"],
+            lr=config["optimizer"]["lr"],
+            weight_decay=config["optimizer"]["weight_decay"],
+            noise_factor=config["optimizer"]["noise_factor"],
+            # restart_cosine=config["optimizer"]["restart_cosine"],
             max_epochs=config["pl"]["max_epochs"],
-            restart_cosine=config["model"]["restart_cosine"],
         )
 
     else:
