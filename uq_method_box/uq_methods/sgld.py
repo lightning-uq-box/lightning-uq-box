@@ -27,9 +27,9 @@ class SGLD(Optimizer):
 
     def __init__(
         self,
-        params: Iterator[torch.nn.Parameter],
+        params: Iterator[nn.parameter.Parameter],
         lr: float,
-        noise_factor: float = 0.3,
+        noise_factor: float,
         weight_decay: float = 0.0,
     ) -> None:
         """Initialize new instance of SGLD Optimier.
