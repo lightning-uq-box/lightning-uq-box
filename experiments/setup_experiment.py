@@ -9,6 +9,7 @@ from lightning.pytorch.loggers import CSVLogger
 
 from uq_method_box.uq_methods import (
     BaseModel,
+    BayesByBackpropModel,
     DeepEnsembleModel,
     DERModel,
     DeterministicGaussianModel,
@@ -71,6 +72,16 @@ def generate_base_model(
             save_dir=config["experiment"]["save_dir"],
             burnin_epochs=config["model"]["burnin_epochs"],
             max_epochs=config["pl"]["max_epochs"],
+        )
+
+    elif config["model"]["base_model"] == "bayes_by_backprop":
+        return BayesByBackpropModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            lr=config["optimizer"]["lr"],
+            loss_fn=config["model"]["loss_fn"],
+            save_dir=config["experiment"]["save_dir"],
+            **config["model"]["bayes_by_backprop"],
         )
 
     elif config["model"]["base_model"] == "der":

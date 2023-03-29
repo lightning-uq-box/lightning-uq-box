@@ -1,6 +1,7 @@
 """UQ-Methods as Lightning Modules."""
 
 from .base import BaseModel
+from .bayes_by_backprop import BayesByBackpropModel
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
 from .deep_evidential_regression import DERModel
@@ -22,8 +23,10 @@ __all__ = (
     "QuantileRegressionModel",
     # Deep Ensemble Wrapper
     "DeepEnsembleModel",
-    # Deterministic Gaussin Model
+    # Deterministic Gaussian Model
     "DeterministicGaussianModel",
+    # Bayes by Backprop
+    "BayesByBackpropModel",
     # Deep Evidential Regression Model
     "DERModel",
 )
