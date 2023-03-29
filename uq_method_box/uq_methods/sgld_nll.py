@@ -51,6 +51,8 @@ class SGLD(Optimizer):
         if closure is not None:
             loss = closure()
 
+        # import pdb
+        # pdb.set_trace()
         for group in self.param_groups:
             weight_decay = group["weight_decay"]
             noise_factor = group["noise_factor"]
@@ -60,7 +62,7 @@ class SGLD(Optimizer):
                     continue
                 d_p = p.grad.data
                 if weight_decay != 0:
-                    d_p.add_(weight_decay, p.data)
+                    d_p.add_(p.data, alpha=weight_decay)
 
                 p.data.add_(d_p, alpha=-group["lr"])
                 p.data.add_(
@@ -83,7 +85,7 @@ class SGLDModel(BaseModel):
         save_dir: str,
         max_epochs: int,
         weight_decay: float,
-        burnin_epochs: int,
+        n_burnin_epochs: int,
         n_sgld_samples: int,
         restart_cosine: int,
         quantiles: List[float] = [0.1, 0.5, 0.9],
@@ -98,7 +100,7 @@ class SGLDModel(BaseModel):
         os.makedirs(self.snapshot_dir)
 
         self.automatic_optimization = False
-        self.burnin_epochs = burnin_epochs
+        self.burnin_epochs = n_burnin_epochs
         self.n_sgld_samples = n_sgld_samples
         self.max_epochs = max_epochs
         self.models: List[nn.Module] = []
@@ -121,16 +123,30 @@ class SGLDModel(BaseModel):
             with SGLD optimizer and cosine lr scheduler,
             https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.html
         """
-        optimizer = SGLD(params=self.model.parameters(), lr=self.lr)
-        scheduler = CosineAnnealingWarmRestarts(
-            optimizer,
-            T_0=self.restart_cosine,
-            T_mult=1,
-            eta_min=0,
-            last_epoch=-1,
-            verbose=False,
-        )
-        return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
+        # optimizer = SGLD(
+        #     params=self.parameters(),
+        #     lr=self.lr,
+        #     noise_factor=0.0,
+        #     weight_decay=self.weight_decay,
+        # )
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        # scheduler = CosineAnnealingWarmRestarts(
+        #     optimizer,
+        #     T_0=self.restart_cosine,
+        #     T_mult=1,
+        #     eta_min=0,
+        #     last_epoch=-1,
+        #     verbose=False,
+        # )
+        return {
+            "optimizer": optimizer,
+            # "lr_scheduler": {
+            #     "scheduler": scheduler,
+            #     "monitor": "train_loss",
+            #     "interval": "epoch"
+            # },
+        }
+        # return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
 
     # {"optimizer": optimizer}
     #
@@ -143,38 +159,28 @@ class SGLDModel(BaseModel):
         Returns:
             training loss and List of models
         """
-        # lr scheduler, step after every training step,
-        # could also be call on_train_epoch_end
-        sch = self.lr_schedulers()
-        sch.step()
+        sgld_opt = self.optimizers()
+        sgld_opt.zero_grad()
 
-        opt = self.optimizers()
-
-        # manual optimization does not handle gradient accumulation
-        # - maybe this is necessary?
         X, y = args[0]
         out = self.forward(X)
 
-        # burnin phase for nll with mse loss
-        if self.current_epoch < self.burnin_epochs:
-            loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
-        # after train with nll
-        else:
+        def closure():
+            sgld_opt.zero_grad()
             loss = self.criterion(out, y)
+            sgld_opt.zero_grad()
+            self.manual_backward(loss)
+            return loss
 
-        # apparently it can change convergence vastly
-        # based on where you call opt.zero_grad(),
-        #  this is from
-        # https://lightning.ai/docs/pytorch/stable/common/optimization.html
-        opt.zero_grad()
-        self.manual_backward(loss)
-        # clip gradients
-        self.clip_gradients(opt, gradient_clip_val=0.5, gradient_clip_algorithm="norm")
-
-        opt.step()
+        loss = sgld_opt.step(closure=closure)
 
         self.log("train_loss", loss)  # logging to Logger
         self.train_metrics(self.extract_mean_output(out), y)
+
+        # scheduler step every N epochs
+        # scheduler = self.lr_schedulers()
+        # if self.trainer.is_last_batch and (self.trainer.current_epoch + 1) % 1 == 0:
+        #     scheduler.step()
 
         return loss
 
