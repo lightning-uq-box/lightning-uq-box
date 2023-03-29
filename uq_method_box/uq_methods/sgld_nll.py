@@ -10,8 +10,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, StepLR
 from torch.optim.optimizer import Optimizer, required
+from torch_sgld import SGLD as SGLDAlt
 
 from uq_method_box.eval_utils import (
     compute_aleatoric_uncertainty,
@@ -123,13 +124,15 @@ class SGLDModel(BaseModel):
             with SGLD optimizer and cosine lr scheduler,
             https://pytorch.org/docs/stable/generated/torch.optim.lr_scheduler.CosineAnnealingWarmRestarts.html
         """
-        # optimizer = SGLD(
-        #     params=self.parameters(),
-        #     lr=self.lr,
-        #     noise_factor=0.0,
-        #     weight_decay=self.weight_decay,
-        # )
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        # optimizer = SGLDAlt(params=self.parameters(), lr=self.lr)
+        optimizer = SGLD(
+            params=self.parameters(),
+            lr=self.lr,
+            noise_factor=0.5,
+            weight_decay=self.weight_decay,
+        )
+        # optimizer = torch.optim.SGD(self.parameters(), lr=self.lr, momentum=0.95)
+        # scheduler = StepLR(optimizer, step_size=100, gamma=0.1)
         # scheduler = CosineAnnealingWarmRestarts(
         #     optimizer,
         #     T_0=self.restart_cosine,
@@ -142,7 +145,7 @@ class SGLDModel(BaseModel):
             "optimizer": optimizer,
             # "lr_scheduler": {
             #     "scheduler": scheduler,
-            #     "monitor": "train_loss",
+            #     # "monitor": "train_loss",
             #     "interval": "epoch"
             # },
         }
@@ -167,6 +170,11 @@ class SGLDModel(BaseModel):
 
         def closure():
             sgld_opt.zero_grad()
+            if self.current_epoch < 100:  # self.burnin_epochs:
+                loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
+            # after train with nll
+            else:
+                loss = self.criterion(out, y)
             loss = self.criterion(out, y)
             sgld_opt.zero_grad()
             self.manual_backward(loss)
