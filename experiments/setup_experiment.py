@@ -11,6 +11,7 @@ from uq_method_box.uq_methods import (
     BaseModel,
     BayesByBackpropModel,
     DeepEnsembleModel,
+    DERModel,
     DeterministicGaussianModel,
     MCDropoutModel,
     QuantileRegressionModel,
@@ -49,6 +50,8 @@ def generate_base_model(
             lr=config["optimizer"]["lr"],
             loss_fn=config["model"]["loss_fn"],
             save_dir=config["experiment"]["save_dir"],
+            burnin_epochs=config["model"]["burnin_epochs"],
+            max_epochs=config["pl"]["max_epochs"],
         )
 
     elif config["model"]["base_model"] == "quantile_regression":
@@ -67,6 +70,8 @@ def generate_base_model(
             lr=config["optimizer"]["lr"],
             loss_fn=config["model"]["loss_fn"],
             save_dir=config["experiment"]["save_dir"],
+            burnin_epochs=config["model"]["burnin_epochs"],
+            max_epochs=config["pl"]["max_epochs"],
         )
 
     elif config["model"]["base_model"] == "bayes_by_backprop":
@@ -79,6 +84,13 @@ def generate_base_model(
             **config["model"]["bayes_by_backprop"],
         )
 
+    elif config["model"]["base_model"] == "der":
+        return DERModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            lr=config["optimizer"]["lr"],
+            save_dir=config["experiment"]["save_dir"],
+        )
     else:
         raise ValueError("Your base_model choice is currently not supported.")
 
@@ -102,6 +114,10 @@ def generate_ensemble_model(
             config["experiment"]["save_dir"],
             config["model"]["quantiles"],
         )
+
+    # multi swag
+
+    # mc-dropout ensemble similar to swag
 
     else:
         raise ValueError("Your ensemble choice is currently not supported.")

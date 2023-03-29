@@ -2,9 +2,11 @@ model:
   loss_fn: mse
   conformalized: False
   num_mc_samples: 3
+  burnin_epochs: 1
+  max_epochs: 2
   model_args: # all arguments for the mlp
     n_outputs: 1
-    dropout_p: 0.2
+    dropout_p: 0.4
     n_inputs: 1
     n_hidden: [10]
 optimizer:

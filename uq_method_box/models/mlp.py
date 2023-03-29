@@ -2,7 +2,6 @@
 
 from typing import List
 
-import torch
 import torch.nn as nn
 from torch import Tensor
 
@@ -16,7 +15,6 @@ class MLP(nn.Module):
         n_inputs: int = 1,
         n_hidden: List[int] = [100],
         n_outputs: int = 1,
-        predict_sigma: bool = False,
         activation_fn: nn.Module = nn.Tanh(),
     ) -> None:
         """Initialize a new instance of MLP.
@@ -43,7 +41,6 @@ class MLP(nn.Module):
         # add output layer
         layers += [nn.Linear(layer_sizes[-1], n_outputs)]
         self.model = nn.Sequential(*layers)
-        self.predict_sigma = predict_sigma
 
     def forward(self, x) -> Tensor:
         """Forward pass through the neural network.
@@ -54,8 +51,4 @@ class MLP(nn.Module):
         Returs:
           output from neural net of dimension [batch_size, n_outputs]
         """
-        out = self.model(x)  # batch_size x (mu,sigma) or just mean
-        # make sure output sigma is always positive
-        if self.predict_sigma:
-            out[:, 1] = torch.log(1 + torch.exp(out[:, 1])) + 1e-06
-        return out
+        return self.model(x)

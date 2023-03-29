@@ -1,12 +1,9 @@
 model:
-  loss_fn: nll
+  loss_fn: der
   conformalized: False
-  burnin_epochs: 1
-  max_epochs: 2
   model_args: # all arguments for the mlp
-    n_outputs: 2
+    n_outputs: 4
     n_inputs: 1
     n_hidden: [10]
-    
 optimizer:
   lr: 0.003

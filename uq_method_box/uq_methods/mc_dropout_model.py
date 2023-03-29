@@ -28,6 +28,8 @@ class MCDropoutModel(BaseModel):
         num_mc_samples: int,
         lr: float,
         loss_fn: str,
+        burnin_epochs: int,
+        max_epochs: int,
         save_dir: str,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -42,6 +44,12 @@ class MCDropoutModel(BaseModel):
 
         self.quantiles = quantiles
         self.num_mc_samples = num_mc_samples
+        self.burnin_epochs = burnin_epochs
+        self.max_epochs = max_epochs
+
+        assert (
+            self.burnin_epochs <= self.max_epochs
+        ), "The max_epochs needs to be larger than the burnin phase."
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
@@ -55,6 +63,28 @@ class MCDropoutModel(BaseModel):
             extracted mean used for metric computation [batch_size x 1]
         """
         return out[:, 0:1]
+
+    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
+        """Compute and return the training loss.
+
+        Args:
+            batch: the output of your DataLoader
+
+        Returns:
+            training loss
+        """
+        X, y = args[0]
+        out = self.forward(X)
+
+        if self.current_epoch < self.burnin_epochs:
+            loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
+        else:
+            loss = self.criterion(out, y)
+
+        self.log("train_loss", loss)  # logging to Logger
+        self.train_metrics(self.extract_mean_output(out), y)
+
+        return loss
 
     def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Test Step."""
@@ -86,7 +116,9 @@ class MCDropoutModel(BaseModel):
 
         # assume prediction with sigma
         if preds.shape[1] == 2:
-            sigma_samples = preds[:, 1, :]
+            log_sigma_2 = preds[:, 1, :]
+            eps = np.ones_like(log_sigma_2) * 1e-6
+            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2))
             mean = mean_samples.mean(-1)
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)

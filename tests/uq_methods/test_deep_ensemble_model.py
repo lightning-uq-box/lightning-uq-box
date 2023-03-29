@@ -16,7 +16,7 @@ from uq_method_box.uq_methods import BaseModel, DeepEnsembleModel
 
 
 class TestBaseEnsembleModel:
-    @pytest.fixture(params=["deep_ensemble_mse.yaml", "deep_ensemble_nll.yaml"])
+    @pytest.fixture(params=["deep_ensemble_nll.yaml", "deep_ensemble_mse.yaml"])
     def ensemble_model(self, tmp_path: Path, request: SubRequest) -> DeepEnsembleModel:
         """Create a Deep Ensemble Model being used for tests."""
         conf = OmegaConf.load(os.path.join("tests", "configs", request.param))
@@ -42,7 +42,7 @@ class TestBaseEnsembleModel:
 
             # Instantiate trainer
             trainer = Trainer(
-                log_every_n_steps=1, max_epochs=1, default_root_dir=save_path
+                log_every_n_steps=1, max_epochs=2, default_root_dir=save_path
             )
             trainer.fit(model=model, datamodule=datamodule)
 
@@ -53,7 +53,14 @@ class TestBaseEnsembleModel:
                     "lightning_logs",
                     "version_0",
                     "checkpoints",
-                    "epoch=0-step=1.ckpt",
+                    os.listdir(
+                        os.path.join(
+                            trainer.default_root_dir,
+                            "lightning_logs",
+                            "version_0",
+                            "checkpoints",
+                        )
+                    )[0],
                 )
             )
 
