@@ -1,8 +1,10 @@
 """UQ-Methods as Lightning Modules."""
 
-from .base import BaseModel, EnsembleModel
+from .base import BaseModel
+from .bayes_by_backprop import BayesByBackpropModel
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
+from .deep_evidential_regression import DERModel
 from .deep_kernel_learning import DeepKernelLearningModel, DKLGPLayer, initial_values
 from .deep_uncertainty_estimation import DUEModel
 from .deterministic_gaussian import DeterministicGaussianModel
@@ -13,7 +15,6 @@ from .quantile_regression_model import QuantileRegressionModel
 __all__ = (
     # base model
     "BaseModel",
-    "EnsembleModel",
     # conformalized Quantile Regression
     "CQR",
     # MC-Dropout
@@ -24,7 +25,7 @@ __all__ = (
     "QuantileRegressionModel",
     # Deep Ensemble Wrapper
     "DeepEnsembleModel",
-    # Deterministic Gaussin Model
+    # Deterministic Gaussian Model
     "DeterministicGaussianModel",
     # Deep Uncertainty Estimation Model
     "DUEModel",
@@ -33,4 +34,8 @@ __all__ = (
     # Approximate GP model for DKL
     "DKLGPLayer",
     "initial_values",
+    # Bayes by Backprop
+    "BayesByBackpropModel",
+    # Deep Evidential Regression Model
+    "DERModel",
 )

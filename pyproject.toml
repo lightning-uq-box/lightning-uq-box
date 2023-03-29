@@ -8,3 +8,40 @@ line-length = 88
 profile = "black"
 skip_gitignore = true
 color_output = true
+
+
+[tool.pytest.ini_options]
+# Skip slow tests by default
+addopts = "-m 'not slow'"
+# https://docs.pytest.org/en/latest/how-to/capture-warnings.html
+
+# add uq_method_box to path
+pythonpath = [
+  "."
+]
+filterwarnings = [
+    # Treat all warnings as errors
+    "error",
+
+    # Warnings raised by dependencies of dependencies, out of our control
+
+    # Expected warnings
+    # Lightning warns us about using num_workers=0, but it's faster on macOS
+    "ignore:The dataloader, .*, does not have many workers which may be a bottleneck:UserWarning",
+    # Lightning warns us about using the CPU when a GPU is available
+    "ignore:GPU available but not used.:UserWarning",
+    # timm swinv2_tiny_transformer meshgrid
+    #"ignore::UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3483.)"
+]
+markers = [
+    "slow: marks tests as slow",
+]
+norecursedirs = [
+    ".ipynb_checkpoints",
+    "data",
+    "__pycache__",
+]
+testpaths = [
+    "tests",
+    "docs/tutorials",
+]
