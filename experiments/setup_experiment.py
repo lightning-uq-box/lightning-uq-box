@@ -3,9 +3,9 @@
 from typing import Any, Dict, List, Union
 
 import torch.nn as nn
-from pytorch_lightning import LightningDataModule, LightningModule, Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import CSVLogger
+from lightning import LightningDataModule, LightningModule, Trainer
+from lightning.callbacks import ModelCheckpoint
+from lightning.loggers import CSVLogger
 
 from uq_method_box.uq_methods import (
     BaseModel,
@@ -82,7 +82,7 @@ def generate_base_model(
             loss_fn=config["model"]["loss_fn"],
             save_dir=config["experiment"]["save_dir"],
             weight_decay=config["model"]["weight_decay"],
-            n_burnin_epochs=config["model"]["n_burnin_epochs"],
+            n_burnin_epochs=config["model"]["burnin_epochs"],
             max_epochs=config["pl"]["max_epochs"],
             restart_cosine=config["model"]["restart_cosine"],
         )
