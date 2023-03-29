@@ -19,15 +19,16 @@ class NLL(nn.Module):
         """Compute NLL Loss.
 
         Args:
-          preds: batch_size x 2, consisting of mu and sigma
+          preds: batch_size x 2, consisting of mu and log_sigma_2
           target: batch_size x 1, regression targets
 
         Returns:
           computed loss for the entire batch
         """
-        eps = torch.ones_like(target) * 1e-6
-        mu, sigma = preds[:, 0].unsqueeze(-1), preds[:, 1].unsqueeze(-1)
-        loss = torch.log(sigma**2) + ((target - mu) ** 2 / torch.max(sigma**2, eps))
+        mu, log_sigma_2 = preds[:, 0].unsqueeze(-1), preds[:, 1].unsqueeze(-1)
+        loss = 0.5 * log_sigma_2 + (
+            0.5 * torch.exp(-log_sigma_2) * torch.pow((target - mu), 2)
+        )
         loss = torch.mean(loss, dim=0)
         return loss
 
