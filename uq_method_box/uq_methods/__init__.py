@@ -3,6 +3,7 @@
 from .base import BaseModel
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
+from .deep_evidential_regression import DERModel
 from .deterministic_gaussian import DeterministicGaussianModel
 from .laplace_model import LaplaceModel
 from .mc_dropout_model import MCDropoutModel
@@ -23,4 +24,6 @@ __all__ = (
     "DeepEnsembleModel",
     # Deterministic Gaussin Model
     "DeterministicGaussianModel",
+    # Deep Evidential Regression Model
+    "DERModel",
 )

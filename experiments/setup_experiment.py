@@ -10,6 +10,7 @@ from lightning.pytorch.loggers import CSVLogger
 from uq_method_box.uq_methods import (
     BaseModel,
     DeepEnsembleModel,
+    DERModel,
     DeterministicGaussianModel,
     MCDropoutModel,
     QuantileRegressionModel,
@@ -72,6 +73,13 @@ def generate_base_model(
             max_epochs=config["pl"]["max_epochs"],
         )
 
+    elif config["model"]["base_model"] == "der":
+        return DERModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            lr=config["optimizer"]["lr"],
+            save_dir=config["experiment"]["save_dir"],
+        )
     else:
         raise ValueError("Your base_model choice is currently not supported.")
 
@@ -95,6 +103,10 @@ def generate_ensemble_model(
             config["experiment"]["save_dir"],
             config["model"]["quantiles"],
         )
+
+    # multi swag
+
+    # mc-dropout ensemble similar to swag
 
     else:
         raise ValueError("Your ensemble choice is currently not supported.")
