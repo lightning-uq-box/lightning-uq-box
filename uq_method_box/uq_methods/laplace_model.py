@@ -114,9 +114,9 @@ class LaplaceModel(LightningModule):
 
     def test_step(self, *args: Any, **kwargs: Any) -> None:
         """Test step."""
-        X, y = args[0]
+        X, y_true = args[0]
         out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        out_dict["targets"] = y_true.detach().squeeze(-1).numpy()
         return out_dict
 
     def on_test_batch_end(

@@ -8,6 +8,7 @@ from .deep_evidential_regression import DERModel
 from .deterministic_gaussian import DeterministicGaussianModel
 from .laplace_model import LaplaceModel
 from .mc_dropout_model import MCDropoutModel
+from .natural_posterior_network import NaturalPosteriorNetwork
 from .quantile_regression_model import QuantileRegressionModel
 from .sgld import SGLDModel
 
@@ -32,4 +33,6 @@ __all__ = (
     "BayesByBackpropModel",
     # Deep Evidential Regression Model
     "DERModel",
+    # Natural Posterior Network
+    "NaturalPosteriorNetwork",
 )

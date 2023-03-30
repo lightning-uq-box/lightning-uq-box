@@ -66,9 +66,9 @@ class DeepEnsembleModel(LightningModule):
         Returns:
             dictionary of uncertainty outputs
         """
-        X, y = batch
+        X, y_true = batch
         out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        out_dict["targets"] = y_true.detach().squeeze(-1).numpy()
         return out_dict
 
     def on_test_batch_end(

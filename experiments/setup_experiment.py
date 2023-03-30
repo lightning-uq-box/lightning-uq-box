@@ -4,9 +4,11 @@ from typing import Any, Dict, List, Union
 
 import torch.nn as nn
 from lightning import LightningDataModule, LightningModule, Trainer
-from lightning.callbacks import ModelCheckpoint
-from lightning.loggers import CSVLogger
+from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.loggers import CSVLogger
+from natpn.nn.flow import RadialFlow
 
+from uq_method_box.models import MLP
 from uq_method_box.uq_methods import (
     BaseModel,
     BayesByBackpropModel,
@@ -14,6 +16,7 @@ from uq_method_box.uq_methods import (
     DERModel,
     DeterministicGaussianModel,
     MCDropoutModel,
+    NaturalPosteriorNetwork,
     QuantileRegressionModel,
     SGLDModel,
 )
@@ -104,6 +107,16 @@ def generate_base_model(
             model_args=config["model"]["model_args"],
             lr=config["optimizer"]["lr"],
             save_dir=config["experiment"]["save_dir"],
+        )
+
+    elif config["model"]["base_model"] == "npn":
+        flow_class = RadialFlow
+        config["model"]["npn_args"]["flow"] = flow_class
+        config["model"]["npn_args"]["encoder"] = MLP(**config["model"]["model_args"])
+        return NaturalPosteriorNetwork(
+            lr=config["optimizer"]["lr"],
+            save_dir=config["experiment"]["save_dir"],
+            **config["model"]["npn_args"],
         )
     else:
         raise ValueError("Your base_model choice is currently not supported.")

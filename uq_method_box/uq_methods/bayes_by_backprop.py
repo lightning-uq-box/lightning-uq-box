@@ -79,17 +79,17 @@ class BayesByBackpropModel(BaseModel):
         Returns:
             training loss
         """
-        X, y = args[0]
+        X, y_true = args[0]
         batch_size = X.shape[0]
 
         out = self.forward(X)
         kl_loss = get_kl_loss(self.model)
-        mse_loss = self.criterion(out, y)
+        mse_loss = self.criterion(out, y_true)
 
         loss = mse_loss + kl_loss / batch_size
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), y)
+        self.train_metrics(self.extract_mean_output(out), y_true)
 
         return loss
 
@@ -103,16 +103,16 @@ class BayesByBackpropModel(BaseModel):
         Returns:
             validation loss
         """
-        X, y = args[0]
+        X, y_true = args[0]
         batch_size = X.shape[0]
 
         out = self.forward(X)
         kl_loss = get_kl_loss(self.model)
-        mse_loss = self.criterion(out, y)
+        mse_loss = self.criterion(out, y_true)
 
         loss = mse_loss + kl_loss / batch_size
         self.log("val_loss", loss)  # logging to Logger
-        self.val_metrics(self.extract_mean_output(out), y)
+        self.val_metrics(self.extract_mean_output(out), y_true)
 
         return loss
 

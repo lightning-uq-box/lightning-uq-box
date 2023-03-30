@@ -109,12 +109,12 @@ class BaseModel(LightningModule):
         Returns:
             training loss
         """
-        X, y = args[0]
+        X, y_true = args[0]
         out = self.forward(X)
-        loss = self.criterion(out, y)
+        loss = self.criterion(out, y_true)
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), y)
+        self.train_metrics(self.extract_mean_output(out), y_true)
 
         return loss
 
@@ -133,12 +133,12 @@ class BaseModel(LightningModule):
         Returns:
             validation loss
         """
-        X, y = args[0]
+        X, y_true = args[0]
         out = self.forward(X)
-        loss = self.criterion(out, y)
+        loss = self.criterion(out, y_true)
 
         self.log("val_loss", loss)  # logging to Logger
-        self.val_metrics(self.extract_mean_output(out), y)
+        self.val_metrics(self.extract_mean_output(out), y_true)
 
         return loss
 
@@ -149,9 +149,9 @@ class BaseModel(LightningModule):
 
     def test_step(self, *args: Any, **kwargs: Any) -> None:
         """Test step."""
-        X, y = args[0]
+        X, y_true = args[0]
         out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).cpu().numpy()
+        out_dict["targets"] = y_true.detach().squeeze(-1).cpu().numpy()
         return out_dict
 
     def predict_step(

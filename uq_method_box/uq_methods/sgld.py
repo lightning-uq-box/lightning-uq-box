@@ -163,18 +163,18 @@ class SGLDModel(BaseModel):
         sgld_opt = self.optimizers()
         sgld_opt.zero_grad()
 
-        X, y = args[0]
+        X, y_true = args[0]
         out = self.forward(X)
 
         def closure():
             """Closure function for optimizer."""
             sgld_opt.zero_grad()
             if self.current_epoch < self.burnin_epochs:
-                loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
+                loss = nn.functional.mse_loss(self.extract_mean_output(out), y_true)
             # after train with nll
             else:
-                loss = self.criterion(out, y)
-            loss = self.criterion(out, y)
+                loss = self.criterion(out, y_true)
+            loss = self.criterion(out, y_true)
             sgld_opt.zero_grad()
             self.manual_backward(loss)
             return loss
@@ -182,7 +182,7 @@ class SGLDModel(BaseModel):
         loss = sgld_opt.step(closure=closure)
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), y)
+        self.train_metrics(self.extract_mean_output(out), y_true)
 
         # scheduler step every N epochs
         # scheduler = self.lr_schedulers()

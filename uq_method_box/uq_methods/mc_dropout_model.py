@@ -73,24 +73,24 @@ class MCDropoutModel(BaseModel):
         Returns:
             training loss
         """
-        X, y = args[0]
+        X, y_true = args[0]
         out = self.forward(X)
 
         if self.current_epoch < self.burnin_epochs:
-            loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
+            loss = nn.functional.mse_loss(self.extract_mean_output(out), y_true)
         else:
-            loss = self.criterion(out, y)
+            loss = self.criterion(out, y_true)
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), y)
+        self.train_metrics(self.extract_mean_output(out), y_true)
 
         return loss
 
     def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Test Step."""
-        X, y = args[0]
+        X, y_true = args[0]
         out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).cpu().numpy()
+        out_dict["targets"] = y_true.detach().squeeze(-1).cpu().numpy()
         return out_dict
 
     def predict_step(

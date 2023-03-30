@@ -66,16 +66,16 @@ class DeterministicGaussianModel(BaseModel):
         Returns:
             training loss
         """
-        X, y = args[0]
+        X, y_true = args[0]
         out = self.forward(X)
 
         if self.current_epoch < self.burnin_epochs:
-            loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
+            loss = nn.functional.mse_loss(self.extract_mean_output(out), y_true)
         else:
-            loss = self.criterion(out, y)
+            loss = self.criterion(out, y_true)
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), y)
+        self.train_metrics(self.extract_mean_output(out), y_true)
 
         return loss
 
