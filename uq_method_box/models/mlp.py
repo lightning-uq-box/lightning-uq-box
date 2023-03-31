@@ -15,7 +15,7 @@ class MLP(nn.Module):
         n_inputs: int = 1,
         n_hidden: List[int] = [100],
         n_outputs: int = 1,
-        activation_fn: nn.Module = nn.Tanh(),
+        activation_fn: nn.Module = nn.LeakyReLU(negative_slope=0.01),
     ) -> None:
         """Initialize a new instance of MLP.
 
@@ -36,7 +36,7 @@ class MLP(nn.Module):
             layers += [
                 nn.Linear(layer_sizes[idx - 1], layer_sizes[idx]),
                 activation_fn,
-                nn.Dropout(dropout_p) if idx != 1 else nn.Identity(),
+                nn.Dropout(dropout_p),
             ]
         # add output layer
         layers += [nn.Linear(layer_sizes[-1], n_outputs)]

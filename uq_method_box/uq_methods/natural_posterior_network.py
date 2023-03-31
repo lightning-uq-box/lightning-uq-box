@@ -108,9 +108,10 @@ class NaturalPosteriorNetwork(LightningModule):
         X, y_true = batch
         posterior, log_prob = self.model.forward(X)
         mean_pred = posterior.maximum_a_posteriori().mean()
-        loss = self.criterion(posterior, y_true)
-
-        self.log("train_loss", loss)  # logging to Logger
+        loss = self.criterion.forward(posterior, y_true)
+        # import pdb
+        # pdb.set_trace()
+        self.log("train_loss", loss, prog_bar=True)  # logging to Logger
         self.train_metrics(mean_pred, y_true.squeeze(-1))
 
         return loss
@@ -170,7 +171,7 @@ class NaturalPosteriorNetwork(LightningModule):
 
         # posterior map uncertainty is aleatoric uncertainty
         # https://github.com/borchero/natural-posterior-network/blob/main/natpn/model/lightning_module_ood.py#L35
-        aleatoric = posterior.maximum_a_posteriori().uncertainty().cpu().numpy()
+        aleatoric = -posterior.maximum_a_posteriori().uncertainty().cpu().numpy()
         return {
             "mean": mean,
             "pred_uct": epistemic + aleatoric,
@@ -193,16 +194,4 @@ class NaturalPosteriorNetwork(LightningModule):
     def configure_optimizers(self) -> Dict[str, Any]:
         """Configure optimizers."""
         optimizer = optim.Adam(self.model.parameters(), lr=self.hparams.lr)
-        # config: Dict[str, Any] = {"optimizer": optimizer}
-        # if self.learning_rate_decay:
-        #     config["lr_scheduler"] = {
-        #         "scheduler": optim.lr_scheduler.ReduceLROnPlateau(
-        #             optimizer,
-        #             factor=0.25,
-        #             patience=self.trainer.max_epochs // 20,
-        #             threshold=1e-3,
-        #             min_lr=1e-7,
-        #         ),
-        #         "monitor": "val/loss",
-        #     }
         return {"optimizer": optimizer}
