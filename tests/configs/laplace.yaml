@@ -1,0 +1,14 @@
+model:
+  loss_fn: mse
+  conformalized: False
+  model_args: # all arguments for the mlp
+    n_outputs: 1
+    n_inputs: 1
+    n_hidden: [10]
+  laplace_args:
+    hessian_structure: "full"
+    subset_of_weights: "all"
+    tune_precision_lr: 0.1
+    n_epochs_tune_precision: 2
+optimizer:
+  lr: 0.003
