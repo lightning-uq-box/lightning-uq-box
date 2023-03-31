@@ -1,5 +1,14 @@
 """Deep Kernel Learning."""
 
+# TO DO:
+# Use wrapper gpytorch.kernels.GridInterpolationKernel(base_kernel, grid_size,
+# num_dims=None, grid_bounds=None, active_dims=None)
+# for all kernels to have scalable approximate GPs
+# write choice of grid size
+# based on training data with helper function
+# gpytorch.utils.grid.choose_grid_size(train_inputs,
+# ratio=1.0, kronecker_structure=True)
+
 import os
 from typing import Any, Dict, List
 
@@ -8,11 +17,18 @@ import numpy as np
 import torch
 import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.kernels import MaternKernel, RBFKernel, RQKernel, ScaleKernel
+from gpytorch.kernels import (
+    GridInterpolationKernel,
+    MaternKernel,
+    RBFKernel,
+    RQKernel,
+    ScaleKernel,
+)
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
 from gpytorch.models import ApproximateGP
+from gpytorch.utils.grid import ScaleToBounds
 from gpytorch.variational import (
     CholeskyVariationalDistribution,
     IndependentMultitaskVariationalStrategy,
@@ -88,6 +104,9 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         """Build the model."""
         self.gp_layer = self.hparams.gp(**self.hparams.gp_args)
 
+        # This module will scale the NN features so that they're nice values
+        self.scale_to_bounds = ScaleToBounds(-1.0, 1.0)
+
         self.likelihood = GaussianLikelihood()
         self.elbo_fn = self.hparams.elbo_fn(
             self.likelihood, self.gp_layer, num_data=self.hparams.n_train_points
@@ -102,7 +121,7 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Returns:
             output from GP
         """
-        return self.gp_layer(self.feature_extractor(X))
+        return self.gp_layer(self.scale_to_bounds(self.feature_extractor(X)))
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Training step for DKL model."""
@@ -202,7 +221,7 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers # noqa: E501
         """
         # in the paper they use SGD? Does it matter?
-        # optimizer = (self.parameters(), lr=self.hparams.lr)
+        # optimizer = SGD(self.parameters(), lr=self.hparams.lr)
         optimizer = torch.optim.Adam(
             [
                 {"params": self.feature_extractor.parameters(), "weight_decay": 1e-4},
@@ -224,11 +243,18 @@ class DKLGPLayer(ApproximateGP):
     Taken from https://github.com/y0ast/DUE/blob/f29c990811fd6a8e76215f17049e6952ef5ea0c9/due/dkl.py#L62 # noqa: E501
     """
 
+    # include kernel wrapper and helper function
+    # kernel wrapper: GridInterpolationKernel(base_kernel,
+    # grid_size, num_dims=None, grid_bounds=None, active_dims=None)
+
     kernel_choices = ["RBF", "Matern12", "Matern32", "Matern52", "RQ"]
 
     def __init__(
         self,
         n_outputs: int,
+        grid_size: int,
+        num_dims: int,
+        kiss: bool,
         initial_lengthscale: Tensor,
         initial_inducing_points: Tensor,
         kernel: str = "RBF",
@@ -246,6 +272,9 @@ class DKLGPLayer(ApproximateGP):
             ValueError if kernel is not supported
         """
         n_inducing_points = initial_inducing_points.shape[0]
+        self.grid_size = grid_size
+        self.num_dims = num_dims
+        self.kiss = kiss
 
         if n_outputs > 1:
             batch_shape = torch.Size([n_outputs])
@@ -288,7 +317,18 @@ class DKLGPLayer(ApproximateGP):
         kernel.lengthscale = initial_lengthscale * torch.ones_like(kernel.lengthscale)
 
         self.mean_module = ConstantMean(batch_shape=batch_shape)
-        self.covar_module = ScaleKernel(kernel, batch_shape=batch_shape)
+
+        # if KISS clause
+        if self.kiss is True:
+            self.covar_module = GridInterpolationKernel(
+                kernel,
+                grid_size=self.grid_size,
+                num_dims=self.num_dims,
+                grid_bounds=None,
+                active_dims=None,
+            )
+        else:
+            self.covar_module = ScaleKernel(kernel, batch_shape=batch_shape)
 
     def forward(self, X: Tensor) -> MultivariateNormal:
         """Forward pass of GP.
