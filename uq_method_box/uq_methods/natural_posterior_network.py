@@ -108,9 +108,8 @@ class NaturalPosteriorNetwork(LightningModule):
         X, y_true = batch
         posterior, log_prob = self.model.forward(X)
         mean_pred = posterior.maximum_a_posteriori().mean()
-        loss = self.criterion.forward(posterior, y_true)
-        # import pdb
-        # pdb.set_trace()
+        loss = self.criterion.forward(posterior, y_true.squeeze(-1))
+
         self.log("train_loss", loss, prog_bar=True)  # logging to Logger
         self.train_metrics(mean_pred, y_true.squeeze(-1))
 
@@ -134,7 +133,7 @@ class NaturalPosteriorNetwork(LightningModule):
         # posterior is a natpn posterior object
         posterior, log_prob = self.model.forward(X)
         mean_pred = posterior.maximum_a_posteriori().mean()
-        loss = self.criterion(posterior, y_true)
+        loss = self.criterion(posterior, y_true.squeeze(-1))
 
         self.log("val_loss", loss)  # logging to Logger
         self.val_metrics(mean_pred, y_true.squeeze(-1))
