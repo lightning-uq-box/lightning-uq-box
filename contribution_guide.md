@@ -3,17 +3,10 @@ To work on the project or use this software in your work install the required de
 
 Move to the root directory, meaning if you run `$ pwd` the printed path should end in `uq_method-box`. 
 
-From here, create a virtual environment:
+## Conda environment
 
 ```
- # create virtual environment
- $ python3 -m venv /path/to/new/virtual/environment/your_environment_name
-
- # activate venv
- $ source /path/to/new/virtual/environment/your_environment_name/bin/activate/ 
-
- # install requirements
- $ pip install -r ./requirements.txt
+    $  conda create --name myEnvName --file requirements/condaEnv.txt python=3.9  
 ```
 
 This should install dependencies required to run the code in this repo.
@@ -97,24 +90,6 @@ I think the UCI-Experiments are a great opportunity to both check our implementa
 
 The goal is to be "as lazy as possible" in the effort it takes to execute experiments but also have confidence in the worklfow, so anything fishy you see make a note of it and we can look into it and hopefully fix it :) 
 
-
-## Conda environment
-
-I have run the commands in this order to create a conda environment with which I am able to run experiments. Mabye the same order will work on Windows as well. If conda install does not work, try using pip install instead.
-
-```
-    $  conda create --name ninaEnv python=3.9
-    $  conda activate ninaEnv
-    $  conda install pytorch torchvision cpuonly -c pytorch
-    $  conda install -c conda-forge lightning
-    $  conda install -c conda-forge torchgeo
-    $  conda install -c conda-forge pandas
-    $  conda install -c conda-forge laplace-torch
-    $  conda install -c conda-forge ruamel.yaml
-    $  conda install -c conda-forge ipykernel
-    $  conda install -c conda-forge seaborn
-    $  pip install uncertainty-toolbox
-```
 
 ## Code Reviews 
 All updates to the code base should go through a review process. We use GitHub Pull Requests for this. You can head over to
