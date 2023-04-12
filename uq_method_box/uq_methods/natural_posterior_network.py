@@ -1,15 +1,18 @@
 """Natural Posterior Network."""
 
 import os
-from typing import Any, Dict, Literal, Tuple
+from typing import Any, Dict, List, Literal, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from lightning.pytorch import Callback
+from natpn.model.lightning_module_flow import NaturalPosteriorNetworkFlowLightningModule
 from natpn.nn import BayesianLoss, NaturalPosteriorNetworkModel
 from natpn.nn.flow import NormalizingFlow
 from natpn.nn.output import NormalOutput
+from pytorch_lightning.callbacks import EarlyStopping
 from torch import Tensor, optim
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
 
@@ -120,7 +123,7 @@ class NaturalPosteriorNetwork(LightningModule):
         self.log_dict(self.train_metrics.compute())
         self.train_metrics.reset()
 
-    def validation_step(self, batch: Batch, _batch_idx: int) -> Tensor:
+    def validation_step(self, batch: Batch, _batch_idx: int = 0) -> Tensor:
         """Compute validation step.
 
         Args:
@@ -194,3 +197,103 @@ class NaturalPosteriorNetwork(LightningModule):
         """Configure optimizers."""
         optimizer = optim.Adam(self.model.parameters(), lr=self.hparams.lr)
         return {"optimizer": optimizer}
+
+
+class NaturalPosteriorNetworkFlow(LightningModule):
+    """
+    Lightning module for optimizing the normalizing flow of NatPN.
+    """
+
+    def __init__(
+        self,
+        model: NaturalPosteriorNetworkModel,
+        learning_rate: float = 1e-3,
+        learning_rate_decay: bool = False,
+        early_stopping: bool = True,
+    ) -> None:
+        """Initialize a new instance of NPN Flow
+
+        Args:
+            model: The model whose flow to optimize.
+            learning_rate: The learning rate to use for the Adam optimizer.
+            learning_rate_decay: Whether to use a learning rate decay. If set to ``True``, the
+                learning rate schedule is implemented using
+                :class:`~torch.optim.lr_scheduler.ReduceLROnPlateau`.
+            early_stopping: Whether to use early stopping for training.
+        """
+        super().__init__()
+        self.save_hyperparameters()
+        self.model = model
+        self.learning_rate = learning_rate
+        self.learning_rate_decay = learning_rate_decay
+        self.early_stopping = early_stopping
+
+    def configure_optimizers(self) -> Dict[str, Any]:
+        optimizer = optim.Adam(self.model.flow.parameters(), lr=self.learning_rate)
+        config: Dict[str, Any] = {"optimizer": optimizer}
+        if self.learning_rate_decay:
+            config["lr_scheduler"] = {
+                "scheduler": optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer,
+                    mode="max",
+                    factor=0.25,
+                    patience=self.trainer.max_epochs // 20,
+                    threshold=1e-3,
+                    min_lr=1e-7,
+                ),
+                "monitor": "val/log_prob",
+            }
+        return config
+
+    # def configure_callbacks(self) -> List[Callback]:
+    #     if not self.early_stopping:
+    #         return []
+    #     return [
+    #         EarlyStopping(
+    #             "val/log_prob",
+    #             min_delta=1e-2,
+    #             mode="max",
+    #             patience=self.trainer.max_epochs // 10,
+    #         ),
+    #     ]
+
+    def training_step(self, batch: Batch, _batch_idx: int) -> torch.Tensor:
+        X, _ = batch
+        log_prob = self.model.log_prob(X, track_encoder_gradients=False).mean()
+        self.log("train/log_prob", log_prob, prog_bar=True)
+        return -log_prob
+
+    def validation_step(self, batch: Batch, _batch_idx: int = 0) -> None:
+        X, _ = batch
+        log_prob = self.model.log_prob(X).mean()
+        self.log("val/log_prob", log_prob, prog_bar=True)
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
+        """NPN Predict step after finetuning Flow Network.
+
+        Args:
+            X: input tensor
+
+        Returns:
+            prediction dictionary
+        """
+        with torch.no_grad():
+            posterior, log_prob = self.model.forward(X)
+
+        mean = posterior.maximum_a_posteriori().mean().cpu().numpy()
+
+        # log_prob is epistemic uncertainty
+        # https://github.com/borchero/natural-posterior-network/blob/main/natpn/model/lightning_module_ood.py#L45
+        epistemic = torch.clone(log_prob).cpu().numpy()
+
+        # posterior map uncertainty is aleatoric uncertainty
+        # https://github.com/borchero/natural-posterior-network/blob/main/natpn/model/lightning_module_ood.py#L35
+        aleatoric = -posterior.maximum_a_posteriori().uncertainty().cpu().numpy()
+        return {
+            "mean": mean,
+            "pred_uct": epistemic + aleatoric,
+            "epistemic_uct": epistemic,
+            "aleatoric_uct": aleatoric,
+        }
