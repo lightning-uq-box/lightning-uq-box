@@ -44,7 +44,7 @@ X_train, y_train, train_loader, X_test, y_test, test_loader = (
 
 # config args
 my_config = {
-    "model_args": {"n_inputs": 1, "n_outputs": 1, "n_hidden": [100]},
+    "model_args": {"n_inputs": 1, "n_outputs": 10, "n_hidden": [100]},
     "loss_fn": "mse",
     "gp_args": {"n_outputs": 1},
 }
@@ -56,13 +56,8 @@ my_dir = tempfile.mkdtemp()
 # define untrained feature extractor
 feature_extractor = MLP(**my_config["model_args"])
 
-# remove output layer to just have feature extractor
-# feature_extractor.model[-1] = torch.nn.Identity()
-grid_size = choose_grid_size(train_inputs=X_train, ratio=1.0, kronecker_structure=True)
-
 # get number of inducing points
-n_inducing_points = 100
-
+n_inducing_points = 20
 
 # get intial inducing points and initial lengthscale for kernels
 initial_inducing_points, initial_lengthscale = initial_values(
@@ -72,34 +67,22 @@ initial_inducing_points, initial_lengthscale = initial_values(
 # define dict for gp args from initial computations above
 gp_args = {
     "n_outputs": my_config["gp_args"]["n_outputs"],
-    "grid_size": grid_size,
-    "num_dims": my_config["model_args"]["n_outputs"],
-    "kiss": False,  # use KISS approximation
     "initial_lengthscale": initial_lengthscale,
     "initial_inducing_points": initial_inducing_points,
-    "kernel": "RQ",
+    "kernel": "RBF",
 }
-
-# import pdb
-# pdb.set_trace()
-# gp_args["initial_lengthscale"] = 1
-
-
-# define dkl model
 
 dkl_model = DeepKernelLearningModel(
     feature_extractor,
-    gp=DKLGPLayer,
+    gp_layer=DKLGPLayer,
     gp_args=gp_args,
     elbo_fn=VariationalELBO,
-    n_gp_samples=30,
     n_train_points=X_train.shape[0],
     lr=1e-2,
     save_dir=my_dir,
 )
 
-
-max_epochs = 400
+max_epochs = 700
 
 logger = CSVLogger(my_dir)
 trainer = Trainer(max_epochs=max_epochs, logger=logger, log_every_n_steps=1)
@@ -126,6 +109,8 @@ dkl_fig = plot_predictions(
     title="DKL",
 )
 
+plt.savefig("dkl.png")
+
 metrics_path = os.path.join(my_dir, "lightning_logs", "version_0", "metrics.csv")
 df = pd.read_csv(metrics_path)
 
@@ -139,10 +124,12 @@ ax[0].set_title("Train Loss")
 ax[1].plot(np.arange(len(train_rmse)), train_rmse)
 ax[1].set_title("Train RMSE")
 
+plt.savefig("dkl_loss_curve.png")
+
 
 plt.show()
-# import pdb
+import pdb
 
-# pdb.set_trace()
+pdb.set_trace()
 
 # print(0)

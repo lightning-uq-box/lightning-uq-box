@@ -46,7 +46,7 @@ from .utils import save_predictions_to_csv
 
 class DeepKernelLearningModel(gpytorch.Module, LightningModule):
     """Deep Kernel Learning Model.
-
+    
     If you use this model in your research, please cite the following papers:
 
     * https://arxiv.org/abs/1511.02222
@@ -55,13 +55,11 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
 
     def __init__(
         self,
-        feature_extractor: type[nn.Module],
-        # backbone_args: Dict[str, Any],
-        gp: type[ApproximateGP],
+        feature_extractor: nn.Module,
+        gp_layer: type[ApproximateGP],
         gp_args: Dict[str, Any],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_train_points: int,
-        n_gp_samples: int,
         lr: float,
         save_dir: str,
         quantiles: List[float] = [0.1, 0.5, 0.9],
@@ -71,17 +69,18 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Args:
             backbone: feature extractor class
             backbone_args: arguments to initialize the backbone
-            gp: gpytorch module that takes extracted features as inputs
-            gp_args: arguments to initializ the gp
+            gp_layer: gpytorch module that takes extracted features as inputs
+            gp_args: arguments to initializ the gp_layer
             elbo_fn: gpytorch elbo functions
             n_train_points: number of training points necessary f
                 or Gpytorch elbo function
-            lr:
-            save_dir:
         """
         super().__init__()
         self.save_hyperparameters(ignore="feature_extractor")
+        self.n_train_points = n_train_points
+        self.lr = lr
         self.feature_extractor = feature_extractor
+        self.gp_layer = gp_layer
 
         self.train_metrics = MetricCollection(
             {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
@@ -101,16 +100,16 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self._build_model()
 
     def _build_model(self) -> None:
-        """Build the model."""
-        self.gp_layer = self.hparams.gp(**self.hparams.gp_args)
+      """Build the model."""
+      self.gp_layer = self.hparams.gp_layer(**self.hparams.gp_args)
 
-        # This module will scale the NN features so that they're nice values
-        self.scale_to_bounds = ScaleToBounds(-1.0, 1.0)
+      # This module will scale the NN features so that they're nice values
+      self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
 
-        self.likelihood = GaussianLikelihood()
-        self.elbo_fn = self.hparams.elbo_fn(
-            self.likelihood, self.gp_layer, num_data=self.hparams.n_train_points
-        )
+      self.likelihood = GaussianLikelihood()
+      self.elbo_fn = self.hparams.elbo_fn(
+          self.likelihood, self.gp_layer, num_data=self.n_train_points
+      )
 
     def forward(self, X: Tensor, **kwargs) -> Tensor:
         """Forward pass through model.
@@ -121,24 +120,27 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Returns:
             output from GP
         """
-        return self.gp_layer(self.scale_to_bounds(self.feature_extractor(X)))
+        features = self.feature_extractor(X)
+        scaled_features = self.scale_to_bounds(features)
+        output = self.gp_layer(scaled_features)
+        return output
+
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Training step for DKL model."""
         X, y = args[0]
 
         y_pred = self.forward(X)
-        loss = -self.elbo_fn(y_pred, y).mean()
+        loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
         self.log("train_loss", loss)  # logging to Logger
         self.train_metrics(y_pred.loc, y.squeeze(-1))
-
         return loss
 
     def on_train_epoch_end(self):
-        """Log epoch-level training metrics."""
-        self.log_dict(self.train_metrics.compute())
-        self.train_metrics.reset()
+      """Log epoch-level training metrics."""
+      self.log_dict(self.train_metrics.compute())
+      self.train_metrics.reset()
 
     def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute validation loss and log example predictions.
@@ -152,11 +154,10 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         """
         X, y = args[0]
         y_pred = self.forward(X)
-        loss = -self.elbo_fn(y_pred, y).mean()
+        loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
         self.log("val_loss", loss)  # logging to Logger
         self.val_metrics(y_pred.loc, y.squeeze(-1))
-
         return loss
 
     def on_validation_epoch_end(self) -> None:
@@ -191,18 +192,19 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        # TODO create prediction dict
-
+        self.feature_extractor.eval()
+        self.gp_layer.eval()
+        self.likelihood.eval()
+    
         out = self.forward(X)  # GPytorch MultivariatNormal Object
 
-        predictive_samples = (
-            out.sample(sample_shape=torch.Size([self.hparams.n_gp_samples]))
-            .cpu()
-            .numpy()
-        )  # shape[num_samples, batch_size]
+        mean = out.mean
+        # preds.confidence_region() Returns 2 standard deviations 
+        #above and below the mean. Return type (torch.Tensor, torch.Tensor)
+        confidence = out.confidence_region()
+        
+        std = (confidence[1] - confidence[0])*0.5
 
-        mean = predictive_samples.mean(0)
-        std = predictive_samples.std(0)
 
         quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
         return {
@@ -218,22 +220,13 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
 
         Returns:
             a "lr dict" according to the pytorch lightning documentation --
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers # noqa: E501
         """
-        # in the paper they use SGD? Does it matter?
-        # optimizer = SGD(self.parameters(), lr=self.hparams.lr)
-        optimizer = torch.optim.Adam(
-            [
-                {"params": self.feature_extractor.parameters(), "weight_decay": 1e-4},
-                {
-                    "params": self.gp_layer.hyperparameters(),
-                    "lr": self.hparams.lr * 0.01,
-                },
-                {"params": self.gp_layer.variational_parameters()},
-                {"params": self.likelihood.parameters()},
-            ],
-            lr=self.hparams.lr,
-        )
+        optimizer = torch.optim.Adam([
+            {'params': self.feature_extractor.parameters()},
+            {'params': self.gp_layer.hyperparameters()},
+            {'params': self.gp_layer.variational_parameters()},
+            {'params': self.likelihood.parameters()},
+        ], lr=self.lr)
         return {"optimizer": optimizer}
 
 
@@ -243,18 +236,12 @@ class DKLGPLayer(ApproximateGP):
     Taken from https://github.com/y0ast/DUE/blob/f29c990811fd6a8e76215f17049e6952ef5ea0c9/due/dkl.py#L62 # noqa: E501
     """
 
-    # include kernel wrapper and helper function
-    # kernel wrapper: GridInterpolationKernel(base_kernel,
-    # grid_size, num_dims=None, grid_bounds=None, active_dims=None)
 
     kernel_choices = ["RBF", "Matern12", "Matern32", "Matern52", "RQ"]
 
     def __init__(
         self,
         n_outputs: int,
-        grid_size: int,
-        num_dims: int,
-        kiss: bool,
         initial_lengthscale: Tensor,
         initial_inducing_points: Tensor,
         kernel: str = "RBF",
@@ -272,9 +259,6 @@ class DKLGPLayer(ApproximateGP):
             ValueError if kernel is not supported
         """
         n_inducing_points = initial_inducing_points.shape[0]
-        self.grid_size = grid_size
-        self.num_dims = num_dims
-        self.kiss = kiss
 
         if n_outputs > 1:
             batch_shape = torch.Size([n_outputs])
@@ -317,18 +301,8 @@ class DKLGPLayer(ApproximateGP):
         kernel.lengthscale = initial_lengthscale * torch.ones_like(kernel.lengthscale)
 
         self.mean_module = ConstantMean(batch_shape=batch_shape)
-
-        # if KISS clause
-        if self.kiss is True:
-            self.covar_module = GridInterpolationKernel(
-                kernel,
-                grid_size=self.grid_size,
-                num_dims=self.num_dims,
-                grid_bounds=None,
-                active_dims=None,
-            )
-        else:
-            self.covar_module = ScaleKernel(kernel, batch_shape=batch_shape)
+    
+        self.covar_module = ScaleKernel(kernel, batch_shape=batch_shape)
 
     def forward(self, X: Tensor) -> MultivariateNormal:
         """Forward pass of GP.
