@@ -7,17 +7,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-
-# from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.mlls import VariationalELBO
-from gpytorch.utils.grid import choose_grid_size
 from lightning import Trainer
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import CSVLogger
 
 from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
-
-# from uq_method_box.eval_utils import compute_aleatoric_uncertainty
 from uq_method_box.models import MLP
 from uq_method_box.uq_methods import (  # BaseModel,; DeterministicGaussianModel,
     DeepKernelLearningModel,
@@ -85,7 +80,15 @@ dkl_model = DeepKernelLearningModel(
 max_epochs = 700
 
 logger = CSVLogger(my_dir)
-trainer = Trainer(max_epochs=max_epochs, logger=logger, log_every_n_steps=1)
+
+pl_args = {
+    "max_epochs": max_epochs,
+    "logger": logger,
+    "log_every_n_steps": 1,
+    "accelerator": "gpu",
+    "devices": [0],
+}
+trainer = Trainer(**pl_args)
 
 # fit model
 trainer.fit(dkl_model, dm)

@@ -17,13 +17,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
-from gpytorch.kernels import (
-    GridInterpolationKernel,
-    MaternKernel,
-    RBFKernel,
-    RQKernel,
-    ScaleKernel,
-)
+from gpytorch.kernels import MaternKernel, RBFKernel, RQKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
@@ -46,7 +40,7 @@ from .utils import save_predictions_to_csv
 
 class DeepKernelLearningModel(gpytorch.Module, LightningModule):
     """Deep Kernel Learning Model.
-    
+
     If you use this model in your research, please cite the following papers:
 
     * https://arxiv.org/abs/1511.02222
@@ -100,16 +94,16 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self._build_model()
 
     def _build_model(self) -> None:
-      """Build the model."""
-      self.gp_layer = self.hparams.gp_layer(**self.hparams.gp_args)
+        """Build the model."""
+        self.gp_layer = self.hparams.gp_layer(**self.hparams.gp_args)
 
-      # This module will scale the NN features so that they're nice values
-      self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
+        # This module will scale the NN features so that they're nice values
+        self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
 
-      self.likelihood = GaussianLikelihood()
-      self.elbo_fn = self.hparams.elbo_fn(
-          self.likelihood, self.gp_layer, num_data=self.n_train_points
-      )
+        self.likelihood = GaussianLikelihood()
+        self.elbo_fn = self.hparams.elbo_fn(
+            self.likelihood, self.gp_layer, num_data=self.n_train_points
+        )
 
     def forward(self, X: Tensor, **kwargs) -> Tensor:
         """Forward pass through model.
@@ -125,7 +119,6 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         output = self.gp_layer(scaled_features)
         return output
 
-
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Training step for DKL model."""
         X, y = args[0]
@@ -138,9 +131,9 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         return loss
 
     def on_train_epoch_end(self):
-      """Log epoch-level training metrics."""
-      self.log_dict(self.train_metrics.compute())
-      self.train_metrics.reset()
+        """Log epoch-level training metrics."""
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
 
     def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute validation loss and log example predictions.
@@ -195,16 +188,16 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self.feature_extractor.eval()
         self.gp_layer.eval()
         self.likelihood.eval()
-    
-        out = self.forward(X)  # GPytorch MultivariatNormal Object
 
-        mean = out.mean
-        # preds.confidence_region() Returns 2 standard deviations 
-        #above and below the mean. Return type (torch.Tensor, torch.Tensor)
+        with torch.no_grad():
+            out = self.forward(X)  # GPytorch MultivariatNormal Object
+
+        mean = out.mean.cpu()
+        # preds.confidence_region() Returns 2 standard deviations
+        # above and below the mean. Return type (torch.Tensor, torch.Tensor)
         confidence = out.confidence_region()
-        
-        std = (confidence[1] - confidence[0])*0.5
 
+        std = ((confidence[1] - confidence[0]) * 0.5).cpu()
 
         quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
         return {
@@ -221,12 +214,15 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Returns:
             a "lr dict" according to the pytorch lightning documentation --
         """
-        optimizer = torch.optim.Adam([
-            {'params': self.feature_extractor.parameters()},
-            {'params': self.gp_layer.hyperparameters()},
-            {'params': self.gp_layer.variational_parameters()},
-            {'params': self.likelihood.parameters()},
-        ], lr=self.lr)
+        optimizer = torch.optim.Adam(
+            [
+                {"params": self.feature_extractor.parameters()},
+                {"params": self.gp_layer.hyperparameters()},
+                {"params": self.gp_layer.variational_parameters()},
+                {"params": self.likelihood.parameters()},
+            ],
+            lr=self.lr,
+        )
         return {"optimizer": optimizer}
 
 
@@ -235,7 +231,6 @@ class DKLGPLayer(ApproximateGP):
 
     Taken from https://github.com/y0ast/DUE/blob/f29c990811fd6a8e76215f17049e6952ef5ea0c9/due/dkl.py#L62 # noqa: E501
     """
-
 
     kernel_choices = ["RBF", "Matern12", "Matern32", "Matern52", "RQ"]
 
@@ -301,7 +296,7 @@ class DKLGPLayer(ApproximateGP):
         kernel.lengthscale = initial_lengthscale * torch.ones_like(kernel.lengthscale)
 
         self.mean_module = ConstantMean(batch_shape=batch_shape)
-    
+
         self.covar_module = ScaleKernel(kernel, batch_shape=batch_shape)
 
     def forward(self, X: Tensor) -> MultivariateNormal:
