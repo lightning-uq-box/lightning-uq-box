@@ -14,6 +14,7 @@ from lightning.pytorch.loggers import CSVLogger
 
 from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
 from uq_method_box.models import MLP
+from uq_method_box.uq_methods import DUEModel  # noqa: F401
 from uq_method_box.uq_methods import (  # BaseModel,; DeterministicGaussianModel,
     DeepKernelLearningModel,
     DKLGPLayer,
@@ -52,7 +53,7 @@ my_dir = tempfile.mkdtemp()
 feature_extractor = MLP(**my_config["model_args"])
 
 # get number of inducing points
-n_inducing_points = 20
+n_inducing_points = 50
 
 # get intial inducing points and initial lengthscale for kernels
 initial_inducing_points, initial_lengthscale = initial_values(

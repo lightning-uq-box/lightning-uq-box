@@ -40,7 +40,8 @@ def spectral_normalize_model_layers(model: nn.Module) -> nn.Module:
             )
         else:
             pass
-    return
+
+    return model
 
 
 class _SpectralBatchNorm(_NormBase):
@@ -64,7 +65,7 @@ class _SpectralBatchNorm(_NormBase):
             exponential_average_factor = self.momentum
 
         if self.training and self.track_running_stats:
-            # TODO: if statement only here to tell the jit to skip emitting this when it is None
+            # TODO: if statement here to tell the jit to skip emitting when it is None
             if self.num_batches_tracked is not None:
                 self.num_batches_tracked = self.num_batches_tracked + 1
                 if self.momentum is None:  # use cumulative moving average
@@ -72,29 +73,32 @@ class _SpectralBatchNorm(_NormBase):
                 else:  # use exponential moving average
                     exponential_average_factor = self.momentum
 
-        """ Decide whether the mini-batch stats should be used for normalization rather than the buffers.
-        Mini-batch stats are used in training mode, and in eval mode when buffers are None.
+        """ Decide whether the mini-batch stats should be used for normalization
+        rather than the buffers. Mini-batch stats are used in training mode, and
+        in eval mode when buffers are None.
         """
         if self.training:
             bn_training = True
         else:
             bn_training = (self.running_mean is None) and (self.running_var is None)
 
-        """Buffers are only updated if they are to be tracked and we are in training mode. Thus they only need to be
-        passed when the update should occur (i.e. in training mode when they are tracked), or when buffer stats are
+        """Buffers only updated if they are to be tracked and we are in training mode.
+        Thus they only need to be passed when the update should occur
+        (i.e. in training mode when they are tracked), or when buffer stats are
         used for normalization (i.e. in eval mode when buffers are not None).
         """
         # before the foward pass, estimate the lipschitz constant of the layer and
-        # divide through by it so that the lipschitz constant of the batch norm operator is approximately
-        # 1
+        # divide by it so that the lipschitz constant of the batch norm operator is
+        # approximately 1
         weight = (
             torch.ones_like(self.running_var) if self.weight is None else self.weight
         )
         # see https://arxiv.org/pdf/1804.04368.pdf, equation 28 for why this is correct.
         lipschitz = torch.max(torch.abs(weight * (self.running_var + self.eps) ** -0.5))
 
-        # if lipschitz of the operation is greater than coeff, then we want to divide the input by a constant to
-        # force the overall lipchitz factor of the batch norm to be exactly coeff
+        # if lipschitz of the operation is greater than coeff, then we want to divide
+        # the input by constant to force the overall lipchitz factor of the batch norm
+        # to be exactly coeff
         lipschitz_factor = torch.max(lipschitz / self.coeff, torch.ones_like(lipschitz))
 
         weight = weight / lipschitz_factor
