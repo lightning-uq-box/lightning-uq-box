@@ -9,12 +9,15 @@ or venv environment run the following installs.
 ## Conda environment
 
 ```
-   $  conda create --name myEnvName python=3.9  
-   $  pip install git+https://github.com/microsoft/torchgeo.git
-   $  pip install pandas
-   $  pip install bayesian-torch
-   $  pip install laplace-torch
-   $  pip install uncertainty-toolbox
+   $ conda create --name myEnvName python=3.9  
+   $ pip install git+https://github.com/microsoft/torchgeo.git
+   $ pip install pandas
+   $ ip install bayesian-torch
+   $ pip install laplace-torch
+   $ pip install uncertainty-toolbox
+   $ pip install ruamel.yaml
+   $ pip install ipykernel
+   $ pip install seaborn 
 ```
 This should install dependencies required to run the code in this repo.
 
@@ -48,6 +51,8 @@ To run UCI experiments navigate to the root directory of the project in your com
 ```
    $ python run_uci_experiments.py --config_path "./experiments/configs/name_of_config_you_want.yaml"
 ```
+
+At the moment we are using raw config files, but I am planning to adopt the framework of [hydra](https://github.com/facebookresearch/hydra) for better control and reproducibility, as you can target class instances better.
 
 The directory structure for the results that your experiment produces looks something like that, where per seed you have M ensemble members:
 
