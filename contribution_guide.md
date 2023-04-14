@@ -3,13 +3,30 @@ To work on the project or use this software in your work install the required de
 
 Move to the root directory, meaning if you run `$ pwd` the printed path should end in `uq_method-box`. 
 
+I encountered some issues with packages when using conda, however, pip works. So either in a conda
+or venv environment run the following installs.
+
 ## Conda environment
 
 ```
-    $  conda create --name myEnvName --file requirements/condaEnv.txt python=3.9  
+   $  conda create --name myEnvName python=3.9  
+   $  pip install git+https://github.com/microsoft/torchgeo.git
+   $  pip install pandas
+   $  pip install bayesian-torch
+   $  pip install laplace-torch
+   $  pip install uncertainty-toolbox
 ```
-
 This should install dependencies required to run the code in this repo.
+
+Additionally, install the following for code formatting and pytests as explained in the section further down below.
+
+```
+   $ pip install black
+   $ pip install isort
+   $ pip install flake8
+   $ pip install pytest
+   $ pip install pytest-cov
+```
 
 ## Project Structure
 The intended use is to implement all datasets and uq_methods under the [uq_method_box](uq_method_box/) and all code unique to our experiments that we want to run in [experiments](experiments/). This is a brief description of the directory structure:
