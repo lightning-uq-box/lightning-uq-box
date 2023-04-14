@@ -27,7 +27,6 @@ class BayesByBackpropModel(BaseModel):
         model_class: Union[type[nn.Module], str],
         model_args: Dict[str, Any],
         lr: float,
-        loss_fn: str,
         save_dir: str,
         num_mc_samples: int = 30,
         prior_mu: float = 0.0,
@@ -44,7 +43,6 @@ class BayesByBackpropModel(BaseModel):
                 or timm backbone name
             model_args: arguments to initialize model_class
             lr: learning rate for adam otimizer
-            loss_fn: string name of loss function to use
             save_dir: directory path to save
             num_mc_samples:
             prior_mu: prior mean value for bayesian layer
@@ -54,7 +52,7 @@ class BayesByBackpropModel(BaseModel):
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `Flipout` or `Reparameterization`
         """
-        super().__init__(model_class, model_args, lr, loss_fn, save_dir)
+        super().__init__(model_class, model_args, lr, None, save_dir)
 
         self.bnn_args = {
             "prior_mu": prior_mu,
@@ -124,19 +122,20 @@ class BayesByBackpropModel(BaseModel):
         return out_dict
 
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Dict[str, np.ndarray]:
         """Predict step via Monte Carlo Sampling.
 
         Args:
-            batch: prediction batch of shape [batch_size x input_dims]
+            X: prediction batch of shape [batch_size x input_dims]
 
         Returns:
             mean and standard deviation of MC predictions
         """
         preds = (
-            torch.stack([self.model(batch) for _ in range(self.num_mc_samples)], dim=-1)
+            torch.stack([self.model(X) for _ in range(self.num_mc_samples)], dim=-1)
             .detach()
+            .cpu()
             .numpy()
         )  # shape [num_samples, batch_size, num_outputs]
 

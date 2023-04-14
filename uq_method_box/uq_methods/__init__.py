@@ -2,6 +2,7 @@
 
 from .base import BaseModel
 from .bayes_by_backprop import BayesByBackpropModel
+from .bnn_vi import BayesianNeuralNetwork_VI
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
 from .deep_evidential_regression import DERModel
@@ -32,4 +33,6 @@ __all__ = (
     "BayesByBackpropModel",
     # Deep Evidential Regression Model
     "DERModel",
+    # Bayesian Neural Network trained with Variational Inference
+    "BayesianNeuralNetwork_VI",
 )
