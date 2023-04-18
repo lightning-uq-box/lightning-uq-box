@@ -67,6 +67,7 @@ class BayesByBackpropModel(BaseModel):
 
         self.num_mc_samples = num_mc_samples
         self.quantiles = quantiles
+        self.criterion = nn.MSELoss()
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute the training loss.
@@ -80,7 +81,7 @@ class BayesByBackpropModel(BaseModel):
         X, y = args[0]
         batch_size = X.shape[0]
 
-        out = self.forward(X)
+        out = self.model(X)
         kl_loss = get_kl_loss(self.model)
         mse_loss = self.criterion(out, y)
 
@@ -104,7 +105,7 @@ class BayesByBackpropModel(BaseModel):
         X, y = args[0]
         batch_size = X.shape[0]
 
-        out = self.forward(X)
+        out = self.model(X)
         kl_loss = get_kl_loss(self.model)
         mse_loss = self.criterion(out, y)
 
@@ -113,13 +114,6 @@ class BayesByBackpropModel(BaseModel):
         self.val_metrics(self.extract_mean_output(out), y)
 
         return loss
-
-    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Test Step."""
-        batch = args[0]
-        out_dict = self.predict_step(batch[0])
-        out_dict["targets"] = batch[1].detach().squeeze(-1).numpy()
-        return out_dict
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0

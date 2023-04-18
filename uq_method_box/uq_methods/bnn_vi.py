@@ -5,6 +5,8 @@
 # check that normalization of kl loss still fits then
 # adjust loss functions such that also a two headed network output trained with nll
 # works, and add mse burin-phase as in other modules
+# make loss function chooseable to be mse or nll like in other modules
+# probably only use this implementation and remove bayes_by_backprop.py
 
 from typing import Any, Dict, List, Tuple, Union
 
@@ -60,8 +62,15 @@ class BayesianNeuralNetwork_VI(BaseModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `Flipout` or `Reparameterization`
+
+        Raises:
+            AssertionError: if ``num_mc_samples_train`` is not positive.
+            AssertionError: if ``num_mc_samples_test`` is not positive.
         """
         super().__init__(model_class, model_args, lr, None, save_dir)
+
+        assert num_mc_samples_train > 0, "Need to sample at least once during training."
+        assert num_mc_samples_test > 0, "Need to sample at least once during testing."
 
         self.save_hyperparameters()
 
