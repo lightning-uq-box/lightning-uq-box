@@ -7,15 +7,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
 from lightning import Trainer
-from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import CSVLogger
 
-from uq_method_box.datamodules import ToyHeteroscedasticDatamodule, ToySineDatamodule
-from uq_method_box.eval_utils import compute_aleatoric_uncertainty
+from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import BaseModel, BayesianNeuralNetwork_VI
+from uq_method_box.uq_methods import BayesianNeuralNetwork_VI
 from uq_method_box.viz_utils import plot_predictions
 
 # seed_everything(4)
@@ -45,9 +42,18 @@ max_epochs = 500
 base_model = BayesianNeuralNetwork_VI(
     MLP,
     my_config["model_args"],
-    lr=2e-3,
+    lr=3e-3,
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
+    beta_elbo=1.0,
+    num_mc_samples_train=10,
+    num_mc_samples_test=50,
+    output_noise_scale=1.3,
+    prior_mu=0.0,
+    prior_sigma=1.0,
+    posterior_mu_init=0.0,
+    posterior_rho_init=-5.0,
+    bayesian_layer_type="Reparameterization",
 )
 
 logger = CSVLogger(my_dir)
@@ -56,8 +62,8 @@ pl_args = {
     "max_epochs": max_epochs,
     "logger": logger,
     "log_every_n_steps": 1,
-    "accelerator": "gpu",
-    "devices": [0],
+    "accelerator": "cpu",
+    # "devices": [0],
     "limit_val_batches": 0.0,
 }
 trainer = Trainer(**pl_args)
@@ -82,7 +88,8 @@ my_fig = plot_predictions(
     aleatoric=pred.get("aleatoric_uct", None),
     title="BNN with VI",
 )
-plt.savefig("preds.png")
+# plt.savefig("preds.png")
+plt.show()
 
 metrics_path = os.path.join(my_dir, "lightning_logs", "version_0", "metrics.csv")
 df = pd.read_csv(metrics_path)
@@ -97,9 +104,10 @@ ax[0].set_title("Train Loss")
 ax[1].plot(np.arange(len(train_rmse)), train_rmse)
 ax[1].set_title("Train RMSE")
 
-plt.savefig("loss_curves.png")
-import pdb
+plt.show()
+# plt.savefig("loss_curves.png")
+# import pdb
 
-pdb.set_trace()
+# pdb.set_trace()
 
-print(0)
+# print(0)

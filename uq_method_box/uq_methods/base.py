@@ -4,6 +4,7 @@ import os
 from typing import Any, Dict, Union
 
 import numpy as np
+import pyro
 import timm
 import torch
 import torch.nn as nn
@@ -189,3 +190,90 @@ class BaseModel(LightningModule):
         """
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
         return {"optimizer": optimizer}
+
+    # PYRO BNN Base
+
+
+class PyroOptWrap(pyro.infer.SVI):
+    """Wrapper for Pytorch Lightning to give a state_dict."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize a new wrapper."""
+        super().__init__(*args, **kwargs)
+
+    def state_dict(self):
+        """Return dummy state dict."""
+        return {}
+
+
+class PyroBNNBase(BaseModel):
+    """Bayesian Neural Network with Latent Variables."""
+
+    def __init__(self, config: Dict[str, Any]) -> None:
+        """Initialize a new instance of BNN_LV.
+
+        Args:
+            config:
+        """
+        super().__init__(config, None, None)  # no criterion
+
+        # how to save checkpoints from this model not sure
+        # https://pyro4ci.readthedocs.io/en/latest/_modules/pyro/params/param_store.html
+
+    def model(self, batch):
+        """Define the Pyro Model https://pyro.ai/examples/svi_part_i.html.
+
+        Args:
+            batch: input batch of data
+        """
+        raise NotImplementedError
+
+    def guide(self, batch):
+        """Define the Pyro Guide https://pyro.ai/examples/svi_part_i.html.
+
+        Args:
+            batch: input batch of data
+        """
+        raise NotImplementedError
+
+    def forward(self, x):
+        """Define the forward pass, function should be called.
+
+        Args:
+            x: input data x
+        """
+        raise NotImplementedError
+
+    def training_step(self, batch, batch_idx):
+        """Compute training Step for BNN+LV with SVI.
+
+        Args:
+            batch:
+            batch_idx:
+        """
+        loss = self.svi.step(batch)
+        loss = torch.tensor(loss).requires_grad_(True)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        """Compute validation Step for BNN+LV with SVI.
+
+        Args:
+            batch:
+            batch_idx:
+        """
+        loss = self.svi.evaluate_loss(batch)
+        return loss
+
+    def configure_optimizers(self):
+        """Configure Pyro Optimizer."""
+        self.svi = PyroOptWrap(
+            model=self.model,
+            guide=self.guide,
+            optim=pyro.optim.Adam(
+                {"lr": self.config["optimizer"]["lr"], "momentum": 0.0}
+            ),
+            loss=pyro.infer.Trace_ELBO(),
+        )
+
+        return [self.svi]

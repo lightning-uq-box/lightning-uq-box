@@ -1,5 +1,11 @@
 """Bayesian Neural Networks with Variational Inference."""
 
+# TODO:
+# change dnn_to_bnn function such that only some layers are made stochastic
+# check that normalization of kl loss still fits then
+# adjust loss functions such that also a two headed network output trained with nll
+# works, and add mse burin-phase as in other modules
+
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
@@ -24,12 +30,13 @@ class BayesianNeuralNetwork_VI(BaseModel):
         save_dir: str,
         num_training_points: int,
         beta_elbo: float = 1.0,
-        num_mc_samples_train: int = 30,
-        num_mc_samples_test: int = 30,
+        num_mc_samples_train: int = 10,
+        num_mc_samples_test: int = 50,
+        output_noise_scale: float = 1.3,
         prior_mu: float = 0.0,
         prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
-        posterior_rho_init: float = -3.0,
+        posterior_rho_init: float = -5.0,
         bayesian_layer_type: str = "Reparameterization",
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -46,6 +53,7 @@ class BayesianNeuralNetwork_VI(BaseModel):
             num_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
             num_mc_samples_test: number of MC samples during test and prediction
+            output_noise_scale: scale of predicted sigmas
             prior_mu: prior mean value for bayesian layer
             prior_sigma: prior variance value for bayesian layer
             posterior_mu_init: mean initialization value for approximate posterior
@@ -54,6 +62,9 @@ class BayesianNeuralNetwork_VI(BaseModel):
             bayesian_layer_type: `Flipout` or `Reparameterization`
         """
         super().__init__(model_class, model_args, lr, None, save_dir)
+
+        self.save_hyperparameters()
+
         self._setup_bnn_with_vi()
 
         # update hyperparameters
@@ -62,6 +73,14 @@ class BayesianNeuralNetwork_VI(BaseModel):
         self.hparams["quantiles"] = quantiles
         self.hparams["weight_decay"] = 1e-5
         self.hparams["beta_elbo"] = beta_elbo
+        self.hparams["output_noise_scale"] = output_noise_scale
+
+        self.hparams["prior_mu"] = prior_mu
+        self.hparams["prior_sigma"] = prior_sigma
+        self.hparams["posterior_mu_init"] = posterior_mu_init
+        self.hparams["posterior_rho_init"] = posterior_rho_init
+        self.hparams["bayesian_layer_type"] = bayesian_layer_type
+        self.hparams["num_training_points"] = num_training_points
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
@@ -80,6 +99,8 @@ class BayesianNeuralNetwork_VI(BaseModel):
 
         # beta factor elbo
         self.beta_lambda = lambda epochs: self.hparams["beta_elbo"]
+        # this is constant why do you need a lambda function here?
+        # why not add * np.clip((epochs + 1) / 4000.0, a_min=1e-3, a_max=1.0)
 
     def forward(self, X: Tensor) -> Tensor:
         """Forward pass BNN+VI.
@@ -106,7 +127,8 @@ class BayesianNeuralNetwork_VI(BaseModel):
         pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
         kls = torch.zeros(self.hparams.num_mc_samples_train)
 
-        output_var = torch.ones_like(y) * (1**2)
+        # assume homoscedastic noise with std output_noise_scale
+        output_var = torch.ones_like(y) * (self.hparams.output_noise_scale**2)
 
         for i in range(self.hparams.num_mc_samples_train):
             # mean prediction
