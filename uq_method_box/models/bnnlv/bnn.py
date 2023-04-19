@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from dense_variational import LV, DenseVariational
+from dense_variational  import  DenseVariational
+from lv import LV, LV_inf_net
 from torch.distributions import Normal
 
 
@@ -79,20 +80,26 @@ class BNNLV(BNN):
         "log_aleatoric_std_init": -2.5,
         "graph": [20, 20],
         "lv_latent_dim": 1,
+        "lv_use_inference_network": False,
     }
 
     def __init__(self, input_dim, output_dim, N, config={}):
         self.config = {**self.DEFAULT_CONFIG, **config}
 
         super(BNNLV, self).__init__(input_dim + 1, output_dim, config)
-
-        self.lv = LV(N, self.config)
+        if self.config['lv_use_inference_network']:
+            self.lv = LV_inf_net(input_dim, output_dim, self.config)
+        else:
+            self.lv = LV(N, self.config)
 
     def forward(self, x_in, training=True):
         if len(x_in) == 2:
             x, z_ind = x_in
             if training:
-                z = self.lv(z_ind)  # [S,N,latent_dim]
+                if self.config['lv_use_inference_network']:
+                    z = self.lv(x_in)
+                else:
+                    z = self.lv(z_ind)  # [S,N,latent_dim]
             else:
                 z = z_ind
         else:
