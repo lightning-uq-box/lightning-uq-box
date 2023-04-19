@@ -14,7 +14,7 @@ Y = target_f(X) + torch.randn(N, 1) * 0.1
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 config = {"device": device, "graph": [30, 30]}
 model = BNN(1, 1, config=config).to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 X = X.to(device)
 Y = Y.to(device)
