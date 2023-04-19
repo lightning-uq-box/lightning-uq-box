@@ -11,7 +11,7 @@ from scipy.linalg import det
 from scipy.special import gamma, psi
 from sklearn.neighbors import NearestNeighbors
 
-problem = "bimodal"
+problem = "heteroscedastic"
 
 
 if problem == "heteroscedastic":
@@ -104,7 +104,7 @@ for i in range(epochs):
 
 
 # test on a grid and plot the preidctions and the uncertainty
-x_test = np.linspace(X.min(), X.max(), 100).reshape(-1, 1)
+x_test = np.linspace(X.min(), X.max(), 200).reshape(-1, 1)
 y_test = np.array([f(x) for x in x_test]).reshape(-1, 1)
 x_test = torch.tensor((x_test - mean_X) / std_X).float().to(device)
 y_test = torch.tensor((y_test - mean_Y) / std_Y).float().to(device)
@@ -115,10 +115,9 @@ y_pred = torch.cat([model(x_test).mean for _ in range(10)], dim=1)
 to_plot = lambda x: x.cpu().detach().numpy().ravel()
 
 plt.figure()
-plt.plot(to_plot(x_test), to_plot(y_test), ".", label="target")
-plt.plot(to_plot(x_test), to_plot(y_pred.mean(1)), label="mean")
+
 for k in range(y_pred.shape[1]):
-    plt.plot(to_plot(x_test), to_plot(y_pred[:, k]), "k.")
+    plt.plot(to_plot(x_test), to_plot(y_pred[:, k]), "k.",markersize=0.3)
 plt.fill_between(
     to_plot(x_test),
     to_plot(y_pred.mean(1) - y_pred.std(1)),
@@ -126,6 +125,8 @@ plt.fill_between(
     alpha=0.5,
     label="stddev",
 )
+plt.plot(to_plot(x_test), to_plot(y_test), ".", label="target")
+plt.plot(to_plot(x_test), to_plot(y_pred.mean(1)), label="mean")
 plt.legend()
 
 random_w = 500
