@@ -1,6 +1,7 @@
-import torch.nn as nn
-import torch
 import math
+
+import torch
+import torch.nn as nn
 
 
 def energy_function(y, y_pred, loss_terms, N, alpha=1.0):

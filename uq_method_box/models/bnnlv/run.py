@@ -1,10 +1,8 @@
-import torch.nn as nn
-import torch
-import torch.nn.functional as F
-
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from loss import energy_function
-
 
 target_f = lambda x: (x**2 + np.sin(x)) / 5.0
 from bnn import BNN

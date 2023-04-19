@@ -1,10 +1,11 @@
 import math
+
 import numpy as np
-from torch.nn import Module, Parameter
-import torch.nn.functional as F
 import torch
-import torch.nn as nn
 import torch.distributions as dist
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.nn import Module, Parameter
 
 
 class LV(nn.Module):

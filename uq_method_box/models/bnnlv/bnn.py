@@ -1,7 +1,7 @@
-import torch.nn as nn
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
-from dense_variational import DenseVariational, LV
+from dense_variational import LV, DenseVariational
 from torch.distributions import Normal
 
 
@@ -15,12 +15,7 @@ class BNN(nn.Module):
         "graph": [20, 20],
     }
 
-    def __init__(
-        self,
-        input_dim,
-        output_dim,
-        config={},
-    ):
+    def __init__(self, input_dim, output_dim, config={}):
         super(BNN, self).__init__()
         self.config = {**self.DEFAULT_CONFIG, **config}
         self.device = self.config["device"]
@@ -86,13 +81,7 @@ class BNNLV(BNN):
         "lv_latent_dim": 1,
     }
 
-    def __init__(
-        self,
-        input_dim,
-        output_dim,
-        N,
-        config={},
-    ):
+    def __init__(self, input_dim, output_dim, N, config={}):
         self.config = {**self.DEFAULT_CONFIG, **config}
 
         super(BNNLV, self).__init__(input_dim + 1, output_dim, config)
