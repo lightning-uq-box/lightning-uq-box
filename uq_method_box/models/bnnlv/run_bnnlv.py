@@ -11,7 +11,7 @@ from scipy.linalg import det
 from scipy.special import gamma, psi
 from sklearn.neighbors import NearestNeighbors
 
-problem = "heteroscedastic"
+problem = "bimodal"
 
 
 if problem == "heteroscedastic":
@@ -78,7 +78,7 @@ epochs = 25
 loss_val = 0
 print(f"Epoch {-1}: {0} lv_mu: {model.lv.z_mu.cpu().detach().mean()}", end=" ")
 print(f"lv_std: {F.softplus(model.lv.z_log_sigma.mean()).cpu().detach()}", end=" ")
-print(f"log noise: {model.log_aleatoric_std.cpu().detach()}")
+print(f"log noise: {model.log_aleatoric_std.cpu().detach().numpy()}")
 
 
 for i in range(epochs):
@@ -98,9 +98,9 @@ for i in range(epochs):
         loss_val += loss.item()
 
         optimizer.step()
-    print(f"Epoch {i}: {0} lv_mu: {model.lv.z_mu.cpu().detach().mean()}", end=" ")
+    print(f"Epoch {i} Loss: {loss_val/batches_per_epoch} lv_mu: {model.lv.z_mu.cpu().detach().mean()}", end=" ")
     print(f"lv_std: {F.softplus(model.lv.z_log_sigma.mean()).cpu().detach()}", end=" ")
-    print(f"log noise: {model.log_aleatoric_std.cpu().detach()}")
+    print(f"log noise: {model.log_aleatoric_std.cpu().detach().numpy()}")
 
 
 # test on a grid and plot the preidctions and the uncertainty
