@@ -1,8 +1,7 @@
 """Bayesian Neural Networks with Variational Inference."""
 
 # TODO:
-# change dnn_to_bnn function such that only some layers are made stochastic
-# check that normalization of kl loss still fits then
+# change dnn_to_bnn function such that only some layers are made stochastic done!
 # adjust loss functions such that also a two headed network output trained with nll
 # works, and add mse burin-phase as in other modules
 
@@ -11,12 +10,13 @@ from typing import Any, Dict, List, Tuple, Union
 import numpy as np
 import torch
 import torch.nn as nn
-from bayesian_torch.models.dnn_to_bnn import dnn_to_bnn, get_kl_loss
+from bayesian_torch.models.dnn_to_bnn import get_kl_loss
 from torch import Tensor
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
 
 from .base import BaseModel
+from .utils import dnn_to_bnn_some
 
 
 class BayesianNeuralNetwork_VI(BaseModel):
@@ -29,6 +29,7 @@ class BayesianNeuralNetwork_VI(BaseModel):
         lr: float,
         save_dir: str,
         num_training_points: int,
+        num_stochastic_modules: int = 1,
         beta_elbo: float = 1.0,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
@@ -63,6 +64,9 @@ class BayesianNeuralNetwork_VI(BaseModel):
         """
         super().__init__(model_class, model_args, lr, None, save_dir)
 
+        # number of stochastic modules
+        self.num_stochastic_modules = num_stochastic_modules
+
         self.save_hyperparameters()
 
         self._setup_bnn_with_vi()
@@ -93,7 +97,11 @@ class BayesianNeuralNetwork_VI(BaseModel):
             "moped_enable": False,
         }
         # convert deterministic model to BNN
-        dnn_to_bnn(self.model, self.bnn_args)
+        dnn_to_bnn_some(
+            self.model,
+            self.bnn_args,
+            num_stochastic_modules=self.num_stochastic_modules,
+        )
 
         self.nll_loss = nn.GaussianNLLLoss(reduction="mean")
 
@@ -143,13 +151,12 @@ class BayesianNeuralNetwork_VI(BaseModel):
         mean_pred_nll_loss = torch.mean(pred_losses)
         mean_kl = torch.mean(kls)
 
-        beta = self.beta_lambda(self.current_epoch)
+        # beta = self.beta_lambda(self.current_epoch)
 
-        negative_beta_elbo = (
-            mean_pred_nll_loss + (beta / self.hparams.num_training_points) * mean_kl
-        )
+        negative_beta_elbo = mean_pred_nll_loss + mean_kl
         return negative_beta_elbo, mean_pred
 
+    # *(beta / self.hparams.num_training_points)
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
 
