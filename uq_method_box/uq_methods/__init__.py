@@ -8,6 +8,7 @@ from .deep_evidential_regression import DERModel
 from .deterministic_gaussian import DeterministicGaussianModel
 from .laplace_model import LaplaceModel
 from .mc_dropout_model import MCDropoutModel
+from .multi_swag import MultiSWAG
 from .quantile_regression_model import QuantileRegressionModel
 from .sgld import SGLDModel
 from .swag import SWAGModel
@@ -19,6 +20,8 @@ __all__ = (
     "CQR",
     # MC-Dropout
     "MCDropoutModel",
+    # Mulit SWAG
+    "MultiSWAG",
     # Laplace Approximation
     "LaplaceModel",
     # Quantile Regression
