@@ -6,6 +6,7 @@ from .train_scripts import basic_train_loop
 __all__ = (
     # loss functions
     "NLL",
+    "TheirNLL",
     "QuantileLoss",
     "DERLoss",
     # train scripts
