@@ -92,6 +92,8 @@ class BayesianNeuralNetwork_VI(BaseModel):
         self.hparams["bayesian_layer_type"] = bayesian_layer_type
         self.hparams["num_training_points"] = num_training_points
 
+        self.hparams["num_stochastic_modules"] = num_stochastic_modules
+
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
         self.bnn_args = {
@@ -106,15 +108,10 @@ class BayesianNeuralNetwork_VI(BaseModel):
         dnn_to_bnn_some(
             self.model,
             self.bnn_args,
-            num_stochastic_modules=self.num_stochastic_modules,
+            num_stochastic_modules=self.hparams.num_stochastic_modules,
         )
 
         self.nll_loss = nn.GaussianNLLLoss(reduction="mean")
-
-        # beta factor elbo
-        self.beta_lambda = lambda epochs: self.hparams["beta_elbo"]
-        # this is constant why do you need a lambda function here?
-        # why not add * np.clip((epochs + 1) / 4000.0, a_min=1e-3, a_max=1.0)
 
     def forward(self, X: Tensor) -> Tensor:
         """Forward pass BNN+VI.
@@ -139,7 +136,6 @@ class BayesianNeuralNetwork_VI(BaseModel):
         """
         model_preds = []
         pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
-        kls = torch.zeros(self.hparams.num_mc_samples_train)
 
         # assume homoscedastic noise with std output_noise_scale
         output_var = torch.ones_like(y) * (self.hparams.output_noise_scale**2)
@@ -150,12 +146,10 @@ class BayesianNeuralNetwork_VI(BaseModel):
             model_preds.append(pred.detach())
             # compute prediction loss with nll and track over samples
             pred_losses[i] = self.nll_loss(pred, y, output_var)
-            # gather and track kl losses over mc_samples
-            kls[i] = get_kl_loss(self.model)
 
         mean_pred = torch.cat(model_preds, dim=-1).mean(-1, keepdim=True)
         mean_pred_nll_loss = torch.mean(pred_losses)
-        mean_kl = torch.mean(kls)
+        mean_kl = get_kl_loss(self.model)
 
         # beta = self.beta_lambda(self.current_epoch)
 
