@@ -3,20 +3,33 @@ To work on the project or use this software in your work install the required de
 
 Move to the root directory, meaning if you run `$ pwd` the printed path should end in `uq_method-box`. 
 
-From here, create a virtual environment:
+I encountered some issues with packages when using conda, however, pip works. So either in a conda
+or venv environment run the following installs.
+
+## Conda environment
 
 ```
- # create virtual environment
- $ python3 -m venv /path/to/new/virtual/environment/your_environment_name
-
- # activate venv
- $ source /path/to/new/virtual/environment/your_environment_name/bin/activate/ 
-
- # install requirements
- $ pip install -r ./requirements.txt
+   $ conda create --name myEnvName python=3.9  
+   $ pip install git+https://github.com/microsoft/torchgeo.git
+   $ pip install pandas
+   $ ip install bayesian-torch
+   $ pip install laplace-torch
+   $ pip install uncertainty-toolbox
+   $ pip install ruamel.yaml
+   $ pip install ipykernel
+   $ pip install seaborn 
 ```
-
 This should install dependencies required to run the code in this repo.
+
+Additionally, install the following for code formatting and pytests as explained in the section further down below.
+
+```
+   $ pip install black
+   $ pip install isort
+   $ pip install flake8
+   $ pip install pytest
+   $ pip install pytest-cov
+```
 
 ## Project Structure
 The intended use is to implement all datasets and uq_methods under the [uq_method_box](uq_method_box/) and all code unique to our experiments that we want to run in [experiments](experiments/). This is a brief description of the directory structure:
@@ -38,6 +51,8 @@ To run UCI experiments navigate to the root directory of the project in your com
 ```
    $ python run_uci_experiments.py --config_path "./experiments/configs/name_of_config_you_want.yaml"
 ```
+
+At the moment we are using raw config files, but I am planning to adopt the framework of [hydra](https://github.com/facebookresearch/hydra) for better control and reproducibility, as you can target class instances better.
 
 The directory structure for the results that your experiment produces looks something like that, where per seed you have M ensemble members:
 
@@ -97,24 +112,6 @@ I think the UCI-Experiments are a great opportunity to both check our implementa
 
 The goal is to be "as lazy as possible" in the effort it takes to execute experiments but also have confidence in the worklfow, so anything fishy you see make a note of it and we can look into it and hopefully fix it :) 
 
-
-## Conda environment
-
-I have run the commands in this order to create a conda environment with which I am able to run experiments. Mabye the same order will work on Windows as well. If conda install does not work, try using pip install instead.
-
-```
-    $  conda create --name ninaEnv python=3.8
-    $  conda activate ninaEnv
-    $  conda install pytorch torchvision cpuonly -c pytorch
-    $  conda install -c conda-forge pytorch-lightning
-    $  conda install -c conda-forge torchgeo
-    $  conda install -c conda-forge pandas
-    $  conda install -c conda-forge laplace-torch
-    $  conda install -c conda-forge ruamel.yaml
-    $  conda install -c conda-forge ipykernel
-    $  conda install -c conda-forge seaborn
-    $  pip install uncertainty-toolbox
-```
 
 ## Code Reviews 
 All updates to the code base should go through a review process. We use GitHub Pull Requests for this. You can head over to

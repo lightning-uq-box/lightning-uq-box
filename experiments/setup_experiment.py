@@ -9,10 +9,13 @@ from lightning.pytorch.loggers import CSVLogger, WandbLogger
 
 from uq_method_box.uq_methods import (
     BaseModel,
+    BayesByBackpropModel,
     DeepEnsembleModel,
+    DERModel,
     DeterministicGaussianModel,
     MCDropoutModel,
     QuantileRegressionModel,
+    SGLDModel,
 )
 from uq_method_box.uq_methods.utils import retrieve_optimizer
 
@@ -76,6 +79,36 @@ def generate_base_model(
             max_epochs=config["pl"]["max_epochs"],
         )
 
+    elif config["model"]["base_model"] == "sgld":
+        return SGLDModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            n_sgld_samples=config["model"]["n_sgld_samples"],
+            burnin_epochs=config["model"]["burnin_epochs"],
+            loss_fn=config["model"]["loss_fn"],
+            save_dir=config["experiment"]["save_dir"],
+            lr=config["optimizer"]["lr"],
+            weight_decay=config["optimizer"]["weight_decay"],
+            noise_factor=config["optimizer"]["noise_factor"],
+        )
+
+    elif config["model"]["base_model"] == "bayes_by_backprop":
+        return BayesByBackpropModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            lr=config["optimizer"]["lr"],
+            loss_fn=config["model"]["loss_fn"],
+            save_dir=config["experiment"]["save_dir"],
+            **config["model"]["bayes_by_backprop"],
+        )
+
+    elif config["model"]["base_model"] == "der":
+        return DERModel(
+            model_class,
+            model_args=config["model"]["model_args"],
+            lr=config["optimizer"]["lr"],
+            save_dir=config["experiment"]["save_dir"],
+        )
     else:
         raise ValueError("Your base_model choice is currently not supported.")
 
@@ -100,6 +133,10 @@ def generate_ensemble_model(
             config["model"]["quantiles"],
         )
 
+    # multi swag
+
+    # mc-dropout ensemble similar to swag
+
     else:
         raise ValueError("Your ensemble choice is currently not supported.")
 
@@ -120,14 +157,14 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
     """Generate a pytorch lightning trainer."""
     loggers = [
         CSVLogger(config["experiment"]["save_dir"], name="csv_logs"),
-        WandbLogger(
-            save_dir=config["experiment"]["save_dir"],
-            project=config["wandb"]["project"],
-            entity=config["wandb"]["entity"],
-            resume="allow",
-            config=config,
-            mode=config["wandb"].get("mode", "online"),
-        ),
+        # WandbLogger(
+        #   save_dir=config["experiment"]["save_dir"],
+        #    project=config["wandb"]["project"],
+        #    entity=config["wandb"]["entity"],
+        #    resume="allow",
+        #    config=config,
+        #    mode=config["wandb"].get("mode", "online"),
+        # ),
     ]
 
     track_metric = "train_loss"

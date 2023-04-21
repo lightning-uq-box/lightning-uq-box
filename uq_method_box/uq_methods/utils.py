@@ -29,6 +29,8 @@ def retrieve_loss_fn(
         return NLL()
     elif loss_fn_name == "quantile":
         return QuantileLoss(quantiles)
+    elif loss_fn_name is None:
+        return None
     else:
         raise ValueError("Your loss function choice is not supported.")
 

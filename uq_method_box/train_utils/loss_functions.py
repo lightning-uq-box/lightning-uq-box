@@ -1,5 +1,6 @@
 """Loss Functions specific to UQ-methods."""
 
+import math
 from typing import List
 
 import torch
@@ -102,3 +103,47 @@ class QuantileLoss(nn.Module):
             ]
         )
         return loss.mean()
+
+
+class DERLoss(nn.Module):
+    """Deep Evidential Regression Loss.
+
+    Taken from: https://github.com/pasteurlabs/unreasonable_effective_der/blob/
+    4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L46
+
+    This implements the loss corresponding to equation ...
+
+    """
+
+    def __init__(self, coeff: float = 0.01) -> None:
+        """Initialize a new instance of the loss function.
+
+        Args:
+          coeff: loss function coefficient
+        """
+        super().__init__()
+        self.coeff = coeff
+
+    def forward(self, y_pred: Tensor, y_true: Tensor):
+        """DER Loss.
+
+        Args:
+          y_pred: predicted tensor from model [batch_size x 4]
+          y_true: true regression target of shape [batch_size x 1]
+
+        Returns:
+          DER loss
+        """
+        y_true = y_true.squeeze(-1)
+        gamma, nu, alpha, beta = y_pred[:, 0], y_pred[:, 1], y_pred[:, 2], y_pred[:, 3]
+        error = gamma - y_true
+        omega = 2.0 * beta * (1.0 + nu)
+
+        return torch.mean(
+            0.5 * torch.log(math.pi / nu)
+            - alpha * torch.log(omega)
+            + (alpha + 0.5) * torch.log(error**2 * nu + omega)
+            + torch.lgamma(alpha)
+            - torch.lgamma(alpha + 0.5)
+            + self.coeff * torch.abs(error) * (2.0 * nu + alpha)
+        )

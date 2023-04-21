@@ -26,7 +26,7 @@ class ToyUncertaintyGaps(LightningDataModule):
         self.X_test = torch.from_numpy(features(np.linspace(-10, 10, 100))).to(
             torch.float32
         )
-        self.y_test = torch.rand(100).to(torch.float32)
+        self.y_test = torch.rand(self.X_test.shape[0]).to(torch.float32) * 0.1
         self.X_test_plot = np.linspace(-10, 10, 100)
 
         self.X_train_plot = x
@@ -40,4 +40,4 @@ class ToyUncertaintyGaps(LightningDataModule):
 
     def test_dataloader(self) -> DataLoader:
         """Test loader."""
-        return DataLoader(TensorDataset(self.X_test, self.y_test))
+        return DataLoader(TensorDataset(self.X_test, self.y_test), batch_size=50)
