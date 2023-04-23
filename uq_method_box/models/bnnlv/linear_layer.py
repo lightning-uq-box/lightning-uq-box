@@ -58,12 +58,16 @@ class LinearFlipoutLayer(LinearFlipout):
             weight and bias sample for layer of shape [num_samples, num_parameters]
         """
         if self.weight_eps is None:
-            weights_eps = torch.randn(n_samples, self.out_features, self.in_features)
-            bias_eps = torch.randn(n_samples, self.out_features)
+            weights_eps = torch.randn(
+                n_samples, self.out_features, self.in_features
+            ).to(self.mu_weight.device)
+            bias_eps = torch.randn(n_samples, self.out_features).to(
+                self.mu_weight.device
+            )
 
         else:
-            weights_eps = self.weight_eps[:n_samples]
-            bias_eps = self.bias_eps[:n_samples]
+            weights_eps = self.weight_eps[:n_samples].to(self.mu_weight.device)
+            bias_eps = self.bias_eps[:n_samples].to(self.mu_weight.device)
 
         # ensure sigma weight and bias are positive
         weight_sigma = F.softplus(self.rho_weight)
