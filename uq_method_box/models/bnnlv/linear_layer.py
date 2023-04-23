@@ -83,7 +83,8 @@ class LinearFlipoutLayer(LinearFlipout):
         )
         return weight_sample, bias_sample
 
-    def forward(self, input: Tensor, n_samples: int = 4) -> Tensor:
+    # TODO think about most convenient way to introduce n_samples
+    def forward(self, input: Tensor, n_samples: int = 25) -> Tensor:
         """Forward pass through linear layer.
 
         Args:
@@ -155,13 +156,13 @@ class LinearFlipoutLayer(LinearFlipout):
         return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
 
 
-if __name__ == "__main__":
-    layer = LinearFlipoutLayer(in_features=1, out_features=10)
-    x = torch.randn(size=(32, 1))
-    state = layer(x)
-    layer_loss_dict = {
-        "log_Z_prior": layer.calc_log_Z_prior(),
-        "log_f_hat": layer.log_f_hat,
-        "log_normalizer": layer.log_normalizer,
-    }
-    print(f"state_shape: {state.shape}", layer_loss_dict)
+# if __name__ == "__main__":
+#     layer = LinearFlipoutLayer(in_features=1, out_features=10)
+#     x = torch.randn(size=(32, 1))
+#     state = layer(x)
+#     layer_loss_dict = {
+#         "log_Z_prior": layer.calc_log_Z_prior(),
+#         "log_f_hat": layer.log_f_hat,
+#         "log_normalizer": layer.log_normalizer,
+#     }
+#     print(f"state_shape: {state.shape}", layer_loss_dict)

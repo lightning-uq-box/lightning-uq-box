@@ -37,7 +37,7 @@ my_config = {
 
 my_dir = tempfile.mkdtemp()
 
-max_epochs = 500
+max_epochs = 1000
 
 base_model = BayesianNeuralNetwork_VI(
     MLP,
@@ -47,14 +47,14 @@ base_model = BayesianNeuralNetwork_VI(
     num_training_points=X_train.shape[0],
     num_stochastic_modules=3,
     beta_elbo=1.0,
-    num_mc_samples_train=10,
+    num_mc_samples_train=25,
     num_mc_samples_test=50,
     output_noise_scale=1.3,
     prior_mu=0.0,
     prior_sigma=1.0,
     posterior_mu_init=0.0,
     posterior_rho_init=-5.0,
-    bayesian_layer_type="Reparameterization",
+    alpha=1.0,
 )
 
 logger = CSVLogger(my_dir)

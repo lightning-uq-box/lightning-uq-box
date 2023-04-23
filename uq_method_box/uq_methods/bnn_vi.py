@@ -7,18 +7,22 @@
 # make loss function chooseable to be mse or nll like in other modules
 # probably only use this implementation and remove bayes_by_backprop.py
 
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
-from bayesian_torch.models.dnn_to_bnn import get_kl_loss
 from torch import Tensor
+from torch.distributions import Normal
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
+from uq_method_box.models.bnnlv.linear_layer import LinearFlipoutLayer
+from uq_method_box.models.bnnlv.utils import linear_dnn_to_bnn
+from uq_method_box.train_utils.loss_functions import EnergyAlphaDivergence
 
 from .base import BaseModel
-from .utils import dnn_to_bnn_some
+
+# TODO separate this model class into BNN and BNN+LV and have BNN+LV inherit from BNN probably # noqa: E501
 
 
 class BayesianNeuralNetwork_VI(BaseModel):
@@ -33,7 +37,7 @@ class BayesianNeuralNetwork_VI(BaseModel):
         num_training_points: int,
         num_stochastic_modules: int = 1,
         beta_elbo: float = 1.0,
-        num_mc_samples_train: int = 10,
+        num_mc_samples_train: int = 25,
         num_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
         prior_mu: float = 0.0,
@@ -41,6 +45,7 @@ class BayesianNeuralNetwork_VI(BaseModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         bayesian_layer_type: str = "Reparameterization",
+        alpha: float = 1.0,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Model instance.
@@ -62,6 +67,7 @@ class BayesianNeuralNetwork_VI(BaseModel):
             posterior_mu_init: mean initialization value for approximate posterior
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
+            alpha: alpha divergence parameter
             bayesian_layer_type: `Flipout` or `Reparameterization`
 
         Raises:
@@ -91,6 +97,8 @@ class BayesianNeuralNetwork_VI(BaseModel):
         self.hparams["posterior_rho_init"] = posterior_rho_init
         self.hparams["bayesian_layer_type"] = bayesian_layer_type
         self.hparams["num_training_points"] = num_training_points
+        self.hparams["num_stochastic_modules"] = num_stochastic_modules
+        self.hparams["alpha"] = alpha
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
@@ -99,68 +107,88 @@ class BayesianNeuralNetwork_VI(BaseModel):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
-            "type": self.hparams.bayesian_layer_type,
-            "moped_enable": False,
         }
         # convert deterministic model to BNN
-        dnn_to_bnn_some(
-            self.model,
-            self.bnn_args,
-            num_stochastic_modules=self.num_stochastic_modules,
-        )
+        linear_dnn_to_bnn(self.model, self.bnn_args)
 
-        self.nll_loss = nn.GaussianNLLLoss(reduction="mean")
+        self.energy_loss_module = EnergyAlphaDivergence(
+            N=self.hparams.num_training_points, alpha=self.hparams.alpha
+        )
 
         # beta factor elbo
         self.beta_lambda = lambda epochs: self.hparams["beta_elbo"]
         # this is constant why do you need a lambda function here?
         # why not add * np.clip((epochs + 1) / 4000.0, a_min=1e-3, a_max=1.0)
 
-    def forward(self, X: Tensor) -> Tensor:
+        # TODO how to best configure this parameter
+        self.log_aleatoric_std = nn.Parameter(
+            torch.tensor([1.0 for _ in range(1)], device=self.device)
+        )
+
+        # TODO introduce the latent variable network
+
+    def forward(self, X: Tensor, n_samples: int) -> Tensor:
         """Forward pass BNN+VI.
 
         Args:
             X: input data
+            n_samples: number of samples to draw
 
         Returns:
             bnn output
         """
-        return self.model(X)
+        # TODO find elegant way to handle this reliably
+        # TODO configure where to add the latent variable input
+        for layer in self.model.model:
+            # stochastic and non-stochastic layers
+            if isinstance(layer, LinearFlipoutLayer):
+                X = layer(X, n_samples=n_samples)
+            else:
+                X = layer(X)
+        return X
 
-    def compute_elbo_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
-        """Compute the ELBO loss.
+    def compute_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+        """Compute the loss for BNN with alpha divergence.
 
         Args:
-            X: input data
-            y: target
+            X: input tensor
+            y: target tensor
 
         Returns:
-            negative elbo loss and mean model output for logging
+            energy loss and mean output for logging
         """
-        model_preds = []
-        pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
-        kls = torch.zeros(self.hparams.num_mc_samples_train)
+        out = self.forward(
+            X, n_samples=self.hparams.num_mc_samples_train
+        )  # [num_samples, batch_size, output_dim]
 
-        # assume homoscedastic noise with std output_noise_scale
-        output_var = torch.ones_like(y) * (self.hparams.output_noise_scale**2)
+        # compute loss terms over layer
+        log_Z_prior_terms = []
+        log_f_hat_terms = []
+        log_normalizer_terms = []
+        for layer in self.model.model:
+            if isinstance(layer, LinearFlipoutLayer):
+                log_Z_prior_terms.append(layer.calc_log_Z_prior())
+                log_f_hat_terms.append(layer.log_f_hat)
+                log_normalizer_terms.append(layer.log_normalizer)
+            else:
+                continue
 
-        for i in range(self.hparams.num_mc_samples_train):
-            # mean prediction
-            pred = self.forward(X)
-            model_preds.append(pred.detach())
-            # compute prediction loss with nll and track over samples
-            pred_losses[i] = self.nll_loss(pred, y, output_var)
-            # gather and track kl losses over mc_samples
-            kls[i] = get_kl_loss(self.model)
+        log_Z_prior = torch.stack(log_Z_prior_terms).sum(0)  # 0 shape
+        log_f_hat = torch.stack(log_f_hat_terms).sum(0)  # num_samples
+        log_normalizer = torch.stack(log_normalizer_terms).sum(0)  # 0 shape
 
-        mean_pred = torch.cat(model_preds, dim=-1).mean(-1, keepdim=True)
-        mean_pred_nll_loss = torch.mean(pred_losses)
-        mean_kl = torch.mean(kls)
-
-        # beta = self.beta_lambda(self.current_epoch)
-
-        negative_beta_elbo = mean_pred_nll_loss + mean_kl
-        return negative_beta_elbo, mean_pred
+        log_likelihood = Normal(out.transpose(0, 1), torch.exp(self.log_aleatoric_std))
+        # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
+        energy_loss = self.energy_loss_module(
+            y,
+            log_likelihood,
+            log_f_hat,
+            log_Z_prior,
+            log_normalizer,
+            0.0,  # log_normalizer_z
+            0.0,  # log_f_hat_z
+        )
+        return energy_loss, out.mean(dim=0)
 
     # *(beta / self.hparams.num_training_points)
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
@@ -173,12 +201,13 @@ class BayesianNeuralNetwork_VI(BaseModel):
             training loss
         """
         X, y = args[0]
-        elbo_loss, mean_output = self.compute_elbo_loss(X, y)
 
-        self.log("train_loss", elbo_loss)  # logging to Logger
+        energy_loss, mean_output = self.compute_loss(X, y)
+
+        self.log("train_loss", energy_loss)  # logging to Logger
         self.train_metrics(mean_output, y)
 
-        return elbo_loss
+        return energy_loss
 
     def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute validation loss and log example predictions.
@@ -191,12 +220,12 @@ class BayesianNeuralNetwork_VI(BaseModel):
             validation loss
         """
         X, y = args[0]
-        elbo_loss, mean_output = self.compute_elbo_loss(X, y)
+        energy_loss, mean_output = self.compute_elbo_loss(X, y)
 
-        self.log("val_loss", elbo_loss)  # logging to Logger
+        self.log("val_loss", energy_loss)  # logging to Logger
         self.train_metrics(mean_output, y)
 
-        return elbo_loss
+        return energy_loss
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -206,17 +235,18 @@ class BayesianNeuralNetwork_VI(BaseModel):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        preds = (
-            torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+        # TODO correct decomposition if BNN+LV
+        # output from forward: [num_samples, batch_size, outputs]
+        with torch.no_grad():
+            preds = (
+                self.forward(X, n_samples=self.hparams.num_mc_samples_test)
+                .cpu()
+                .squeeze(-1)
             )
-            .detach()
-            .cpu()
-            .numpy()
-        )  # shape [num_samples, batch_size, num_outputs]
 
-        mean = preds.mean(-1).squeeze(-1)
-        std = preds.std(-1).squeeze(-1)
+        # currently only single output, might want to support NLL output as well
+        mean = preds.mean(0)
+        std = preds.std(0)
         quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
         return {
             "mean": mean,
