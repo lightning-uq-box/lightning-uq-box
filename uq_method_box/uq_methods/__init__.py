@@ -11,6 +11,7 @@ from .laplace_model import LaplaceModel
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
 from .sgld import SGLDModel
+from .swag import SWAGModel
 
 __all__ = (
     # base model
@@ -27,6 +28,8 @@ __all__ = (
     "DeepEnsembleModel",
     # Deterministic Gaussian Model
     "DeterministicGaussianModel",
+    # SWAG Model
+    "SWAGModel",
     # SGLD Model.
     "SGLDModel",
     # Bayes by Backprop

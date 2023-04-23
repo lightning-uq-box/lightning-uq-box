@@ -12,6 +12,7 @@ from bayesian_torch.models.dnn_to_bnn import (
     bnn_linear_layer,
     bnn_lstm_layer,
 )
+from torch.optim import SGD, Adam
 
 from uq_method_box.train_utils import NLL, QuantileLoss
 
@@ -37,6 +38,14 @@ def retrieve_loss_fn(
         return None
     else:
         raise ValueError("Your loss function choice is not supported.")
+
+
+def retrieve_optimizer(optimizer_name: str):
+    """Retrieve an optimizer."""
+    if optimizer_name == "sgd":
+        return SGD
+    elif optimizer_name == "adam":
+        return Adam
 
 
 def merge_list_of_dictionaries(list_of_dicts: List[Dict[str, Any]]):

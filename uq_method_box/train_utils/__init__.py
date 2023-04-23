@@ -8,6 +8,7 @@ __all__ = (
     "DERLoss",
     "EnergyAlphaDivergence",
     "NLL",
+    "TheirNLL",
     "QuantileLoss",
     # train scripts
     "basic_train_loop",

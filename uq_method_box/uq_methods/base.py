@@ -22,7 +22,8 @@ class BaseModel(LightningModule):
         self,
         model_class: Union[type[nn.Module], str],
         model_args: Dict[str, Any],
-        lr: float,
+        optimizer: type[torch.optim.Optimizer],
+        optimizer_args: Dict[str, Any],
         loss_fn: str,
         save_dir: str,
     ) -> None:
@@ -188,7 +189,9 @@ class BaseModel(LightningModule):
             a "lr dict" according to the pytorch lightning documentation --
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
+        optimizer = self.hparams.optimizer(
+            self.model.parameters(), **self.hparams.optimizer_args
+        )
         return {"optimizer": optimizer}
 
     # PYRO BNN Base
