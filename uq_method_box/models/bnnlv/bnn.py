@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from dense_variational import DenseVariational
 from lv import LV, LV_inf_net
+from torch import Tensor
 from torch.distributions import Normal
 
 
@@ -39,8 +40,15 @@ class BNN(nn.Module):
             )
         )
 
-    def forward(self, x):
-        """Forward pass of the BDQN"""
+    def forward(self, x: Tensor) -> Normal:
+        """Forward pass of the BDQN.
+
+        Args:
+            x: input tensor from dataloader
+
+        Returns:
+            Normal distribution object with loc and scale shape of [batch_size, n_samples, output_dim]
+        """
         x = F.relu(self.net[0](x))
         for i in range(1, len(self.net) - 1):
             x = F.relu(self.net[i](x))

@@ -1,17 +1,29 @@
-import math
-
 import torch
 import torch.nn as nn
+from torch import Tensor
+from torch.distributions import Normal
 
 
-def energy_function(y, y_pred, loss_terms, N, alpha=1.0):
-    # y=[N,d], y_pred=[S,N,d]
+def energy_function(
+    y: Tensor, y_pred: Normal, loss_terms: dict[str, Tensor], N: int, alpha: float = 1.0
+) -> Tensor:
+    """Compute the energy function loss.
 
-    log_f_hat = loss_terms["log_f_hat"]
-    log_Z_prior = loss_terms["log_Z_prior"]
-    log_normalizer = loss_terms["log_normalizer"]
-    log_normalizer_z = loss_terms["log_normalizer_z"]
-    log_f_hat_z = loss_terms["log_f_hat_z"]
+    Args:
+        y: target of shape [batch_size, output_dim]
+        y_pred: BNN model output with shape [batch_size, num_samples, output_dim]
+        loss_terms: collected loss terms over the variational layer weights
+        N: number of datapoints in dataset
+        alpha: alpha divergence value
+
+    Returns:
+        energy function loss
+    """
+    log_f_hat = loss_terms["log_f_hat"]  # ["num_samples"]
+    log_Z_prior = loss_terms["log_Z_prior"]  # 0 shape
+    log_normalizer = loss_terms["log_normalizer"]  # 0 shape
+    log_normalizer_z = loss_terms["log_normalizer_z"]  # 0 shape
+    log_f_hat_z = loss_terms["log_f_hat_z"]  # 0 shape
 
     S = y_pred.batch_shape[0]
     n_samples = y_pred.batch_shape[1]

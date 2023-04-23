@@ -5,6 +5,7 @@ import torch
 import torch.distributions as dist
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
 from torch.nn import Linear, Module, Parameter
 
 
@@ -112,14 +113,28 @@ class DenseVariational(nn.Module):
 
         return state
 
-    def calc_log_Z_prior(self):
+    def calc_log_Z_prior(self) -> Tensor:
+        """Compute log Z prior.
+
+        Returns:
+            tensor of shape 0
+        """
         n_params = self.weight_mu.numel() + self.bias_mu.numel()
         return torch.tensor(
             0.5 * n_params * math.log(self.config["layer_prior_std"] ** 2 * 2 * math.pi)
         ).to(self.device)
 
-    def calc_log_f_hat(self, w, m_W, std_W):
-        """Computes equation 3.16."""
+    def calc_log_f_hat(self, w: Tensor, m_W: Tensor, std_W: Tensor) -> Tensor:
+        """Computes equation 3.16.
+
+        Args:
+            w: sampled weight matrix [n_samples, num_params]
+            m_W: mean weight matrix at current iteration [num_params]
+            std_W: sigma weight matrix at current iteration [num_params]
+
+        Returns:
+            summed log f hat over the parameters [n_samples]
+        """
         v_prior = self.config["layer_prior_std"] ** 2
 
         v_W = std_W**2
@@ -131,8 +146,16 @@ class DenseVariational(nn.Module):
             ((v_W - v_prior) / (2 * v_prior * v_W)) * (w**2) + (m_W / v_W) * w
         ).sum(axis=1)
 
-    def calc_log_normalizer(self, m_W, std_W):
-        """Computes left summand of 3.18."""
+    def calc_log_normalizer(self, m_W: Tensor, std_W: Tensor) -> Tensor:
+        """Computes left summand of 3.18.
+
+        Args:
+            m_W: mean weight matrix at current iteration [num_params]
+            std_W: sigma weight matrix at current iteration [num_params]
+
+        Returns:
+            log normalizer summed over all layer parameters shape 0
+        """
         v_W = std_W**2
         m_W = m_W
         # return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
