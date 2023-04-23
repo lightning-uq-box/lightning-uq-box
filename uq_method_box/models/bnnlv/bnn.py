@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from dense_variational  import  DenseVariational
+from dense_variational import DenseVariational
 from lv import LV, LV_inf_net
 from torch.distributions import Normal
 
@@ -17,7 +17,7 @@ class BNN(nn.Module):
     }
 
     def __init__(self, input_dim, output_dim, config={}):
-        super(BNN, self).__init__()
+        super().__init__()
         self.config = {**self.DEFAULT_CONFIG, **config}
         self.device = self.config["device"]
 
@@ -53,22 +53,26 @@ class BNN(nn.Module):
             "log_Z_prior": self.log_Z_prior(),
             "log_f_hat": self.log_f_hat(),
             "log_normalizer": self.log_normalizer(),
-            "log_f_hat_z": 0.0,
-            "log_normalizer_z": 0.0,
+            "log_f_hat_z": 0.0,  # log of 3.17 set to 0 for BNN
+            "log_normalizer_z": 0.0,  # right summand over N 3.18 set to 0 for BNN
         }
 
     def log_Z_prior(self):
-        """Log Z prior of the weights"""
+        """Log Z prior of the weights."""
         log_Z_prior = torch.stack([layer.log_Z_prior for layer in self.net])
         return torch.sum(log_Z_prior, 0)
 
     def log_f_hat(self):
-        """Log f hat of the weights"""
+        """Log f hat of the weights.
+
+        Computes the outer sum over L in equation 3.18.
+
+        """
         log_f_hat = torch.stack([layer.log_f_hat for layer in self.net])
         return torch.sum(log_f_hat, 0)
 
     def log_normalizer(self):
-        """Log normalizer of the weights"""
+        """Log normalizer of the weights."""
         log_normalizer = torch.stack([layer.log_normalizer for layer in self.net])
         return torch.sum(log_normalizer, 0)
 
@@ -86,8 +90,8 @@ class BNNLV(BNN):
     def __init__(self, input_dim, output_dim, N, config={}):
         self.config = {**self.DEFAULT_CONFIG, **config}
 
-        super(BNNLV, self).__init__(input_dim + 1, output_dim, config)
-        if self.config['lv_use_inference_network']:
+        super().__init__(input_dim + 1, output_dim, config)
+        if self.config["lv_use_inference_network"]:
             self.lv = LV_inf_net(input_dim, output_dim, self.config)
         else:
             self.lv = LV(N, self.config)
@@ -96,7 +100,7 @@ class BNNLV(BNN):
         if len(x_in) == 2:
             x, z_ind = x_in
             if training:
-                if self.config['lv_use_inference_network']:
+                if self.config["lv_use_inference_network"]:
                     z = self.lv(x_in)
                 else:
                     z = self.lv(z_ind)  # [S,N,latent_dim]
@@ -112,7 +116,7 @@ class BNNLV(BNN):
         if len(x.shape) == 2:
             x = x[None, :, :].repeat(z.shape[0], 1, 1)
         x = torch.cat([x, z], -1)
-        return super(BNNLV, self).forward(x)
+        return super().forward(x)
 
     def get_loss_terms(self):
         return {

@@ -5,11 +5,8 @@ import torch
 import torch.distributions as dist
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Module, Parameter, Linear
+from torch.nn import Linear, Module, Parameter
 
-
-
-    
 
 class DenseVariational(nn.Module):
     DEFAULT_CONFIG = {
@@ -22,7 +19,7 @@ class DenseVariational(nn.Module):
     }
 
     def __init__(self, in_features, out_features, config={}):
-        super(DenseVariational, self).__init__()
+        super().__init__()
         self.config = {**self.DEFAULT_CONFIG, **config}
         self.in_features = in_features
         self.out_features = out_features
@@ -122,6 +119,7 @@ class DenseVariational(nn.Module):
         ).to(self.device)
 
     def calc_log_f_hat(self, w, m_W, std_W):
+        """Computes equation 3.16."""
         v_prior = self.config["layer_prior_std"] ** 2
 
         v_W = std_W**2
@@ -134,6 +132,7 @@ class DenseVariational(nn.Module):
         ).sum(axis=1)
 
     def calc_log_normalizer(self, m_W, std_W):
+        """Computes left summand of 3.18."""
         v_W = std_W**2
         m_W = m_W
         # return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
