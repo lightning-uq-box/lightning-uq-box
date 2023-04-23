@@ -5,7 +5,7 @@ import torch.nn as nn
 
 
 def energy_function(y, y_pred, loss_terms, N, alpha=1.0):
-    # y=[N,d], y_pred=[S,N,d]
+    # y=[N,d], y_pred=[N,s,d]
 
     log_f_hat = loss_terms["log_f_hat"]
     log_Z_prior = loss_terms["log_Z_prior"]
