@@ -119,11 +119,6 @@ class BNN_VI(BaseModel):
             N=self.hparams.num_training_points, alpha=self.hparams.alpha
         )
 
-        # beta factor elbo
-        self.beta_lambda = lambda epochs: self.hparams["beta_elbo"]
-        # this is constant why do you need a lambda function here?
-        # why not add * np.clip((epochs + 1) / 4000.0, a_min=1e-3, a_max=1.0)
-
         # TODO how to best configure this parameter
         self.log_aleatoric_std = nn.Parameter(
             torch.tensor([1.0 for _ in range(1)], device=self.device)

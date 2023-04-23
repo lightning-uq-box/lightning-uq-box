@@ -178,3 +178,20 @@ class BNN_LV_VI(BNN_VI):
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
         }
+
+    # TODO optimize both bnn and lv model parameters
+    def configure_optimizers(self) -> Dict[str, Any]:
+        """Initialize the optimizer and learning rate scheduler.
+
+        Returns:
+            a "lr dict" according to the pytorch lightning documentation --
+            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+        """
+        params = self.exclude_from_wt_decay(
+            self.named_parameters(), weight_decay=self.hparams.weight_decay
+        )
+
+        optimizer = torch.optim.AdamW(
+            params, lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
+        )
+        return optimizer
