@@ -25,7 +25,7 @@ from .base import BaseModel
 # TODO separate this model class into BNN and BNN+LV and have BNN+LV inherit from BNN probably # noqa: E501
 
 
-class BayesianNeuralNetwork_VI(BaseModel):
+class BNN_VI(BaseModel):
     """Bayesian Neural Network (BNN) with Variational Inference (VI)."""
 
     def __init__(
@@ -44,7 +44,6 @@ class BayesianNeuralNetwork_VI(BaseModel):
         prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
-        bayesian_layer_type: str = "Reparameterization",
         alpha: float = 1.0,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -68,13 +67,19 @@ class BayesianNeuralNetwork_VI(BaseModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            bayesian_layer_type: `Flipout` or `Reparameterization`
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
-        super().__init__(model_class, model_args, lr, None, save_dir)
+        super().__init__(
+            model_class,
+            model_args,
+            optimizer=torch.optim.Adam,
+            optimizer_args={"lr": lr},
+            loss_fn=None,
+            save_dir=save_dir,
+        )
 
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
@@ -95,7 +100,6 @@ class BayesianNeuralNetwork_VI(BaseModel):
         self.hparams["prior_sigma"] = prior_sigma
         self.hparams["posterior_mu_init"] = posterior_mu_init
         self.hparams["posterior_rho_init"] = posterior_rho_init
-        self.hparams["bayesian_layer_type"] = bayesian_layer_type
         self.hparams["num_training_points"] = num_training_points
         self.hparams["num_stochastic_modules"] = num_stochastic_modules
         self.hparams["alpha"] = alpha
@@ -125,8 +129,6 @@ class BayesianNeuralNetwork_VI(BaseModel):
             torch.tensor([1.0 for _ in range(1)], device=self.device)
         )
 
-        # TODO introduce the latent variable network
-
     def forward(self, X: Tensor, n_samples: int) -> Tensor:
         """Forward pass BNN+VI.
 
@@ -138,7 +140,6 @@ class BayesianNeuralNetwork_VI(BaseModel):
             bnn output
         """
         # TODO find elegant way to handle this reliably
-        # TODO configure where to add the latent variable input
         for layer in self.model.model:
             # stochastic and non-stochastic layers
             if isinstance(layer, LinearFlipoutLayer):
@@ -178,7 +179,7 @@ class BayesianNeuralNetwork_VI(BaseModel):
         log_normalizer = torch.stack(log_normalizer_terms).sum(0)  # 0 shape
 
         log_likelihood = Normal(out.transpose(0, 1), torch.exp(self.log_aleatoric_std))
-        # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
+
         energy_loss = self.energy_loss_module(
             y,
             log_likelihood,
@@ -235,7 +236,6 @@ class BayesianNeuralNetwork_VI(BaseModel):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        # TODO correct decomposition if BNN+LV
         # output from forward: [num_samples, batch_size, outputs]
         with torch.no_grad():
             preds = (

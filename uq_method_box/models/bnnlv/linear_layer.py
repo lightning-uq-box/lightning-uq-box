@@ -83,7 +83,8 @@ class LinearFlipoutLayer(LinearFlipout):
         )
         return weight_sample, bias_sample
 
-    # TODO think about most convenient way to introduce n_samples
+    # TODO think about most convenient way to introduce n_samples to maybe have control
+    # over
     def forward(self, input: Tensor, n_samples: int = 25) -> Tensor:
         """Forward pass through linear layer.
 
