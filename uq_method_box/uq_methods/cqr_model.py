@@ -1,7 +1,7 @@
 """conformalized Quantile Regression Model."""
 
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 import torch
@@ -60,7 +60,7 @@ class CQR(LightningModule):
     def __init__(
         self,
         model: LightningModule,
-        quantiles: List[float],
+        quantiles: list[float],
         calibration_loader: DataLoader,
         save_dir: str,
     ) -> None:
@@ -100,7 +100,7 @@ class CQR(LightningModule):
 
         # predict with underlying model
         with torch.no_grad():
-            model_preds: Dict[str, np.ndarray] = self.model.predict_step(X)
+            model_preds: dict[str, np.ndarray] = self.model.predict_step(X)
 
         # conformalize predictions
         cqr_sets = np.stack(
@@ -126,7 +126,7 @@ class CQR(LightningModule):
             )
             self.cqr_fitted = True
 
-    def compute_calibration_scores(self) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_calibration_scores(self) -> tuple[np.ndarray, np.ndarray]:
         """Compute calibration scores."""
         # model predict steps return a dictionary that contains quantiles
         outputs = [
@@ -153,7 +153,7 @@ class CQR(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: Dict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,

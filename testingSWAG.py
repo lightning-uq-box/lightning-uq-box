@@ -1,11 +1,10 @@
 import os
 import tempfile
-from typing import Any, Dict, List
 
 import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
-from lightning import LightningModule, Trainer
+from lightning import Trainer
 from lightning.pytorch import seed_everything
 
 from uq_method_box.datamodules import ToyHeteroscedasticDatamodule, ToySineDatamodule

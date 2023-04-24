@@ -1,6 +1,6 @@
 """Deterministic Model that predicts parameters of Gaussian."""
 
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -19,14 +19,14 @@ class DeterministicGaussianModel(BaseModel):
     def __init__(
         self,
         model_class: Union[type[nn.Module], str],
-        model_args: Dict[str, Any],
+        model_args: dict[str, Any],
         optimizer: type[torch.optim.Optimizer],
-        optimizer_args: Dict[str, Any],
+        optimizer_args: dict[str, Any],
         loss_fn: str,
         burnin_epochs: int,
         max_epochs: int,
         save_dir: str,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of Deterministic Gaussian Model."""
         super().__init__(
@@ -84,7 +84,7 @@ class DeterministicGaussianModel(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Prediction step.
 
         Args:

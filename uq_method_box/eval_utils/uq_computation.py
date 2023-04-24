@@ -2,7 +2,6 @@
 
 import math
 from collections import defaultdict
-from typing import List
 
 import numpy as np
 from scipy import stats
@@ -59,7 +58,7 @@ def compute_predictive_uncertainty(
 
 
 def compute_sample_mean_std_from_quantile(
-    inter_range_quantiles: np.ndarray, quantiles: List[float]
+    inter_range_quantiles: np.ndarray, quantiles: list[float]
 ) -> np.ndarray:
     """Compute sample mean and std from inter quantiles.
 
@@ -87,7 +86,7 @@ def compute_sample_mean_std_from_quantile(
 
 
 def compute_quantiles_from_std(
-    means: np.array, stds: np.array, quantiles: List[float]
+    means: np.array, stds: np.array, quantiles: list[float]
 ) -> np.ndarray:
     """Compute quantiles from standard deviations assuming a Gaussian.
 

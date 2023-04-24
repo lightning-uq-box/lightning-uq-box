@@ -1,7 +1,7 @@
 """Laplace Approximation model."""
 
 import os
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -22,10 +22,10 @@ class LaplaceModel(LightningModule):
     def __init__(
         self,
         model: LightningModule,
-        laplace_args: Dict[str, Union[float, str]],
+        laplace_args: dict[str, Union[float, str]],
         train_loader: DataLoader,
         save_dir: str,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
@@ -121,7 +121,7 @@ class LaplaceModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: Dict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,
@@ -133,7 +133,7 @@ class LaplaceModel(LightningModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Predict step with Laplace Approximation.
 
         Args:

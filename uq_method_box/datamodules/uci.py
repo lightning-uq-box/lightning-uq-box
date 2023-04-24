@@ -1,6 +1,6 @@
 """UCI Regression Datamodule."""
 
-from typing import Any, Dict
+from typing import Any
 
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader
@@ -18,7 +18,7 @@ from uq_method_box.datasets import (
 class UCIRegressionDatamodule(LightningDataModule):
     """Datamodule class for all UCI Regression Datasets."""
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         """Initialize a new instance of the Datamodule.
 
         Args:
@@ -31,7 +31,7 @@ class UCIRegressionDatamodule(LightningDataModule):
 
         # self.batch_size = int(self.uci_ds.N / 10)
 
-    def initialize_dataset(self, config: Dict[str, Any]) -> UCIRegressionDataset:
+    def initialize_dataset(self, config: dict[str, Any]) -> UCIRegressionDataset:
         """Initialize the desired UCI Regression Dataset.
 
         Args:

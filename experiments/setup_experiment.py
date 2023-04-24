@@ -1,6 +1,6 @@
 """Experiment generator to setup an experiment based on a config file."""
 
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import torch.nn as nn
 from lightning import LightningDataModule, LightningModule, Trainer
@@ -21,7 +21,7 @@ from uq_method_box.uq_methods.utils import retrieve_optimizer
 
 
 def generate_base_model(
-    config: Dict[str, Any], model_class: type[nn.Module]
+    config: dict[str, Any], model_class: type[nn.Module]
 ) -> LightningModule:
     """Generate a configured base model.
 
@@ -114,8 +114,8 @@ def generate_base_model(
 
 
 def generate_ensemble_model(
-    config: Dict[str, Any],
-    ensemble_members: List[Dict[str, Union[type[LightningModule], str]]],
+    config: dict[str, Any],
+    ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
 ) -> LightningModule:
     """Generate an ensemble model.
 
@@ -141,7 +141,7 @@ def generate_ensemble_model(
         raise ValueError("Your ensemble choice is currently not supported.")
 
 
-def generate_datamodule(config: Dict[str, Any]) -> LightningDataModule:
+def generate_datamodule(config: dict[str, Any]) -> LightningDataModule:
     """Generate LightningDataModule from config file.
 
     Args:
@@ -153,7 +153,7 @@ def generate_datamodule(config: Dict[str, Any]) -> LightningDataModule:
     pass
 
 
-def generate_trainer(config: Dict[str, Any]) -> Trainer:
+def generate_trainer(config: dict[str, Any]) -> Trainer:
     """Generate a pytorch lightning trainer."""
     loggers = [
         CSVLogger(config["experiment"]["save_dir"], name="csv_logs"),

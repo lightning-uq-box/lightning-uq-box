@@ -1,6 +1,6 @@
 """Deep Evidential Regression."""
 
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -59,10 +59,10 @@ class DERModel(BaseModel):
     def __init__(
         self,
         model_class: Union[type[nn.Module], str],
-        model_args: Dict[str, Any],
+        model_args: dict[str, Any],
         lr: float,
         save_dir: str,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Base Model.
 
@@ -108,7 +108,7 @@ class DERModel(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Prediction Step Deep Evidential Regression.
 
         Args:

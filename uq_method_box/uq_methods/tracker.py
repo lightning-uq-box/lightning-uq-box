@@ -7,7 +7,7 @@ the ideas are adopted to be integrated within lightning.
 import math
 from collections import OrderedDict
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -35,7 +35,7 @@ class ModelSnapshotTracker:
         safe_name = param_name.replace(".", "_")
         setattr(self.module, f"{safe_name}_{buffer_name}", value)
 
-    def _update_tracked_state_dict(self, state_dict: Dict[str, nn.Parameter]):
+    def _update_tracked_state_dict(self, state_dict: dict[str, nn.Parameter]):
         # PyTorch uses OrderedDicts for state_dict because they can have
         # attributes. It gives state_dict a _metadata attribute which can
         # affect how the state_dict is loaded. We have to copy this here.
@@ -111,7 +111,7 @@ class SWAGTracker(ModelSnapshotTracker):
         safe_name = param_name.replace(".", "_")
         setattr(self.module, f"{safe_name}_{buffer_name}", value)
 
-    def _update_tracked_state_dict(self, state_dict: Dict[str, nn.Parameter]):
+    def _update_tracked_state_dict(self, state_dict: dict[str, nn.Parameter]):
         # PyTorch uses OrderedDicts for state_dict because they can have
         # attributes. It gives state_dict a _metadata attribute which can
         # affect how the state_dict is loaded. We have to copy this here.

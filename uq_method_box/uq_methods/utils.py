@@ -2,7 +2,7 @@
 
 import os
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from uq_method_box.train_utils import NLL, QuantileLoss
 
 
 def retrieve_loss_fn(
-    loss_fn_name: str, quantiles: Optional[List[float]] = None
+    loss_fn_name: str, quantiles: Optional[list[float]] = None
 ) -> nn.Module:
     """Retrieve the desired loss function.
 
@@ -43,7 +43,7 @@ def retrieve_optimizer(optimizer_name: str):
         return Adam
 
 
-def merge_list_of_dictionaries(list_of_dicts: List[Dict[str, Any]]):
+def merge_list_of_dictionaries(list_of_dicts: list[dict[str, Any]]):
     """Merge list of dictionaries."""
     merged_dict = defaultdict(list)
 
@@ -54,7 +54,7 @@ def merge_list_of_dictionaries(list_of_dicts: List[Dict[str, Any]]):
     return merged_dict
 
 
-def save_predictions_to_csv(outputs: Dict[str, np.ndarray], path: str) -> None:
+def save_predictions_to_csv(outputs: dict[str, np.ndarray], path: str) -> None:
     """Save model predictions to csv file.
 
     Args:

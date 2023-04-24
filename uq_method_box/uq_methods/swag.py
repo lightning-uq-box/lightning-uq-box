@@ -7,7 +7,7 @@ import math
 import os
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -45,7 +45,7 @@ class SWAGModel(LightningModule):
         save_dir: str,
         num_datapoints_for_bn_update: Optional[int] = None,
         target_scaler: StandardScaler = None,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
@@ -114,7 +114,7 @@ class SWAGModel(LightningModule):
         safe_name = param_name.replace(".", "_")
         setattr(self.model, f"{safe_name}_{buffer_name}", value)
 
-    def _update_tracked_state_dict(self, state_dict: Dict[str, nn.Parameter]) -> None:
+    def _update_tracked_state_dict(self, state_dict: dict[str, nn.Parameter]) -> None:
         """Update tracked state_dict.
 
         Args:
@@ -131,7 +131,7 @@ class SWAGModel(LightningModule):
 
         self.model.load_state_dict(full_state_dict)
 
-    def _untracked_state_dict(self) -> Dict[str, nn.Parameter]:
+    def _untracked_state_dict(self) -> dict[str, nn.Parameter]:
         """Return filtered untracked state dict."""
         filtered_state_dict = {}
         tracked_keys = {name for name, _ in self.model.named_parameters()}
@@ -260,7 +260,7 @@ class SWAGModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: Dict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,

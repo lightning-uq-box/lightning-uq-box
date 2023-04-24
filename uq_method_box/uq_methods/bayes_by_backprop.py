@@ -1,6 +1,6 @@
 """Bayes By Backprop Model."""
 
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -25,7 +25,7 @@ class BayesByBackpropModel(BaseModel):
     def __init__(
         self,
         model_class: Union[type[nn.Module], str],
-        model_args: Dict[str, Any],
+        model_args: dict[str, Any],
         lr: float,
         loss_fn: str,
         save_dir: str,
@@ -35,7 +35,7 @@ class BayesByBackpropModel(BaseModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bayesian_layer_type: str = "Reparameterization",
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Base Model.
 
@@ -125,7 +125,7 @@ class BayesByBackpropModel(BaseModel):
 
     def predict_step(
         self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Predict step via Monte Carlo Sampling.
 
         Args:

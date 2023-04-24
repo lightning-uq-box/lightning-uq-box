@@ -4,7 +4,8 @@
 
 
 import os
-from typing import Any, Dict, Iterator, List, Optional, Union
+from collections.abc import Iterator
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -83,8 +84,8 @@ class SGLDModel(BaseModel):
 
     def __init__(
         self,
-        model_class: Union[List[nn.Module], str],
-        model_args: Dict[str, Any],
+        model_class: Union[list[nn.Module], str],
+        model_args: dict[str, Any],
         lr: float,
         loss_fn: str,
         save_dir: str,
@@ -92,7 +93,7 @@ class SGLDModel(BaseModel):
         noise_factor: float,
         n_burnin_epochs: int,
         n_sgld_samples: int,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of SGLD model.
 
@@ -119,7 +120,7 @@ class SGLDModel(BaseModel):
 
         self.burnin_epochs = n_burnin_epochs
         self.n_sgld_samples = n_sgld_samples
-        self.models: List[nn.Module] = []
+        self.models: list[nn.Module] = []
         self.quantiles = quantiles
         self.weight_decay = weight_decay
         self.noise_factor = noise_factor
@@ -129,7 +130,7 @@ class SGLDModel(BaseModel):
         # manual optimization with SGLD optimizer
         self.automatic_optimization = False
 
-    def configure_optimizers(self) -> Dict[str, Any]:
+    def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -191,7 +192,7 @@ class SGLDModel(BaseModel):
 
         return loss
 
-    def on_train_epoch_end(self) -> List:
+    def on_train_epoch_end(self) -> list:
         """Save model ckpts after epoch and log training metrics."""
         # save ckpts for n_sgld_sample epochs before end (max_epochs)
         if self.current_epoch >= (self.trainer.max_epochs - self.n_sgld_samples):
@@ -220,7 +221,7 @@ class SGLDModel(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Predict step with SGLD, take n_sgld_sampled models, get mean and variance.
 
         Args:
@@ -232,7 +233,7 @@ class SGLDModel(BaseModel):
             output dictionary with uncertainty estimates
         """
         # create predictions from models loaded from checkpoints
-        preds: List[torch.Tensor] = []
+        preds: list[torch.Tensor] = []
         for ckpt_path in self.dir_list:
             self.model.load_state_dict(torch.load(ckpt_path))
             preds.append(self.model(X))
