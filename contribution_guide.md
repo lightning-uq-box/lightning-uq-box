@@ -1,7 +1,7 @@
 ## Install dependencies
 To work on the project or use this software in your work install the required dependencies as follows:
 
-Move to the root directory, meaning if you run `$ pwd` the printed path should end in `uq_method-box`. 
+Move to the root directory, meaning if you run `$ pwd` the printed path should end in `uq_method-box`. We require python 3.9 or higher.
 
 I encountered some issues with packages when using conda, however, pip works. So either in a conda
 or venv environment run the following installs.
