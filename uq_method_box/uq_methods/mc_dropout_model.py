@@ -8,14 +8,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-from uq_method_box.eval_utils import (
-    compute_aleatoric_uncertainty,
-    compute_epistemic_uncertainty,
-    compute_predictive_uncertainty,
-    compute_quantiles_from_std,
-)
-
 from .base import BaseModel
+from .utils import process_model_prediction
 
 
 class MCDropoutModel(BaseModel):
@@ -43,12 +37,12 @@ class MCDropoutModel(BaseModel):
         super().__init__(model_class, model_args, lr, loss_fn, save_dir)
 
         self.quantiles = quantiles
-        self.num_mc_samples = num_mc_samples
-        self.burnin_epochs = burnin_epochs
-        self.max_epochs = max_epochs
+        self.hparams["num_mc_samples"] = num_mc_samples
+        self.hparams["burnin_epochs"] = burnin_epochs
+        self.hparams["max_epochs"] = max_epochs
 
         assert (
-            self.burnin_epochs <= self.max_epochs
+            burnin_epochs <= max_epochs
         ), "The max_epochs needs to be larger than the burnin phase."
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
@@ -76,7 +70,7 @@ class MCDropoutModel(BaseModel):
         X, y = args[0]
         out = self.forward(X)
 
-        if self.current_epoch < self.burnin_epochs:
+        if self.current_epoch < self.hparams.burnin_epochs:
             loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
         else:
             loss = self.criterion(out, y)
@@ -107,40 +101,11 @@ class MCDropoutModel(BaseModel):
         self.model.train()  # activate dropout during prediction
         with torch.no_grad():
             preds = (
-                torch.stack([self.model(X) for _ in range(self.num_mc_samples)], dim=-1)
+                torch.stack(
+                    [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
+                )
                 .detach()
                 .numpy()
             )  # shape [num_samples, batch_size, num_outputs]
 
-        mean_samples = preds[:, 0, :]
-
-        # assume prediction with sigma
-        if preds.shape[1] == 2:
-            log_sigma_2 = preds[:, 1, :]
-            eps = np.ones_like(log_sigma_2) * 1e-6
-            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2))
-            mean = mean_samples.mean(-1)
-            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
-            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
-            epistemic = compute_epistemic_uncertainty(mean_samples)
-            quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": epistemic,
-                "aleatoric_uct": aleatoric,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
-        # assume mse prediction
-        else:
-            mean = mean_samples.mean(-1)
-            std = mean_samples.std(-1)
-            quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": std,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
+        return process_model_prediction(preds, self.hparams.quantiles)
