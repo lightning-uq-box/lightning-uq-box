@@ -2,7 +2,8 @@
 
 from .base import BaseModel
 from .bayes_by_backprop import BayesByBackpropModel
-from .bnn_vi import BayesianNeuralNetwork_VI
+from .bnn_vi import BNN_VI
+from .bnn_vi_lv import BNN_LV_VI
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
 from .deep_evidential_regression import DERModel
@@ -11,6 +12,7 @@ from .laplace_model import LaplaceModel
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
 from .sgld import SGLDModel
+from .swag import SWAGModel
 
 __all__ = (
     # base model
@@ -27,6 +29,8 @@ __all__ = (
     "DeepEnsembleModel",
     # Deterministic Gaussian Model
     "DeterministicGaussianModel",
+    # SWAG Model
+    "SWAGModel",
     # SGLD Model.
     "SGLDModel",
     # Bayes by Backprop
@@ -34,5 +38,7 @@ __all__ = (
     # Deep Evidential Regression Model
     "DERModel",
     # Bayesian Neural Network trained with Variational Inference
-    "BayesianNeuralNetwork_VI",
+    "BNN_VI",
+    # BNN with Latent Variables
+    "BNN_LV_VI",
 )

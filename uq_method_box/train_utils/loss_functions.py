@@ -6,6 +6,74 @@ from typing import List
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.distributions import Normal
+
+
+class EnergyAlphaDivergence(nn.Module):
+    """Energy Alpha Divergence Loss."""
+
+    def __init__(self, N: int, alpha: float = 1.0) -> None:
+        """Initialize a new instance of Energy Alpha Divergence loss.
+
+        Args:
+            N: number of datapoints in training set
+            alpha: alpha divergence parameter
+        """
+        super().__init__()
+        self.N = N
+        self.alpha = alpha
+
+    def forward(
+        self,
+        y: Tensor,
+        y_pred: Normal,
+        log_f_hat: Tensor,
+        log_Z_prior: Tensor,
+        log_normalizer: Tensor,
+        log_normalizer_z: Tensor,
+        log_f_hat_z: Tensor,
+    ) -> Tensor:
+        """Compute the energy function loss.
+
+        Args:
+            y: target of shape [batch_size, output_dim]
+            y_pred: Normal dist output with shape [batch_size, num_samples, output_dim]
+            log_f_hat: ["num_samples"]
+            log_Z_prior: 0 shape
+            log_normalizer: 0 shape
+            log_noramlizer_z: 0 shape
+            log_f_hat_z: 0 shape
+            loss_terms: collected loss terms over the variational layer weights
+            N: number of datapoints in dataset
+            alpha: alpha divergence value
+
+        Returns:
+            energy function loss
+        """
+        S = y_pred.batch_shape[0]
+        n_samples = y_pred.batch_shape[1]
+        alpha = torch.tensor(self.alpha).to(y.device)
+        NoverS = torch.tensor(self.N / S).to(y.device)
+        one_over_n_samples = torch.tensor(1 / n_samples).to(y.device)
+        return (
+            -(1 / alpha)
+            * NoverS
+            * torch.sum(
+                torch.logsumexp(
+                    alpha
+                    * (
+                        y_pred.log_prob(y[:, None, :]).sum(-1)
+                        - (1 / self.N) * log_f_hat
+                        - log_f_hat_z
+                    ),
+                    1,
+                )
+                + torch.log(one_over_n_samples)
+            )
+            - log_normalizer
+            - NoverS * log_normalizer_z
+            + log_Z_prior
+        )
 
 
 class NLL(nn.Module):
@@ -31,6 +99,29 @@ class NLL(nn.Module):
         )
         loss = torch.mean(loss, dim=0)
         return loss
+
+
+class TheirNLL(nn.Module):
+    """NLL Loss from Wilson papers.
+
+    https://github.com/wjmaddox/drbayes/blob/0c0c32edade51f1ec471753b7bf258f40bf8fdd6/subspace_inference/losses.py#L4
+
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize a new instance."""
+        super().__init__(*args, **kwargs)
+
+    def forward(self, preds: Tensor, target: Tensor):
+        """Compute loss."""
+        mean = preds[:, 0].view_as(target)
+        var = preds[:, 1].view_as(target)
+
+        mse = torch.nn.functional.mse_loss(mean, target, reduction="none")
+        mean_portion = mse / (2 * var)
+        var_portion = 0.5 * torch.log(var)
+        loss = mean_portion + var_portion
+        return loss.mean()
 
 
 class QuantileLoss(nn.Module):

@@ -13,7 +13,7 @@ from experiments.setup_experiment import (
 from experiments.utils import create_experiment_dir, read_config, save_config
 from uq_method_box.datamodules import UCIRegressionDatamodule
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import CQR, LaplaceModel
+from uq_method_box.uq_methods import CQR, LaplaceModel, SWAGModel
 
 
 def run(config_path: str) -> None:
@@ -27,7 +27,7 @@ def run(config_path: str) -> None:
     # main directory for the
     experiment_config = create_experiment_dir(config)
 
-    for i in range(3):  # 20 random seeds
+    for i in range(5):  # 20 random seeds
         seed_config = copy.deepcopy(experiment_config)
 
         # create a subdirectory for this seed
@@ -76,7 +76,7 @@ def run(config_path: str) -> None:
         os.makedirs(pred_dir)
 
         # Laplace Model Wrapper
-        if "laplace" in run_config["model"]:
+        if "laplace_args" in run_config["model"]:
             # laplace requires train data loader post fit, maybe there is also
             # a more elegant way to solve this
             model = LaplaceModel(
@@ -84,6 +84,18 @@ def run(config_path: str) -> None:
                 prediction_config["model"]["laplace_args"],
                 dm.train_dataloader(),
                 prediction_config["experiment"]["save_dir"],
+            )
+
+        # SWAG Model Wrapper
+        if "swag_args" in run_config["model"]:
+            # swag requires train data loader post fit, maybe also more elegant way
+            # to solve this
+            model = SWAGModel(
+                model.model,
+                train_loader=dm.train_dataloader(),
+                save_dir=prediction_config["experiment"]["save_dir"],
+                target_scaler=dm.uci_ds.target_scaler,
+                **prediction_config["model"]["swag_args"],
             )
 
         # if we want to build an ensemble

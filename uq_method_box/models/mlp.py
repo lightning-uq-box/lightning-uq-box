@@ -15,7 +15,7 @@ class MLP(nn.Module):
         n_inputs: int = 1,
         n_hidden: List[int] = [100],
         n_outputs: int = 1,
-        activation_fn: nn.Module = nn.Tanh(),
+        activation_fn: nn.Module = nn.ReLU(),
     ) -> None:
         """Initialize a new instance of MLP.
 
@@ -30,17 +30,18 @@ class MLP(nn.Module):
         """
         super().__init__()
         layers = []
-        # first bracket is input layer and then add the hidden layers
-        layer_sizes = [n_inputs, n_hidden[0]] + n_hidden
+        # layer sizes
+        layer_sizes = [n_inputs] + n_hidden
         for idx in range(1, len(layer_sizes)):
             layers += [
                 nn.Linear(layer_sizes[idx - 1], layer_sizes[idx]),
                 activation_fn,
-                nn.Dropout(dropout_p) if idx != 1 else nn.Identity(),
+                nn.Dropout(dropout_p),  # if idx != 1 else nn.Identity(),
             ]
         # add output layer
         layers += [nn.Linear(layer_sizes[-1], n_outputs)]
         self.model = nn.Sequential(*layers)
+        self.n_outputs = n_outputs
 
     def forward(self, x) -> Tensor:
         """Forward pass through the neural network.

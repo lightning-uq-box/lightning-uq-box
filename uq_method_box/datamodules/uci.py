@@ -29,6 +29,8 @@ class UCIRegressionDatamodule(LightningDataModule):
         self.config = config
         self.uci_ds = self.initialize_dataset(config)
 
+        # self.batch_size = int(self.uci_ds.N / 10)
+
     def initialize_dataset(self, config: Dict[str, Any]) -> UCIRegressionDataset:
         """Initialize the desired UCI Regression Dataset.
 
@@ -57,7 +59,9 @@ class UCIRegressionDatamodule(LightningDataModule):
 
     def train_dataloader(self) -> DataLoader:
         """Return a dataloader for the training set."""
-        return DataLoader(self.uci_ds.train_dataset(), **self.config["dataloader"])
+        return DataLoader(
+            self.uci_ds.train_dataset(), shuffle=True, **self.config["dataloader"]
+        )
 
     def test_dataloader(self) -> DataLoader:
         """Return a dataloader for the testing set."""

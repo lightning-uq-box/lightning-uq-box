@@ -12,7 +12,7 @@ from lightning.pytorch.loggers import CSVLogger
 
 from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import BayesianNeuralNetwork_VI
+from uq_method_box.uq_methods import BNN_VI
 from uq_method_box.viz_utils import plot_predictions
 
 # seed_everything(4)
@@ -31,18 +31,23 @@ X_train, y_train, train_loader, X_test, y_test, test_loader = (
 )
 
 my_config = {
-    "model_args": {"n_inputs": 1, "n_outputs": 1, "n_hidden": [50, 70, 100, 20]},
+    "model_args": {
+        "n_inputs": 1,
+        "n_outputs": 1,
+        "n_hidden": [100, 100],
+        "activation_fn": torch.nn.Tanh(),
+    },
     "loss_fn": "nll",
 }
 
 my_dir = tempfile.mkdtemp()
 
-max_epochs = 500
+max_epochs = 1000
 
-base_model = BayesianNeuralNetwork_VI(
+base_model = BNN_VI(
     MLP,
     my_config["model_args"],
-    lr=3e-3,
+    lr=4e-3,
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
     num_stochastic_modules=1,
@@ -53,8 +58,8 @@ base_model = BayesianNeuralNetwork_VI(
     prior_mu=0.0,
     prior_sigma=1.0,
     posterior_mu_init=0.0,
-    posterior_rho_init=-5.0,
-    bayesian_layer_type="Reparameterization",
+    posterior_rho_init=-3.0,
+    alpha=1.0,
 )
 
 logger = CSVLogger(my_dir)
@@ -63,8 +68,8 @@ pl_args = {
     "max_epochs": max_epochs,
     "logger": logger,
     "log_every_n_steps": 1,
-    "accelerator": "cpu",
-    # "devices": [0],
+    "accelerator": "gpu",
+    "devices": [5],
     "limit_val_batches": 0.0,
 }
 trainer = Trainer(**pl_args)
@@ -89,7 +94,7 @@ my_fig = plot_predictions(
     aleatoric=pred.get("aleatoric_uct", None),
     title="BNN with VI",
 )
-# plt.savefig("preds.png")
+plt.savefig("preds.png")
 plt.show()
 
 metrics_path = os.path.join(my_dir, "lightning_logs", "version_0", "metrics.csv")
@@ -106,7 +111,7 @@ ax[1].plot(np.arange(len(train_rmse)), train_rmse)
 ax[1].set_title("Train RMSE")
 
 plt.show()
-# plt.savefig("loss_curves.png")
+plt.savefig("loss_curves.png")
 # import pdb
 
 # pdb.set_trace()

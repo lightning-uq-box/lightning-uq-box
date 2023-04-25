@@ -131,7 +131,6 @@ def plot_predictions(
         )
 
     ax0.legend()
-    # plt.show()
     return fig
 
 
