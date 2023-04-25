@@ -55,6 +55,15 @@ class EnergyAlphaDivergence(nn.Module):
         alpha = torch.tensor(self.alpha).to(y.device)
         NoverS = torch.tensor(self.N / S).to(y.device)
         one_over_n_samples = torch.tensor(1 / n_samples).to(y.device)
+        # if we change y_pred: Normal dist output
+        # with shape [batch_size, num_samples, output_dim]
+        # to be a Normal dist output
+        # with shape [num_samples, batch_size, output_dim]
+        # then the below should be y_pred.log_prob(y[None, :, :]).sum(-1)?
+        # Can we do this to be lazy and
+        # avoid the changing of forward passes in each layer?
+        # the outer torch.sum need to be taken over the batchsize
+        # the inner logsumexp over the numer of samples
         return (
             -(1 / alpha)
             * NoverS
@@ -66,7 +75,10 @@ class EnergyAlphaDivergence(nn.Module):
                         - (1 / self.N) * log_f_hat
                         - log_f_hat_z
                     ),
-                    1,
+                    dim=0,  # number of dimensions that should be reduced
+                    # we now take zero because we
+                    # are lazy and dont want to change the forward
+                    # pass functions?
                 )
                 + torch.log(one_over_n_samples)
             )

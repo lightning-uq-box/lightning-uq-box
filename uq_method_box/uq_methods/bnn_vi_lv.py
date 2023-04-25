@@ -98,6 +98,8 @@ class BNN_LV_VI(BNN_VI):
             bnn output
         """
         # TODO find elegant way to handle this reliably
+        # the layers are stochastic, just do multiple forward passes and
+        # compute the mean as for ensembles?
         for layer in self.model.model:
             # stochastic and non-stochastic layers
             # TODO introduce latent variables at desired layer
@@ -107,7 +109,7 @@ class BNN_LV_VI(BNN_VI):
                 X = layer(X)
         return X
 
-    def compute_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+    def compute_loss(self, X: Tensor, y: Tensor) -> None:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -117,14 +119,23 @@ class BNN_LV_VI(BNN_VI):
         Returns:
             energy loss and mean output for logging
         """
-        out = self.forward(
-            X, n_samples=self.hparams.num_mc_samples_train
-        )  # [num_samples, batch_size, output_dim]
+        # get different preds with multiple forward passes
+        preds = (
+            torch.stack(
+                [self.model(X) for _ in range(self.hparams.num_mc_samples_train)],
+                dim=-1,
+            )
+            .detach()
+            .cpu()
+            .numpy()
+        )  # shape [num_samples, batch_size, num_outputs]
 
         # compute loss terms over layer
+        # do this as with the kl terms for bnn_vi
         log_Z_prior_terms = []
         log_f_hat_terms = []
         log_normalizer_terms = []
+        # this should be done for all layers
         for layer in self.model.model:
             if isinstance(layer, LinearFlipoutLayer):
                 log_Z_prior_terms.append(layer.calc_log_Z_prior())
@@ -137,7 +148,9 @@ class BNN_LV_VI(BNN_VI):
         log_f_hat = torch.stack(log_f_hat_terms).sum(0)  # num_samples
         log_normalizer = torch.stack(log_normalizer_terms).sum(0)  # 0 shape
 
-        log_likelihood = Normal(out.transpose(0, 1), torch.exp(self.log_aleatoric_std))
+        log_likelihood = Normal(
+            preds.transpose(0, 1), torch.exp(self.log_aleatoric_std)
+        )
         # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
         energy_loss = self.energy_loss_module(
             y,
@@ -148,7 +161,7 @@ class BNN_LV_VI(BNN_VI):
             0.0,  # log_normalizer_z
             0.0,  # log_f_hat_z
         )
-        return energy_loss, out.mean(dim=0)
+        return energy_loss, preds.mean(dim=0)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0

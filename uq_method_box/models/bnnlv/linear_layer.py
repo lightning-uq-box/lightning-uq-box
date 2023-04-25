@@ -48,7 +48,7 @@ class LinearFlipoutLayer(LinearFlipout):
 
         self.weight_eps = None
 
-    def sample_weights(self, n_samples: int) -> tuple[Tensor]:
+    def sample_weights(self, n_samples: int) -> tuple(Tensor):
         """Sample variational weights.
 
         Args:
@@ -89,29 +89,10 @@ class LinearFlipoutLayer(LinearFlipout):
 
     # TODO think about most convenient way to introduce n_samples to maybe have control
     # over
-    def forward(self, input: Tensor, n_samples: int = 25) -> Tensor:
-        """Forward pass through linear layer.
-
-        Args:
-            input: input tensor to linear layer
-            n_samples: how many samples to draw
-
-        Returns:
-            computed output of shape [n_samples, batch_size, out_features]
-        """
-        inp_shape = input.shape
-        if len(inp_shape) == 2:
-            input = input.unsqueeze(0).repeat(n_samples, 1, 1)
-        else:
-            n_samples = inp_shape[0]
-
-        weight, bias = self.sample_weights(n_samples)
-
-        state = input.matmul(weight.transpose(-1, -2)) + bias.unsqueeze(-1).transpose(
-            1, 2
-        )  # n_samples x batch_size x out_features
-
-        return state
+    # comment: we do not need this at all.
+    # we can just forward pass through the network multiple times
+    # and then at the same time use the outputs of calc_log_f_hat, calc_log_Z_prior
+    # and calc_log_normalizer to compute the energy functional.
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.

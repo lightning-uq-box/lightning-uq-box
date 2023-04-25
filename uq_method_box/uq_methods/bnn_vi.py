@@ -1,7 +1,7 @@
 """Bayesian Neural Networks with Variational Inference."""
 
 # TODO:
-# change dnn_to_bnn function such that only some layers are made stochastic done!
+# change dnn_to_bnn function such that only some layers are made stochastic
 # adjust loss functions such that also a two headed network output trained with nll
 # works, and add mse burin-phase as in other modules
 # make loss function chooseable to be mse or nll like in other modules
@@ -145,7 +145,7 @@ class BNN_VI(BaseModel):
                 X = layer(X)
         return X
 
-    def compute_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+    def compute_loss(self, X: Tensor, y: Tensor) -> None:
         """Compute the loss for BNN with alpha divergence.
 
         Args:

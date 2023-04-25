@@ -1,11 +1,29 @@
 """Bayesian Neural Networks with Variational Inference."""
 
 # TODO:
-# change dnn_to_bnn function such that only some layers are made stochastic done!
-# adjust loss functions such that also a two headed network output trained with nll
+# 1) change dnn_to_bnn function such that only some layers are made stochastic done!
+# 2) adjust loss functions such that also a two headed network output trained with nll
 # works, and add mse burin-phase as in other modules
-# make loss function chooseable to be mse or nll like in other modules
-# probably only use this implementation and remove bayes_by_backprop.py
+# 3) make loss function chooseable to be mse or nll like in other modules
+# 4) probably only use this implementation and remove bayes_by_backprop.py
+
+# 5) adapted function based on principles kl_divin bnn_t,
+# but with additional dependency on sampled weights yielded by reparameterization trick
+#  (additional argument that is stochastic sampled weights)
+# to do 5): copy bayesian torch library change layers to include output of term:
+# ((var^w - prior_var)/ 2 var^w) * w^2 + (mean^w/var^w)*w
+# (just like the kl term but now for computing f(W))
+# 6) for loss computation include sampling operation
+#  in training step (already have this in bnn_vi)
+# 7) adapt _build_model function so that
+# we define a latent dimension Z neural network
+# and a utility function that adds the latent dimension at a desired layer
+# e.g. before last activation+linear block
+# 8) latent variable network is a BNN with prior variance dependent on input dimension
+#  (as a square root of the input dimension to the first stochastic layer chosen)
+# concatenate extracted features and output from latent variable BNN
+#  and push through stochastic layers to get final output
+
 
 from typing import Any, Dict, List, Tuple, Union
 
@@ -85,15 +103,14 @@ class BayesianNeuralNetwork_VI(BaseModel):
         self.hparams["beta_elbo"] = beta_elbo
         self.hparams["output_noise_scale"] = output_noise_scale
 
-        # update hyperparameters for bnn
         self.hparams["prior_mu"] = prior_mu
         self.hparams["prior_sigma"] = prior_sigma
         self.hparams["posterior_mu_init"] = posterior_mu_init
         self.hparams["posterior_rho_init"] = posterior_rho_init
         self.hparams["bayesian_layer_type"] = bayesian_layer_type
-        self.hparams["num_stochastic_modules"] = num_stochastic_modules
-
         self.hparams["num_training_points"] = num_training_points
+
+        self.hparams["num_stochastic_modules"] = num_stochastic_modules
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
