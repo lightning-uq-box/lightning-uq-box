@@ -8,9 +8,9 @@ import torch.nn as nn
 from torch import Tensor
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
-from uq_method_box.train_utils import NLL
 
 from .base import BaseModel
+from .loss_functions import NLL
 
 
 class DeterministicGaussianModel(BaseModel):

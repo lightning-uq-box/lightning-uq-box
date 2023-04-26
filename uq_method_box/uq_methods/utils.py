@@ -9,7 +9,7 @@ import pandas as pd
 import torch.nn as nn
 from torch.optim import SGD, Adam
 
-from uq_method_box.train_utils import NLL, QuantileLoss
+from .loss_functions import NLL, QuantileLoss
 
 
 def retrieve_loss_fn(
