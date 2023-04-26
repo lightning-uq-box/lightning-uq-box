@@ -34,7 +34,7 @@ class BaseModel(LightningModule):
         """
         super().__init__()
         # makes self.hparams accesible
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["model", "optimizer"])
 
         self.train_metrics = MetricCollection(
             {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
@@ -51,6 +51,7 @@ class BaseModel(LightningModule):
             prefix="test_",
         )
         self.model = model
+        self.optimizer = optimizer
         self.loss_fn = loss_fn
 
     #     self._build_model()
@@ -184,7 +185,7 @@ class BaseModel(LightningModule):
             a "lr dict" according to the pytorch lightning documentation --
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer = self.hparams.optimizer(params=self.parameters())
+        optimizer = self.optimizer(params=self.parameters())
         # optimizer = self.hparams.optimizer(
         #     self.model.parameters(), **self.hparams.optimizer_args
         # )
