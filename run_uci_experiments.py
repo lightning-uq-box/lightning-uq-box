@@ -116,7 +116,7 @@ def run(config_path: str) -> None:
                 for ckpt_path in ensemble_ckpt_paths:
                     ensemble_members.append(
                         {
-                            "model_class": type(model),
+                            # "model_class": type(model),
                             "ckpt_path": ckpt_path,
                             "base_model": run_config.uq_method,
                         }
