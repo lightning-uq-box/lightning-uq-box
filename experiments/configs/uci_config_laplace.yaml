@@ -1,3 +1,7 @@
+# can still define a basemodel but then have the extra laplace
+# wrapper as well and have hydra instantiate be called with the trained
+# model similar to how we add additional logging tools to lightning.Trainer
+
 experiment:
   experiment_name: "uci"
   exp_dir: "experiments/experiments/"
