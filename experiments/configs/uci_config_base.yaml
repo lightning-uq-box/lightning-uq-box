@@ -22,9 +22,6 @@ uq_method:
     _target_: torch.nn.MSELoss
   # quantiles: [0.1, 0.5, 0.9]
 
-postprocessing:
-  _target_: uq_method_box.uq_methods.post_processing
-
 # everything to configure the datamodule  
 datamodule:
   _target_: uq_method_box.datamodules.UCIRegressionDatamodule
