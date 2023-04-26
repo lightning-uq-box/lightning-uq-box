@@ -8,7 +8,7 @@ import os
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
-from experiments.setup_experiment import generate_ensemble_model, generate_trainer
+from experiments.setup_experiment import generate_trainer
 from experiments.utils import create_experiment_dir
 from uq_method_box.uq_methods import CQR
 
@@ -24,7 +24,7 @@ def run(config_path: str) -> None:
     # main directory for the
     experiment_config = create_experiment_dir(conf)
 
-    for i in range(5):  # 20 random seeds
+    for i in range(2):  # 20 random seeds
         seed_config = copy.deepcopy(experiment_config)
 
         # create a subdirectory for this seed
@@ -83,12 +83,13 @@ def run(config_path: str) -> None:
                 # a more elegant way to solve this
                 model = instantiate(
                     run_config.post_processing,
-                    model=model,
+                    model=model.model,
                     train_loader=dm.train_dataloader(),
+                    save_dir=run_config["experiment"]["save_dir"],
                 )
 
             # SWAG Model Wrapper
-            if "swag_args" in run_config["model"]:
+            if "SWAGModel" in run_config["post_processing"]["_target_"]:
                 # swag requires train data loader post fit, maybe also more elegant way
                 # to solve this
                 model = instantiate(
@@ -98,7 +99,7 @@ def run(config_path: str) -> None:
                 )
 
             # if we want to build an ensemble
-            if seed_config["model"].get("ensemble_members", 1) >= 2:
+            if "SWAGModel" in run_config["post_processing"]["_target_"]:
                 # make predictions with the deep ensemble wrapper
                 # load all checkpoints into instantiated models
                 ensemble_ckpt_paths = glob.glob(
@@ -111,7 +112,9 @@ def run(config_path: str) -> None:
                         {"model_class": type(model), "ckpt_path": ckpt_path}
                     )
 
-                model = generate_ensemble_model(prediction_config, ensemble_members)
+                model = instantiate(
+                    prediction_config.post_processing, ensemble_members=ensemble_members
+                )
 
         # conformal prediction step if requested should happen here
         if "conformalize" in seed_config:
@@ -124,7 +127,7 @@ def run(config_path: str) -> None:
             )
 
         # generate trainer for test to save in prediction dir
-        trainer = generate_trainer(prediction_config)
+        trainer = instantiate(prediction_config.trainer)
 
         # and update save dir in model config to save it separately
         model.hparams.save_dir = pred_dir
