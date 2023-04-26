@@ -1,6 +1,6 @@
 """Deep Evidential Regression."""
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
@@ -58,9 +58,8 @@ class DERModel(BaseModel):
 
     def __init__(
         self,
-        model_class: Union[type[nn.Module], str],
-        model_args: Dict[str, Any],
-        lr: float,
+        model: nn.Module,
+        optimizer: type[torch.optim.Optimizer],
         save_dir: str,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -74,7 +73,7 @@ class DERModel(BaseModel):
             loss_fn: string name of loss function to use
             save_dir: directory path to save predictions
         """
-        super().__init__(model_class, model_args, lr, None, save_dir)
+        super().__init__(model, optimizer, None, save_dir)
 
         # check that output is 4 dimensional
         # _, output_module = list(self.model.named_children())[-1]
@@ -85,11 +84,11 @@ class DERModel(BaseModel):
         self.model = nn.Sequential(self.model, DERLayer())
 
         # set DER Loss
-        self.criterion = (
+        self.loss_fn = (
             DERLoss()
         )  # need to give control over the coeff through config or argument
 
-        self.quantiles = quantiles
+        self.hparams["quantiles"] = quantiles
 
     def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Test step with Laplace Approximation.
@@ -125,7 +124,7 @@ class DERModel(BaseModel):
         aleatoric_uct = self.compute_aleatoric_uct(beta, alpha, nu)
         pred_uct = epistemic_uct + aleatoric_uct
 
-        quantiles = compute_quantiles_from_std(gamma, pred_uct, self.quantiles)
+        quantiles = compute_quantiles_from_std(gamma, pred_uct, self.hparams.quantiles)
 
         return {
             "mean": gamma,
