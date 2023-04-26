@@ -1,6 +1,6 @@
 """Bayes By Backprop Model."""
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
@@ -24,9 +24,8 @@ class BayesByBackpropModel(BaseModel):
 
     def __init__(
         self,
-        model_class: Union[type[nn.Module], str],
-        model_args: Dict[str, Any],
-        lr: float,
+        model: nn.Module,
+        optimizer: type[torch.optim.Optimizer],
         loss_fn: str,
         save_dir: str,
         num_mc_samples: int = 30,
@@ -37,16 +36,14 @@ class BayesByBackpropModel(BaseModel):
         bayesian_layer_type: str = "Reparameterization",
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new Base Model.
+        """Initialize a new Bayes By Backprop Model.
 
         Args:
-            model_class: Model Class that can be initialized with arguments from dict,
-                or timm backbone name
-            model_args: arguments to initialize model_class
-            lr: learning rate for adam otimizer
+            model: underlying model
+            optimizer: optimizer to use
             loss_fn: string name of loss function to use
             save_dir: directory path to save
-            num_mc_samples:
+            num_mc_samples: number of MC samples to draw for prediction
             prior_mu: prior mean value for bayesian layer
             prior_sigma: prior variance value for bayesian layer
             posterior_mu_init: mean initialization value for approximate posterior
@@ -54,7 +51,7 @@ class BayesByBackpropModel(BaseModel):
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `Flipout` or `Reparameterization`
         """
-        super().__init__(model_class, model_args, lr, loss_fn, save_dir)
+        super().__init__(model, optimizer, loss_fn, save_dir)
 
         self.bnn_args = {
             "prior_mu": prior_mu,
@@ -84,7 +81,7 @@ class BayesByBackpropModel(BaseModel):
 
         out = self.forward(X)
         kl_loss = get_kl_loss(self.model)
-        mse_loss = self.criterion(out, y)
+        mse_loss = self.loss_fn(out, y)
 
         loss = mse_loss + kl_loss / batch_size
 
@@ -108,7 +105,7 @@ class BayesByBackpropModel(BaseModel):
 
         out = self.forward(X)
         kl_loss = get_kl_loss(self.model)
-        mse_loss = self.criterion(out, y)
+        mse_loss = self.loss_fn(out, y)
 
         loss = mse_loss + kl_loss / batch_size
         self.log("val_loss", loss)  # logging to Logger
