@@ -96,10 +96,11 @@ def run(config_path: str) -> None:
                     run_config.post_processing,
                     model=model.model,
                     train_loader=dm.train_dataloader(),
+                    save_dir=run_config["experiment"]["save_dir"],
                 )
 
             # if we want to build an ensemble
-            if "SWAGModel" in run_config["post_processing"]["_target_"]:
+            if "DeepEnsemble" in run_config["post_processing"]["_target_"]:
                 # make predictions with the deep ensemble wrapper
                 # load all checkpoints into instantiated models
                 ensemble_ckpt_paths = glob.glob(
