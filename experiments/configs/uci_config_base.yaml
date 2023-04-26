@@ -30,6 +30,10 @@ datamodule:
   batch_size: 32
   num_workers: 4
 
+post_processing:
+  _target_: uq_method_box.uq_methods.DeepEnsembleModel
+  n_ensemble_members: 3
+
 # all flags for the pytorch lightning trainer
 trainer:
   _target_: lightning.pytorch.Trainer

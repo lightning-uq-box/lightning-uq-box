@@ -36,7 +36,12 @@ def run(config_path: str) -> None:
         seed_config["datamodule"]["seed"] = i
 
         # if no ensembling this will just execute once
-        for m in range(seed_config["uq_method"].get("ensemble_members", 1)):
+        if "post_processing" in seed_config:
+            num_ensembles = seed_config["post_processing"].get("n_ensemble_members", 1)
+        else:
+            num_ensembles = 1
+
+        for m in range(num_ensembles):
             run_config = copy.deepcopy(seed_config)
 
             # create subdirectory for each run within a seed and overwrite run_config
@@ -110,11 +115,18 @@ def run(config_path: str) -> None:
                 ensemble_members = []
                 for ckpt_path in ensemble_ckpt_paths:
                     ensemble_members.append(
-                        {"model_class": type(model), "ckpt_path": ckpt_path}
+                        {
+                            "model_class": type(model),
+                            "ckpt_path": ckpt_path,
+                            "base_model": run_config.uq_method,
+                        }
                     )
 
                 model = instantiate(
-                    prediction_config.post_processing, ensemble_members=ensemble_members
+                    prediction_config.post_processing,
+                    ensemble_members=ensemble_members,
+                    save_dir=run_config["experiment"]["save_dir"],
+                    _convert_="object",
                 )
 
         # conformal prediction step if requested should happen here

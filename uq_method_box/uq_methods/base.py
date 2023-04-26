@@ -21,7 +21,7 @@ class BaseModel(LightningModule):
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
         loss_fn: nn.Module,
-        save_dir: str,
+        save_dir: str = None,
     ) -> None:
         """Initialize a new Base Model.
 
@@ -174,9 +174,10 @@ class BaseModel(LightningModule):
         dataloader_idx=0,
     ):
         """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
-        )
+        if self.hparams.save_dir:
+            save_predictions_to_csv(
+                outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+            )
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
