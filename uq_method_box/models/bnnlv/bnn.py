@@ -8,7 +8,7 @@ from torch.distributions import Normal
 
 
 class BNN(nn.Module):
-    """DQN Model with BNN Linear layers"""
+    """BNN Model with BNN Linear layers"""
 
     DEFAULT_CONFIG = {
         "n_samples": 25,
@@ -41,7 +41,7 @@ class BNN(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Normal:
-        """Forward pass of the BDQN.
+        """Forward pass of the BNN.
 
         Args:
             x: input tensor from dataloader

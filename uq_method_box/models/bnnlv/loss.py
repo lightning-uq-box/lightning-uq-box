@@ -23,7 +23,8 @@ def energy_function(
     log_Z_prior = loss_terms["log_Z_prior"]  # 0 shape
     log_normalizer = loss_terms["log_normalizer"]  # 0 shape
     log_normalizer_z = loss_terms["log_normalizer_z"]  # 0 shape
-    log_f_hat_z = loss_terms["log_f_hat_z"]  # 0 shape
+    log_f_hat_z = loss_terms["log_f_hat_z"]  # ["S, num_samples""] shape
+  
 
     S = y_pred.batch_shape[0]
     n_samples = y_pred.batch_shape[1]
