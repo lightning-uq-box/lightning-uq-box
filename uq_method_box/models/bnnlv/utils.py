@@ -59,7 +59,7 @@ def get_log_f_log_normalizer(m: nn.Module):
     log_f_hat = None
     log_normalizer = None
     for layer in m.modules():
-        if hasattr(layer, "log_f_hat"):
+        if hasattr(layer, "log_terms"):
             if log_f_hat is None:
                 log_f_hat = layer.log_f_hat()
                 log_normalizer = layer.log_normalizer()
