@@ -138,23 +138,26 @@ class BayesianNeuralNetwork_VI(BaseModel):
         """
         model_preds = []
         pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
+        # dimension [num_mc_samples_train, 1]
 
         # assume homoscedastic noise with std output_noise_scale
         output_var = torch.ones_like(y) * (self.hparams.output_noise_scale**2)
 
         for i in range(self.hparams.num_mc_samples_train):
             # mean prediction
-            pred = self.forward(X)
+            pred, kl = self.forward(X)
             model_preds.append(pred.detach())
             # compute prediction loss with nll and track over samples
             pred_losses[i] = self.nll_loss(pred, y, output_var)
+            # dim=1
 
         mean_pred = torch.cat(model_preds, dim=-1).mean(-1, keepdim=True)
-        mean_pred_nll_loss = torch.mean(pred_losses)
+        mean_pred_nll_loss = torch.mean(pred_losses)  # dim = 1
         mean_kl = get_kl_loss(self.model)
 
         # beta = self.beta_lambda(self.current_epoch)
 
+        # need to add factor here, determine what it is
         negative_beta_elbo = mean_pred_nll_loss + mean_kl
         return negative_beta_elbo, mean_pred
 

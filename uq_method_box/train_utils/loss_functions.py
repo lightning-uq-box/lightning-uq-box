@@ -6,7 +6,6 @@ from typing import List
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.distributions import Normal
 
 
 class EnergyAlphaDivergence(nn.Module):
@@ -25,8 +24,7 @@ class EnergyAlphaDivergence(nn.Module):
 
     def forward(
         self,
-        y: Tensor,
-        y_pred: Normal,
+        pred_losses: Tensor,
         log_f_hat: Tensor,
         log_Z_prior: Tensor,
         log_normalizer: Tensor,
@@ -36,25 +34,25 @@ class EnergyAlphaDivergence(nn.Module):
         """Compute the energy function loss.
 
         Args:
-            y: target of shape [batch_size, output_dim]
-            y_pred: Normal dist output with shape [batch_size, num_samples, output_dim]
+            pred_losses: [batch_size, num_samples, 1]
             log_f_hat: ["num_samples"]
             log_Z_prior: 0 shape
             log_normalizer: 0 shape
             log_noramlizer_z: 0 shape
             log_f_hat_z: 0 shape
             loss_terms: collected loss terms over the variational layer weights
-            N: number of datapoints in dataset
+            #where are the loss terms?
+            N: number of datapoints in dataset #train data set?
             alpha: alpha divergence value
 
         Returns:
             energy function loss
         """
-        S = y_pred.batch_shape[0]
-        n_samples = y_pred.batch_shape[1]
-        alpha = torch.tensor(self.alpha).to(y.device)
-        NoverS = torch.tensor(self.N / S).to(y.device)
-        one_over_n_samples = torch.tensor(1 / n_samples).to(y.device)
+        S = pred_losses.size(dim=1)
+        n_samples = pred_losses.size(dim=0)
+        alpha = torch.tensor(self.alpha)
+        NoverS = torch.tensor(self.N / S)
+        one_over_n_samples = torch.tensor(1 / n_samples)
         # if we change y_pred: Normal dist output
         # with shape [batch_size, num_samples, output_dim]
         # to be a Normal dist output
@@ -69,18 +67,12 @@ class EnergyAlphaDivergence(nn.Module):
             * NoverS
             * torch.sum(
                 torch.logsumexp(
-                    alpha
-                    * (
-                        y_pred.log_prob(y[:, None, :]).sum(-1)
-                        - (1 / self.N) * log_f_hat
-                        - log_f_hat_z
-                    ),
+                    self.alpha * (pred_losses - (1 / self.N) * log_f_hat - log_f_hat_z),
                     dim=0,  # number of dimensions that should be reduced
-                    # we now take zero because we
-                    # are lazy and dont want to change the forward
-                    # pass functions?
+                    # i.e. logsumexp over samples
                 )
-                + torch.log(one_over_n_samples)
+                + torch.log(one_over_n_samples),
+                dim=0,
             )
             - log_normalizer
             - NoverS * log_normalizer_z

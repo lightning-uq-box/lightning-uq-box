@@ -188,7 +188,10 @@ class LinearFlipoutLayer(LinearFlipout):
 
         perturbed_outputs = F.linear(x * sign_input, delta_weight, bias) * sign_output
 
+        # get log_Z_prior
+        log_Z_prior = self.calc_log_Z_prior()
+
         # returning outputs + perturbations
         if return_logs:
-            return outputs + perturbed_outputs, log_f_hat, log_normalizer
+            return outputs + perturbed_outputs, log_f_hat, log_normalizer, log_Z_prior
         return outputs + perturbed_outputs
