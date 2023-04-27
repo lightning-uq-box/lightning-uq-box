@@ -46,54 +46,6 @@ class LinearFlipoutLayer(LinearFlipout):
             bias,
         )
 
-        self.weight_eps = None
-
-    def sample_weights(self, n_samples: int) -> tuple(Tensor):
-        """Sample variational weights.
-
-        Args:
-            n_samples: number of samples to return
-
-        Returns:
-            weight and bias sample for layer of shape [num_samples, num_parameters]
-        """
-        if self.weight_eps is None:
-            weights_eps = torch.randn(
-                n_samples, self.out_features, self.in_features
-            ).to(self.mu_weight.device)
-            bias_eps = torch.randn(n_samples, self.out_features).to(
-                self.mu_weight.device
-            )
-
-        else:
-            weights_eps = self.weight_eps[:n_samples].to(self.mu_weight.device)
-            bias_eps = self.bias_eps[:n_samples].to(self.mu_weight.device)
-
-        # ensure sigma weight and bias are positive
-        weight_sigma = F.softplus(self.rho_weight)
-        bias_sigma = F.softplus(self.rho_bias)
-
-        # sample weight and bias with reparameterization trick
-        weight_sample = self.mu_weight + weights_eps * weight_sigma
-        bias_sample = self.mu_bias + bias_eps * bias_sigma
-
-        all_params_mu = torch.cat([self.mu_weight.flatten(), self.mu_bias.flatten()])
-        all_params_sigma = torch.cat([weight_sigma.flatten(), bias_sigma.flatten()])
-        all_sample = torch.cat([weight_sample.flatten(1), bias_sample.flatten(1)], 1)
-
-        self.log_normalizer = self.calc_log_normalizer(all_params_mu, all_params_sigma)
-        self.log_f_hat = self.calc_log_f_hat(
-            all_sample, all_params_mu, all_params_sigma
-        )
-        return weight_sample, bias_sample
-
-    # TODO think about most convenient way to introduce n_samples to maybe have control
-    # over
-    # comment: we do not need this at all.
-    # we can just forward pass through the network multiple times
-    # and then at the same time use the outputs of calc_log_f_hat, calc_log_Z_prior
-    # and calc_log_normalizer to compute the energy functional.
-
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
 
@@ -106,15 +58,15 @@ class LinearFlipoutLayer(LinearFlipout):
         )
 
     def calc_log_f_hat(self, w: Tensor, m_W: Tensor, std_W: Tensor) -> Tensor:
-        """Compute equation 3.16.
+        """Compute single summand in equation 3.16.
 
         Args:
-            w: sampled weight matrix [n_samples, num_params]
+            w: weight matrix [num_params]
             m_W: mean weight matrix at current iteration [num_params]
             std_W: sigma weight matrix at current iteration [num_params]
 
         Returns:
-            summed log f hat over the parameters [n_samples]
+            log f hat summed over the parameters shape 0
         """
         v_W = std_W**2
         m_W = m_W
@@ -124,10 +76,10 @@ class LinearFlipoutLayer(LinearFlipout):
         return (
             ((v_W - self.prior_variance) / (2 * self.prior_variance * v_W)) * (w**2)
             + (m_W / v_W) * w
-        ).sum(axis=1)
+        ).sum()
 
     def calc_log_normalizer(self, m_W: Tensor, std_W: Tensor) -> Tensor:
-        """Compute left summand of 3.18.
+        """Compute single left summand of 3.18.
 
         Args:
             m_W: mean weight matrix at current iteration [num_params]
@@ -141,14 +93,58 @@ class LinearFlipoutLayer(LinearFlipout):
         # return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
         return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
 
+    def forward(self, x, return_logs=True):
+        """Forward pass through layer.
 
-# if __name__ == "__main__":
-#     layer = LinearFlipoutLayer(in_features=1, out_features=10)
-#     x = torch.randn(size=(32, 1))
-#     state = layer(x)
-#     layer_loss_dict = {
-#         "log_Z_prior": layer.calc_log_Z_prior(),
-#         "log_f_hat": layer.log_f_hat,
-#         "log_normalizer": layer.log_normalizer,
-#     }
-#     print(f"state_shape: {state.shape}", layer_loss_dict)
+        Args: self: layer.
+            x: input.
+        Returns:
+            outputs+perturbed outputs of layer, log_f_hat, log_normalizer.
+        """
+        # gotta double check if we need this next line
+        # actually we want to use dnn_to_bnn_some extended for lvs
+        if self.dnn_to_bnn_flag:
+            return_logs = False
+
+        # sampling delta_W and delta_b
+        sigma_weight = torch.log1p(torch.exp(self.rho_weight))
+        delta_weight = sigma_weight * self.eps_weight.data.normal_()
+
+        # sampling weight and bias
+        weight = self.mu_weight + delta_weight
+
+        # get log_normalizer and log_f_hat for weights
+        if return_logs:
+            log_normalizer = self.calc_log_normalizer(
+                m_W=self.mu_weight, v_W=sigma_weight
+            )
+            log_f_hat = self.calc_log_f_hat(
+                w=weight, m_W=self.mu_weight, v_W=sigma_weight
+            )
+
+        bias = None
+        # get log_normalizer and log_f_hat for biases
+        if self.mu_bias is not None:
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            delta_bias = sigma_bias * self.eps_bias.data.normal_()
+            bias = self.mu_bias + delta_bias
+            if return_logs:
+                log_normalizer = log_normalizer + self.calc_log_normalizer(
+                    m_W=self.mu_bias, v_W=sigma_bias
+                )
+                log_f_hat = log_f_hat + self.calc_log_f_hat(
+                    w=bias, m_W=self.mu_bias, v_W=sigma_bias
+                )
+
+        # linear outputs
+        outputs = F.linear(x, self.mu_weight, self.mu_bias)
+
+        sign_input = x.clone().uniform_(-1, 1).sign()
+        sign_output = outputs.clone().uniform_(-1, 1).sign()
+
+        perturbed_outputs = F.linear(x * sign_input, delta_weight, bias) * sign_output
+
+        # returning outputs + perturbations
+        if return_logs:
+            return outputs + perturbed_outputs, log_f_hat, log_normalizer
+        return outputs + perturbed_outputs

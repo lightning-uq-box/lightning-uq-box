@@ -39,3 +39,31 @@ def linear_dnn_to_bnn(model: nn.Module, bnn_prior_parameters: dict[str, Any]) ->
                 our_bnn_linear_layer(bnn_prior_parameters, model._modules[name]),
             )
     return
+
+
+# get loss terms for energy functional
+
+
+def get_log_f_log_normalizer(m: nn.Module):
+    """Compute terms for energy functional.
+
+    Args:
+        model: bnn with lvs model.
+    Returns:
+        log_f_hat: log of (3.16) in [1].
+        log_normalizer: (3.18) in [1].
+        [1]: Depeweg, Stefan. Modeling epistemic and aleatoric uncertainty
+        with Bayesian neural networks and latent variables.
+        Diss. Technische Universität München, 2019.
+    """
+    log_f_hat = None
+    log_normalizer = None
+    for layer in m.modules():
+        if hasattr(layer, "log_f_hat"):
+            if log_f_hat is None:
+                log_f_hat = layer.log_f_hat()
+                log_normalizer = layer.log_normalizer()
+            else:
+                log_f_hat += layer.log_f_hat()
+                log_normalizer += layer.log_normalizer()
+    return log_f_hat, log_normalizer
