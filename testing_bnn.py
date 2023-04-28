@@ -65,6 +65,7 @@ base_model = BNN_VI(
 
 logger = CSVLogger(my_dir)
 
+# for cpu training set 'accelerator' flag to 'cpu' and comment out the devices flag
 pl_args = {
     "max_epochs": max_epochs,
     "logger": logger,
