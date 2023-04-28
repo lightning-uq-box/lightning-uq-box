@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -78,7 +79,9 @@ trainer = Trainer(**pl_args)
 trainer.fit(base_model, dm)
 
 # using the trainer does save predictions
+start = time.time()
 trainer.test(base_model, dm.test_dataloader())
+print(time.time() - start)
 csv_path = os.path.join(my_dir, "predictions.csv")
 
 pred = base_model.predict_step(X_test)
