@@ -13,11 +13,16 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.distributions import Normal
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
-from uq_method_box.models.bnnlv.linear_layer import LinearFlipoutLayer
-from uq_method_box.models.bnnlv.utils import linear_dnn_to_bnn
+
+# this is almost like get kl_loss
+from uq_method_box.models.bnnlv.utils import (
+    dnn_to_bnnlv_some,
+    get_log_f_hat,
+    get_log_normalizer,
+    get_log_Z_prior,
+)
 from uq_method_box.train_utils.loss_functions import EnergyAlphaDivergence
 
 from .base import BaseModel
@@ -114,8 +119,15 @@ class BNN_VI(BaseModel):
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
         }
+
         # convert deterministic model to BNN
-        linear_dnn_to_bnn(self.model, self.bnn_args)
+        dnn_to_bnnlv_some(
+            self.model, self.bnn_args, self.hparams.num_stochastic_modules
+        )
+
+        # need individual nlls of a gaussian, as we first do logsumexp over samples
+        # cannot sum over batch size first as logsumexp is non-linear
+        self.nll_loss = nn.GaussianNLLLoss(reduction="none")
 
         self.energy_loss_module = EnergyAlphaDivergence(
             N=self.hparams.num_training_points, alpha=self.hparams.alpha
@@ -126,26 +138,18 @@ class BNN_VI(BaseModel):
             torch.tensor([1.0 for _ in range(1)], device=self.device)
         )
 
-    def forward(self, X: Tensor, n_samples: int) -> Tensor:
-        """Forward pass BNN+VI.
+    def forward(self, X: Tensor) -> Tensor:
+        """Forward pass BNN+LI.
 
         Args:
             X: input data
-            n_samples: number of samples to draw
 
         Returns:
             bnn output
         """
-        # TODO find elegant way to handle this reliably
-        for layer in self.model.model:
-            # stochastic and non-stochastic layers
-            if isinstance(layer, LinearFlipoutLayer):
-                X = layer(X, n_samples=n_samples)
-            else:
-                X = layer(X)
-        return X
+        return self.model(X)
 
-    def compute_loss(self, X: Tensor, y: Tensor) -> None:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -154,39 +158,45 @@ class BNN_VI(BaseModel):
 
         Returns:
             energy loss and mean output for logging
+            mean_out: mean output over samples,
+            dim [num_mc_samples_train, output_dim]
         """
-        out = self.forward(
-            X, n_samples=self.hparams.num_mc_samples_train
-        )  # [num_samples, batch_size, output_dim]
+        model_preds = []
+        pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
+        log_f_hat = []
+        log_normalizer = []
 
-        # compute loss terms over layer
-        log_Z_prior_terms = []
-        log_f_hat_terms = []
-        log_normalizer_terms = []
-        for layer in self.model.model:
-            if isinstance(layer, LinearFlipoutLayer):
-                log_Z_prior_terms.append(layer.calc_log_Z_prior())
-                log_f_hat_terms.append(layer.log_f_hat)
-                log_normalizer_terms.append(layer.log_normalizer)
-            else:
-                continue
+        # draw samples for all stochastic functions
+        for i in range(self.hparams.num_mc_samples_train):
+            # mean prediction
+            pred = self.forward(X)
+            model_preds.append(pred)
+            # compute prediction loss with nll and track over samples
+            # note reduction = "None"
+            pred_losses[i] = self.nll_loss(pred, y, torch.exp(self.log_aleatoric_std))
+            # dim=1
+            log_f_hat.append(get_log_f_hat(self.model))
 
-        log_Z_prior = torch.stack(log_Z_prior_terms).sum(0)  # 0 shape
-        log_f_hat = torch.stack(log_f_hat_terms).sum(0)  # num_samples
-        log_normalizer = torch.stack(log_normalizer_terms).sum(0)  # 0 shape
+        log_normalizer.append(get_log_normalizer(self.model))
+        log_Z_prior = get_log_Z_prior(self.model)
+        # pred_losses [num_mc_samples_train, batch_size, 1]
+        # log_f_hat [num_mc_samples_train, 1]
+        # the function sums over the layers of any architecture
+        # log_normalizer [num_mc_samples_train, 1]
+        # model_preds [num_mc_samples_train, batch_size, output_dim]
 
-        log_likelihood = Normal(out.transpose(0, 1), torch.exp(self.log_aleatoric_std))
+        mean_out = model_preds.mean(dim=0)
 
+        # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
         energy_loss = self.energy_loss_module(
-            y,
-            log_likelihood,
+            pred_losses,
             log_f_hat,
             log_Z_prior,
             log_normalizer,
             0.0,  # log_normalizer_z
             0.0,  # log_f_hat_z
         )
-        return energy_loss, out.mean(dim=0)
+        return energy_loss, mean_out
 
     # *(beta / self.hparams.num_training_points)
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
@@ -200,7 +210,7 @@ class BNN_VI(BaseModel):
         """
         X, y = args[0]
 
-        energy_loss, mean_output = self.compute_loss(X, y)
+        energy_loss, mean_output = self.compute_energy_loss(X, y)
 
         self.log("train_loss", energy_loss)  # logging to Logger
         self.train_metrics(mean_output, y)
@@ -218,7 +228,7 @@ class BNN_VI(BaseModel):
             validation loss
         """
         X, y = args[0]
-        energy_loss, mean_output = self.compute_elbo_loss(X, y)
+        energy_loss, mean_output = self.compute_energy_loss(X, y)
 
         self.log("val_loss", energy_loss)  # logging to Logger
         self.train_metrics(mean_output, y)
@@ -233,20 +243,24 @@ class BNN_VI(BaseModel):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
+        model_preds = []
+
         # output from forward: [num_samples, batch_size, outputs]
         with torch.no_grad():
-            preds = (
-                self.forward(X, n_samples=self.hparams.num_mc_samples_test)
-                .cpu()
-                .squeeze(-1)
-            )
+            # draw samples for all stochastic functions
+            for i in range(self.hparams.num_mc_samples_train):
+                # mean prediction
+                pred, logs = self.forward(X)
+                model_preds.append(pred.detach()).cpu()
+                # model_preds [num_mc_samples_train, batch_size, output_dim]
+
+        mean_out = model_preds.mean(dim=0).squeeze(-1)
+        std = model_preds.std(dim=0).squeeze(-1)
 
         # currently only single output, might want to support NLL output as well
-        mean = preds.mean(0)
-        std = preds.std(0)
-        quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
+        quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
         return {
-            "mean": mean,
+            "mean": mean_out,
             "pred_uct": std,
             "epistemic_uct": std,
             "lower_quant": quantiles[:, 0],

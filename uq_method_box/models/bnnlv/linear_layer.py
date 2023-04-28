@@ -93,7 +93,7 @@ class LinearFlipoutLayer(LinearFlipout):
         # return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
         return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
 
-    def log_terms(self, return_logs=True):
+    def log_normalizer(self, return_logs=True):
         """Compute log terms for energy functional.
 
         Args:
@@ -107,37 +107,62 @@ class LinearFlipoutLayer(LinearFlipout):
         # here? I do not think so. Could also just be an empty attribute?
 
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
+
+        # get log_normalizer and log_f_hat for weights
+        if return_logs:
+            log_normalizer = self.calc_log_normalizer(
+                m_W=self.mu_weight, std_W=sigma_weight
+            )
+
+        # get log_normalizer for biases
+        if self.mu_bias is not None:
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            if return_logs:
+                log_normalizer = log_normalizer + self.calc_log_normalizer(
+                    m_W=self.mu_bias, std_W=sigma_bias
+                )
+
+        return log_normalizer
+
+    def log_f_hat(self, return_logs=True):
+        """Compute log_f_hat for energy functional.
+
+        Args:
+            self.
+        Returns:
+            log_f_hat.
+        """
+        # this is the same as in forward(), but do we need it
+        # for  if hasattr(layer, "log_f_hat") in utils?
+        # sampling delta_W and delta_b - do we actually need to compute this
+        # here? I do not think so. Could also just be an empty attribute?
+
+        sigma_weight = torch.log1p(torch.exp(self.rho_weight))
         delta_weight = sigma_weight * self.eps_weight.data.normal_()
 
         # sampling weight and bias
         weight = self.mu_weight + delta_weight
 
-        # get log_normalizer and log_f_hat for weights
+        # get log_f_hat for weights
         if return_logs:
-            log_normalizer = self.calc_log_normalizer(
-                m_W=self.mu_weight, v_W=sigma_weight
-            )
             log_f_hat = self.calc_log_f_hat(
                 w=weight, m_W=self.mu_weight, v_W=sigma_weight
             )
 
         bias = None
-        # get log_normalizer and log_f_hat for biases
+        # get log_f_hat for biases
         if self.mu_bias is not None:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             delta_bias = sigma_bias * self.eps_bias.data.normal_()
             bias = self.mu_bias + delta_bias
             if return_logs:
-                log_normalizer = log_normalizer + self.calc_log_normalizer(
-                    m_W=self.mu_bias, v_W=sigma_bias
-                )
                 log_f_hat = log_f_hat + self.calc_log_f_hat(
                     w=bias, m_W=self.mu_bias, v_W=sigma_bias
                 )
 
-        return log_f_hat, log_normalizer
+        return log_f_hat
 
-    def forward(self, x, return_logs=True):
+    def forward(self, x, return_logs=False):
         """Forward pass through layer.
 
         Args: self: layer.
@@ -154,31 +179,12 @@ class LinearFlipoutLayer(LinearFlipout):
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
         delta_weight = sigma_weight * self.eps_weight.data.normal_()
 
-        # sampling weight and bias
-        weight = self.mu_weight + delta_weight
-
-        # get log_normalizer and log_f_hat for weights
-        if return_logs:
-            log_normalizer = self.calc_log_normalizer(
-                m_W=self.mu_weight, v_W=sigma_weight
-            )
-            log_f_hat = self.calc_log_f_hat(
-                w=weight, m_W=self.mu_weight, v_W=sigma_weight
-            )
-
         bias = None
         # get log_normalizer and log_f_hat for biases
         if self.mu_bias is not None:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             delta_bias = sigma_bias * self.eps_bias.data.normal_()
             bias = self.mu_bias + delta_bias
-            if return_logs:
-                log_normalizer = log_normalizer + self.calc_log_normalizer(
-                    m_W=self.mu_bias, v_W=sigma_bias
-                )
-                log_f_hat = log_f_hat + self.calc_log_f_hat(
-                    w=bias, m_W=self.mu_bias, v_W=sigma_bias
-                )
 
         # linear outputs
         outputs = F.linear(x, self.mu_weight, self.mu_bias)
@@ -188,10 +194,7 @@ class LinearFlipoutLayer(LinearFlipout):
 
         perturbed_outputs = F.linear(x * sign_input, delta_weight, bias) * sign_output
 
-        # get log_Z_prior
-        log_Z_prior = self.calc_log_Z_prior()
-
         # returning outputs + perturbations
         if return_logs:
-            return outputs + perturbed_outputs, log_f_hat, log_normalizer, log_Z_prior
+            return outputs + perturbed_outputs
         return outputs + perturbed_outputs

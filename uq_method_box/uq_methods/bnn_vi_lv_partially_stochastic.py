@@ -162,7 +162,7 @@ class BayesianNeuralNetwork_VI(BaseModel):
         for i in range(self.hparams.num_mc_samples_train):
             # mean prediction
             pred = self.forward(X)
-            model_preds.append(pred.detach())
+            model_preds.append(pred)
             # compute prediction loss with nll and track over samples
             pred_losses[i] = self.nll_loss(pred, y, output_var)
 

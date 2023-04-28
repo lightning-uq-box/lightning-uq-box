@@ -12,7 +12,8 @@ from uq_method_box.eval_utils import compute_quantiles_from_std
 # this is almost like get kl_loss
 from uq_method_box.models.bnnlv.utils import (
     dnn_to_bnnlv_some,
-    get_log_f_log_normalizer,
+    get_log_f_hat,
+    get_log_normalizer,
     get_log_Z_prior,
 )
 from uq_method_box.train_utils.loss_functions import EnergyAlphaDivergence
@@ -85,7 +86,6 @@ class BNN_LV_VI(BaseModel):
         self.save_hyperparameters()
 
         self._setup_bnn_with_vi()
-        self
 
         # update hyperparameters
         self.hparams["num_mc_samples_train"] = num_mc_samples_train
@@ -159,21 +159,29 @@ class BNN_LV_VI(BaseModel):
         model_preds = []
         pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
         log_f_hat = []
-        log_normalizer = []
+
+        # assume homoscedastic noise with std output_noise_scale
+        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std) ** 2)
+
+        # print(0)
+
+        log_normalizer = get_log_normalizer(self.model)
+        log_Z_prior = get_log_Z_prior(self.model)
 
         # draw samples for all stochastic functions
         for i in range(self.hparams.num_mc_samples_train):
             # mean prediction
-            pred, logs = self.forward(X)
-            model_preds.append(pred.detach())
+            pred = self.forward(X)
+            model_preds.append(pred)
             # compute prediction loss with nll and track over samples
             # note reduction = "None"
-            pred_losses[i] = self.nll_loss(pred, y, torch.exp(self.log_aleatoric_std))
-            # dim=1
-            log_f_hat.append(get_log_f_log_normalizer(self.model)[0])
-            log_normalizer.append(get_log_f_log_normalizer(self.model)[1])
+            import pdb
 
-        log_Z_prior = get_log_Z_prior(self.model)
+            pdb.set_trace()
+            pred_losses[i] = self.nll_loss(pred, y, output_var)
+            # dim=1
+            log_f_hat.append(get_log_f_hat(self.model))
+
         # pred_losses [num_mc_samples_train, batch_size, 1]
         # log_f_hat [num_mc_samples_train, 1]
         # the function sums over the layers of any architecture
@@ -204,7 +212,7 @@ class BNN_LV_VI(BaseModel):
         """
         X, y = args[0]
 
-        energy_loss, mean_output = self.compute_loss(X, y)
+        energy_loss, mean_output = self.compute_energy_loss(X, y)
 
         self.log("train_loss", energy_loss)  # logging to Logger
         self.train_metrics(mean_output, y)

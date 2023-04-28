@@ -12,7 +12,7 @@ from lightning.pytorch.loggers import CSVLogger
 
 from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import BNN_VI
+from uq_method_box.uq_methods import BNN_LV_VI
 from uq_method_box.viz_utils import plot_predictions
 
 # seed_everything(4)
@@ -44,7 +44,7 @@ my_dir = tempfile.mkdtemp()
 
 max_epochs = 1000
 
-base_model = BNN_VI(
+base_model = BNN_LV_VI(
     MLP,
     my_config["model_args"],
     lr=4e-3,
@@ -68,8 +68,8 @@ pl_args = {
     "max_epochs": max_epochs,
     "logger": logger,
     "log_every_n_steps": 1,
-    "accelerator": "gpu",
-    "devices": [5],
+    # "accelerator": "gpu",
+    # "devices": [5],
     "limit_val_batches": 0.0,
 }
 trainer = Trainer(**pl_args)
