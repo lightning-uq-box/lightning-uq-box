@@ -157,14 +157,14 @@ class BNN_LV_VI(BaseModel):
             dim [num_mc_samples_train, output_dim]
         """
         model_preds = []
-        pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
+        pred_losses = []
         log_f_hat = []
 
         # assume homoscedastic noise with std output_noise_scale
-        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std) ** 2)
+        output_var = torch.ones_like(y)  # * (torch.exp(self.log_aleatoric_std))
 
-        # print(0)
-
+        # the functions sum over the layers of any architecture
+        # log_normalizer [1]
         log_normalizer = get_log_normalizer(self.model)
         log_Z_prior = get_log_Z_prior(self.model)
 
@@ -175,18 +175,17 @@ class BNN_LV_VI(BaseModel):
             model_preds.append(pred)
             # compute prediction loss with nll and track over samples
             # note reduction = "None"
-            import pdb
-
-            pdb.set_trace()
-            pred_losses[i] = self.nll_loss(pred, y, output_var)
+            pred_losses.append(self.nll_loss(pred, y, output_var))
             # dim=1
             log_f_hat.append(get_log_f_hat(self.model))
 
-        # pred_losses [num_mc_samples_train, batch_size, 1]
-        # log_f_hat [num_mc_samples_train, 1]
-        # the function sums over the layers of any architecture
-        # log_normalizer [num_mc_samples_train, 1]
         # model_preds [num_mc_samples_train, batch_size, output_dim]
+        model_preds = torch.stack(model_preds, dim=0)
+        # pred_losses [num_mc_samples_train, batch_size, 1]
+        pred_losses = torch.stack(pred_losses, dim=0)
+
+        # log_f_hat [num_mc_samples_train, 1]
+        log_f_hat = torch.stack(log_f_hat, dim=0)
 
         mean_out = model_preds.mean(dim=0)
 
@@ -252,9 +251,12 @@ class BNN_LV_VI(BaseModel):
             # draw samples for all stochastic functions
             for i in range(self.hparams.num_mc_samples_train):
                 # mean prediction
-                pred, logs = self.forward(X)
-                model_preds.append(pred.detach()).cpu()
+                pred = self.forward(X)
+                model_preds.append(pred.detach())
                 # model_preds [num_mc_samples_train, batch_size, output_dim]
+
+        # model_preds [num_mc_samples_train, batch_size, output_dim]
+        model_preds = torch.stack(model_preds, dim=0)
 
         mean_out = model_preds.mean(dim=0).squeeze(-1)
         std = model_preds.std(dim=0).squeeze(-1)

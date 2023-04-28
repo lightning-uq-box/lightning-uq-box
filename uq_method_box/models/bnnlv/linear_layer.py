@@ -146,7 +146,7 @@ class LinearFlipoutLayer(LinearFlipout):
         # get log_f_hat for weights
         if return_logs:
             log_f_hat = self.calc_log_f_hat(
-                w=weight, m_W=self.mu_weight, v_W=sigma_weight
+                w=weight, m_W=self.mu_weight, std_W=sigma_weight
             )
 
         bias = None
@@ -157,7 +157,7 @@ class LinearFlipoutLayer(LinearFlipout):
             bias = self.mu_bias + delta_bias
             if return_logs:
                 log_f_hat = log_f_hat + self.calc_log_f_hat(
-                    w=bias, m_W=self.mu_bias, v_W=sigma_bias
+                    w=bias, m_W=self.mu_bias, std_W=sigma_bias
                 )
 
         return log_f_hat

@@ -35,19 +35,19 @@ my_config = {
         "n_inputs": 1,
         "n_outputs": 1,
         "n_hidden": [100, 100],
-        "activation_fn": torch.nn.Tanh(),
+        "activation_fn": torch.nn.ReLU(),
     },
     "loss_fn": "nll",
 }
 
 my_dir = tempfile.mkdtemp()
 
-max_epochs = 1000
+max_epochs = 500
 
 base_model = BNN_LV_VI(
     MLP,
     my_config["model_args"],
-    lr=4e-3,
+    lr=1e-3,
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
     num_stochastic_modules=1,
@@ -58,7 +58,7 @@ base_model = BNN_LV_VI(
     prior_mu=0.0,
     prior_sigma=1.0,
     posterior_mu_init=0.0,
-    posterior_rho_init=-3.0,
+    posterior_rho_init=-6.0,
     alpha=1.0,
 )
 
