@@ -70,7 +70,7 @@ pl_args = {
     "logger": logger,
     "log_every_n_steps": 1,
     "accelerator": "gpu",
-    "devices": [5],
+    "devices": [0],
     "limit_val_batches": 0.0,
 }
 trainer = Trainer(**pl_args)

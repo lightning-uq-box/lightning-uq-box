@@ -9,7 +9,7 @@ from torch import Tensor
 from torch.distributions import Normal
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
-from uq_method_box.models.bnnlv.linear_layer import LinearFlipoutLayer
+from uq_method_box.models.bnnlv.linear_layer import LinearReparameterization
 
 from .bnn_vi import BNN_VI
 
@@ -101,7 +101,7 @@ class BNN_LV_VI(BNN_VI):
         for layer in self.model.model:
             # stochastic and non-stochastic layers
             # TODO introduce latent variables at desired layer
-            if isinstance(layer, LinearFlipoutLayer):
+            if isinstance(layer, LinearReparameterization):
                 X = layer(X, n_samples=n_samples)
             else:
                 X = layer(X)
@@ -126,7 +126,7 @@ class BNN_LV_VI(BNN_VI):
         log_f_hat_terms = []
         log_normalizer_terms = []
         for layer in self.model.model:
-            if isinstance(layer, LinearFlipoutLayer):
+            if isinstance(layer, LinearReparameterization):
                 log_Z_prior_terms.append(layer.calc_log_Z_prior())
                 log_f_hat_terms.append(layer.log_f_hat)
                 log_normalizer_terms.append(layer.log_normalizer)

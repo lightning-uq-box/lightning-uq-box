@@ -4,12 +4,12 @@ from typing import Any
 
 import torch.nn as nn
 
-from .linear_layer import LinearFlipoutLayer
+from .linear_layer import LinearReparameterizationLayer
 
 
-def our_bnn_linear_layer(params, d) -> LinearFlipoutLayer:
+def our_bnn_linear_layer(params, d) -> LinearReparameterizationLayer:
     """Convert deterministic linear layer to bayesian linear layer."""
-    bnn_layer = LinearFlipoutLayer(
+    bnn_layer = LinearReparameterizationLayer(
         in_features=d.in_features,
         out_features=d.out_features,
         prior_mean=params["prior_mu"],

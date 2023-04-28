@@ -16,7 +16,7 @@ from torch import Tensor
 from torch.distributions import Normal
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
-from uq_method_box.models.bnnlv.linear_layer import LinearFlipoutLayer
+from uq_method_box.models.bnnlv.linear_layer import LinearReparameterizationLayer
 from uq_method_box.models.bnnlv.utils import linear_dnn_to_bnn
 from uq_method_box.train_utils.loss_functions import EnergyAlphaDivergence
 
@@ -137,7 +137,7 @@ class BNN_VI(BaseModel):
         # TODO find elegant way to handle this reliably
         for layer in self.model.model:
             # stochastic and non-stochastic layers
-            if isinstance(layer, LinearFlipoutLayer):
+            if isinstance(layer, LinearReparameterizationLayer):
                 X = layer(X, n_samples=n_samples)
             else:
                 X = layer(X)
@@ -157,12 +157,12 @@ class BNN_VI(BaseModel):
             X, n_samples=self.hparams.num_mc_samples_train
         )  # [num_samples, batch_size, output_dim]
 
-        # compute loss terms over layer
+        # collect loss terms over layer
         log_Z_prior_terms = []
         log_f_hat_terms = []
         log_normalizer_terms = []
         for layer in self.model.model:
-            if isinstance(layer, LinearFlipoutLayer):
+            if isinstance(layer, LinearReparameterizationLayer):
                 log_Z_prior_terms.append(layer.calc_log_Z_prior())
                 log_f_hat_terms.append(layer.log_f_hat)
                 log_normalizer_terms.append(layer.log_normalizer)

@@ -4,11 +4,13 @@ import math
 
 import torch
 import torch.nn.functional as F
-from bayesian_torch.layers.flipout_layers.linear_flipout import LinearFlipout
+from bayesian_torch.layers.variational_layers.linear_variational import (
+    LinearReparameterization,
+)
 from torch import Tensor
 
 
-class LinearFlipoutLayer(LinearFlipout):
+class LinearReparameterizationLayer(LinearReparameterization):
     """Linear Flipout Layer."""
 
     def __init__(
@@ -157,7 +159,6 @@ class LinearFlipoutLayer(LinearFlipout):
         """
         v_W = std_W**2
         m_W = m_W
-        # return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
         return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
 
 
