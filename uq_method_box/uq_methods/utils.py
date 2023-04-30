@@ -117,3 +117,24 @@ def dnn_to_bnn_some(m, bnn_prior_parameters, num_stochastic_modules: int):
         else:
             pass
     return
+
+
+def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:
+    """Retrieve the output layer name and module from a pytorch model.
+
+    Args:
+        model: pytorch model
+
+    Returns:
+        output key and module
+    """
+    keys = []
+    children = list(model.named_children())
+    while children != []:
+        name, module = children[-1]
+        keys.append(name)
+        children = list(module.named_children())
+
+    key = ".".join(keys)
+
+    return key, module

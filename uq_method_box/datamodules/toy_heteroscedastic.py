@@ -41,6 +41,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         n_true: int = 200,
         sigma: float = 0.3,
         batch_size: int = 200,
+        return_latent_dim: bool = False,
         generate_y: Callable = polynomial_f2,
     ) -> None:
         """Define a heteroscedastic toy regression dataset.
@@ -54,9 +55,11 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             n_true: Number of test samples, by default 1000.
             sigma: Standard deviation of noise, by default 0.1
             batch_size: batch size for data loader
+            return_latent_dim: whether or not to return latent dimension
             generate_y: function that should generate data over input line
         """
         super().__init__()
+        self.return_latent_dim = return_latent_dim
         np.random.seed(1)
         q95 = stats.norm.ppf(0.95)
         X_train = np.linspace(x_min, x_max, n_train)
@@ -79,6 +82,11 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         self.X_train = X_train[~test_idx]
         y_train = torch.from_numpy(y_train).unsqueeze(-1).type(torch.float32)
         self.y_train = y_train[~test_idx]
+        self.latent_idx = (
+            torch.arange(start=0, end=self.X_train.shape[0])
+            .unsqueeze(-1)
+            .to(torch.float32)
+        )
 
         self.X_test = torch.from_numpy(X_test).unsqueeze(-1).type(torch.float32)
         self.y_test = torch.from_numpy(y_true).unsqueeze(-1).type(torch.float32)
@@ -87,16 +95,28 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
     def train_dataloader(self) -> DataLoader:
         """Return train dataloader."""
-        return DataLoader(
-            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size
-        )
+        if self.return_latent_dim:
+            return DataLoader(
+                TensorDataset(self.X_train, self.y_train, self.latent_idx),
+                batch_size=self.batch_size,
+            )
+        else:
+            return DataLoader(
+                TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size
+            )
 
     def val_dataloader(self) -> DataLoader:
         """Return val dataloader."""
         # TODO Validation data
-        return DataLoader(
-            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size
-        )
+        if self.return_latent_dim:
+            return DataLoader(
+                TensorDataset(self.X_train, self.y_train, self.latent_idx),
+                batch_size=self.batch_size,
+            )
+        else:
+            return DataLoader(
+                TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size
+            )
 
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""

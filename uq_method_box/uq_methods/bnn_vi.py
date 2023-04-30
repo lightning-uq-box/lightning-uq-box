@@ -143,20 +143,12 @@ class BNN_VI(BaseModel):
                 X = layer(X)
         return X
 
-    def compute_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
-        """Compute the loss for BNN with alpha divergence.
-
-        Args:
-            X: input tensor
-            y: target tensor
+    def collect_loss_terms_over_bnn_layers(self) -> tuple[Tensor]:
+        """Collect loss terms from BNN layers.
 
         Returns:
-            energy loss and mean output for logging
+            log_Z_prior [0], log_f_hat [num_samples], log_normalizer [0]
         """
-        out = self.forward(
-            X, n_samples=self.hparams.num_mc_samples_train
-        )  # [num_samples, batch_size, output_dim]
-
         # collect loss terms over layer
         log_Z_prior_terms = []
         log_f_hat_terms = []
@@ -172,6 +164,27 @@ class BNN_VI(BaseModel):
         log_Z_prior = torch.stack(log_Z_prior_terms).sum(0)  # 0 shape
         log_f_hat = torch.stack(log_f_hat_terms).sum(0)  # num_samples
         log_normalizer = torch.stack(log_normalizer_terms).sum(0)  # 0 shape
+        return log_Z_prior, log_f_hat, log_normalizer
+
+    def compute_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+        """Compute the loss for BNN with alpha divergence.
+
+        Args:
+            X: input tensor
+            y: target tensor
+
+        Returns:
+            energy loss and mean output for logging
+        """
+        out = self.forward(
+            X, n_samples=self.hparams.num_mc_samples_train
+        )  # [num_samples, batch_size, output_dim]
+
+        (
+            log_Z_prior,
+            log_f_hat,
+            log_normalizer,
+        ) = self.collect_loss_terms_over_bnn_layers()
 
         log_likelihood = Normal(out.transpose(0, 1), torch.exp(self.log_aleatoric_std))
 
@@ -187,7 +200,7 @@ class BNN_VI(BaseModel):
         return energy_loss, out.mean(dim=0)
 
     # *(beta / self.hparams.num_training_points)
-    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def training_step(self, batch: tuple[Tensor], **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
 
         Args:
@@ -196,16 +209,17 @@ class BNN_VI(BaseModel):
         Returns:
             training loss
         """
-        X, y = args[0]
-
-        energy_loss, mean_output = self.compute_loss(X, y)
+        # TODO unpack args directly to self.compute_loss
+        # then don't have to worry about whether latent dim
+        # is present or not
+        energy_loss, mean_output = self.compute_loss(*batch)
 
         self.log("train_loss", energy_loss)  # logging to Logger
-        self.train_metrics(mean_output, y)
+        self.train_metrics(mean_output, batch[1])
 
         return energy_loss
 
-    def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def validation_step(self, batch: tuple[Tensor], **kwargs: Any) -> Tensor:
         """Compute validation loss and log example predictions.
 
         Args:
@@ -215,11 +229,10 @@ class BNN_VI(BaseModel):
         Returns:
             validation loss
         """
-        X, y = args[0]
-        energy_loss, mean_output = self.compute_elbo_loss(X, y)
+        energy_loss, mean_output = self.compute_elbo_loss(*batch)
 
         self.log("val_loss", energy_loss)  # logging to Logger
-        self.train_metrics(mean_output, y)
+        self.train_metrics(mean_output, batch[1])
 
         return energy_loss
 

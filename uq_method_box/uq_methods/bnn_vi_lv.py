@@ -7,9 +7,12 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.distributions import Normal
+from torchgeo.trainers.utils import _get_input_layer_name_and_module
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
+from uq_method_box.models import LatentVariableNetwork
 from uq_method_box.models.bnnlv.linear_layer import LinearReparameterization
+from uq_method_box.uq_methods.utils import _get_output_layer_name_and_module
 
 from .bnn_vi import BNN_VI
 
@@ -21,9 +24,11 @@ class BNN_LV_VI(BNN_VI):
         self,
         model_class: Union[type[nn.Module], str],
         model_args: Dict[str, Any],
+        latent_net: nn.Module,
         lr: float,
         save_dir: str,
         num_training_points: int,
+        latent_intro_layer_idx: int = 0,
         num_stochastic_modules: int = 1,
         beta_elbo: float = 1,
         num_mc_samples_train: int = 25,
@@ -34,7 +39,12 @@ class BNN_LV_VI(BNN_VI):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         alpha: float = 1,
-        quantiles: List[float] = ...,
+        lv_prior_mu: float = 0.0,
+        lv_prior_std: float = 1.0,
+        lv_init_mu: float = 0.0,
+        lv_init_std: float = 1.0,
+        lv_latent_dim: int = 1,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of BNN+LV.
 
@@ -45,6 +55,7 @@ class BNN_LV_VI(BNN_VI):
             lr: learning rate for adam otimizer
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
+            latent_intro_layer_idx: at which layer index to introduce the lv
             beta_elbo: beta factor for negative elbo loss computation
             num_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
@@ -56,6 +67,12 @@ class BNN_LV_VI(BNN_VI):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
+            lv_prior_mu: prior mean for latent variable network
+            lv_prior_std: prior std for latent variable network
+            lv_init_mu: initial mean for latent variable network
+            lv_init_std: initial std for latent variable network
+            lv_latent_dim: number of latent dimension
+            quantiles: quantiles to compute
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -81,24 +98,79 @@ class BNN_LV_VI(BNN_VI):
             quantiles,
         )
 
-    def _setup_bnn_with_vi(self) -> None:
-        """Configure setup of BNN with VI model."""
-        super()._setup_bnn_with_vi()
+        self.latent_net = latent_net
+        self.hparams["latent_intro_layer_idx"] = latent_intro_layer_idx
+        self.hparams["lv_prior_mu"] = lv_prior_mu
+        self.hparams["lv_prior_std"] = lv_prior_std
+        self.hparams["lv_init_mu"] = lv_init_mu
+        self.hparams["lv_init_std"] = lv_init_std
+        self.hparams["lv_latent_dim"] = lv_latent_dim
 
+        self._setup_bnn_with_vi_lv()
+
+    def _setup_bnn_with_vi_lv(self) -> None:
+        """Configure setup of BNN with VI model."""
+        # TODO adjust the BNN model to adapt parameters
+        # where latent variables are introduced
+
+        # TODO or adjust input dim of latent network?
         # TODO introduce the latent variable network here
 
-    def forward(self, X: Tensor, n_samples: int) -> Tensor:
+        # TODO need to check that where latent variablse are introduced
+        # the following layer in the model needs to be a linear layer, right?
+        _, lv_output_module = _get_output_layer_name_and_module(self.latent_net)
+        assert lv_output_module.out_features == self.hparams.lv_latent_dim, (
+            "The specified latent network needs to have the same output dimension as "
+            f"`lv_latent_dim` but found {lv_output_module.out_features} "
+            f"and lv_latent_dim {self.hparams.lv_latent_dim}"
+        )
+
+        _, lv_input_module = _get_input_layer_name_and_module(self.latent_net)
+        # need to find the output dimension at which latent net is introduced
+        self.lv_net = LatentVariableNetwork(
+            net=self.latent_net,
+            num_training_points=self.hparams.num_training_points,
+            lv_prior_mu=self.hparams.lv_prior_mu,
+            lv_prior_std=self.hparams.lv_prior_std,
+            lv_init_mu=self.hparams.lv_init_mu,
+            lv_init_std=self.hparams.lv_init_std,
+            lv_latent_dim=self.hparams.lv_latent_dim,
+            n_samples=self.hparams.num_mc_samples_train,
+        )
+
+        # assert that output of latent variable network is equal to latent dim
+        # helper function to get the last output dimension
+
+    def forward(self, X: Tensor, latent_idx: None, n_samples: int) -> Tensor:
         """Forward pass BNN+VI.
 
         Args:
             X: input data
+            latent_idx: latent variable indices
             n_samples: number of samples to draw
 
         Returns:
             bnn output
         """
         # TODO find elegant way to handle this reliably
-        for layer in self.model.model:
+        for idx, layer in enumerate(self.model.model):
+            if idx == self.hparams.latent_intro_layer_idx:
+                # use known latent index during training
+                if latent_idx is not None:
+                    z = self.lv_net(X, latent_idx, n_samples=n_samples)
+                # during training and testing we don't have
+                # latent index so generate random prior
+                else:
+                    z = torch.randn(
+                        n_samples, X.shape[0], self.hparams.lv_latent_dim
+                    ).to(self.device)
+
+                # adjust X for next module
+                # tile x to [S,N,D]
+                if len(X.shape) == 2:
+                    X = X[None, :, :].repeat(z.shape[0], 1, 1)
+                X = torch.cat([X, z], -1)
+
             # stochastic and non-stochastic layers
             # TODO introduce latent variables at desired layer
             if isinstance(layer, LinearReparameterization):
@@ -107,7 +179,7 @@ class BNN_LV_VI(BNN_VI):
                 X = layer(X)
         return X
 
-    def compute_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+    def compute_loss(self, X: Tensor, y: Tensor, latent_idx: Tensor) -> tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -118,24 +190,19 @@ class BNN_LV_VI(BNN_VI):
             energy loss and mean output for logging
         """
         out = self.forward(
-            X, n_samples=self.hparams.num_mc_samples_train
+            X, latent_idx, n_samples=self.hparams.num_mc_samples_train
         )  # [num_samples, batch_size, output_dim]
 
-        # compute loss terms over layer
-        log_Z_prior_terms = []
-        log_f_hat_terms = []
-        log_normalizer_terms = []
-        for layer in self.model.model:
-            if isinstance(layer, LinearReparameterization):
-                log_Z_prior_terms.append(layer.calc_log_Z_prior())
-                log_f_hat_terms.append(layer.log_f_hat)
-                log_normalizer_terms.append(layer.log_normalizer)
-            else:
-                continue
+        # BNN loss terms
+        (
+            log_Z_prior,
+            log_f_hat,
+            log_normalizer,
+        ) = self.collect_loss_terms_over_bnn_layers()
 
-        log_Z_prior = torch.stack(log_Z_prior_terms).sum(0)  # 0 shape
-        log_f_hat = torch.stack(log_f_hat_terms).sum(0)  # num_samples
-        log_normalizer = torch.stack(log_normalizer_terms).sum(0)  # 0 shape
+        # Latent Variable Network Loss terms
+        log_normalizer_z = self.lv_net.log_normalizer_z
+        log_f_hat_z = self.lv_net.log_f_hat_z
 
         log_likelihood = Normal(out.transpose(0, 1), torch.exp(self.log_aleatoric_std))
         # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
@@ -145,8 +212,8 @@ class BNN_LV_VI(BNN_VI):
             log_f_hat,
             log_Z_prior,
             log_normalizer,
-            0.0,  # log_normalizer_z
-            0.0,  # log_f_hat_z
+            log_normalizer_z,
+            log_f_hat_z,
         )
         return energy_loss, out.mean(dim=0)
 
@@ -162,7 +229,9 @@ class BNN_LV_VI(BNN_VI):
         # output from forward: [num_samples, batch_size, outputs]
         with torch.no_grad():
             preds = (
-                self.forward(X, n_samples=self.hparams.num_mc_samples_test)
+                self.forward(
+                    X, latent_idx=None, n_samples=self.hparams.num_mc_samples_test
+                )
                 .cpu()
                 .squeeze(-1)
             )
