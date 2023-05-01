@@ -130,13 +130,13 @@ def run(config_path: str) -> None:
                 )
 
         # conformal prediction step if requested should happen here
-        if "conformalize" in seed_config:
+        if "calibration" in seed_config:
             # wrap model in CQR
             model = CQR(
                 model,
-                seed_config["model"]["quantiles"],
+                model.quantiles,
                 dm.calibration_dataloader(),
-                seed_config["experiment"]["save_dir"],
+                seed_config.experiment["save_dir"],
             )
 
         # generate trainer for test to save in prediction dir

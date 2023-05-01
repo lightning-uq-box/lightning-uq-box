@@ -24,6 +24,8 @@ class DERLayer(nn.Module):
     def __init__(self):
         """Initialize a new Deep Evidential Regression Layer."""
         super().__init__()
+        self.in_features = 4
+        self.out_features = 4
 
     def forward(self, x):
         """Compute the DER parameters.

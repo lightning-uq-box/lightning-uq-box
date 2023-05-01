@@ -1,15 +1,18 @@
-model:
-  loss_fn: mse
-  conformalized: False
-  model_args: # all arguments for the mlp
+uq_method:
+  _target_: uq_method_box.uq_methods.BayesByBackpropModel
+  model:
+    _target_: uq_method_box.models.MLP
     n_outputs: 1
-    n_inputs: 1
-    n_hidden: [10]
-  bayes_by_backprop:
-    prior_mu: 0.0
-    prior_sigma: 1.0
-    posterior_mu_init: 0.0
-    posterior_rho_init: -3.0
-    bayesian_layer_type: "Reparameterization"  # Flipout or Reparameterization
-optimizer:
-  lr: 0.003
+    n_hidden: [50]
+  optimizer:
+    _target_: torch.optim.SGD
+    _partial_: true
+    lr: 0.003
+  loss_fn:
+    _target_: torch.nn.MSELoss
+  num_mc_samples: 10
+  prior_mu: 0.0
+  prior_sigma: 1.0
+  posterior_mu_init: 0.0
+  posterior_rho_init: -3.0
+  bayesian_layer_type: "Reparameterization"

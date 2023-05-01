@@ -8,9 +8,10 @@ import torch
 import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
+from torchgeo.trainers.utils import _get_input_layer_name_and_module
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
 
-from .utils import save_predictions_to_csv
+from .utils import _get_output_layer_name_and_module, save_predictions_to_csv
 
 
 class BaseModel(LightningModule):
@@ -34,7 +35,7 @@ class BaseModel(LightningModule):
         """
         super().__init__()
         # makes self.hparams accesible
-        self.save_hyperparameters(ignore=["model", "optimizer"])
+        self.save_hyperparameters(ignore=["model", "optimizer", "loss_fn"])
 
         self.train_metrics = MetricCollection(
             {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
@@ -54,22 +55,33 @@ class BaseModel(LightningModule):
         self.optimizer = optimizer
         self.loss_fn = loss_fn
 
-    #     self._build_model()
+    @property
+    def num_inputs(self) -> int:
+        """Retrieve input dimension to the model.
 
-    # def _build_model(self) -> None:
-    #     """Build the underlying model and loss function."""
-    #     # timm model
-    #     if isinstance(self.hparams.model_class, str):
-    #         self.model = timm.create_model(
-    #             self.hparams.model_class, **self.hparams.model_args
-    #         )
-    #     # if own nn module
-    #     else:
-    #         self.model = self.hparams.model_class(**self.hparams.model_args)
-    #         # specific hack for MLP, maybe torchgeo has function that can find
-    #         # first and last layer
-    #         self.n_inputs = self.model.model[0].in_features
-    #         self.n_outputs = self.model.model[-1].out_features
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_input_layer_name_and_module(self.model)
+        if hasattr(module, "in_features"):  # Linear Layer
+            num_inputs = module.in_features
+        elif hasattr(module, "in_channels"):  # Conv Layer
+            num_inputs = module.in_channels
+        return num_inputs
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_output_layer_name_and_module(self.model)
+        if hasattr(module, "out_features"):  # Linear Layer
+            num_outputs = module.out_features
+        elif hasattr(module, "out_channels"):  # Conv Layer
+            num_outputs = module.out_channels
+        return num_outputs
 
     def forward(self, X: Tensor, **kwargs: Any) -> Any:
         """Forward pass of the model.

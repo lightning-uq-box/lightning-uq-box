@@ -110,9 +110,6 @@ class SGLDModel(BaseModel):
         """
         super().__init__(model, None, loss_fn, save_dir)
 
-        # makes self.hparams accesible
-        self.save_hyperparameters()
-
         self.snapshot_dir = os.path.join(self.hparams.save_dir, "model_snapshots")
         os.makedirs(self.snapshot_dir)
 
