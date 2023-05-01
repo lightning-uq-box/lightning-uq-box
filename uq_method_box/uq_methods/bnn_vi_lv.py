@@ -98,7 +98,6 @@ class BNN_LV_VI(BNN_VI):
             quantiles,
         )
 
-        self.latent_net = latent_net
         self.hparams["latent_intro_layer_idx"] = latent_intro_layer_idx
         self.hparams["lv_prior_mu"] = lv_prior_mu
         self.hparams["lv_prior_std"] = lv_prior_std
@@ -106,9 +105,9 @@ class BNN_LV_VI(BNN_VI):
         self.hparams["lv_init_std"] = lv_init_std
         self.hparams["lv_latent_dim"] = lv_latent_dim
 
-        self._setup_bnn_with_vi_lv()
+        self._setup_bnn_with_vi_lv(latent_net)
 
-    def _setup_bnn_with_vi_lv(self) -> None:
+    def _setup_bnn_with_vi_lv(self, latent_net: nn.Module) -> None:
         """Configure setup of BNN with VI model."""
         # TODO adjust the BNN model to adapt parameters
         # where latent variables are introduced
@@ -118,17 +117,17 @@ class BNN_LV_VI(BNN_VI):
 
         # TODO need to check that where latent variablse are introduced
         # the following layer in the model needs to be a linear layer, right?
-        _, lv_output_module = _get_output_layer_name_and_module(self.latent_net)
+        _, lv_output_module = _get_output_layer_name_and_module(latent_net)
         assert lv_output_module.out_features == self.hparams.lv_latent_dim, (
             "The specified latent network needs to have the same output dimension as "
             f"`lv_latent_dim` but found {lv_output_module.out_features} "
             f"and lv_latent_dim {self.hparams.lv_latent_dim}"
         )
 
-        _, lv_input_module = _get_input_layer_name_and_module(self.latent_net)
+        _, lv_input_module = _get_input_layer_name_and_module(latent_net)
         # need to find the output dimension at which latent net is introduced
         self.lv_net = LatentVariableNetwork(
-            net=self.latent_net,
+            net=latent_net,
             num_training_points=self.hparams.num_training_points,
             lv_prior_mu=self.hparams.lv_prior_mu,
             lv_prior_std=self.hparams.lv_prior_std,
@@ -260,7 +259,7 @@ class BNN_LV_VI(BNN_VI):
             self.named_parameters(), weight_decay=self.hparams.weight_decay
         )
 
-        optimizer = torch.optim.AdamW(
+        optimizer = torch.optim.Adam(
             params, lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
         )
         return optimizer

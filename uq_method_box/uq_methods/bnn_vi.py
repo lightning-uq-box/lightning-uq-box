@@ -305,7 +305,7 @@ class BNN_VI(BaseModel):
             self.named_parameters(), weight_decay=self.hparams.weight_decay
         )
 
-        optimizer = torch.optim.AdamW(
+        optimizer = torch.optim.Adam(
             params, lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
         )
         return optimizer
