@@ -48,12 +48,12 @@ my_config = {
 
 my_dir = tempfile.mkdtemp()
 
-max_epochs = 1000
+max_epochs = 500
 
 base_model = BNN_LV_VI(
     MLP,
     my_config["model_args"],
-    lr=1e-3,
+    lr=3e-3,
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
     num_stochastic_modules=3,
@@ -95,15 +95,7 @@ csv_path = os.path.join(my_dir, "predictions.csv")
 pred = base_model.predict_step(X_test)
 
 my_fig = plot_predictions(
-    X_train,
-    y_train,
-    X_test,
-    y_test,
-    pred["mean"],
-    pred["pred_uct"],
-    epistemic=pred.get("epistemic_uct", None),
-    aleatoric=pred.get("aleatoric_uct", None),
-    title="BNN with VI",
+    X_train, y_train, X_test, y_test, pred["mean"], title="BNN with VI"
 )
 plt.savefig("preds.png")
 plt.show()
