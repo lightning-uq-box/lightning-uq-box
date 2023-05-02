@@ -34,7 +34,7 @@ class EnergyAlphaDivergence(nn.Module):
         """Compute the energy function loss.
 
         Args:
-            pred_losses: [batch_size, num_samples, 1]
+            pred_losses: nll of predictions vs targets [num_samples, batch_size, 1]
             log_f_hat: ["num_samples"]
             log_Z_prior: 0 shape
             log_normalizer: 0 shape
@@ -50,9 +50,9 @@ class EnergyAlphaDivergence(nn.Module):
         """
         S = pred_losses.size(dim=1)
         n_samples = pred_losses.size(dim=0)
-        alpha = torch.tensor(self.alpha)
-        NoverS = torch.tensor(self.N / S)
-        one_over_n_samples = torch.tensor(1 / n_samples)
+        alpha = torch.tensor(self.alpha).to(pred_losses.device)
+        NoverS = torch.tensor(self.N / S).to(pred_losses.device)
+        one_over_n_samples = torch.tensor(1 / n_samples).to(pred_losses.device)
         # if we change y_pred: Normal dist output
         # with shape [batch_size, num_samples, output_dim]
         # to be a Normal dist output
@@ -62,12 +62,16 @@ class EnergyAlphaDivergence(nn.Module):
         # avoid the changing of forward passes in each layer?
         # the outer torch.sum need to be taken over the batchsize
         # the inner logsumexp over the numer of samples
-        return (
+
+        inner_term = self.alpha * (
+            -pred_losses - (1 / self.N) * log_f_hat[:, None, None] - log_f_hat_z
+        )
+        loss = (
             -(1 / alpha)
             * NoverS
             * torch.sum(
                 torch.logsumexp(
-                    self.alpha * (pred_losses - (1 / self.N) * log_f_hat - log_f_hat_z),
+                    inner_term,
                     dim=0,  # number of dimensions that should be reduced
                     # i.e. logsumexp over samples
                 )
@@ -78,6 +82,7 @@ class EnergyAlphaDivergence(nn.Module):
             - NoverS * log_normalizer_z
             + log_Z_prior
         )
+        return loss
 
 
 class NLL(nn.Module):

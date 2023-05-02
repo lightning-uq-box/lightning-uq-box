@@ -19,7 +19,7 @@ from uq_method_box.viz_utils import plot_predictions
 torch.set_float32_matmul_precision("medium")
 
 
-dm = ToyHeteroscedasticDatamodule(batch_size=100)
+dm = ToyHeteroscedasticDatamodule(batch_size=50)
 
 X_train, y_train, train_loader, X_test, y_test, test_loader = (
     dm.X_train,
@@ -42,12 +42,12 @@ my_config = {
 
 my_dir = tempfile.mkdtemp()
 
-max_epochs = 500
+max_epochs = 1000
 
 base_model = BNN_LV_VI(
     MLP,
     my_config["model_args"],
-    lr=1e-3,
+    lr=4e-3,
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
     num_stochastic_modules=1,
@@ -59,7 +59,7 @@ base_model = BNN_LV_VI(
     prior_sigma=1.0,
     posterior_mu_init=0.0,
     posterior_rho_init=-6.0,
-    alpha=1.0,
+    alpha=1e-06,
 )
 
 logger = CSVLogger(my_dir)
