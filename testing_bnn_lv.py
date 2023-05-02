@@ -11,7 +11,7 @@ import torch
 from lightning import Trainer
 from lightning.pytorch.loggers import CSVLogger
 
-from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
+from uq_method_box.datamodules import ToyBimodalDatamodule
 from uq_method_box.models import MLP
 from uq_method_box.uq_methods import BNN_LV_VI
 from uq_method_box.viz_utils import plot_predictions
@@ -19,15 +19,14 @@ from uq_method_box.viz_utils import plot_predictions
 # seed_everything(4)
 torch.set_float32_matmul_precision("medium")
 
-
-dm = ToyHeteroscedasticDatamodule(batch_size=100, return_latent_dim=True)
+dm = ToyBimodalDatamodule(batch_size=100)
 
 X_train, y_train, train_loader, X_test, y_test, test_loader = (
-    dm.X_train,
-    dm.y_train,
+    dm.X,
+    dm.y,
     dm.train_dataloader(),
-    dm.X_test,
-    dm.y_test,
+    dm.X,
+    dm.y,
     dm.test_dataloader(),
 )
 
@@ -40,7 +39,10 @@ my_config = {
     },
     "loss_fn": "nll",
     "latent_net": MLP(
-        n_inputs=2, n_outputs=1, n_hidden=[20], activation_fn=torch.nn.ReLU()
+        n_inputs=2,  # num_input_features + num_target_dim
+        n_outputs=2,  # 2 * lv_latent_dim
+        n_hidden=[20],
+        activation_fn=torch.nn.ReLU(),
     ),
 }
 
@@ -81,12 +83,13 @@ pl_args = {
 trainer = Trainer(**pl_args)
 
 # fit model
+start = time.time()
 trainer.fit(base_model, dm)
+print(f"Fit took {time.time() - start} seconds.")
 
 # using the trainer does save predictions
-start = time.time()
 trainer.test(base_model, dm.test_dataloader())
-print(time.time() - start)
+
 csv_path = os.path.join(my_dir, "predictions.csv")
 
 pred = base_model.predict_step(X_test)
@@ -120,8 +123,3 @@ ax[1].set_title("Train RMSE")
 
 plt.show()
 plt.savefig("loss_curves.png")
-# import pdb
-
-# pdb.set_trace()
-
-# print(0)

@@ -1,6 +1,6 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -118,7 +118,7 @@ class BNN_LV_VI(BNN_VI):
         # TODO need to check that where latent variablse are introduced
         # the following layer in the model needs to be a linear layer, right?
         _, lv_output_module = _get_output_layer_name_and_module(latent_net)
-        assert lv_output_module.out_features == self.hparams.lv_latent_dim, (
+        assert lv_output_module.out_features == self.hparams.lv_latent_dim * 2, (
             "The specified latent network needs to have the same output dimension as "
             f"`lv_latent_dim` but found {lv_output_module.out_features} "
             f"and lv_latent_dim {self.hparams.lv_latent_dim}"
@@ -140,12 +140,12 @@ class BNN_LV_VI(BNN_VI):
         # assert that output of latent variable network is equal to latent dim
         # helper function to get the last output dimension
 
-    def forward(self, X: Tensor, latent_idx: None, n_samples: int) -> Tensor:
+    def forward(self, X: Tensor, y: Optional[Tensor], n_samples: int) -> Tensor:
         """Forward pass BNN+VI.
 
         Args:
             X: input data
-            latent_idx: latent variable indices
+            y: target
             n_samples: number of samples to draw
 
         Returns:
@@ -155,8 +155,8 @@ class BNN_LV_VI(BNN_VI):
         for idx, layer in enumerate(self.model.model):
             if idx == self.hparams.latent_intro_layer_idx:
                 # use known latent index during training
-                if latent_idx is not None:
-                    z = self.lv_net(X, latent_idx, n_samples=n_samples)
+                if y is not None:
+                    z = self.lv_net(X, y, n_samples=n_samples)
                 # during training and testing we don't have
                 # latent index so generate random prior
                 else:
@@ -178,7 +178,7 @@ class BNN_LV_VI(BNN_VI):
                 X = layer(X)
         return X
 
-    def compute_loss(self, X: Tensor, y: Tensor, latent_idx: Tensor) -> tuple[Tensor]:
+    def compute_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -189,7 +189,7 @@ class BNN_LV_VI(BNN_VI):
             energy loss and mean output for logging
         """
         out = self.forward(
-            X, latent_idx, n_samples=self.hparams.num_mc_samples_train
+            X, y, n_samples=self.hparams.num_mc_samples_train
         )  # [num_samples, batch_size, output_dim]
 
         # BNN loss terms
@@ -228,9 +228,7 @@ class BNN_LV_VI(BNN_VI):
         # output from forward: [num_samples, batch_size, outputs]
         with torch.no_grad():
             preds = (
-                self.forward(
-                    X, latent_idx=None, n_samples=self.hparams.num_mc_samples_test
-                )
+                self.forward(X, y=None, n_samples=self.hparams.num_mc_samples_test)
                 .cpu()
                 .squeeze(-1)
             )

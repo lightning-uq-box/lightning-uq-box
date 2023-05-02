@@ -69,12 +69,12 @@ class LatentVariableNetwork(nn.Module):
             n_samples, self.num_training_points, self.lv_latent_dim
         ).to(self.device)
 
-    def forward(self, x: Tensor, latent_idx: Tensor, n_samples=Optional[int]) -> Tensor:
+    def forward(self, x: Tensor, y: Tensor, n_samples=Optional[int]) -> Tensor:
         """Forward pass where latent vector is sampled.
 
         Args:
             x: input X [batch_size, num_features]
-            latent_idx: latent vector [batch_size, 1] containing the latent indices
+            y: target y [batch_size, target_dim]
             n_samples: number of samples to draw
 
         Returns:
@@ -89,14 +89,18 @@ class LatentVariableNetwork(nn.Module):
         else:
             weights_eps = self.weight_eps[:, : x.shape[0], :]
 
-        xy = torch.cat([x, latent_idx], dim=-1)
-        # pass through network
-        x = self.net(xy)
+        # pass through NN
+        x = self.net(torch.cat([x, y], dim=-1))  # out [batch_size, lv_latent_dim*2]
 
         # make sure q(z) is close to N(0,1) at initialization
         init_scaling = 0.1
-        z_mu = latent_idx * init_scaling
-        z_std = self.lv_init_std - F.softplus(latent_idx) * init_scaling
+        # extract encoded mean from NN output
+        z_mu = x[:, : self.lv_latent_dim] * init_scaling
+        # extract encoded std from NN output
+        z_std = (
+            self.lv_init_std
+            - F.softplus(x[:, self.lv_latent_dim :]) * init_scaling  # noqa: E203
+        )
 
         self.z_mu = z_mu
         self.z_log_sigma = torch.log(torch.expm1(z_std))
