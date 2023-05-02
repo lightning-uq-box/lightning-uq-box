@@ -31,7 +31,7 @@ def polynomial_f2(x):
 
 
 class ToyHeteroscedasticDatamodule(LightningDataModule):
-    """Implement Toy Dataset with heteroscedastic noise."""
+    """Toy Regression Dataset with heteroscedastic noise."""
 
     def __init__(
         self,
