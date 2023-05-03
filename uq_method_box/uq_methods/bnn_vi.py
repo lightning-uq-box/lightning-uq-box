@@ -196,10 +196,9 @@ class BayesianNeuralNetwork_VI(BaseModel):
 
         mean_kl = get_kl_loss(self.model)
 
-        # N over S, number of training points over batch size
-        NoverS = self.hparams.num_training_points / len(y)
-
-        negative_beta_elbo = NoverS * mean_pred_nll_loss + self.beta * mean_kl
+        negative_beta_elbo = (
+            self.hparams.num_training_points * mean_pred_nll_loss + self.beta * mean_kl
+        )
 
         return negative_beta_elbo, mean_pred
 
