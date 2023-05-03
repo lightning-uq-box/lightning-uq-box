@@ -6,11 +6,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
 
 from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
-from uq_method_box.models import MLP
 from uq_method_box.uq_methods import BayesByBackpropModel
 
 
@@ -20,27 +20,20 @@ class TestBayesByBackpropModel:
         conf = OmegaConf.load(
             os.path.join("tests", "configs", "bayes_by_backprop.yaml")
         )
-        conf_dict = OmegaConf.to_object(conf)
-        return BayesByBackpropModel(
-            MLP,
-            model_args=conf_dict["model"]["model_args"],
-            lr=1e-3,
-            loss_fn="mse",
-            save_dir=tmp_path,
-            **conf_dict["model"]["bayes_by_backprop"],
-        )
+        conf.uq_method["save_dir"] = str(tmp_path)
+        return instantiate(conf.uq_method)
 
     def test_forward(self, bayes_by_backprop_model: BayesByBackpropModel) -> None:
         """Test forward pass of base model."""
-        n_inputs = bayes_by_backprop_model.hparams.model_args["n_inputs"]
-        n_outputs = bayes_by_backprop_model.hparams.model_args["n_outputs"]
+        n_inputs = bayes_by_backprop_model.num_inputs
+        n_outputs = bayes_by_backprop_model.num_outputs
         X = torch.randn(5, n_inputs)
         out = bayes_by_backprop_model(X)
         assert out.shape[-1] == n_outputs
 
     def test_predict_step(self, bayes_by_backprop_model: BayesByBackpropModel) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = bayes_by_backprop_model.hparams.model_args["n_inputs"]
+        n_inputs = bayes_by_backprop_model.num_inputs
         X = torch.randn(5, n_inputs)
         out = bayes_by_backprop_model.predict_step(X)
         assert isinstance(out, dict)
