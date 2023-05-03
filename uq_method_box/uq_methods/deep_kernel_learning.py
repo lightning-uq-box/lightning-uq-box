@@ -22,11 +22,13 @@ from gpytorch.variational import (
 from lightning import LightningModule
 from sklearn import cluster
 from torch import Tensor
+from torch.utils.data import DataLoader
+from torchgeo.trainers.utils import _get_input_layer_name_and_module
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
 
-from .utils import save_predictions_to_csv
+from .utils import _get_output_layer_name_and_module, save_predictions_to_csv
 
 
 class DeepKernelLearningModel(gpytorch.Module, LightningModule):
@@ -43,6 +45,7 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         feature_extractor: nn.Module,
         gp_layer: type[ApproximateGP],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
+        train_loader: DataLoader,
         n_inducing_points: int,
         optimizer: type[torch.optim.Optimizer],
         save_dir: str,
@@ -56,13 +59,15 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             gp_layer: gpytorch module that takes extracted features as inputs
             gp_args: arguments to initializ the gp_layer
             elbo_fn: gpytorch elbo functions
+            train_loader: optional to pass in train loader if
+                this lightning module is used without lightning Trainer
             n_inducing_points:
             optimizer: what optimizer to use
             save_dir:
             quantiles:
         """
         super().__init__()
-        self.save_hyperparameters(ignore="feature_extractor")
+        self.save_hyperparameters(ignore=["feature_extractor", "train_loader"])
         self.optimizer = optimizer
         self.feature_extractor = feature_extractor
         self.gp_layer = gp_layer
@@ -83,8 +88,40 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             prefix="test_",
         )
 
+        self.train_loader = train_loader
+
         # partially initialized gp layer
         self.gp_layer = gp_layer
+
+        self.dkl_model_built = False
+
+    @property
+    def num_inputs(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_input_layer_name_and_module(self.feature_extractor)
+        if hasattr(module, "in_features"):  # Linear Layer
+            num_inputs = module.in_features
+        elif hasattr(module, "in_channels"):  # Conv Layer
+            num_inputs = module.in_channels
+        return num_inputs
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_output_layer_name_and_module(self.gp_layer)
+        if hasattr(module, "out_features"):  # Linear Layer
+            num_outputs = module.out_features
+        elif hasattr(module, "out_channels"):  # Conv Layer
+            num_outputs = module.out_channels
+        return num_outputs
 
     def _build_model(self) -> None:
         """Build the model ready for training."""
@@ -100,7 +137,8 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
 
     def _fit_initial_lengthscale_and_inducing_points(self) -> None:
         """Fit the initial lengthscale and inducing points for DKL."""
-        train_dataset = self.trainer.datamodule.train_dataloader().dataset
+        train_dataset = self.train_loader.dataset
+
         self.n_train_points = len(train_dataset)
         self.initial_inducing_points, self.initial_lengthscale = initial_values(
             train_dataset, self.feature_extractor, self.hparams.n_inducing_points
@@ -108,7 +146,9 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         # build the model ready for training
         self._build_model()
 
-    def forward(self, X: Tensor, **kwargs) -> Tensor:
+        self.dkl_model_built = True
+
+    def forward(self, X: Tensor, **kwargs) -> MultivariateNormal:
         """Forward pass through model.
 
         Args:
@@ -117,6 +157,8 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Returns:
             output from GP
         """
+        if not self.dkl_model_built:
+            self._fit_initial_lengthscale_and_inducing_points()
         features = self.feature_extractor(X)
         scaled_features = self.scale_to_bounds(features)
         output = self.gp_layer(scaled_features)
@@ -188,6 +230,8 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
+        if not self.dkl_model_built:
+            self._fit_initial_lengthscale_and_inducing_points()
         self.feature_extractor.eval()
         self.gp_layer.eval()
         self.likelihood.eval()
@@ -195,12 +239,12 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         with torch.no_grad():
             out = self.forward(X)  # GPytorch MultivariatNormal Object
 
-        mean = out.mean.cpu()
+        mean = out.mean.cpu().numpy()
         # preds.confidence_region() Returns 2 standard deviations
         # above and below the mean. Return type (torch.Tensor, torch.Tensor)
         confidence = out.confidence_region()
 
-        std = ((confidence[1] - confidence[0]) * 0.5).cpu()
+        std = ((confidence[1] - confidence[0]) * 0.5).cpu().numpy()
 
         quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
         return {
@@ -219,7 +263,8 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         """
         # need to create models here given the order of hooks
         # https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#hooks
-        self._fit_initial_lengthscale_and_inducing_points()
+        if not self.dkl_model_built:
+            self._fit_initial_lengthscale_and_inducing_points()
         optimizer = self.optimizer(
             [
                 {"params": self.feature_extractor.parameters()},
@@ -351,7 +396,7 @@ def initial_values(train_dataset, feature_extractor, n_inducing_points):
 def _get_initial_inducing_points(f_X_sample, n_inducing_points):
     """Compute the initial number of inducing points."""
     kmeans = cluster.MiniBatchKMeans(
-        n_clusters=n_inducing_points, batch_size=n_inducing_points * 10
+        n_clusters=n_inducing_points, batch_size=n_inducing_points * 10, n_init=3
     )
     kmeans.fit(f_X_sample)
     initial_inducing_points = torch.from_numpy(kmeans.cluster_centers_)

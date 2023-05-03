@@ -38,21 +38,20 @@ X_train, y_train, train_loader, X_test, y_test, test_loader = (
     dm.test_dataloader(),
 )
 
-# config args
-my_config = {"model_args": {"n_inputs": 1, "n_outputs": 10, "n_hidden": [100]}}
-
-
 # temporary directory for saving
 my_dir = tempfile.mkdtemp()
 
 # define untrained feature extractor
-feature_extractor = MLP(**my_config["model_args"])
+feature_extractor = MLP(
+    n_inputs=1, n_outputs=10, n_hidden=[100], activation_fn=torch.nn.Tanh()
+)
 
 dkl_model = DeepKernelLearningModel(
     feature_extractor,
     gp_layer=partial(DKLGPLayer, n_outputs=1, kernel="RBF"),
     elbo_fn=partial(VariationalELBO),
     optimizer=partial(torch.optim.Adam, lr=1e-2),
+    train_loader=train_loader,
     n_inducing_points=50,
     save_dir=my_dir,
 )
@@ -66,6 +65,7 @@ pl_args = {
     "logger": logger,
     "log_every_n_steps": 1,
     "accelerator": "cpu",
+    "limit_val_batches": 0.0,
     # "devices": [0],
 }
 trainer = Trainer(**pl_args)

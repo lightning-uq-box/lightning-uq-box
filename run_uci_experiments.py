@@ -7,7 +7,6 @@ import os
 
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
-from omegaconf.errors import ConfigKeyError
 
 from experiments.setup_experiment import generate_trainer
 from experiments.utils import create_experiment_dir
@@ -55,14 +54,16 @@ def run(config_path: str) -> None:
             dm = instantiate(run_config.datamodule)
 
             # get the number of features to update the number of inputs to model
-            try:
-                run_config["uq_method"]["model"]["n_inputs"] = dm.uci_ds.num_features
-            except ConfigKeyError:  # DKL model
+            if "DeepKernelLearningModel" in run_config.uq_method["_target_"]:
                 run_config["uq_method"]["feature_extractor"][
                     "n_inputs"
                 ] = dm.uci_ds.num_features
-
-            model = instantiate(run_config.uq_method)
+                model = instantiate(
+                    run_config.uq_method, train_loader=dm.train_dataloader()
+                )
+            else:
+                run_config["uq_method"]["model"]["n_inputs"] = dm.uci_ds.num_features
+                model = instantiate(run_config.uq_method)
 
             # generate trainer
             trainer = generate_trainer(run_config)
