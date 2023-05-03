@@ -1,14 +1,5 @@
 """Deep Kernel Learning."""
 
-# TO DO:
-# Use wrapper gpytorch.kernels.GridInterpolationKernel(base_kernel, grid_size,
-# num_dims=None, grid_bounds=None, active_dims=None)
-# for all kernels to have scalable approximate GPs
-# write choice of grid size
-# based on training data with helper function
-# gpytorch.utils.grid.choose_grid_size(train_inputs,
-# ratio=1.0, kronecker_structure=True)
-
 import os
 from typing import Any, Dict, List
 
@@ -51,10 +42,9 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self,
         feature_extractor: nn.Module,
         gp_layer: type[ApproximateGP],
-        gp_args: Dict[str, Any],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
-        n_train_points: int,
-        lr: float,
+        n_inducing_points: int,
+        optimizer: type[torch.optim.Optimizer],
         save_dir: str,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -66,15 +56,17 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             gp_layer: gpytorch module that takes extracted features as inputs
             gp_args: arguments to initializ the gp_layer
             elbo_fn: gpytorch elbo functions
-            n_train_points: number of training points necessary f
-                or Gpytorch elbo function
+            n_inducing_points:
+            optimizer: what optimizer to use
+            save_dir:
+            quantiles:
         """
         super().__init__()
         self.save_hyperparameters(ignore="feature_extractor")
-        self.n_train_points = n_train_points
-        self.lr = lr
+        self.optimizer = optimizer
         self.feature_extractor = feature_extractor
         self.gp_layer = gp_layer
+        self.elbo_fn = elbo_fn
 
         self.train_metrics = MetricCollection(
             {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
@@ -91,19 +83,30 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             prefix="test_",
         )
 
-        self._build_model()
+        # partially initialized gp layer
+        self.gp_layer = gp_layer
 
     def _build_model(self) -> None:
-        """Build the model."""
-        self.gp_layer = self.hparams.gp_layer(**self.hparams.gp_args)
-
-        # This module will scale the NN features so that they're nice values
+        """Build the model ready for training."""
+        self.gp_layer = self.gp_layer(
+            initial_lengthscale=self.initial_lengthscale,
+            initial_inducing_points=self.initial_inducing_points,
+        )
         self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
-
         self.likelihood = GaussianLikelihood()
-        self.elbo_fn = self.hparams.elbo_fn(
+        self.elbo_fn = self.elbo_fn(
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
+
+    def _fit_initial_lengthscale_and_inducing_points(self) -> None:
+        """Fit the initial lengthscale and inducing points for DKL."""
+        train_dataset = self.trainer.datamodule.train_dataloader().dataset
+        self.n_train_points = len(train_dataset)
+        self.initial_inducing_points, self.initial_lengthscale = initial_values(
+            train_dataset, self.feature_extractor, self.hparams.n_inducing_points
+        )
+        # build the model ready for training
+        self._build_model()
 
     def forward(self, X: Tensor, **kwargs) -> Tensor:
         """Forward pass through model.
@@ -214,14 +217,16 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Returns:
             a "lr dict" according to the pytorch lightning documentation --
         """
-        optimizer = torch.optim.Adam(
+        # need to create models here given the order of hooks
+        # https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#hooks
+        self._fit_initial_lengthscale_and_inducing_points()
+        optimizer = self.optimizer(
             [
                 {"params": self.feature_extractor.parameters()},
                 {"params": self.gp_layer.hyperparameters()},
                 {"params": self.gp_layer.variational_parameters()},
                 {"params": self.likelihood.parameters()},
-            ],
-            lr=self.lr,
+            ]
         )
         return {"optimizer": optimizer}
 

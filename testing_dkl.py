@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,7 +19,6 @@ from uq_method_box.uq_methods import DUEModel  # noqa: F401
 from uq_method_box.uq_methods import (  # BaseModel,; DeterministicGaussianModel,
     DeepKernelLearningModel,
     DKLGPLayer,
-    initial_values,
 )
 from uq_method_box.viz_utils import plot_predictions
 
@@ -39,11 +39,7 @@ X_train, y_train, train_loader, X_test, y_test, test_loader = (
 )
 
 # config args
-my_config = {
-    "model_args": {"n_inputs": 1, "n_outputs": 10, "n_hidden": [100]},
-    "loss_fn": "mse",
-    "gp_args": {"n_outputs": 1},
-}
+my_config = {"model_args": {"n_inputs": 1, "n_outputs": 10, "n_hidden": [100]}}
 
 
 # temporary directory for saving
@@ -52,29 +48,12 @@ my_dir = tempfile.mkdtemp()
 # define untrained feature extractor
 feature_extractor = MLP(**my_config["model_args"])
 
-# get number of inducing points
-n_inducing_points = 50
-
-# get intial inducing points and initial lengthscale for kernels
-initial_inducing_points, initial_lengthscale = initial_values(
-    train_loader.dataset, feature_extractor, n_inducing_points
-)
-
-# define dict for gp args from initial computations above
-gp_args = {
-    "n_outputs": my_config["gp_args"]["n_outputs"],
-    "initial_lengthscale": initial_lengthscale,
-    "initial_inducing_points": initial_inducing_points,
-    "kernel": "RBF",
-}
-
 dkl_model = DeepKernelLearningModel(
     feature_extractor,
-    gp_layer=DKLGPLayer,
-    gp_args=gp_args,
-    elbo_fn=VariationalELBO,
-    n_train_points=X_train.shape[0],
-    lr=1e-2,
+    gp_layer=partial(DKLGPLayer, n_outputs=1, kernel="RBF"),
+    elbo_fn=partial(VariationalELBO),
+    optimizer=partial(torch.optim.Adam, lr=1e-2),
+    n_inducing_points=50,
     save_dir=my_dir,
 )
 
@@ -86,8 +65,8 @@ pl_args = {
     "max_epochs": max_epochs,
     "logger": logger,
     "log_every_n_steps": 1,
-    "accelerator": "gpu",
-    "devices": [0],
+    "accelerator": "cpu",
+    # "devices": [0],
 }
 trainer = Trainer(**pl_args)
 
@@ -132,8 +111,5 @@ plt.savefig("dkl_loss_curve.png")
 
 
 plt.show()
-import pdb
-
-pdb.set_trace()
 
 # print(0)
