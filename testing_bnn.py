@@ -31,7 +31,7 @@ X_train, y_train, train_loader, X_test, y_test, test_loader = (
 )
 
 my_config = {
-    "model_args": {"n_inputs": 1, "n_outputs": 1, "n_hidden": [50, 70, 100, 20]},
+    "model_args": {"n_inputs": 1, "n_outputs": 2, "n_hidden": [50, 70, 100, 20]},
     "loss_fn": "nll",
 }
 
@@ -44,9 +44,11 @@ base_model = BayesianNeuralNetwork_VI(
     my_config["model_args"],
     lr=3e-3,
     save_dir=my_dir,
+    burnin_epochs=100,
+    max_epochs=max_epochs,
     num_training_points=X_train.shape[0],
     num_stochastic_modules=1,
-    beta_elbo=1.0,
+    beta=5.0,
     num_mc_samples_train=10,
     num_mc_samples_test=50,
     output_noise_scale=1.3,

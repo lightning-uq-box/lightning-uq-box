@@ -1,11 +1,7 @@
 """Bayesian Neural Networks with Variational Inference."""
 
 # TODO:
-# change dnn_to_bnn function such that only some layers are made stochastic done!
-# adjust loss functions such that also a two headed network output trained with nll
-# works, and add mse burin-phase as in other modules
-# make loss function chooseable to be mse or nll like in other modules
-# probably only use this implementation and remove bayes_by_backprop.py
+# adapt to new config file scheme
 
 from typing import Any, Dict, List, Tuple, Union
 
@@ -15,7 +11,13 @@ import torch.nn as nn
 from bayesian_torch.models.dnn_to_bnn import get_kl_loss
 from torch import Tensor
 
-from uq_method_box.eval_utils import compute_quantiles_from_std
+from uq_method_box.eval_utils import (
+    compute_aleatoric_uncertainty,
+    compute_epistemic_uncertainty,
+    compute_predictive_uncertainty,
+    compute_quantiles_from_std,
+)
+from uq_method_box.train_utils import NLL
 
 from .base import BaseModel
 from .utils import dnn_to_bnn_some
@@ -30,9 +32,11 @@ class BayesianNeuralNetwork_VI(BaseModel):
         model_args: Dict[str, Any],
         lr: float,
         save_dir: str,
+        burnin_epochs: int,
+        max_epochs: int,
         num_training_points: int,
         num_stochastic_modules: int = 1,
-        beta_elbo: float = 1.0,
+        beta: float = 100,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -52,9 +56,11 @@ class BayesianNeuralNetwork_VI(BaseModel):
             lr: learning rate for adam otimizer
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
-            beta_elbo: beta factor for negative elbo loss computation
+            beta: beta factor for negative elbo loss computation,
+                should be number of weights and biases
             num_mc_samples_train: number of MC samples during training when computing
-                the negative ELBO loss
+                the negative ELBO loss. When setting num_mc_samples_train=1, this
+                is just Bayes by Backprop.
             num_mc_samples_test: number of MC samples during test and prediction
             output_noise_scale: scale of predicted sigmas
             prior_mu: prior mean value for bayesian layer
@@ -78,11 +84,11 @@ class BayesianNeuralNetwork_VI(BaseModel):
         self._setup_bnn_with_vi()
 
         # update hyperparameters
+        self.hparams["num_training_points"] = num_training_points
         self.hparams["num_mc_samples_train"] = num_mc_samples_train
         self.hparams["num_mc_samples_test"] = num_mc_samples_test
         self.hparams["quantiles"] = quantiles
         self.hparams["weight_decay"] = 1e-5
-        self.hparams["beta_elbo"] = beta_elbo
         self.hparams["output_noise_scale"] = output_noise_scale
 
         self.hparams["prior_mu"] = prior_mu
@@ -93,6 +99,19 @@ class BayesianNeuralNetwork_VI(BaseModel):
         self.hparams["num_training_points"] = num_training_points
 
         self.hparams["num_stochastic_modules"] = num_stochastic_modules
+
+        # hyperparameter depending on network size
+        self.beta = beta
+
+        self.burnin_epochs = burnin_epochs
+        self.max_epochs = max_epochs
+        self.criterion = NLL()
+
+        self.n_outputs = model_args["n_outputs"]
+
+        assert (
+            self.burnin_epochs <= self.max_epochs
+        ), "The max_epochs needs to be larger than the burnin phase."
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
@@ -124,15 +143,29 @@ class BayesianNeuralNetwork_VI(BaseModel):
         """
         return self.model(X)
 
-    def compute_elbo_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
-        """Compute the ELBO loss.
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract the mean output from model prediction.
+
+        This supports
+
+        Args:
+            out: output from :meth:`self.forward` [batch_size x (mu, sigma)]
+
+        Returns:
+            extracted mean used for metric computation [batch_size x 1]
+        """
+        return out[:, 0:1]
+
+    def compute_elbo_loss(self, X: Tensor, y: Tensor, mse=True) -> Tuple[Tensor]:
+        """Compute the ELBO loss with mse/nll.
 
         Args:
             X: input data
             y: target
 
         Returns:
-            negative elbo loss and mean model output for logging
+            negative elbo loss and mean model output [batch_size]
+            for logging
         """
         model_preds = []
         pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
@@ -143,20 +176,33 @@ class BayesianNeuralNetwork_VI(BaseModel):
         for i in range(self.hparams.num_mc_samples_train):
             # mean prediction
             pred = self.forward(X)
-            model_preds.append(pred.detach())
+            model_preds.append(self.extract_mean_output(pred).detach())
             # compute prediction loss with nll and track over samples
-            pred_losses[i] = self.nll_loss(pred, y, output_var)
+            if mse:
+                # compute mse loss with output noise scale, is like mse
+                pred_losses[i] = self.nll_loss(
+                    self.extract_mean_output(pred), y, output_var
+                )
+            else:
+                # after burnin compute nll with log_sigma
+                pred_losses[i] = self.criterion(pred, y)
 
         mean_pred = torch.cat(model_preds, dim=-1).mean(-1, keepdim=True)
+        # dimension [batch_size]
+
         mean_pred_nll_loss = torch.mean(pred_losses)
+        # shape 0, mean over batch_size, this is "the S factor":)
+        # need to potentially multiply by full training set size
+
         mean_kl = get_kl_loss(self.model)
 
-        # beta = self.beta_lambda(self.current_epoch)
+        # N over S, number of training points over batch size
+        NoverS = self.hparams.num_training_points / len(y)
 
-        negative_beta_elbo = mean_pred_nll_loss + mean_kl
+        negative_beta_elbo = NoverS * mean_pred_nll_loss + self.beta * mean_kl
+
         return negative_beta_elbo, mean_pred
 
-    # *(beta / self.hparams.num_training_points)
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
 
@@ -167,7 +213,15 @@ class BayesianNeuralNetwork_VI(BaseModel):
             training loss
         """
         X, y = args[0]
-        elbo_loss, mean_output = self.compute_elbo_loss(X, y)
+
+        if self.current_epoch < self.burnin_epochs:
+            mse = True
+        elif self.current_epoch >= self.burnin_epochs and self.n_outputs == 1:
+            mse = True
+        else:
+            mse = False
+
+        elbo_loss, mean_output = self.compute_elbo_loss(X, y, mse)
 
         self.log("train_loss", elbo_loss)  # logging to Logger
         self.train_metrics(mean_output, y)
@@ -185,7 +239,13 @@ class BayesianNeuralNetwork_VI(BaseModel):
             validation loss
         """
         X, y = args[0]
-        elbo_loss, mean_output = self.compute_elbo_loss(X, y)
+
+        if self.n_outputs == 1:
+            mse = True
+        else:
+            mse = False
+
+        elbo_loss, mean_output = self.compute_elbo_loss(X, y, mse)
 
         self.log("val_loss", elbo_loss)  # logging to Logger
         self.train_metrics(mean_output, y)
@@ -207,18 +267,42 @@ class BayesianNeuralNetwork_VI(BaseModel):
             .detach()
             .cpu()
             .numpy()
-        )  # shape [num_samples, batch_size, num_outputs]
+        )  # shape [batch_size, num_outputs, num_samples]
 
-        mean = preds.mean(-1).squeeze(-1)
-        std = preds.std(-1).squeeze(-1)
-        quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-        return {
-            "mean": mean,
-            "pred_uct": std,
-            "epistemic_uct": std,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
-        }
+        mean_samples = preds[:, 0, :]
+
+        # assume nll prediction with sigma
+        if preds.shape[1] == 2:
+            log_sigma_2_samples = preds[:, 1, :]
+            eps = np.ones_like(log_sigma_2_samples) * 1e-6
+            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
+            mean = mean_samples.mean(-1)
+            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
+            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
+            epistemic = compute_epistemic_uncertainty(mean_samples)
+            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
+
+            return {
+                "mean": mean,
+                "pred_uct": std,
+                "epistemic_uct": epistemic,
+                "aleatoric_uct": aleatoric,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
+            }
+        # assume mse prediction
+        else:
+            mean = mean_samples.mean(-1)
+            std = mean_samples.std(-1)
+            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
+
+            return {
+                "mean": mean,
+                "pred_uct": std,
+                "epistemic_uct": std,
+                "lower_quant": quantiles[:, 0],
+                "upper_quant": quantiles[:, -1],
+            }
 
     def exclude_from_wt_decay(
         self, named_params, weight_decay, skip_list=("mu", "rho")

@@ -110,15 +110,13 @@ class MCDropoutModel(BaseModel):
                 torch.stack([self.model(X) for _ in range(self.num_mc_samples)], dim=-1)
                 .detach()
                 .numpy()
-            )  # shape [num_samples, batch_size, num_outputs]
+            )  # shape [batch_size, num_outputs, num_samples]
 
         mean_samples = preds[:, 0, :]
 
         # assume prediction with sigma
         if preds.shape[1] == 2:
-            log_sigma_2 = preds[:, 1, :]
-            eps = np.ones_like(log_sigma_2) * 1e-6
-            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2))
+            sigma_samples = preds[:, 1, :]
             mean = mean_samples.mean(-1)
             std = compute_predictive_uncertainty(mean_samples, sigma_samples)
             aleatoric = compute_aleatoric_uncertainty(sigma_samples)

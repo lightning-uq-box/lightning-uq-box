@@ -91,9 +91,6 @@ def dnn_to_bnn_some(m, bnn_prior_parameters, num_stochastic_modules: int):
 
     replace_modules = list(m._modules.items())[-num_stochastic_modules:]
 
-    print(len(list(m._modules.items())))
-    print(len(replace_modules))
-
     for name, value in replace_modules:
         if m._modules[name]._modules:
             dnn_to_bnn_some(

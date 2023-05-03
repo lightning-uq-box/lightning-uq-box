@@ -1,7 +1,6 @@
 """UQ-Methods as Lightning Modules."""
 
 from .base import BaseModel
-from .bayes_by_backprop import BayesByBackpropModel
 from .bnn_vi import BayesianNeuralNetwork_VI
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
@@ -29,8 +28,6 @@ __all__ = (
     "DeterministicGaussianModel",
     # SGLD Model.
     "SGLDModel",
-    # Bayes by Backprop
-    "BayesByBackpropModel",
     # Deep Evidential Regression Model
     "DERModel",
     # Bayesian Neural Network trained with Variational Inference
