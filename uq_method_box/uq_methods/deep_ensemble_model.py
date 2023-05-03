@@ -16,6 +16,7 @@ class DeepEnsembleModel(LightningModule):
 
     def __init__(
         self,
+        n_ensemble_members: int,
         ensemble_members: List[Dict[str, Union[type[LightningModule], str]]],
         save_dir: str,
         quantiles: List[float] = [0.1, 0.5, 0.9],
@@ -23,14 +24,17 @@ class DeepEnsembleModel(LightningModule):
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
         Args:
+            n_ensemble_members: number of ensemble members
             ensemble_members: List of dicts where each element specifies the
                 LightningModule class and a path to a checkpoint
             save_dir: path to directory where to store prediction
             quantiles: quantile values to compute for prediction
         """
         super().__init__()
+        assert len(ensemble_members) == n_ensemble_members
         # make hparams accessible
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["ensemble_members"])
+        self.ensemble_members = ensemble_members
 
     def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
         """Forward step of Deep Ensemble.
@@ -43,11 +47,12 @@ class DeepEnsembleModel(LightningModule):
             of [batch_size, num_outputs, num_ensemble_members]
         """
         out: List[torch.Tensor] = []
-        for model_config in self.hparams.ensemble_members:
-            loaded_model = model_config["model_class"].load_from_checkpoint(
-                model_config["ckpt_path"]
+        for model_config in self.ensemble_members:
+            # load the weights into the network
+            model_config["base_model"].load_state_dict(
+                torch.load(model_config["ckpt_path"])["state_dict"]
             )
-            out.append(loaded_model(X))
+            out.append(model_config["base_model"](X))
         return torch.stack(out, dim=-1)
 
     def test_step(self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0) -> Any:

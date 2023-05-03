@@ -3,33 +3,40 @@ experiment:
   exp_dir: "experiments/experiments/"
 wandb:
   project: uci_regression
-  entity: nina-maria-gottschling
+  entity: uq-regression
   mode: offline
-model:
-  base_model: sgld
-  burnin_epochs: 100
-  n_sgld_samples: 5
-  loss_fn: mse
-  quantiles: [0.1, 0.9]
-  model_args: # all arguments for the mlp
-    n_outputs: 2
+
+# everything to configure the UQ method
+uq_method:
+  _target_: uq_method_box.uq_methods.SGLDModel
+  model:
+    _target_: uq_method_box.models.MLP # timm.create_model for timm models
+    # all arguments to initiate the mlp for example
+    n_outputs: 1
     n_hidden: [50]
-optimizer:
+  loss_fn:
+    _target_: torch.nn.MSELoss
   lr: 0.0001
+  n_sgld_samples: 5
   weight_decay: 0.1
   noise_factor: 0.2 #for toy data between 0 and 0.5 worked
-ds:
-  dataset_name: yacht
-  root: "/ASUS/UQ_methods/uq-method-box/experiments/data/uci"
+  burnin_epochs: 5
+
+# everything to configure the datamodule  
+datamodule:
+  _target_: uq_method_box.datamodules.UCIRegressionDatamodule
+  dataset_name: boston
+  root: "/home/nils/projects/uq-method-box/experiments/data/uci"
   train_size: 0.9
-dataloader: # arguments for dataloader
-  batch_size: 277
+  batch_size: 32
   num_workers: 4
-pl: # all flags to pytorch lightning trainer
-  # devices: 1 
-  precision: 32
+
+# all flags for the pytorch lightning trainer
+trainer:
+  _target_: lightning.pytorch.Trainer
   accelerator: cpu
-  max_epochs: 105
+  precision: 32
+  max_epochs: 10
   max_steps: -1
   limit_val_batches: 0.0 # no validation set
   limit_test_batches: 1.0

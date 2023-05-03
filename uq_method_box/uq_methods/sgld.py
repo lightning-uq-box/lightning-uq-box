@@ -4,7 +4,7 @@
 
 
 import os
-from typing import Any, Dict, Iterator, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional
 
 import numpy as np
 import torch
@@ -79,14 +79,13 @@ class SGLDModel(BaseModel):
 
     def __init__(
         self,
-        model_class: Union[List[nn.Module], str],
-        model_args: Dict[str, Any],
-        lr: float,
+        model: nn.Module,
         loss_fn: str,
         save_dir: str,
+        lr: float,
         weight_decay: float,
         noise_factor: float,
-        n_burnin_epochs: int,
+        burnin_epochs: int,
         n_sgld_samples: int,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -105,20 +104,25 @@ class SGLDModel(BaseModel):
             quantiles:
 
         """
-        super().__init__(model_class, model_args, lr, loss_fn, save_dir)
-
-        # makes self.hparams accesible
-        self.save_hyperparameters()
+        super().__init__(model, None, loss_fn, save_dir)
 
         self.snapshot_dir = os.path.join(self.hparams.save_dir, "model_snapshots")
         os.makedirs(self.snapshot_dir)
 
-        self.hparams["burnin_epochs"] = n_burnin_epochs
+        self.hparams["burnin_epochs"] = burnin_epochs
         self.hparams["n_sgld_samples"] = n_sgld_samples
         self.hparams["models"]: List[nn.Module] = []
         self.hparams["quantiles"] = quantiles
         self.hparams["weight_decay"] = weight_decay
         self.hparams["noise_factor"] = noise_factor
+        self.hparams["burnin_epochs"] = burnin_epochs
+        self.hparams["n_sgld_samples"] = n_sgld_samples
+        self.hparams["quantiles"] = quantiles
+        self.hparams["lr"] = lr
+        self.hparams["weight_decay"] = weight_decay
+        self.hparams["noise_factor"] = noise_factor
+
+        self.models: List[nn.Module] = []
         self.dir_list = []
 
         # manual optimization with SGLD optimizer
@@ -168,8 +172,8 @@ class SGLDModel(BaseModel):
                 loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
             # after train with nll
             else:
-                loss = self.criterion(out, y)
-            loss = self.criterion(out, y)
+                loss = self.loss_fn(out, y)
+            loss = self.loss_fn(out, y)
             sgld_opt.zero_grad()
             self.manual_backward(loss)
             return loss
