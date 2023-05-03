@@ -12,13 +12,9 @@ import torch.nn as nn
 from torch import Tensor
 from torch.optim.optimizer import Optimizer
 
-from uq_method_box.eval_utils import (
-    compute_aleatoric_uncertainty,
-    compute_epistemic_uncertainty,
-    compute_predictive_uncertainty,
-    compute_quantiles_from_std,
-)
 from uq_method_box.uq_methods import BaseModel
+
+from .utils import process_model_prediction
 
 
 # SGLD Optimizer from Izmailov, currently in __init__.py
@@ -113,6 +109,12 @@ class SGLDModel(BaseModel):
         self.snapshot_dir = os.path.join(self.hparams.save_dir, "model_snapshots")
         os.makedirs(self.snapshot_dir)
 
+        self.hparams["burnin_epochs"] = burnin_epochs
+        self.hparams["n_sgld_samples"] = n_sgld_samples
+        self.hparams["models"]: List[nn.Module] = []
+        self.hparams["quantiles"] = quantiles
+        self.hparams["weight_decay"] = weight_decay
+        self.hparams["noise_factor"] = noise_factor
         self.hparams["burnin_epochs"] = burnin_epochs
         self.hparams["n_sgld_samples"] = n_sgld_samples
         self.hparams["quantiles"] = quantiles
@@ -236,44 +238,7 @@ class SGLDModel(BaseModel):
             self.model.load_state_dict(torch.load(ckpt_path))
             preds.append(self.model(X))
 
-        # import pdb
-        # pdb.set_trace()
         preds = torch.stack(preds, dim=-1).detach().numpy()
         # shape [batch_size, num_outputs, n_sgld_samples]
 
-        # Prediction gives two outputs, due to NLL loss
-        mean_samples = preds[:, 0, :]
-
-        # assume prediction with sigma
-        if preds.shape[1] == 2:
-            log_sigma_2_samples = preds[:, 1, :]
-            eps = np.ones_like(log_sigma_2_samples) * 1e-6
-            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
-            mean = mean_samples.mean(-1)
-            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
-            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
-            epistemic = compute_epistemic_uncertainty(mean_samples)
-            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": epistemic,
-                "aleatoric_uct": aleatoric,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
-
-        # assume mse prediction
-        else:
-            sgld_mean = mean_samples.mean(-1)
-            sgld_std = mean_samples.std(-1)
-            sgld_quantiles = compute_quantiles_from_std(
-                sgld_mean, sgld_std, self.hparams.quantiles
-            )
-            return {
-                "mean": sgld_mean,
-                "pred_uct": sgld_std,
-                "epistemic_uct": sgld_std,
-                "lower_quant": sgld_quantiles[:, 0],
-                "upper_quant": sgld_quantiles[:, -1],
-            }
+        return process_model_prediction(preds, self.hparams.quantiles)
