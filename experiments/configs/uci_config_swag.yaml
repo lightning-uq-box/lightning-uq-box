@@ -8,16 +8,19 @@ wandb:
 
 # everything to configure the UQ method
 uq_method:
-  _target_: uq_method_box.uq_methods.QuantileRegressionModel
+  _target_: uq_method_box.uq_methods.BaseModel
   model:
     _target_: uq_method_box.models.MLP # timm.create_model for timm models
     # all arguments to initiate the mlp for example
-    n_outputs: 3
+    n_outputs: 1
     n_hidden: [50]
   optimizer:
-    _target_: torch.optim.SGD # can change optimizers here easily
+    _target_: torch.optim.Adam # can change optimizers here easily
     _partial_: true
     lr: 0.003
+  loss_fn:
+    _target_: torch.nn.MSELoss
+  # quantiles: [0.1, 0.5, 0.9]
 
 # everything to configure the datamodule  
 datamodule:
@@ -27,6 +30,16 @@ datamodule:
   train_size: 0.9
   batch_size: 32
   num_workers: 4
+
+post_processing:
+  _target_: uq_method_box.uq_methods.SWAGModel
+  num_swag_epochs: 10
+  max_swag_snapshots: 10
+  snapshot_freq: 1
+  num_mc_samples: 30
+  swag_lr: 0.001
+  loss_fn:
+    _target_: torch.nn.MSELoss
 
 # all flags for the pytorch lightning trainer
 trainer:
@@ -42,3 +55,4 @@ trainer:
   fast_dev_run: False
   log_every_n_steps: 10
   enable_progress_bar: True
+    

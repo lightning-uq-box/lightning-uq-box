@@ -13,5 +13,8 @@ We aim to provide an extensive documentation on all included UQ-methods to clear
 ## Experiments
 The experiments conducted for our paper "Title here." are contained in the [experiments](experiments/) directory. To reproduce the results in our paper follow these instructions.
 
+## Contribution
+For a basic contribution guide see this [doc](contribution_guide.md).
+
 ## Citation
 If you use this software in your work, please cite...

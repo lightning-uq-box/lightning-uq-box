@@ -131,7 +131,7 @@ def plot_predictions(
         )
 
     ax0.legend()
-    plt.show()
+    return fig
 
 
 def plot_calibration_uq_toolbox(

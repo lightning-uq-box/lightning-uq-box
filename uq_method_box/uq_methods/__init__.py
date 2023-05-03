@@ -9,8 +9,10 @@ from .deep_kernel_learning import DeepKernelLearningModel, DKLGPLayer, initial_v
 from .deterministic_gaussian import DeterministicGaussianModel
 from .deterministic_uncertainty_estimation import DUEModel
 from .laplace_model import LaplaceModel
+from .loss_functions import NLL, DERLoss, QuantileLoss
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
+from .sgld import SGLDModel
 from .spectral_normalized_layers import (
     SpectralBatchNorm1d,
     SpectralBatchNorm2d,
@@ -18,6 +20,7 @@ from .spectral_normalized_layers import (
     SpectralNormFC,
     spectral_normalize_model_layers,
 )
+from .swag import SWAGModel
 
 __all__ = (
     # base model
@@ -41,6 +44,10 @@ __all__ = (
     # Approximate GP model for DKL
     "DKLGPLayer",
     "initial_values",
+    # SWAG Model
+    "SWAGModel",
+    # SGLD Model.
+    "SGLDModel",
     # Bayes by Backprop
     "BayesByBackpropModel",
     # Deep Evidential Regression Model
@@ -51,4 +58,8 @@ __all__ = (
     "SpectralNormConv",
     "SpectralNormFC",
     "spectral_normalize_model_layers",
+    # Loss Functions
+    "NLL",
+    "QuantileLoss",
+    "DERLoss",
 )

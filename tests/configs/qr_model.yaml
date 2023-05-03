@@ -1,10 +1,10 @@
-model:
-  loss_fn: mse
-  conformalized: False
-  model_args: # all arguments for the mlp
+uq_method:
+  _target_: uq_method_box.uq_methods.QuantileRegressionModel
+  model:
+    _target_: uq_method_box.models.MLP
     n_outputs: 3
-    n_inputs: 1
-    n_hidden: [10]
-  quantiles: [0.1, 0.5, 0.9]
-optimizer:
-  lr: 0.003
+    n_hidden: [50]
+  optimizer:
+    _target_: torch.optim.SGD
+    _partial_: true
+    lr: 0.003

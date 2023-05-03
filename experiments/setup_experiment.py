@@ -2,97 +2,12 @@
 
 from typing import Any, Dict, List, Union
 
-import torch.nn as nn
+from hydra.utils import instantiate
 from lightning import LightningDataModule, LightningModule, Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
-from lightning.pytorch.loggers import CSVLogger
+from lightning.pytorch.loggers import CSVLogger, WandbLogger
 
-from uq_method_box.uq_methods import (
-    BaseModel,
-    BayesByBackpropModel,
-    DeepEnsembleModel,
-    DERModel,
-    DeterministicGaussianModel,
-    MCDropoutModel,
-    QuantileRegressionModel,
-)
-
-
-def generate_base_model(
-    config: Dict[str, Any], model_class: type[nn.Module]
-) -> LightningModule:
-    """Generate a configured base model.
-
-    Args:
-        config: config dictionary
-
-    Keywoard Args:
-        model_class: optional to initiate a base class with a certain model
-        train_loader: needed for laplace model
-
-    Returns:
-        configured pytorch lightning module
-    """
-    if config["model"]["base_model"] == "base_model":
-        return BaseModel(
-            model_class,
-            model_args=config["model"]["model_args"],
-            lr=config["optimizer"]["lr"],
-            loss_fn=config["model"]["loss_fn"],
-            save_dir=config["experiment"]["save_dir"],
-        )
-
-    elif config["model"]["base_model"] == "mc_dropout":
-        return MCDropoutModel(
-            model_class,
-            model_args=config["model"]["model_args"],
-            num_mc_samples=config["model"]["num_mc_samples"],
-            lr=config["optimizer"]["lr"],
-            loss_fn=config["model"]["loss_fn"],
-            save_dir=config["experiment"]["save_dir"],
-            burnin_epochs=config["model"]["burnin_epochs"],
-            max_epochs=config["pl"]["max_epochs"],
-        )
-
-    elif config["model"]["base_model"] == "quantile_regression":
-        return QuantileRegressionModel(
-            model_class,
-            model_args=config["model"]["model_args"],
-            lr=config["optimizer"]["lr"],
-            save_dir=config["experiment"]["save_dir"],
-            quantiles=config["model"]["quantiles"],
-        )
-
-    elif config["model"]["base_model"] == "gaussian":
-        return DeterministicGaussianModel(
-            model_class,
-            model_args=config["model"]["model_args"],
-            lr=config["optimizer"]["lr"],
-            loss_fn=config["model"]["loss_fn"],
-            save_dir=config["experiment"]["save_dir"],
-            burnin_epochs=config["model"]["burnin_epochs"],
-            max_epochs=config["pl"]["max_epochs"],
-        )
-
-    elif config["model"]["base_model"] == "bayes_by_backprop":
-        return BayesByBackpropModel(
-            model_class,
-            model_args=config["model"]["model_args"],
-            lr=config["optimizer"]["lr"],
-            loss_fn=config["model"]["loss_fn"],
-            save_dir=config["experiment"]["save_dir"],
-            **config["model"]["bayes_by_backprop"],
-        )
-
-    elif config["model"]["base_model"] == "der":
-        return DERModel(
-            model_class,
-            model_args=config["model"]["model_args"],
-            lr=config["optimizer"]["lr"],
-            save_dir=config["experiment"]["save_dir"],
-        )
-    else:
-        raise ValueError("Your base_model choice is currently not supported.")
+from uq_method_box.uq_methods import DeepEnsembleModel
 
 
 def generate_ensemble_model(
@@ -140,12 +55,12 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
     loggers = [
         CSVLogger(config["experiment"]["save_dir"], name="csv_logs"),
         # WandbLogger(
-        #     save_dir=config["experiment"]["save_dir"],
-        #     project=config["wandb"]["project"],
-        #     entity=config["wandb"]["entity"],
-        #     resume="allow",
-        #     config=config,
-        #     mode=config["wandb"].get("mode", "online"),
+        #   save_dir=config["experiment"]["save_dir"],
+        #    project=config["wandb"]["project"],
+        #    entity=config["wandb"]["entity"],
+        #    resume="allow",
+        #    config=config,
+        #    mode=config["wandb"].get("mode", "online"),
         # ),
     ]
 
@@ -160,8 +75,8 @@ def generate_trainer(config: Dict[str, Any]) -> Trainer:
         every_n_epochs=1,
     )
 
-    return Trainer(
-        **config["pl"],
+    return instantiate(
+        config.trainer,
         default_root_dir=config["experiment"]["save_dir"],
         callbacks=[checkpoint_callback],
         logger=loggers,

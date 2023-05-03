@@ -8,16 +8,19 @@ wandb:
 
 # everything to configure the UQ method
 uq_method:
-  _target_: uq_method_box.uq_methods.QuantileRegressionModel
+  _target_: uq_method_box.uq_methods.SGLDModel
   model:
     _target_: uq_method_box.models.MLP # timm.create_model for timm models
     # all arguments to initiate the mlp for example
-    n_outputs: 3
+    n_outputs: 1
     n_hidden: [50]
-  optimizer:
-    _target_: torch.optim.SGD # can change optimizers here easily
-    _partial_: true
-    lr: 0.003
+  loss_fn:
+    _target_: torch.nn.MSELoss
+  lr: 0.0001
+  n_sgld_samples: 5
+  weight_decay: 0.1
+  noise_factor: 0.2 #for toy data between 0 and 0.5 worked
+  burnin_epochs: 5
 
 # everything to configure the datamodule  
 datamodule:

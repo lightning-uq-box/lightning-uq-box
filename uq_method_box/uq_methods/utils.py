@@ -7,8 +7,9 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 import torch.nn as nn
+from torch.optim import SGD, Adam
 
-from uq_method_box.train_utils import NLL, QuantileLoss
+from .loss_functions import NLL, QuantileLoss
 
 
 def retrieve_loss_fn(
@@ -32,6 +33,14 @@ def retrieve_loss_fn(
         return None
     else:
         raise ValueError("Your loss function choice is not supported.")
+
+
+def retrieve_optimizer(optimizer_name: str):
+    """Retrieve an optimizer."""
+    if optimizer_name == "sgd":
+        return SGD
+    elif optimizer_name == "adam":
+        return Adam
 
 
 def merge_list_of_dictionaries(list_of_dicts: List[Dict[str, Any]]):
@@ -63,3 +72,24 @@ def save_predictions_to_csv(outputs: Dict[str, np.ndarray], path: str) -> None:
         df.to_csv(path, mode="a", index=False, header=False)
     else:  # create new csv
         df.to_csv(path, index=False)
+
+
+def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:
+    """Retrieve the output layer name and module from a pytorch model.
+
+    Args:
+        model: pytorch model
+
+    Returns:
+        output key and module
+    """
+    keys = []
+    children = list(model.named_children())
+    while children != []:
+        name, module = children[-1]
+        keys.append(name)
+        children = list(module.named_children())
+
+    key = ".".join(keys)
+
+    return key, module

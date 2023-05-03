@@ -63,12 +63,17 @@ def compute_metrics_for_single_seed(
     pred_csv = os.path.join(pred_dir, "predictions.csv")
     pred_df = pd.read_csv(pred_csv)
 
-    uq_metrics = uct.metrics.get_all_metrics(
-        pred_df["mean"].values.squeeze(),
-        pred_df["pred_uct"].values.squeeze(),
-        pred_df["targets"].values.squeeze(),
-        verbose=False,
-    )
+    try:
+        uq_metrics = uct.metrics.get_all_metrics(
+            pred_df["mean"].values.squeeze(),
+            pred_df["pred_uct"].values.squeeze(),
+            pred_df["targets"].values.squeeze(),
+            verbose=False,
+        )
+    except:
+        import pdb
+
+        pdb.set_trace()
 
     uq_metric_categories = ["scoring_rule", "avg_calibration", "sharpness", "accuracy"]
     metrics_dict = {uq_cat: uq_metrics[uq_cat] for uq_cat in uq_metric_categories}
@@ -95,7 +100,7 @@ def compute_metrics_for_single_seed(
         "conformalized": seed_config["model"].get("conformalized", False),
         "dataset_name": seed_config["ds"]["dataset_name"],
         "pred_log_dir": seed_config["experiment"]["save_dir"],
-        "mlp_n_outputs": seed_config["model"]["mlp"]["n_outputs"],
+        "mlp_n_outputs": seed_config["model"]["model_args"]["n_outputs"],
         "date": date_time,
     }
 
