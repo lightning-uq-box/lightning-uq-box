@@ -1,6 +1,7 @@
 """USA Vars Dataset for OOD Tasks."""
 
-from typing import Any, Callable, Dict, Optional, Sequence
+from collections.abc import Sequence
+from typing import Any, Callable, Optional
 
 import geopandas
 import geoplot as gplt
@@ -45,7 +46,7 @@ class USAVarsRaster(RasterDataset):
         crs=None,
         res: Optional[float] = None,
         bands: Optional[Sequence[str]] = None,
-        transforms: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
+        transforms: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
         cache: bool = True,
     ) -> None:
         super().__init__(root, crs, res, bands, transforms, cache)

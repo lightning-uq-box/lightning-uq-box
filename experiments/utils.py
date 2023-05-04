@@ -2,10 +2,10 @@
 
 import os
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 
-def ignore_args(dictionary: Dict[str, Any], ignore_keys: List[str]) -> Dict[str, Any]:
+def ignore_args(dictionary: dict[str, Any], ignore_keys: list[str]) -> dict[str, Any]:
     """Ignore certain arguments in dictionary.
 
     Args:
@@ -18,7 +18,7 @@ def ignore_args(dictionary: Dict[str, Any], ignore_keys: List[str]) -> Dict[str,
     return {arg: val for arg, val in dictionary.items() if arg not in ignore_args}
 
 
-def create_experiment_dir(config: Dict[str, Any]) -> str:
+def create_experiment_dir(config: dict[str, Any]) -> str:
     """Create experiment directory.
 
     Args:

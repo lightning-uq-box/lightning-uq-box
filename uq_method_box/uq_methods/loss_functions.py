@@ -1,7 +1,6 @@
 """Loss Functions specific to UQ-methods."""
 
 import math
-from typing import List
 
 import torch
 import torch.nn as nn
@@ -59,7 +58,7 @@ class TheirNLL(nn.Module):
 class QuantileLoss(nn.Module):
     """Quantile or Pinball Loss function."""
 
-    def __init__(self, quantiles: List[float]) -> None:
+    def __init__(self, quantiles: list[float]) -> None:
         """Initialize a new instance of Quantile Loss function."""
         super().__init__()
         self.quantiles = quantiles

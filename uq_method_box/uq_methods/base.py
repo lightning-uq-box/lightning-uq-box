@@ -1,7 +1,7 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import torch
@@ -166,7 +166,7 @@ class BaseModel(LightningModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Prediction step.
 
         Args:
@@ -180,7 +180,7 @@ class BaseModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: Dict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,
@@ -191,7 +191,7 @@ class BaseModel(LightningModule):
                 outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
             )
 
-    def configure_optimizers(self) -> Dict[str, Any]:
+    def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:

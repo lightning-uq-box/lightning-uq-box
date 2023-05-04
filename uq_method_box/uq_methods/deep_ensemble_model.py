@@ -1,7 +1,7 @@
 """Implement a Deep Ensemble Model for prediction."""
 
 import os
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -17,9 +17,9 @@ class DeepEnsembleModel(LightningModule):
     def __init__(
         self,
         n_ensemble_members: int,
-        ensemble_members: List[Dict[str, Union[type[LightningModule], str]]],
+        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
         save_dir: str,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
@@ -46,7 +46,7 @@ class DeepEnsembleModel(LightningModule):
             Ensemble member outputs stacked over last dimension for output
             of [batch_size, num_outputs, num_ensemble_members]
         """
-        out: List[torch.Tensor] = []
+        out: list[torch.Tensor] = []
         for model_config in self.ensemble_members:
             # load the weights into the network
             model_config["base_model"].load_state_dict(
@@ -71,7 +71,7 @@ class DeepEnsembleModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: Dict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,

@@ -1,6 +1,6 @@
 """Bayes By Backprop Model."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 import torch
@@ -34,7 +34,7 @@ class BayesByBackpropModel(BaseModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bayesian_layer_type: str = "Reparameterization",
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Bayes By Backprop Model.
 
@@ -122,7 +122,7 @@ class BayesByBackpropModel(BaseModel):
 
     def predict_step(
         self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Predict step via Monte Carlo Sampling.
 
         Args:
@@ -135,7 +135,7 @@ class BayesByBackpropModel(BaseModel):
             torch.stack([self.model(batch) for _ in range(self.num_mc_samples)], dim=-1)
             .detach()
             .numpy()
-        )  # shape [num_samples, batch_size, num_outputs]
+        )  # shape [batch_size, num_outputs, num_samples]
 
         mean = preds.mean(-1).squeeze(-1)
         std = preds.std(-1).squeeze(-1)

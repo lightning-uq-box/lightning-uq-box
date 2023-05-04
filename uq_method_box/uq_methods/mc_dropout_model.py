@@ -1,7 +1,7 @@
 """Mc-Dropout module."""
 
 
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import torch
@@ -88,7 +88,7 @@ class MCDropoutModel(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Predict steps via Monte Carlo Sampling.
 
         Args:
