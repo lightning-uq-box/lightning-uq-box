@@ -1,36 +1,48 @@
 """Laplace Approximation model."""
 
 import os
-from typing import Any, Union
+from typing import Any
 
 import numpy as np
 import torch
+import torch.nn as nn
 from laplace import Laplace
 from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
+from torchgeo.trainers.utils import _get_input_layer_name_and_module
 from tqdm import trange
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
 
-from .utils import save_predictions_to_csv
+from .utils import _get_output_layer_name_and_module, save_predictions_to_csv
 
 
 class LaplaceModel(LightningModule):
     """Laplace Approximation method for regression."""
 
+    subset_of_weights_options = ["last_layer", "subnetwork", "all"]
+    hessian_structure_options = ["diag", "kron", "full", "lowrank"]
+
     def __init__(
         self,
-        model: LightningModule,
-        laplace_args: dict[str, Union[float, str]],
+        model: nn.Module,
         train_loader: DataLoader,
         save_dir: str,
+        sigma_noise: float = 1.0,
+        prior_precision: float = 1.0,
+        prior_mean: float = 0.0,
+        temperature: float = 1.0,
+        subset_of_weights: str = "last_layer",
+        hessian_structure: str = "kron",
+        tune_precision_lr: float = 0.1,
+        n_epochs_tune_precision: int = 100,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
-            model: lightning module to use as underlying model
+            model: pytorch model to use as underlying model
             laplace_args: laplace arguments to initialize a Laplace Model
             train_loader: train loader to be used but maybe this can
                 also be accessed through the trainer or write a
@@ -38,28 +50,38 @@ class LaplaceModel(LightningModule):
         """
         super().__init__()
         self.save_hyperparameters(ignore=["model", "train_loader"])
-        self.laplace_fitted = False
+
+        self.model = model  # pytorch model
         self.train_loader = train_loader
+        self.laplace_fitted = False
 
-        self.model = model  # lightning model
+    @property
+    def num_inputs(self) -> int:
+        """Retrieve input dimension to the model.
 
-        # TODO: find the sequential within the model
-        self.module = self.model.model.model  # nn.Sequential
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_input_layer_name_and_module(self.model)
+        if hasattr(module, "in_features"):  # Linear Layer
+            num_inputs = module.in_features
+        elif hasattr(module, "in_channels"):  # Conv Layer
+            num_inputs = module.in_channels
+        return num_inputs
 
-        self.tune_precision_lr = self.hparams.laplace_args.get(
-            "tune_precision_lr", 1e-2
-        )
-        self.n_epochs_tune_precision = self.hparams.laplace_args.get(
-            "n_epochs_tune_precision", 100
-        )
-        # get laplace args from dictionary
-        self.hparams.laplace_args = {
-            arg: val
-            for arg, val in self.hparams.laplace_args.items()
-            if arg not in ["n_epochs_tune_precision", "tune_precision_lr"]
-        }
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
 
-        self.quantiles = quantiles
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_output_layer_name_and_module(self.model)
+        if hasattr(module, "out_features"):  # Linear Layer
+            num_outputs = module.out_features
+        elif hasattr(module, "out_channels"):  # Conv Layer
+            num_outputs = module.out_channels
+        return num_outputs
 
     def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
         """Fitted Laplace Model Forward Pass.
@@ -85,7 +107,14 @@ class LaplaceModel(LightningModule):
             # but need it for laplace so set inference mode to false with cntx manager
             with torch.inference_mode(False):
                 self.la_model = Laplace(
-                    self.module, "regression", **self.hparams.laplace_args
+                    model=self.model,
+                    likelihood="regression",
+                    subset_of_weights=self.hparams.subset_of_weights,
+                    hessian_structure=self.hparams.hessian_structure,
+                    sigma_noise=self.hparams.sigma_noise,
+                    prior_precision=self.hparams.prior_precision,
+                    prior_mean=self.hparams.prior_mean,
+                    temperature=self.hparams.temperature,
                 )
                 # fit the laplace approximation
                 self.la_model.fit(self.train_loader)
@@ -95,9 +124,9 @@ class LaplaceModel(LightningModule):
                     1, requires_grad=True
                 )
                 hyper_optimizer = torch.optim.Adam(
-                    [log_prior, log_sigma], lr=self.tune_precision_lr
+                    [log_prior, log_sigma], lr=self.hparams.tune_precision_lr
                 )
-                bar = trange(self.n_epochs_tune_precision)
+                bar = trange(self.hparams.n_epochs_tune_precision)
                 # find out why this is so extremely slow?
                 for i in bar:
                     hyper_optimizer.zero_grad()
@@ -162,7 +191,7 @@ class LaplaceModel(LightningModule):
                 laplace_epistemic**2 + laplace_aleatoric**2
             )
             quantiles = compute_quantiles_from_std(
-                laplace_mean, laplace_predictive, self.quantiles
+                laplace_mean, laplace_predictive, self.hparams.quantiles
             )
 
         return {

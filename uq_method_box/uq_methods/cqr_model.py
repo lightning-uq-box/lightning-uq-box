@@ -8,10 +8,15 @@ import torch
 from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
+from torchgeo.trainers.utils import _get_input_layer_name_and_module
 
 from uq_method_box.eval_utils import compute_sample_mean_std_from_quantile
 
-from .utils import merge_list_of_dictionaries, save_predictions_to_csv
+from .utils import (
+    _get_output_layer_name_and_module,
+    merge_list_of_dictionaries,
+    save_predictions_to_csv,
+)
 
 # TODO add quantile outputs to all models so they can be conformalized
 # with the CQR wrapper
@@ -85,6 +90,34 @@ class CQR(LightningModule):
 
         self.cqr_fitted = False
         self.calibration_loader = calibration_loader
+
+    @property
+    def num_inputs(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_input_layer_name_and_module(self.model.model)
+        if hasattr(module, "in_features"):  # Linear Layer
+            num_inputs = module.in_features
+        elif hasattr(module, "in_channels"):  # Conv Layer
+            num_inputs = module.in_channels
+        return num_inputs
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_output_layer_name_and_module(self.model.model)
+        if hasattr(module, "out_features"):  # Linear Layer
+            num_outputs = module.out_features
+        elif hasattr(module, "out_channels"):  # Conv Layer
+            num_outputs = module.out_channels
+        return num_outputs
 
     def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
         """Conformalized Forward Pass.

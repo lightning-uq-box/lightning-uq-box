@@ -1,16 +1,14 @@
 """Implement Quantile Regression Model."""
 
-from typing import Any, Union
-
 import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
 
 from uq_method_box.eval_utils import compute_sample_mean_std_from_quantile
-from uq_method_box.train_utils import QuantileLoss
 
 from .base import BaseModel
+from .loss_functions import QuantileLoss
 
 
 class QuantileRegressionModel(BaseModel):
@@ -18,14 +16,15 @@ class QuantileRegressionModel(BaseModel):
 
     def __init__(
         self,
-        model_class: Union[type[nn.Module], str],
-        model_args: dict[str, Any],
-        lr: float,
+        model: nn.Module,
+        optimizer: type[torch.optim.Optimizer],
         save_dir: str,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Quantile Regression Model."""
-        super().__init__(model_class, model_args, lr, "quantile", save_dir)
+        super().__init__(model, optimizer, None, save_dir)
+
+        self.loss_fn = QuantileLoss(quantiles)
 
         self.quantiles = quantiles
         self.median_index = self.hparams.quantiles.index(0.5)
