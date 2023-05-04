@@ -2,7 +2,7 @@
 
 import json
 import os
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -205,7 +205,7 @@ class TropicalCycloneOOD(TropicalCyclone):
         pdb.set_trace()
         print(0)
 
-    def retrieve_collection(self) -> Dict[str, Any]:
+    def retrieve_collection(self) -> dict[str, Any]:
         """Retrieve collection from both train and val split."""
         output_dir = "_".join([self.collection_id, "train", "source"])
         filename = os.path.join(self.root, output_dir, "collection.json")
@@ -227,7 +227,7 @@ class TropicalCycloneOOD(TropicalCyclone):
         """
         return len(self.sample_collection)
 
-    def __getitem__(self, index: int) -> Dict[str, Any]:
+    def __getitem__(self, index: int) -> dict[str, Any]:
         """Return an index within the dataset.
 
         Args:
@@ -245,7 +245,7 @@ class TropicalCycloneOOD(TropicalCyclone):
             source_id.replace("source", "{0}"),
         )
 
-        sample: Dict[str, Any] = {
+        sample: dict[str, Any] = {
             "image": torch.stack([self._load_image(paths)], dim=-1)
         }
 

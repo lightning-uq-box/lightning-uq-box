@@ -9,6 +9,7 @@ from .deep_ensemble_model import DeepEnsembleModel
 from .deep_evidential_regression import DERModel
 from .deterministic_gaussian import DeterministicGaussianModel
 from .laplace_model import LaplaceModel
+from .loss_functions import NLL, DERLoss, QuantileLoss
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
 from .sgld import SGLDModel
@@ -41,4 +42,8 @@ __all__ = (
     "BNN_VI",
     # BNN with Latent Variables
     "BNN_LV_VI",
+    # Loss Functions
+    "NLL",
+    "QuantileLoss",
+    "DERLoss",
 )

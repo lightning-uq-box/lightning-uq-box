@@ -1,17 +1,22 @@
 """conformalized Quantile Regression Model."""
 
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import numpy as np
 import torch
 from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
+from torchgeo.trainers.utils import _get_input_layer_name_and_module
 
 from uq_method_box.eval_utils import compute_sample_mean_std_from_quantile
 
-from .utils import merge_list_of_dictionaries, save_predictions_to_csv
+from .utils import (
+    _get_output_layer_name_and_module,
+    merge_list_of_dictionaries,
+    save_predictions_to_csv,
+)
 
 # TODO add quantile outputs to all models so they can be conformalized
 # with the CQR wrapper
@@ -60,7 +65,7 @@ class CQR(LightningModule):
     def __init__(
         self,
         model: LightningModule,
-        quantiles: List[float],
+        quantiles: list[float],
         calibration_loader: DataLoader,
         save_dir: str,
     ) -> None:
@@ -86,6 +91,34 @@ class CQR(LightningModule):
         self.cqr_fitted = False
         self.calibration_loader = calibration_loader
 
+    @property
+    def num_inputs(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_input_layer_name_and_module(self.model.model)
+        if hasattr(module, "in_features"):  # Linear Layer
+            num_inputs = module.in_features
+        elif hasattr(module, "in_channels"):  # Conv Layer
+            num_inputs = module.in_channels
+        return num_inputs
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_output_layer_name_and_module(self.model.model)
+        if hasattr(module, "out_features"):  # Linear Layer
+            num_outputs = module.out_features
+        elif hasattr(module, "out_channels"):  # Conv Layer
+            num_outputs = module.out_channels
+        return num_outputs
+
     def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
         """Conformalized Forward Pass.
 
@@ -100,7 +133,7 @@ class CQR(LightningModule):
 
         # predict with underlying model
         with torch.no_grad():
-            model_preds: Dict[str, np.ndarray] = self.model.predict_step(X)
+            model_preds: dict[str, np.ndarray] = self.model.predict_step(X)
 
         # conformalize predictions
         cqr_sets = np.stack(
@@ -126,7 +159,7 @@ class CQR(LightningModule):
             )
             self.cqr_fitted = True
 
-    def compute_calibration_scores(self) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_calibration_scores(self) -> tuple[np.ndarray, np.ndarray]:
         """Compute calibration scores."""
         # model predict steps return a dictionary that contains quantiles
         outputs = [
@@ -153,7 +186,7 @@ class CQR(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: Dict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,
