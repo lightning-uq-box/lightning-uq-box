@@ -1,7 +1,7 @@
 uq_method_box.datamodules
 =========================
 
-.. module:: uq_regression_box.datamodules
+.. module:: uq_method_box.datamodules
 
 Toy Datamodules
 ---------------

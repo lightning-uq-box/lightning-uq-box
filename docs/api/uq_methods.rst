@@ -1,7 +1,7 @@
 uq_method_box.uq_methods
 ========================
 
-.. module:: uq_regression_box.uq_methods
+.. module:: uq_method_box.uq_methods
 
 .. autoclass:: BaseModel
 
