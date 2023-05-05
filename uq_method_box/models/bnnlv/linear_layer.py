@@ -11,7 +11,7 @@ from torch import Tensor
 
 
 class LinearReparameterizationLayer(LinearReparameterization):
-    """Linear Flipout Layer."""
+    """Linear Reparameterization Layer for Variational Inference."""
 
     def __init__(
         self,
@@ -23,7 +23,7 @@ class LinearReparameterizationLayer(LinearReparameterization):
         posterior_rho_init: float = -3.0,
         bias: bool = True,
     ) -> None:
-        """Initialize a new Linear Flipout layer.
+        """Initialize a new Linear Reparameterization layer.
 
         Args:
             in_features: size of each input sample
@@ -160,15 +160,3 @@ class LinearReparameterizationLayer(LinearReparameterization):
         v_W = std_W**2
         m_W = m_W
         return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
-
-
-# if __name__ == "__main__":
-#     layer = LinearFlipoutLayer(in_features=1, out_features=10)
-#     x = torch.randn(size=(32, 1))
-#     state = layer(x)
-#     layer_loss_dict = {
-#         "log_Z_prior": layer.calc_log_Z_prior(),
-#         "log_f_hat": layer.log_f_hat,
-#         "log_normalizer": layer.log_normalizer,
-#     }
-#     print(f"state_shape: {state.shape}", layer_loss_dict)
