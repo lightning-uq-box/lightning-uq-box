@@ -1,10 +1,33 @@
 """Visualization utils for Regression Uncertainty."""
 
+import os
 from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import uncertainty_toolbox as uct
+
+
+def plot_training_metrics(save_dir: str) -> plt.figure:
+    """Plot training metrics from a lightning CSVLogger.
+
+    Args:
+        save_dir: path to save directory of CSVLogger
+    """
+    metrics_path = os.path.join(save_dir, "lightning_logs", "version_0", "metrics.csv")
+    df = pd.read_csv(metrics_path)
+
+    train_loss = df[df["train_loss"].notna()]["train_loss"]
+    train_rmse = df[df["train_RMSE"].notna()]["train_RMSE"]
+
+    fig, ax = plt.subplots(ncols=2)
+    ax[0].plot(np.arange(len(train_loss)), train_loss)
+    ax[0].set_title("Train Loss")
+
+    ax[1].plot(np.arange(len(train_rmse)), train_rmse)
+    ax[1].set_title("Train RMSE")
+    return fig
 
 
 def plot_toy_data(
@@ -21,6 +44,7 @@ def plot_toy_data(
     fig, ax = plt.subplots(1)
     ax.scatter(X_test, y_test, color="gray", edgecolor="black", s=5, label="test_data")
     ax.scatter(X_train, y_train, color="blue", label="train_data")
+    plt.title("Toy Regression Dataset.")
     plt.legend()
     plt.show()
 
