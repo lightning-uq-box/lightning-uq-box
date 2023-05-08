@@ -7,7 +7,7 @@ import math
 import os
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -19,14 +19,7 @@ from torch.distributions import Normal
 from torch.utils.data import DataLoader
 from tqdm import trange
 
-from uq_method_box.eval_utils import (
-    compute_aleatoric_uncertainty,
-    compute_epistemic_uncertainty,
-    compute_predictive_uncertainty,
-    compute_quantiles_from_std,
-)
-
-from .utils import save_predictions_to_csv
+from .utils import process_model_prediction, save_predictions_to_csv
 
 
 class SWAGModel(LightningModule):
@@ -45,7 +38,7 @@ class SWAGModel(LightningModule):
         save_dir: str,
         num_datapoints_for_bn_update: Optional[int] = None,
         target_scaler: StandardScaler = None,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
@@ -115,7 +108,7 @@ class SWAGModel(LightningModule):
         safe_name = param_name.replace(".", "_")
         setattr(self.model, f"{safe_name}_{buffer_name}", value)
 
-    def _update_tracked_state_dict(self, state_dict: Dict[str, nn.Parameter]) -> None:
+    def _update_tracked_state_dict(self, state_dict: dict[str, nn.Parameter]) -> None:
         """Update tracked state_dict.
 
         Args:
@@ -132,7 +125,7 @@ class SWAGModel(LightningModule):
 
         self.model.load_state_dict(full_state_dict)
 
-    def _untracked_state_dict(self) -> Dict[str, nn.Parameter]:
+    def _untracked_state_dict(self) -> dict[str, nn.Parameter]:
         """Return filtered untracked state dict."""
         filtered_state_dict = {}
         tracked_keys = {name for name, _ in self.model.named_parameters()}
@@ -263,7 +256,7 @@ class SWAGModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: Dict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,
@@ -297,39 +290,7 @@ class SWAGModel(LightningModule):
 
         preds = np.stack(preds, axis=-1)
 
-        mean_samples = preds[:, 0, :]
-
-        # assume prediction with sigma
-        # this is also quiet common across models so standardize this
-        if preds.shape[1] == 2:
-            log_sigma_2_samples = preds[:, 1, :]
-            eps = np.ones_like(log_sigma_2_samples) * 1e-6
-            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
-            mean = mean_samples.mean(-1)
-            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
-            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
-            epistemic = compute_epistemic_uncertainty(mean_samples)
-            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": epistemic,
-                "aleatoric_uct": aleatoric,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
-        # assume mse prediction
-        else:
-            mean = mean_samples.mean(-1)
-            std = mean_samples.std(-1)
-            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": std,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
+        return process_model_prediction(preds, self.hparams.quantiles)
 
 
 # Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501

@@ -1,7 +1,5 @@
 """Implement Quantile Regression Model."""
 
-from typing import Dict, List
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -21,7 +19,7 @@ class QuantileRegressionModel(BaseModel):
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
         save_dir: str,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Quantile Regression Model."""
         super().__init__(model, optimizer, None, save_dir)
@@ -45,7 +43,7 @@ class QuantileRegressionModel(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Predict step with Quantile Regression.
 
         Args:

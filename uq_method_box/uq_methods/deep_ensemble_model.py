@@ -1,21 +1,14 @@
 """Implement a Deep Ensemble Model for prediction."""
 
 import os
-from typing import Any, Dict, List, Union
+from typing import Any, Union
 
 import numpy as np
 import torch
 from lightning import LightningModule
 from torch import Tensor
 
-from uq_method_box.eval_utils import (
-    compute_aleatoric_uncertainty,
-    compute_epistemic_uncertainty,
-    compute_predictive_uncertainty,
-    compute_quantiles_from_std,
-)
-
-from .utils import save_predictions_to_csv
+from .utils import process_model_prediction, save_predictions_to_csv
 
 
 class DeepEnsembleModel(LightningModule):
@@ -24,9 +17,9 @@ class DeepEnsembleModel(LightningModule):
     def __init__(
         self,
         n_ensemble_members: int,
-        ensemble_members: List[Dict[str, Union[type[LightningModule], str]]],
+        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
         save_dir: str,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
@@ -53,7 +46,7 @@ class DeepEnsembleModel(LightningModule):
             Ensemble member outputs stacked over last dimension for output
             of [batch_size, num_outputs, num_ensemble_members]
         """
-        out: List[torch.Tensor] = []
+        out: list[torch.Tensor] = []
         for model_config in self.ensemble_members:
             # load the weights into the network
             model_config["base_model"].load_state_dict(
@@ -78,7 +71,7 @@ class DeepEnsembleModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: Dict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,
@@ -113,36 +106,4 @@ class DeepEnsembleModel(LightningModule):
         with torch.no_grad():
             preds = self.generate_ensemble_predictions(X).cpu().numpy()
 
-        mean_samples = preds[:, 0, :]
-
-        # assume nll prediction with sigma
-        if preds.shape[1] == 2:
-            log_sigma_2_samples = preds[:, 1, :]
-            eps = np.ones_like(log_sigma_2_samples) * 1e-6
-            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
-            mean = mean_samples.mean(-1)
-            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
-            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
-            epistemic = compute_epistemic_uncertainty(mean_samples)
-            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": epistemic,
-                "aleatoric_uct": aleatoric,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
-        # assume mse prediction
-        else:
-            mean = mean_samples.mean(-1)
-            std = mean_samples.std(-1)
-            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": std,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
+        return process_model_prediction(preds, self.hparams.quantiles)

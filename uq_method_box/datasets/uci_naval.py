@@ -1,6 +1,5 @@
 """UCI Naval Dataset."""
 
-from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -34,7 +33,7 @@ class UCINaval(UCIRegressionDataset):
         """
         super().__init__(root, train_size, seed, calibration_set)
 
-    def load_data(self) -> Tuple[np.ndarray]:
+    def load_data(self) -> tuple[np.ndarray]:
         """Load the Naval dataset."""
         data = pd.read_fwf(self.datapath, header=None).values
         # NB this is the first output
