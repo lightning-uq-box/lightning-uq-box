@@ -15,7 +15,7 @@ from torch.nn.utils.spectral_norm import (
 
 
 def spectral_normalize_model_layers(
-    model: nn.Module, n_power_iterations: int
+    model: nn.Module, n_power_iterations: int, coeff=0.95
 ) -> nn.Module:
     """Convert layers of a standard model into spectral normalized layers.
 
@@ -24,17 +24,20 @@ def spectral_normalize_model_layers(
     Args:
         model: model to spectral normalize layers for
         n_power_iterations: number of power iterations in spectral norm layers
+        coeff: soft normalization only when sigma larger than coeff
     """
-    for name, value in list(model._modules.items()):
+    for name, _ in list(model._modules.items()):
         if model._modules[name]._modules:
-            spectral_normalize_model_layers(model._modules[name], n_power_iterations)
+            spectral_normalize_model_layers(
+                model._modules[name], n_power_iterations, coeff
+            )
         elif "Linear" in model._modules[name].__class__.__name__:
             setattr(
                 model,
                 name,
                 spectral_norm_fc(
                     model._modules[name],
-                    coeff=0.1,
+                    coeff=coeff,
                     n_power_iterations=n_power_iterations,
                 ),
             )
@@ -254,7 +257,7 @@ class SpectralNormConv(SpectralNorm):
 
         Args:
             module:
-            coeff:
+            coeff: soft normalization only when sigma larger than coeff
             input_dim:
             name:
             n_power_iterations:
@@ -316,7 +319,7 @@ def spectral_norm_conv(
     Args:
         module (nn.Module): containing convolution module
         input_dim (tuple(int, int, int)): dimension of input to convolution
-        coeff (float, optional): coefficient to normalize to
+        coeff (float, optional): coefficient to normalize to, soft normalization only when sigma larger than coeff
         n_power_iterations (int, optional): number of power iterations to
             calculate spectral norm
         name (str, optional): name of weight parameter

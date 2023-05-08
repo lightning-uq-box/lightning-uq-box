@@ -45,10 +45,10 @@ my_dir = tempfile.mkdtemp()
 
 # define untrained feature extractor
 feature_extractor = MLP(
-    n_inputs=1, n_outputs=10, n_hidden=[100], activation_fn=torch.nn.Tanh()
+    n_inputs=1, n_outputs=10, n_hidden=[100], activation_fn=torch.nn.ReLU()
 )
 
-dkl_model = DeepKernelLearningModel(
+dkl_model = DUEModel(
     feature_extractor,
     gp_layer=partial(DKLGPLayer, n_outputs=1, kernel="RBF"),
     elbo_fn=partial(VariationalELBO),
@@ -58,7 +58,7 @@ dkl_model = DeepKernelLearningModel(
     save_dir=my_dir,
 )
 
-max_epochs = 700
+max_epochs = 750
 
 logger = CSVLogger(my_dir)
 
@@ -91,7 +91,7 @@ dkl_fig = plot_predictions(
     pred["pred_uct"],
     epistemic=pred["epistemic_uct"],
     aleatoric=pred.get("aleatoric_uct", None),
-    title="DKL",
+    title="DUE",
 )
 
 plt.savefig("dkl.png")

@@ -26,7 +26,8 @@ class DUEModel(DeepKernelLearningModel):
         train_loader: DataLoader,
         n_inducing_points: int,
         optimizer: type[torch.optim.Optimizer],
-        n_power_iterations: int = 10,
+        coeff: float = 0.95,
+        n_power_iterations: int = 1,
         save_dir: str = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -39,7 +40,12 @@ class DUEModel(DeepKernelLearningModel):
             elbo_fn: gpytorch elbo functions
             n_train_points: number of training points necessary f
                 or Gpytorch elbo function
+            coeff: soft normalization only when sigma larger than coeff should be (0, 1)
         """
+        # spectral normalize the feature extractor layers
+        feature_extractor = spectral_normalize_model_layers(
+            feature_extractor, n_power_iterations, coeff
+        )
         super().__init__(
             feature_extractor,
             gp_layer,
@@ -48,9 +54,4 @@ class DUEModel(DeepKernelLearningModel):
             n_inducing_points,
             optimizer,
             save_dir,
-        )
-
-        # spectral normalize the feature extractor layers
-        self.feature_extractor = spectral_normalize_model_layers(
-            feature_extractor, n_power_iterations
         )
