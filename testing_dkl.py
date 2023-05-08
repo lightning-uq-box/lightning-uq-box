@@ -24,11 +24,11 @@ from uq_method_box.uq_methods import (  # BaseModel,; DeterministicGaussianModel
 )
 from uq_method_box.viz_utils import plot_predictions
 
-seed_everything(4)
+seed_everything(2)
 
 # define datamodule
 
-dm = ToyDUE()
+dm = ToyDUE(batch_size=50)
 
 # define data
 X_train, y_train, train_loader, X_test, y_test, test_loader = (
@@ -52,7 +52,7 @@ dkl_model = DUEModel(
     feature_extractor,
     gp_layer=partial(DKLGPLayer, n_outputs=1, kernel="RBF"),
     elbo_fn=partial(VariationalELBO),
-    optimizer=partial(torch.optim.Adam, lr=1e-2),
+    optimizer=partial(torch.optim.Adam, lr=1e-3),
     train_loader=train_loader,
     n_inducing_points=50,
     save_dir=my_dir,

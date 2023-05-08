@@ -20,14 +20,14 @@ class ToyDUE(LightningDataModule):
 
         Args:
             n_samples: number of samples for dataset
-            noise: noise factor
+            noise: gaussian noise variance
             batch_size: batch size for data loaders
         """
         super().__init__()
 
         self.batch_size = batch_size
         # make some random sines & cosines
-        np.random.seed(0)
+        np.random.seed(2)
         n_samples = int(n_samples)
 
         W = np.random.randn(30, 1)
@@ -39,10 +39,12 @@ class ToyDUE(LightningDataModule):
         )
         y = np.cos(W * x + b).sum(0) + noise * np.random.randn(n_samples)
 
-        x_test = np.sort(
-            5 * np.sign(np.random.randn(n_samples)) + np.random.randn(n_samples)
-        )
-        y_test = np.cos(W * x_test + b).sum(0) + noise * np.random.randn(n_samples)
+        x_test = np.linspace(-10, 10, 500)
+        # x_test = np.sort(
+        #     6.5 * np.sign(np.random.randn(n_samples))
+        #     + np.random.randn(n_samples)
+        # )
+        y_test = np.cos(W * x_test + b).sum(0)  # + noise * np.random.randn(n_samples)
 
         self.X_train = torch.from_numpy(x).unsqueeze(-1).to(torch.float32)
         self.y_train = torch.from_numpy(y).unsqueeze(-1).to(torch.float32)
@@ -71,6 +73,6 @@ class ToyDUE(LightningDataModule):
         """Return test dataloader."""
         return DataLoader(
             TensorDataset(self.X_test, self.y_test),
-            batch_size=self.batch_size,
+            batch_size=self.X_test.shape[0],
             shuffle=False,
         )
