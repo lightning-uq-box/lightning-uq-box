@@ -1,4 +1,4 @@
-"""Test Deep Kernel Learning Model."""
+"""Deterministic Uncertainty Estimation."""
 
 import os
 from pathlib import Path
@@ -12,12 +12,12 @@ from lightning import Trainer
 from omegaconf import OmegaConf
 
 from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
-from uq_method_box.uq_methods import DeepKernelLearningModel
+from uq_method_box.uq_methods import DUEModel
 
 
-class TestDeepKernelLearningModel:
+class TestDUEModel:
     @pytest.fixture
-    def dkl_model(self, tmp_path: Path) -> DeepKernelLearningModel:
+    def dkl_model(self, tmp_path: Path) -> DUEModel:
         """Create DKL model from an underlying model."""
         conf = OmegaConf.load(
             os.path.join("tests", "configs", "deep_kernel_learning.yaml")
@@ -27,14 +27,14 @@ class TestDeepKernelLearningModel:
         train_loader = datamodule.train_dataloader()
         return instantiate(conf.uq_method, train_loader=train_loader)
 
-    def test_forward(self, dkl_model: DeepKernelLearningModel) -> None:
+    def test_forward(self, dkl_model: DUEModel) -> None:
         """Test forward pass of conformalized model."""
         n_inputs = dkl_model.num_inputs
         X = torch.randn(5, n_inputs)
         out = dkl_model(X)
         assert isinstance(out, MultivariateNormal)
 
-    def test_predict_step(self, dkl_model: DeepKernelLearningModel) -> None:
+    def test_predict_step(self, dkl_model: DUEModel) -> None:
         """Test predict step outside of Lightning Trainer."""
         n_inputs = dkl_model.num_inputs
         X = torch.randn(5, n_inputs)
@@ -44,7 +44,7 @@ class TestDeepKernelLearningModel:
         assert isinstance(out["mean"], np.ndarray)
         assert out["mean"].shape[0] == 5
 
-    def test_trainer(self, dkl_model: DeepKernelLearningModel) -> None:
+    def test_trainer(self, dkl_model: DUEModel) -> None:
         """Test QR Model with a Lightning Trainer."""
         # instantiate datamodule
         datamodule = ToyHeteroscedasticDatamodule()
