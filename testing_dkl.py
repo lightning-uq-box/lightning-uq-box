@@ -13,12 +13,14 @@ from lightning import Trainer
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import CSVLogger
 
-from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
+from uq_method_box.datamodules import ToyDUE, ToyHeteroscedasticDatamodule
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import DUEModel  # noqa: F401
+
+# from uq_method_box.uq_methods import DUEModel  # noqa: F401
 from uq_method_box.uq_methods import (  # BaseModel,; DeterministicGaussianModel,
     DeepKernelLearningModel,
     DKLGPLayer,
+    DUEModel,
 )
 from uq_method_box.viz_utils import plot_predictions
 
@@ -26,7 +28,7 @@ seed_everything(4)
 
 # define datamodule
 
-dm = ToyHeteroscedasticDatamodule()
+dm = ToyDUE()
 
 # define data
 X_train, y_train, train_loader, X_test, y_test, test_loader = (

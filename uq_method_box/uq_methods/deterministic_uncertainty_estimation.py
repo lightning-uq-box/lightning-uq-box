@@ -1,10 +1,10 @@
 """Deterministic Uncertainty Estimation."""
 
-from typing import Any, Dict, List
-
+import torch
 import torch.nn as nn
 from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
 from gpytorch.models import ApproximateGP
+from torch.utils.data import DataLoader
 
 from .deep_kernel_learning import DeepKernelLearningModel
 from .spectral_normalized_layers import spectral_normalize_model_layers
@@ -22,12 +22,13 @@ class DUEModel(DeepKernelLearningModel):
         self,
         feature_extractor: nn.Module,
         gp_layer: type[ApproximateGP],
-        gp_args: Dict[str, Any],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
-        n_train_points: int,
-        lr: float,
-        save_dir: str,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        train_loader: DataLoader,
+        n_inducing_points: int,
+        optimizer: type[torch.optim.Optimizer],
+        n_power_iterations: int = 10,
+        save_dir: str = None,
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 
@@ -40,8 +41,16 @@ class DUEModel(DeepKernelLearningModel):
                 or Gpytorch elbo function
         """
         super().__init__(
-            feature_extractor, gp_layer, gp_args, elbo_fn, n_train_points, lr, save_dir
+            feature_extractor,
+            gp_layer,
+            elbo_fn,
+            train_loader,
+            n_inducing_points,
+            optimizer,
+            save_dir,
         )
 
         # spectral normalize the feature extractor layers
-        self.feature_extractor = spectral_normalize_model_layers(feature_extractor)
+        self.feature_extractor = spectral_normalize_model_layers(
+            feature_extractor, n_power_iterations
+        )

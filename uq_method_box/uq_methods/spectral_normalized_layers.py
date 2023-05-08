@@ -14,19 +14,30 @@ from torch.nn.utils.spectral_norm import (
 )
 
 
-def spectral_normalize_model_layers(model: nn.Module) -> nn.Module:
+def spectral_normalize_model_layers(
+    model: nn.Module, n_power_iterations: int
+) -> nn.Module:
     """Convert layers of a standard model into spectral normalized layers.
 
     Effectively replace normal layers with spectral normalized layer version.
 
     Args:
         model: model to spectral normalize layers for
+        n_power_iterations: number of power iterations in spectral norm layers
     """
     for name, value in list(model._modules.items()):
         if model._modules[name]._modules:
-            spectral_normalize_model_layers(model._modules[name])
+            spectral_normalize_model_layers(model._modules[name], n_power_iterations)
         elif "Linear" in model._modules[name].__class__.__name__:
-            setattr(model, name, spectral_norm_fc(model._modules[name], coeff=0.1))
+            setattr(
+                model,
+                name,
+                spectral_norm_fc(
+                    model._modules[name],
+                    coeff=0.1,
+                    n_power_iterations=n_power_iterations,
+                ),
+            )
         elif "Conv2d" in model._modules[name].__class__.__name__:
             # TODO: need to get input dimension (3,32,32) for example to this conv layer
             setattr(
@@ -36,6 +47,7 @@ def spectral_normalize_model_layers(model: nn.Module) -> nn.Module:
                     model._modules[name],
                     coeff=0.1,
                     input_dim=model._modules[name].in_channels,
+                    n_power_iterations=n_power_iterations,
                 ),
             )
         else:
