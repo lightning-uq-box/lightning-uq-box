@@ -37,6 +37,10 @@ extensions = [
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
+# Sphinx 3.0+ required for:
+# autodoc_typehints_description_target = "documented"
+needs_sphinx = "4.0"
+
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
