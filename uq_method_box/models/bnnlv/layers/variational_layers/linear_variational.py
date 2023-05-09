@@ -97,7 +97,7 @@ class LinearReparameterization(LinearReparameterization):
         Args:
             self.
         Returns:
-            log_f_hat, log_normalizer.
+            log_normalizer.
         """
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
 

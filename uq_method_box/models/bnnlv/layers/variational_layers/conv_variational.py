@@ -383,7 +383,7 @@ class Conv2dReparameterization(Conv2dReparameterization):
         return out
 
 
-class Conv3dReparameterization(Conv2dReparameterization):
+class Conv3dReparameterization(Conv3dReparameterization):
     def __init__(
         self,
         in_channels: int,

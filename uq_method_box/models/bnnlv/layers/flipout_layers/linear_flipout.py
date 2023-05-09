@@ -1,4 +1,4 @@
-"""Linear Variational Layer adapted for Alpha Divergence."""
+"""Linear Flipout Layer adapted for Alpha Divergence."""
 
 import math
 
@@ -101,12 +101,8 @@ class LinearFlipout(LinearFlipout):
         Args:
             self.
         Returns:
-            log_f_hat, log_normalizer.
+            log_normalizer.
         """
-        # this is the same as in forward(), but do we need it
-        # for  if hasattr(layer, "log_f_hat") in utils?
-        # sampling delta_W and delta_b - do we actually need to compute this
-        # here? I do not think so. Could also just be an empty attribute?
 
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
 
@@ -134,10 +130,6 @@ class LinearFlipout(LinearFlipout):
         Returns:
             log_f_hat.
         """
-        # this is the same as in forward(), but do we need it
-        # for  if hasattr(layer, "log_f_hat") in utils?
-        # sampling delta_W and delta_b - do we actually need to compute this
-        # here? I do not think so. Could also just be an empty attribute?
 
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
         delta_weight = sigma_weight * self.eps_weight.data.normal_()
@@ -170,7 +162,7 @@ class LinearFlipout(LinearFlipout):
         Args: self: layer.
             x: input.
         Returns:
-            outputs+perturbed outputs of layer, log_f_hat, log_normalizer.
+            outputs+perturbed of layer.
         """
         # gotta double check if we need this next line
         # actually we want to use dnn_to_bnn_some extended for lvs
