@@ -1,11 +1,29 @@
-"""Bayesian Neural Networks with Variational Inference."""
+"""Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 # TODO:
-# change dnn_to_bnn function such that only some layers are made stochastic
-# adjust loss functions such that also a two headed network output trained with nll
+# 1) change dnn_to_bnn function such that only some layers are made stochastic done!
+# 2) adjust loss functions such that also a two headed network output trained with nll
 # works, and add mse burin-phase as in other modules
-# make loss function chooseable to be mse or nll like in other modules
-# probably only use this implementation and remove bayes_by_backprop.py
+# 3) make loss function chooseable to be mse or nll like in other modules
+
+
+# 5) adapted function based on principles kl_divin bnn_t,
+# but with additional dependency on sampled weights yielded by reparameterization trick
+#  (additional argument that is stochastic sampled weights)
+# to do 5): copy bayesian torch library change layers to include output of term:
+# ((var^w - prior_var)/ 2 var^w) * w^2 + (mean^w/var^w)*w
+# (just like the kl term but now for computing f(W))
+# done for linear layer
+# 6) for loss computation include sampling operation
+#  in training step (already have this in bnn_vi)
+# 7) adapt _build_model function so that
+# we define a latent dimension Z neural network
+# and a utility function that adds the latent dimension at a desired layer
+# e.g. before last activation+linear block
+# 8) latent variable network is a BNN with prior variance dependent on input dimension
+#  (as a square root of the input dimension to the first stochastic layer chosen)
+# concatenate extracted features and output from latent variable BNN
+#  and push through stochastic layers to get final output
 
 from typing import Any, Dict, List, Union
 
@@ -27,11 +45,12 @@ from uq_method_box.train_utils.loss_functions import EnergyAlphaDivergence
 
 from .base import BaseModel
 
-# TODO separate this model class into BNN and BNN+LV and have BNN+LV inherit from BNN probably # noqa: E501
-
 
 class BNN_VI(BaseModel):
-    """Bayesian Neural Network (BNN) with Variational Inference (VI)."""
+    """Bayesian Neural Network (BNN) with VI.
+
+    Trained with (VI) Variational Inferece and energy loss.
+    """
 
     def __init__(
         self,
@@ -52,7 +71,7 @@ class BNN_VI(BaseModel):
         alpha: float = 1.0,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new Model instance.
+        """Initialize a new instace of BNN+LV.
 
         Args:
             model_class: Model Class that can be initialized with arguments from dict,
@@ -63,7 +82,7 @@ class BNN_VI(BaseModel):
             num_training_points: number of data points contained in the training dataset
             beta_elbo: beta factor for negative elbo loss computation
             num_mc_samples_train: number of MC samples during training when computing
-                the negative ELBO loss
+                the energy loss.
             num_mc_samples_test: number of MC samples during test and prediction
             output_noise_scale: scale of predicted sigmas
             prior_mu: prior mean value for bayesian layer
@@ -71,7 +90,7 @@ class BNN_VI(BaseModel):
             posterior_mu_init: mean initialization value for approximate posterior
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
-            alpha: alpha divergence parameter
+            alpha: alpha divergence parameter, set between [1e-6,1].
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -119,7 +138,6 @@ class BNN_VI(BaseModel):
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
         }
-
         # convert deterministic model to BNN
         dnn_to_bnnlv_some(
             self.model, self.bnn_args, self.hparams.num_stochastic_modules
@@ -134,10 +152,12 @@ class BNN_VI(BaseModel):
         )
 
         # TODO how to best configure this parameter
+        # why do we use homoscedastic noise?
         self.log_aleatoric_std = nn.Parameter(
             torch.tensor([1.0 for _ in range(1)], device=self.device)
         )
 
+    # can we add the latent variable here?
     def forward(self, X: Tensor) -> Tensor:
         """Forward pass BNN+LI.
 
@@ -162,9 +182,16 @@ class BNN_VI(BaseModel):
             dim [num_mc_samples_train, output_dim]
         """
         model_preds = []
-        pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
+        pred_losses = []
         log_f_hat = []
-        log_normalizer = []
+
+        # assume homoscedastic noise with std output_noise_scale
+        output_var = torch.ones_like(y)  # * (torch.exp(self.log_aleatoric_std))
+
+        # the functions sum over the layers of any architecture
+        # log_normalizer [1]
+        log_normalizer = get_log_normalizer(self.model)
+        log_Z_prior = get_log_Z_prior(self.model)
 
         # draw samples for all stochastic functions
         for i in range(self.hparams.num_mc_samples_train):
@@ -173,17 +200,17 @@ class BNN_VI(BaseModel):
             model_preds.append(pred)
             # compute prediction loss with nll and track over samples
             # note reduction = "None"
-            pred_losses[i] = self.nll_loss(pred, y, torch.exp(self.log_aleatoric_std))
+            pred_losses.append(self.nll_loss(pred, y, output_var))
             # dim=1
             log_f_hat.append(get_log_f_hat(self.model))
 
-        log_normalizer.append(get_log_normalizer(self.model))
-        log_Z_prior = get_log_Z_prior(self.model)
-        # pred_losses [num_mc_samples_train, batch_size, 1]
-        # log_f_hat [num_mc_samples_train, 1]
-        # the function sums over the layers of any architecture
-        # log_normalizer [num_mc_samples_train, 1]
         # model_preds [num_mc_samples_train, batch_size, output_dim]
+        model_preds = torch.stack(model_preds, dim=0)
+        # pred_losses [num_mc_samples_train, batch_size, 1]
+        pred_losses = torch.stack(pred_losses, dim=0)
+
+        # log_f_hat [num_mc_samples_train, 1]
+        log_f_hat = torch.stack(log_f_hat, dim=0)
 
         mean_out = model_preds.mean(dim=0)
 
@@ -198,7 +225,6 @@ class BNN_VI(BaseModel):
         )
         return energy_loss, mean_out
 
-    # *(beta / self.hparams.num_training_points)
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
 
@@ -250,9 +276,12 @@ class BNN_VI(BaseModel):
             # draw samples for all stochastic functions
             for i in range(self.hparams.num_mc_samples_train):
                 # mean prediction
-                pred, logs = self.forward(X)
-                model_preds.append(pred.detach()).cpu()
+                pred = self.forward(X)
+                model_preds.append(pred.detach())
                 # model_preds [num_mc_samples_train, batch_size, output_dim]
+
+        # model_preds [num_mc_samples_train, batch_size, output_dim]
+        model_preds = torch.stack(model_preds, dim=0)
 
         mean_out = model_preds.mean(dim=0).squeeze(-1)
         std = model_preds.std(dim=0).squeeze(-1)

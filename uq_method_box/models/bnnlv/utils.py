@@ -2,7 +2,9 @@
 
 import torch.nn as nn
 
-from .linear_layer import LinearFlipoutLayer
+import uq_method_box.models.bnnlv.layers as bayesian_layers
+
+# from .layers.flipout_layers.linear_flipout import LinearFlipout
 
 # TODO: change layers to output logs instead of kl's
 # from .conv_flipout import * (these are quite a few)
@@ -11,10 +13,20 @@ from .linear_layer import LinearFlipoutLayer
 # from .conv_variational import *
 # from .rnn_variational import *
 
+# --------------------------------------------------------------------------------
+# Parameters used to define BNN layyers.
+#       "prior_mu": 0.0,
+#       "prior_sigma": 1.0,
+#       "posterior_mu_init": 0.0,
+#       "posterior_rho_init": -4.0,
+#       "type": "Reparameterization",  # Flipout or Reparameterization
 
-def bnnlv_linear_layer(params, d) -> LinearFlipoutLayer:
+
+def bnnlv_linear_layer(params, d):
     """Convert deterministic linear layer to bayesian linear layer."""
-    bnn_layer = LinearFlipoutLayer(
+    layer = d.__class__.__name__ + params["type"]
+    layer_fn = getattr(bayesian_layers, layer)
+    bnn_layer = layer_fn(
         in_features=d.in_features,
         out_features=d.out_features,
         prior_mean=params["prior_mu"],

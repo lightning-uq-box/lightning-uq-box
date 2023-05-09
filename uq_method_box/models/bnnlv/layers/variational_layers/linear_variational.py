@@ -1,40 +1,38 @@
-"""Linear Variational Layer adapted for Alpha Divergence."""
+"""Linear Variational Layers adapted for Alpha Divergence."""
 
 import math
 
 import torch
 import torch.nn.functional as F
-from bayesian_torch.layers.flipout_layers.linear_flipout import LinearFlipout
+from bayesian_torch.layers.variational_layers.linear_variational import *
 from torch import Tensor
 
 
-class LinearFlipoutLayer(LinearFlipout):
-    """Linear Flipout Layer."""
-
+class LinearReparameterization(LinearReparameterization):
     def __init__(
         self,
         in_features: int,
         out_features: int,
-        prior_mean: float = 0.0,
-        prior_variance: float = 1.0,
-        posterior_mu_init: float = 0.0,
-        posterior_rho_init: float = -3.0,
-        bias: bool = True,
-    ) -> None:
-        """Initialize a new Linear Flipout layer.
+        prior_mean=0,
+        prior_variance=1,
+        posterior_mu_init=0,
+        posterior_rho_init=-3.0,
+        bias=True,
+    ):
+        """
+        Implements Linear layer with reparameterization trick.
 
-        Args:
-            in_features: size of each input sample
-            out_features: size of each output sample
-            prior_mean: mean of the prior arbitrary distribution to be used on the
-                complexity cost
-            prior_variance: variance of the prior arbitrary distribution to be used
-                on the complexity cost
-            posterior_mu_init: init trainable mu parameter representing mean of the
-                approximate posterior
-            posterior_rho_init: init trainable rho parameter representing the sigma
-                of the approximate posterior through softplus function
-            bias: if set to False, the layer will not learn an additive bias.
+        Inherits from bayesian_torch.layers.variational_layers.linear_variational,
+        LinearReparameterization.
+
+        Parameters:
+            in_features: int -> size of each input sample,
+            out_features: int -> size of each output sample,
+            prior_mean: float -> mean of the prior arbitrary distribution to be used on the complexity cost,
+            prior_variance: float -> variance of the prior arbitrary distribution to be used on the complexity cost,
+            posterior_mu_init: float -> init trainable mu parameter representing mean of the approximate posterior,
+            posterior_rho_init: float -> init trainable rho parameter representing the sigma of the approximate posterior through softplus function,
+            bias: bool -> if set to False, the layer will not learn an additive bias. Default: True,
         """
         super().__init__(
             in_features,
@@ -101,11 +99,6 @@ class LinearFlipoutLayer(LinearFlipout):
         Returns:
             log_f_hat, log_normalizer.
         """
-        # this is the same as in forward(), but do we need it
-        # for  if hasattr(layer, "log_f_hat") in utils?
-        # sampling delta_W and delta_b - do we actually need to compute this
-        # here? I do not think so. Could also just be an empty attribute?
-
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
 
         # get log_normalizer and log_f_hat for weights
@@ -132,11 +125,6 @@ class LinearFlipoutLayer(LinearFlipout):
         Returns:
             log_f_hat.
         """
-        # this is the same as in forward(), but do we need it
-        # for  if hasattr(layer, "log_f_hat") in utils?
-        # sampling delta_W and delta_b - do we actually need to compute this
-        # here? I do not think so. Could also just be an empty attribute?
-
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
         delta_weight = sigma_weight * self.eps_weight.data.normal_()
 
@@ -162,39 +150,19 @@ class LinearFlipoutLayer(LinearFlipout):
 
         return log_f_hat
 
-    def forward(self, x, return_logs=False):
-        """Forward pass through layer.
-
-        Args: self: layer.
-            x: input.
-        Returns:
-            outputs+perturbed outputs of layer, log_f_hat, log_normalizer.
-        """
-        # gotta double check if we need this next line
-        # actually we want to use dnn_to_bnn_some extended for lvs
+    def forward(self, input, return_kl=True):
         if self.dnn_to_bnn_flag:
-            return_logs = False
+            return_kl = False
 
-        # sampling delta_W and delta_b
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
-        delta_weight = sigma_weight * self.eps_weight.data.normal_()
+        weight = self.mu_weight + (sigma_weight * self.eps_weight.data.normal_())
 
         bias = None
-        # get log_normalizer and log_f_hat for biases
+
         if self.mu_bias is not None:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            delta_bias = sigma_bias * self.eps_bias.data.normal_()
-            bias = self.mu_bias + delta_bias
+            bias = self.mu_bias + (sigma_bias * self.eps_bias.data.normal_())
 
-        # linear outputs
-        outputs = F.linear(x, self.mu_weight, self.mu_bias)
+        out = F.linear(input, weight, bias)
 
-        sign_input = x.clone().uniform_(-1, 1).sign()
-        sign_output = outputs.clone().uniform_(-1, 1).sign()
-
-        perturbed_outputs = F.linear(x * sign_input, delta_weight, bias) * sign_output
-
-        # returning outputs + perturbations
-        if return_logs:
-            return outputs + perturbed_outputs
-        return outputs + perturbed_outputs
+        return out

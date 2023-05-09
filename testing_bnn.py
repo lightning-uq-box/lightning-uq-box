@@ -59,7 +59,8 @@ base_model = BNN_LV_VI(
     prior_sigma=1.0,
     posterior_mu_init=0.0,
     posterior_rho_init=-6.0,
-    alpha=1e-06,
+    alpha=1e-03,
+    type="Reparameterization",
 )
 
 logger = CSVLogger(my_dir)

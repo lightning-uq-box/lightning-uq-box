@@ -1,5 +1,30 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
+# TODO:
+# 1) change dnn_to_bnn function such that only some layers are made stochastic done!
+# 2) adjust loss functions such that also a two headed network output trained with nll
+# works, and add mse burin-phase as in other modules
+# 3) make loss function chooseable to be mse or nll like in other modules
+
+
+# 5) adapted function based on principles kl_divin bnn_t,
+# but with additional dependency on sampled weights yielded by reparameterization trick
+#  (additional argument that is stochastic sampled weights)
+# to do 5): copy bayesian torch library change layers to include output of term:
+# ((var^w - prior_var)/ 2 var^w) * w^2 + (mean^w/var^w)*w
+# (just like the kl term but now for computing f(W))
+# done for linear layer
+# 6) for loss computation include sampling operation
+#  in training step (already have this in bnn_vi)
+# 7) adapt _build_model function so that
+# we define a latent dimension Z neural network
+# and a utility function that adds the latent dimension at a desired layer
+# e.g. before last activation+linear block
+# 8) latent variable network is a BNN with prior variance dependent on input dimension
+#  (as a square root of the input dimension to the first stochastic layer chosen)
+# concatenate extracted features and output from latent variable BNN
+#  and push through stochastic layers to get final output
+
 from typing import Any, Dict, List, Union
 
 import numpy as np
@@ -24,7 +49,7 @@ from .base import BaseModel
 class BNN_LV_VI(BaseModel):
     """Bayesian Neural Network (BNN) with Latent Variables.
 
-    Trained with Variational Inferece.#
+    Trained with Variational Inferece.
     """
 
     def __init__(
@@ -44,6 +69,7 @@ class BNN_LV_VI(BaseModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
+        type: str = "Reparametrization",
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of BNN+LV.
@@ -57,7 +83,7 @@ class BNN_LV_VI(BaseModel):
             num_training_points: number of data points contained in the training dataset
             beta_elbo: beta factor for negative elbo loss computation
             num_mc_samples_train: number of MC samples during training when computing
-                the negative ELBO loss
+                the energy loss
             num_mc_samples_test: number of MC samples during test and prediction
             output_noise_scale: scale of predicted sigmas
             prior_mu: prior mean value for bayesian layer
@@ -66,6 +92,7 @@ class BNN_LV_VI(BaseModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
+            type: Bayesian layer type, "Reparametrization" or "Flipout"
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -102,6 +129,7 @@ class BNN_LV_VI(BaseModel):
         self.hparams["num_training_points"] = num_training_points
         self.hparams["num_stochastic_modules"] = num_stochastic_modules
         self.hparams["alpha"] = alpha
+        self.hparams["type"] = type
 
         self.hparams["num_stochastic_modules"] = num_stochastic_modules
 
@@ -112,6 +140,7 @@ class BNN_LV_VI(BaseModel):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
+            "type": self.hparams.type,
         }
         # convert deterministic model to BNN
         dnn_to_bnnlv_some(
