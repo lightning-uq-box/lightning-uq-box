@@ -37,6 +37,15 @@ extensions = [
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
+# source file parsers
+source_parsers = {".rst": "restructuredtext", ".ipynb": "sphinxcontrib.jupyter"}
+
+# source file suffixes
+source_suffix = [".rst", ".ipynb"]
+
+# The source directory containing Sphinx source files.
+source_dirs = ["api", "tutorials"]
+
 # Sphinx 3.0+ required for:
 # autodoc_typehints_description_target = "documented"
 needs_sphinx = "4.0"
