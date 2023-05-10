@@ -4,7 +4,8 @@
 
 
 import os
-from typing import Any, Dict, Iterator, List, Optional, Union
+from collections.abc import Iterator
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -12,13 +13,9 @@ import torch.nn as nn
 from torch import Tensor
 from torch.optim.optimizer import Optimizer
 
-from uq_method_box.eval_utils import (
-    compute_aleatoric_uncertainty,
-    compute_epistemic_uncertainty,
-    compute_predictive_uncertainty,
-    compute_quantiles_from_std,
-)
 from uq_method_box.uq_methods import BaseModel
+
+from .utils import process_model_prediction
 
 
 # SGLD Optimizer from Izmailov, currently in __init__.py
@@ -83,16 +80,15 @@ class SGLDModel(BaseModel):
 
     def __init__(
         self,
-        model_class: Union[List[nn.Module], str],
-        model_args: Dict[str, Any],
-        lr: float,
+        model: nn.Module,
         loss_fn: str,
         save_dir: str,
+        lr: float,
         weight_decay: float,
         noise_factor: float,
-        n_burnin_epochs: int,
+        burnin_epochs: int,
         n_sgld_samples: int,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of SGLD model.
 
@@ -109,27 +105,31 @@ class SGLDModel(BaseModel):
             quantiles:
 
         """
-        super().__init__(model_class, model_args, lr, loss_fn, save_dir)
-
-        # makes self.hparams accesible
-        self.save_hyperparameters()
+        super().__init__(model, None, loss_fn, save_dir)
 
         self.snapshot_dir = os.path.join(self.hparams.save_dir, "model_snapshots")
         os.makedirs(self.snapshot_dir)
 
-        self.burnin_epochs = n_burnin_epochs
-        self.n_sgld_samples = n_sgld_samples
-        self.models: List[nn.Module] = []
-        self.quantiles = quantiles
-        self.weight_decay = weight_decay
-        self.noise_factor = noise_factor
-        self.lr = lr
+        self.hparams["burnin_epochs"] = burnin_epochs
+        self.hparams["n_sgld_samples"] = n_sgld_samples
+        self.hparams["models"]: list[nn.Module] = []
+        self.hparams["quantiles"] = quantiles
+        self.hparams["weight_decay"] = weight_decay
+        self.hparams["noise_factor"] = noise_factor
+        self.hparams["burnin_epochs"] = burnin_epochs
+        self.hparams["n_sgld_samples"] = n_sgld_samples
+        self.hparams["quantiles"] = quantiles
+        self.hparams["lr"] = lr
+        self.hparams["weight_decay"] = weight_decay
+        self.hparams["noise_factor"] = noise_factor
+
+        self.models: list[nn.Module] = []
         self.dir_list = []
 
         # manual optimization with SGLD optimizer
         self.automatic_optimization = False
 
-    def configure_optimizers(self) -> Dict[str, Any]:
+    def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -138,9 +138,9 @@ class SGLDModel(BaseModel):
         # optimizer = SGLDAlt(params=self.parameters(), lr=self.lr)
         optimizer = SGLD(
             params=self.parameters(),
-            lr=self.lr,
-            weight_decay=self.weight_decay,
-            noise_factor=self.noise_factor,
+            lr=self.hparams.lr,
+            weight_decay=self.hparams.weight_decay,
+            noise_factor=self.hparams.noise_factor,
         )
         return {
             "optimizer": optimizer,
@@ -169,12 +169,12 @@ class SGLDModel(BaseModel):
         def closure():
             """Closure function for optimizer."""
             sgld_opt.zero_grad()
-            if self.current_epoch < self.burnin_epochs:
+            if self.current_epoch < self.hparams.burnin_epochs:
                 loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
             # after train with nll
             else:
-                loss = self.criterion(out, y)
-            loss = self.criterion(out, y)
+                loss = self.loss_fn(out, y)
+            loss = self.loss_fn(out, y)
             sgld_opt.zero_grad()
             self.manual_backward(loss)
             return loss
@@ -191,10 +191,12 @@ class SGLDModel(BaseModel):
 
         return loss
 
-    def on_train_epoch_end(self) -> List:
+    def on_train_epoch_end(self) -> list:
         """Save model ckpts after epoch and log training metrics."""
         # save ckpts for n_sgld_sample epochs before end (max_epochs)
-        if self.current_epoch >= (self.trainer.max_epochs - self.n_sgld_samples):
+        if self.current_epoch >= (
+            self.trainer.max_epochs - self.hparams.n_sgld_samples
+        ):
             torch.save(
                 self.model.state_dict(),
                 os.path.join(self.snapshot_dir, f"{self.current_epoch}_model.ckpt"),
@@ -220,7 +222,7 @@ class SGLDModel(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Predict step with SGLD, take n_sgld_sampled models, get mean and variance.
 
         Args:
@@ -232,49 +234,12 @@ class SGLDModel(BaseModel):
             output dictionary with uncertainty estimates
         """
         # create predictions from models loaded from checkpoints
-        preds: List[torch.Tensor] = []
+        preds: list[torch.Tensor] = []
         for ckpt_path in self.dir_list:
             self.model.load_state_dict(torch.load(ckpt_path))
             preds.append(self.model(X))
 
-        # import pdb
-        # pdb.set_trace()
         preds = torch.stack(preds, dim=-1).detach().numpy()
         # shape [batch_size, num_outputs, n_sgld_samples]
 
-        # Prediction gives two outputs, due to NLL loss
-        mean_samples = preds[:, 0, :]
-
-        # assume prediction with sigma
-        if preds.shape[1] == 2:
-            log_sigma_2_samples = preds[:, 1, :]
-            eps = np.ones_like(log_sigma_2_samples) * 1e-6
-            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
-            mean = mean_samples.mean(-1)
-            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
-            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
-            epistemic = compute_epistemic_uncertainty(mean_samples)
-            quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": epistemic,
-                "aleatoric_uct": aleatoric,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
-
-        # assume mse prediction
-        else:
-            sgld_mean = mean_samples.mean(-1)
-            sgld_std = mean_samples.std(-1)
-            sgld_quantiles = compute_quantiles_from_std(
-                sgld_mean, sgld_std, self.quantiles
-            )
-            return {
-                "mean": sgld_mean,
-                "pred_uct": sgld_std,
-                "epistemic_uct": sgld_std,
-                "lower_quant": sgld_quantiles[:, 0],
-                "upper_quant": sgld_quantiles[:, -1],
-            }
+        return process_model_prediction(preds, self.hparams.quantiles)

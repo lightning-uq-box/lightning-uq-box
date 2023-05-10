@@ -3,7 +3,7 @@
 import glob
 import os
 from datetime import datetime
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import pandas as pd
 import uncertainty_toolbox as uct
@@ -57,7 +57,7 @@ def compute_results_over_seeds(exp_dir: str) -> pd.DataFrame:
 
 def compute_metrics_for_single_seed(
     seed_dir: str,
-) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Compute the metrics for a single seed."""
     pred_dir = os.path.join(seed_dir, "prediction")
     pred_csv = os.path.join(pred_dir, "predictions.csv")

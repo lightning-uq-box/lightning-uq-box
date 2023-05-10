@@ -7,7 +7,7 @@ import math
 import os
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -19,14 +19,7 @@ from torch.distributions import Normal
 from torch.utils.data import DataLoader
 from tqdm import trange
 
-from uq_method_box.eval_utils import (
-    compute_aleatoric_uncertainty,
-    compute_epistemic_uncertainty,
-    compute_predictive_uncertainty,
-    compute_quantiles_from_std,
-)
-
-from .utils import retrieve_loss_fn, save_predictions_to_csv
+from .utils import process_model_prediction, save_predictions_to_csv
 
 
 class SWAGModel(LightningModule):
@@ -40,12 +33,12 @@ class SWAGModel(LightningModule):
         snapshot_freq: int,
         num_mc_samples: int,
         swag_lr: float,
-        loss_fn: str,
+        loss_fn: nn.Module,
         train_loader: DataLoader,
         save_dir: str,
         num_datapoints_for_bn_update: Optional[int] = None,
         target_scaler: StandardScaler = None,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
@@ -63,16 +56,16 @@ class SWAGModel(LightningModule):
         self.train_loader = train_loader
         self.model = model
 
-        self.num_swag_epochs = num_swag_epochs
-        self.max_swag_snapshots = max_swag_snapshots
-        self.snapshot_freq = snapshot_freq
-        self.num_mc_samples = num_mc_samples
-        self.swag_lr = swag_lr
-        self.criterion = retrieve_loss_fn(loss_fn)
-        self.save_dir = save_dir
-        self.num_datapoints_for_bn_update = num_datapoints_for_bn_update
-        self.quantiles = quantiles
+        self.hparams["num_swag_epochs"] = num_swag_epochs
+        self.hparams["max_swag_snapshots"] = max_swag_snapshots
+        self.hparams["snapshot_freq"] = snapshot_freq
+        self.hparams["num_mc_samples"] = num_mc_samples
+        self.hparams["swag_lr"] = swag_lr
+        self.hparams["save_dir"] = save_dir
+        self.hparams["num_datapoints_for_bn_update"] = num_datapoints_for_bn_update
+        self.hparams["quantiles"] = quantiles
 
+        self.loss_fn = loss_fn
         self.swag_fitted = False
         self.current_iteration = 0
         self.num_tracked = 0
@@ -95,7 +88,8 @@ class SWAGModel(LightningModule):
             instance.register_buffer(
                 f"{name}_D_block",
                 torch.zeros(
-                    (self.max_swag_snapshots, *parameter.shape), device=parameter.device
+                    (self.hparams.max_swag_snapshots, *parameter.shape),
+                    device=parameter.device,
                 ),
             )
         instance.register_buffer("num_snapshots_tracked", torch.tensor(0, dtype=int))
@@ -114,7 +108,7 @@ class SWAGModel(LightningModule):
         safe_name = param_name.replace(".", "_")
         setattr(self.model, f"{safe_name}_{buffer_name}", value)
 
-    def _update_tracked_state_dict(self, state_dict: Dict[str, nn.Parameter]) -> None:
+    def _update_tracked_state_dict(self, state_dict: dict[str, nn.Parameter]) -> None:
         """Update tracked state_dict.
 
         Args:
@@ -131,7 +125,7 @@ class SWAGModel(LightningModule):
 
         self.model.load_state_dict(full_state_dict)
 
-    def _untracked_state_dict(self) -> Dict[str, nn.Parameter]:
+    def _untracked_state_dict(self) -> dict[str, nn.Parameter]:
         """Return filtered untracked state dict."""
         filtered_state_dict = {}
         tracked_keys = {name for name, _ in self.model.named_parameters()}
@@ -153,8 +147,8 @@ class SWAGModel(LightningModule):
         _, first_param = next(iter(self.model.named_parameters()))
         K_sample = (
             Normal(
-                torch.zeros(self.max_swag_snapshots),
-                torch.ones(self.max_swag_snapshots),
+                torch.zeros(self.hparams.max_swag_snapshots),
+                torch.ones(self.hparams.max_swag_snapshots),
             )
             .sample()
             .to(first_param.device)  # should have lightning device
@@ -170,9 +164,9 @@ class SWAGModel(LightningModule):
                 (0.5 * (squared_mean - mean.pow(2)).clamp(1e-30)).sqrt(),
             ).sample()
             shape = d_block.shape[1:]
-            aux = d_block.reshape(self.max_swag_snapshots, -1)
+            aux = d_block.reshape(self.hparams.max_swag_snapshots, -1)
             p3 = torch.matmul(K_sample, aux).reshape(shape) / math.sqrt(
-                2 * (self.max_swag_snapshots - 1)
+                2 * (self.hparams.max_swag_snapshots - 1)
             )
             sampled[name] = p1 + p2 + p3
         return sampled
@@ -222,22 +216,24 @@ class SWAGModel(LightningModule):
                 self.train_loader,
                 self.model,
                 device=self.device,
-                num_datapoints=self.num_datapoints_for_bn_update,
+                num_datapoints=self.hparams.num_datapoints_for_bn_update,
             )
             # self.model.trajectory_tracking_enabled = tracking_was_enabled
 
     def on_test_start(self) -> None:
         """Fit the SWAG approximation."""
         if not self.swag_fitted:
-            swag_optimizer = torch.optim.SGD(self.model.parameters(), lr=self.swag_lr)
+            swag_optimizer = torch.optim.SGD(
+                self.model.parameters(), lr=self.hparams.swag_lr
+            )
 
             # lightning automatically disables gradient computation during test
             with torch.inference_mode(False):
-                bar = trange(self.num_swag_epochs)
+                bar = trange(self.hparams.num_swag_epochs)
                 # num epochs
                 for i in bar:
                     for X, y in self.train_loader:
-                        if self.current_iteration % self.snapshot_freq == 0:
+                        if self.current_iteration % self.hparams.snapshot_freq == 0:
                             self.update_uncertainty_buffers()
 
                         self.current_iteration += 1
@@ -245,7 +241,7 @@ class SWAGModel(LightningModule):
                         # do model forward pass and sgd update
                         swag_optimizer.zero_grad()
                         out = self.model(X)
-                        loss = self.criterion(out, y)
+                        loss = self.loss_fn(out, y)
                         loss.backward()
                         swag_optimizer.step()
 
@@ -260,7 +256,7 @@ class SWAGModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: Dict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,
@@ -285,7 +281,7 @@ class SWAGModel(LightningModule):
             self.on_test_start()
 
         preds = []
-        for i in range(self.num_mc_samples):
+        for i in range(self.hparams.num_mc_samples):
             # sample weights
             self.sample_state()
             with torch.no_grad():
@@ -294,39 +290,7 @@ class SWAGModel(LightningModule):
 
         preds = np.stack(preds, axis=-1)
 
-        mean_samples = preds[:, 0, :]
-
-        # assume prediction with sigma
-        # this is also quiet common across models so standardize this
-        if preds.shape[1] == 2:
-            log_sigma_2_samples = preds[:, 1, :]
-            eps = np.ones_like(log_sigma_2_samples) * 1e-6
-            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
-            mean = mean_samples.mean(-1)
-            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
-            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
-            epistemic = compute_epistemic_uncertainty(mean_samples)
-            quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": epistemic,
-                "aleatoric_uct": aleatoric,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
-        # assume mse prediction
-        else:
-            mean = mean_samples.mean(-1)
-            std = mean_samples.std(-1)
-            quantiles = compute_quantiles_from_std(mean, std, self.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": std,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
+        return process_model_prediction(preds, self.hparams.quantiles)
 
 
 # Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501

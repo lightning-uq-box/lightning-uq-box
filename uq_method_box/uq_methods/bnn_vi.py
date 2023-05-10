@@ -41,9 +41,9 @@ from uq_method_box.models.bnnlv.utils import (
     get_log_normalizer,
     get_log_Z_prior,
 )
-from uq_method_box.train_utils.loss_functions import EnergyAlphaDivergence
 
 from .base import BaseModel
+from .utils import EnergyAlphaDivergence
 
 
 class BNN_VI(BaseModel):

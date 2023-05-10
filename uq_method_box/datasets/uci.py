@@ -1,7 +1,6 @@
 """Base datasets that can be used from other datasets."""
 
 import os
-from typing import Tuple
 
 import numpy as np
 import torch
@@ -87,7 +86,7 @@ class UCIRegressionDataset:
 
         self.num_features = self.X_train.shape[-1]
 
-    def load_data(self) -> Tuple[np.ndarray]:
+    def load_data(self) -> tuple[np.ndarray]:
         """Load the data from the file."""
         raise NotImplementedError
 

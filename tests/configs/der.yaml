@@ -1,9 +1,10 @@
-model:
-  loss_fn: der
-  conformalized: False
-  model_args: # all arguments for the mlp
+uq_method:
+  _target_: uq_method_box.uq_methods.DERModel
+  model:
+    _target_: uq_method_box.models.MLP
     n_outputs: 4
-    n_inputs: 1
-    n_hidden: [10]
-optimizer:
-  lr: 0.003
+    n_hidden: [50]
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
