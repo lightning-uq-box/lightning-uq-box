@@ -1,21 +1,9 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 # TODO:
-# 1) change dnn_to_bnn function such that only some layers are made stochastic done!
 # 2) adjust loss functions such that also a two headed network output trained with nll
 # works, and add mse burin-phase as in other modules
 # 3) make loss function chooseable to be mse or nll like in other modules
-
-
-# 5) adapted function based on principles kl_divin bnn_t,
-# but with additional dependency on sampled weights yielded by reparameterization trick
-#  (additional argument that is stochastic sampled weights)
-# to do 5): copy bayesian torch library change layers to include output of term:
-# ((var^w - prior_var)/ 2 var^w) * w^2 + (mean^w/var^w)*w
-# (just like the kl term but now for computing f(W))
-# done for linear layer
-# 6) for loss computation include sampling operation
-#  in training step (already have this in bnn_vi)
 # 7) adapt _build_model function so that
 # we define a latent dimension Z neural network
 # and a utility function that adds the latent dimension at a desired layer
@@ -25,7 +13,7 @@
 # concatenate extracted features and output from latent variable BNN
 #  and push through stochastic layers to get final output
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 import numpy as np
 import torch
@@ -43,7 +31,7 @@ from uq_method_box.models.bnnlv.utils import (
 )
 
 from .base import BaseModel
-from .utils import EnergyAlphaDivergence
+from .loss_functions import EnergyAlphaDivergence
 
 
 class BNN_LV_VI(BaseModel):
@@ -54,9 +42,8 @@ class BNN_LV_VI(BaseModel):
 
     def __init__(
         self,
-        model_class: Union[type[nn.Module], str],
-        model_args: Dict[str, Any],
-        lr: float,
+        model: nn.Module,
+        optimizer: type[torch.optim.Optimizer],
         save_dir: str,
         num_training_points: int,
         num_stochastic_modules: int = 1,
@@ -98,14 +85,7 @@ class BNN_LV_VI(BaseModel):
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
-        super().__init__(
-            model_class,
-            model_args,
-            optimizer=torch.optim.Adam,
-            optimizer_args={"lr": lr},
-            loss_fn=None,
-            save_dir=save_dir,
-        )
+        super().__init__(model, optimizer, None, save_dir)
 
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."

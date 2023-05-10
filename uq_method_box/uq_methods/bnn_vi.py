@@ -43,7 +43,7 @@ from uq_method_box.models.bnnlv.utils import (
 )
 
 from .base import BaseModel
-from .utils import EnergyAlphaDivergence
+from .loss_functions import EnergyAlphaDivergence
 
 
 class BNN_VI(BaseModel):

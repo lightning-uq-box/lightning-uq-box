@@ -1,4 +1,6 @@
-"""Utility functions for BNN+VI implementation."""
+"""Utility functions for BNN+VI/LV implementation."""
+
+import math
 
 import torch.nn as nn
 
@@ -15,7 +17,7 @@ import uq_method_box.models.bnnlv.layers as bayesian_layers
 
 def bnnlv_linear_layer(params, d):
     """Convert deterministic linear layer to bayesian linear layer."""
-    layer = d.__class__.__name__ + params["type"]
+    layer = d.__class__.__name__
     layer_fn = getattr(bayesian_layers, layer)
     bnn_layer = layer_fn(
         in_features=d.in_features,
@@ -25,13 +27,14 @@ def bnnlv_linear_layer(params, d):
         posterior_mu_init=params["posterior_mu_init"],
         posterior_rho_init=params["posterior_rho_init"],
         bias=d.bias is not None,
+        type=params["type"],
     )
     return bnn_layer
 
 
 def bnnlv_conv_layer(params, d):
     """Convert deterministic convolutional layer to bayesian convolutional layer."""
-    layer = d.__class__.__name__ + params["type"]
+    layer = d.__class__.__name__
     layer_fn = getattr(bayesian_layers, layer)  # Get BNN layer
     bnn_layer = layer_fn(
         in_channels=d.in_channels,
@@ -46,13 +49,14 @@ def bnnlv_conv_layer(params, d):
         posterior_mu_init=params["posterior_mu_init"],
         posterior_rho_init=params["posterior_rho_init"],
         bias=d.bias is not None,
+        type=params["type"],
     )
     return bnn_layer
 
 
 def bnnlv_lstm_layer(params, d):
     """Convert lstm layer to bayesian lstm layer."""
-    layer = d.__class__.__name__ + params["type"]
+    layer = d.__class__.__name__
     layer_fn = getattr(bayesian_layers, layer)  # Get BNN layer
     bnn_layer = layer_fn(
         in_features=d.input_size,
@@ -62,6 +66,7 @@ def bnnlv_lstm_layer(params, d):
         posterior_mu_init=params["posterior_mu_init"],
         posterior_rho_init=params["posterior_rho_init"],
         bias=d.bias is not None,
+        type=params["type"],
     )
     return bnn_layer
 

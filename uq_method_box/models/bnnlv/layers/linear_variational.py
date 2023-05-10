@@ -7,8 +7,10 @@ import torch.nn.functional as F
 from bayesian_torch.layers.variational_layers.linear_variational import *
 from torch import Tensor
 
+from .utils import calc_log_f_hat, calc_log_normalizer
 
-class LinearReparameterization(LinearReparameterization):
+
+class Linear(LinearReparameterization):
     """Linear Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -19,13 +21,15 @@ class LinearReparameterization(LinearReparameterization):
         prior_variance=1,
         posterior_mu_init=0,
         posterior_rho_init=-3.0,
-        bias=True,
+        bias: bool = True,
+        type: str = "Reparameterization",
     ):
         """
         Implement Linear layer with reparameterization trick.
 
         Inherits from bayesian_torch.layers.variational_layers.linear_variational,
-        LinearReparameterization.
+        LinearReparameterization. Works for Reparameterization
+        or Flipout reparameterization.
 
         Parameters:
             in_features: size of each input sample,
@@ -41,6 +45,8 @@ class LinearReparameterization(LinearReparameterization):
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
                 Default: True.
+            type: reparameterization trick with
+                "Reparameterization" or "Flipout".
         """
         super().__init__(
             in_features,
@@ -50,6 +56,7 @@ class LinearReparameterization(LinearReparameterization):
             posterior_mu_init,
             posterior_rho_init,
             bias,
+            type,
         )
 
     def calc_log_Z_prior(self) -> Tensor:
@@ -63,42 +70,6 @@ class LinearReparameterization(LinearReparameterization):
             0.5 * n_params * math.log(self.prior_variance * 2 * math.pi)
         )
 
-    def calc_log_f_hat(self, w: Tensor, m_W: Tensor, std_W: Tensor) -> Tensor:
-        """Compute single summand in equation 3.16.
-
-        Args:
-            w: weight matrix [num_params]
-            m_W: mean weight matrix at current iteration [num_params]
-            std_W: sigma weight matrix at current iteration [num_params]
-
-        Returns:
-            log f hat summed over the parameters shape 0
-        """
-        v_W = std_W**2
-        m_W = m_W
-        # natural parameters: -1/(2 sigma^2), mu/(sigma^2)
-        # \lambda is (\lambda_q - \lambda_prior) / N
-        # assuming prior mean is 0 and moving N calculation outside
-        return (
-            ((v_W - self.prior_variance) / (2 * self.prior_variance * v_W)) * (w**2)
-            + (m_W / v_W) * w
-        ).sum()
-
-    def calc_log_normalizer(self, m_W: Tensor, std_W: Tensor) -> Tensor:
-        """Compute single left summand of 3.18.
-
-        Args:
-            m_W: mean weight matrix at current iteration [num_params]
-            std_W: sigma weight matrix at current iteration [num_params]
-
-        Returns:
-            log normalizer summed over all layer parameters shape 0
-        """
-        v_W = std_W**2
-        m_W = m_W
-        # return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
-        return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
-
     def log_normalizer(self):
         """Compute log terms for energy functional.
 
@@ -110,14 +81,14 @@ class LinearReparameterization(LinearReparameterization):
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
 
         # get log_normalizer and log_f_hat for weights
-        log_normalizer = self.calc_log_normalizer(
+        log_normalizer = calc_log_normalizer(
             m_W=self.mu_weight, std_W=sigma_weight
         )
 
         # get log_normalizer for biases
         if self.mu_bias is not None:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            log_normalizer = log_normalizer + self.calc_log_normalizer(
+            log_normalizer = log_normalizer + calc_log_normalizer(
                 m_W=self.mu_bias, std_W=sigma_bias
             )
 
@@ -138,8 +109,11 @@ class LinearReparameterization(LinearReparameterization):
         weight = self.mu_weight + delta_weight
 
         # get log_f_hat for weights
-        log_f_hat = self.calc_log_f_hat(
-            w=weight, m_W=self.mu_weight, std_W=sigma_weight
+        log_f_hat = calc_log_f_hat(
+            w=weight,
+            m_W=self.mu_weight,
+            std_W=sigma_weight,
+            prior_variance=self.prior_variance,
         )
 
         bias = None
@@ -148,29 +122,59 @@ class LinearReparameterization(LinearReparameterization):
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             delta_bias = sigma_bias * self.eps_bias.data.normal_()
             bias = self.mu_bias + delta_bias
-            log_f_hat = log_f_hat + self.calc_log_f_hat(
-                w=bias, m_W=self.mu_bias, std_W=sigma_bias
+            log_f_hat = log_f_hat + calc_log_f_hat(
+                w=bias,
+                m_W=self.mu_bias,
+                std_W=sigma_bias,
+                prior_variance=self.prior_variance,
             )
 
         return log_f_hat
 
-    def forward(self, input):
+    def forward(self, x):
         """Forward pass through layer.
 
         Args: self: layer.
             x: input.
         Returns:
-            outputs of layer.
+            outputs of layer for type="Reparameterization"
+            outputs+perturbed of layer for type="Flipout".
         """
-        sigma_weight = torch.log1p(torch.exp(self.rho_weight))
-        weight = self.mu_weight + (sigma_weight * self.eps_weight.data.normal_())
+        if self.type == "Reparameterization":
+            sigma_weight = torch.log1p(torch.exp(self.rho_weight))
+            weight = self.mu_weight + (sigma_weight * self.eps_weight.data.normal_())
 
-        bias = None
+            bias = None
 
-        if self.mu_bias is not None:
-            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            bias = self.mu_bias + (sigma_bias * self.eps_bias.data.normal_())
+            if self.mu_bias is not None:
+                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+                bias = self.mu_bias + (sigma_bias * self.eps_bias.data.normal_())
 
-        out = F.linear(input, weight, bias)
+            out = F.linear(x, weight, bias)
 
-        return out
+            return out
+
+        elif self.type == "Flipout":
+            # sampling delta_W and delta_b
+            sigma_weight = torch.log1p(torch.exp(self.rho_weight))
+            delta_weight = sigma_weight * self.eps_weight.data.normal_()
+
+            bias = None
+            # get log_normalizer and log_f_hat for biases
+            if self.mu_bias is not None:
+                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+                delta_bias = sigma_bias * self.eps_bias.data.normal_()
+                bias = self.mu_bias + delta_bias
+
+            # linear outputs
+            outputs = F.linear(x, self.mu_weight, self.mu_bias)
+
+            sign_input = x.clone().uniform_(-1, 1).sign()
+            sign_output = outputs.clone().uniform_(-1, 1).sign()
+
+            perturbed_outputs = (
+                F.linear(x * sign_input, delta_weight, bias) * sign_output
+            )
+
+            # returning outputs + perturbations
+            return outputs + perturbed_outputs

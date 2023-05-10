@@ -6,10 +6,10 @@ import torch
 from bayesian_torch.layers.variational_layers.rnn_variational import *
 from torch import Tensor
 
-from .variational_layers.linear_variational import LinearReparameterization
+from .linear_variational import Linear
 
 
-class LSTMReparameterization(LSTMReparameterization):
+class LSTM(LSTMReparameterization):
     """LSTM Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -21,12 +21,14 @@ class LSTMReparameterization(LSTMReparameterization):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
+        type: str = "Reparameterization",
     ):
         """
         Implement LSTM layer with reparameterization trick.
 
         Inherits from bayesian_torch.layers.variational_layers.rnn_variational,
-        LSTMReparameterization.
+        LSTMReparameterization. Works for Reparameterization
+        or Flipout reparameterization.
 
         Parameters:
             prior_mean: mean of the prior arbitrary
@@ -41,6 +43,8 @@ class LSTMReparameterization(LSTMReparameterization):
             out_features: size of each output sample,
             bias: if set to False, the layer will not learn an additive bias.
                 Default: True.
+            type: reparameterization trick with
+                "Reparameterization" or "Flipout".
         """
         super().__init__(
             in_features,
@@ -50,9 +54,10 @@ class LSTMReparameterization(LSTMReparameterization):
             posterior_mu_init,
             posterior_rho_init,
             bias,
+            type,
         )
 
-        self.ih = LinearReparameterization(
+        self.ih = Linear(
             prior_mean=prior_mean,
             prior_variance=prior_variance,
             posterior_mu_init=posterior_mu_init,
@@ -60,9 +65,10 @@ class LSTMReparameterization(LSTMReparameterization):
             in_features=in_features,
             out_features=out_features * 4,
             bias=bias,
+            type=type,
         )
 
-        self.hh = LinearReparameterization(
+        self.hh = Linear(
             prior_mean=prior_mean,
             prior_variance=prior_variance,
             posterior_mu_init=posterior_mu_init,
@@ -70,6 +76,7 @@ class LSTMReparameterization(LSTMReparameterization):
             in_features=out_features,
             out_features=out_features * 4,
             bias=bias,
+            type=type,
         )
 
     def calc_log_Z_prior(self) -> Tensor:
@@ -146,9 +153,9 @@ class LSTMReparameterization(LSTMReparameterization):
 
             i_t, f_t, g_t, o_t = (
                 torch.sigmoid(gates[:, :HS]),  # input
-                torch.sigmoid(gates[:, HS:HS * 2]),  # forget
-                torch.tanh(gates[:, HS * 2:HS * 3]),
-                torch.sigmoid(gates[:, HS * 3:]),  # output
+                torch.sigmoid(gates[:, HS : HS * 2]),  # forget
+                torch.tanh(gates[:, HS * 2 : HS * 3]),
+                torch.sigmoid(gates[:, HS * 3 :]),  # output
             )
 
             c_t = f_t * c_t + i_t * g_t
