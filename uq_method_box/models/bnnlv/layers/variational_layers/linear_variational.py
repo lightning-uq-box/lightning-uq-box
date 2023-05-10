@@ -1,4 +1,4 @@
-"""Linear Variational Layers adapted for Alpha Divergence."""
+"""Linear Variational Layer adapted for Alpha Divergence."""
 
 import math
 
@@ -9,6 +9,8 @@ from torch import Tensor
 
 
 class LinearReparameterization(LinearReparameterization):
+    """Linear Variational Layer adapted for Alpha Divergence."""
+
     def __init__(
         self,
         in_features: int,
@@ -20,19 +22,25 @@ class LinearReparameterization(LinearReparameterization):
         bias=True,
     ):
         """
-        Implements Linear layer with reparameterization trick.
+        Implement Linear layer with reparameterization trick.
 
         Inherits from bayesian_torch.layers.variational_layers.linear_variational,
         LinearReparameterization.
 
         Parameters:
-            in_features: int -> size of each input sample,
-            out_features: int -> size of each output sample,
-            prior_mean: float -> mean of the prior arbitrary distribution to be used on the complexity cost,
-            prior_variance: float -> variance of the prior arbitrary distribution to be used on the complexity cost,
-            posterior_mu_init: float -> init trainable mu parameter representing mean of the approximate posterior,
-            posterior_rho_init: float -> init trainable rho parameter representing the sigma of the approximate posterior through softplus function,
-            bias: bool -> if set to False, the layer will not learn an additive bias. Default: True,
+            in_features: size of each input sample,
+            out_features: size of each output sample,
+            prior_mean: mean of the prior arbitrary
+                distribution to be used on the complexity cost,
+            prior_variance: variance of the prior arbitrary
+                distribution to be used on the complexity cost,
+            posterior_mu_init: init trainable mu parameter
+                representing mean of the approximate posterior,
+            posterior_rho_init: init trainable rho parameter
+                representing the sigma of the approximate
+                posterior through softplus function,
+            bias: if set to False, the layer will not learn an additive bias.
+                Default: True.
         """
         super().__init__(
             in_features,
@@ -91,7 +99,7 @@ class LinearReparameterization(LinearReparameterization):
         # return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
         return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
 
-    def log_normalizer(self, return_logs=True):
+    def log_normalizer(self):
         """Compute log terms for energy functional.
 
         Args:
@@ -102,22 +110,20 @@ class LinearReparameterization(LinearReparameterization):
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
 
         # get log_normalizer and log_f_hat for weights
-        if return_logs:
-            log_normalizer = self.calc_log_normalizer(
-                m_W=self.mu_weight, std_W=sigma_weight
-            )
+        log_normalizer = self.calc_log_normalizer(
+            m_W=self.mu_weight, std_W=sigma_weight
+        )
 
         # get log_normalizer for biases
         if self.mu_bias is not None:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            if return_logs:
-                log_normalizer = log_normalizer + self.calc_log_normalizer(
-                    m_W=self.mu_bias, std_W=sigma_bias
-                )
+            log_normalizer = log_normalizer + self.calc_log_normalizer(
+                m_W=self.mu_bias, std_W=sigma_bias
+            )
 
         return log_normalizer
 
-    def log_f_hat(self, return_logs=True):
+    def log_f_hat(self):
         """Compute log_f_hat for energy functional.
 
         Args:
@@ -132,10 +138,9 @@ class LinearReparameterization(LinearReparameterization):
         weight = self.mu_weight + delta_weight
 
         # get log_f_hat for weights
-        if return_logs:
-            log_f_hat = self.calc_log_f_hat(
-                w=weight, m_W=self.mu_weight, std_W=sigma_weight
-            )
+        log_f_hat = self.calc_log_f_hat(
+            w=weight, m_W=self.mu_weight, std_W=sigma_weight
+        )
 
         bias = None
         # get log_f_hat for biases
@@ -143,17 +148,20 @@ class LinearReparameterization(LinearReparameterization):
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             delta_bias = sigma_bias * self.eps_bias.data.normal_()
             bias = self.mu_bias + delta_bias
-            if return_logs:
-                log_f_hat = log_f_hat + self.calc_log_f_hat(
-                    w=bias, m_W=self.mu_bias, std_W=sigma_bias
-                )
+            log_f_hat = log_f_hat + self.calc_log_f_hat(
+                w=bias, m_W=self.mu_bias, std_W=sigma_bias
+            )
 
         return log_f_hat
 
-    def forward(self, input, return_kl=True):
-        if self.dnn_to_bnn_flag:
-            return_kl = False
+    def forward(self, input):
+        """Forward pass through layer.
 
+        Args: self: layer.
+            x: input.
+        Returns:
+            outputs of layer.
+        """
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
         weight = self.mu_weight + (sigma_weight * self.eps_weight.data.normal_())
 

@@ -1,4 +1,4 @@
-# from .conv_flipout import *
+"""Initialize layers."""
+from .conv_flipout import *
 from .linear_flipout import *
-
-# from .rnn_flipout import *
+from .rnn_flipout import *

@@ -4,15 +4,6 @@ import torch.nn as nn
 
 import uq_method_box.models.bnnlv.layers as bayesian_layers
 
-# from .layers.flipout_layers.linear_flipout import LinearFlipout
-
-# TODO: change layers to output logs instead of kl's
-# from .conv_flipout import * (these are quite a few)
-# from .rnn_flipout import  LSTMFlipout
-# from .linear_variational import *
-# from .conv_variational import *
-# from .rnn_variational import *
-
 # --------------------------------------------------------------------------------
 # Parameters used to define BNN layyers.
 #       "prior_mu": 0.0,
@@ -38,19 +29,41 @@ def bnnlv_linear_layer(params, d):
     return bnn_layer
 
 
-# TODO: only flipout?
-# function bnnlv_conv_layer()
-# function bnnlv_lstm_layer()
+def bnnlv_conv_layer(params, d):
+    """Convert deterministic convolutional layer to bayesian convolutional layer."""
+    layer = d.__class__.__name__ + params["type"]
+    layer_fn = getattr(bayesian_layers, layer)  # Get BNN layer
+    bnn_layer = layer_fn(
+        in_channels=d.in_channels,
+        out_channels=d.out_channels,
+        kernel_size=d.kernel_size,
+        stride=d.stride,
+        padding=d.padding,
+        dilation=d.dilation,
+        groups=d.groups,
+        prior_mean=params["prior_mu"],
+        prior_variance=params["prior_sigma"],
+        posterior_mu_init=params["posterior_mu_init"],
+        posterior_rho_init=params["posterior_rho_init"],
+        bias=d.bias is not None,
+    )
+    return bnn_layer
 
 
-def bnnlv_conv_layer(params, d) -> None:
-    """Convert deterministic linear layer to bayesian conv layer."""
-    return NotImplementedError
-
-
-def bnnlv_lstm_layer(params, d) -> None:
-    """Convert deterministic linear layer to bayesian lstm layer."""
-    return NotImplementedError
+def bnnlv_lstm_layer(params, d):
+    """Convert lstm layer to bayesian lstm layer."""
+    layer = d.__class__.__name__ + params["type"]
+    layer_fn = getattr(bayesian_layers, layer)  # Get BNN layer
+    bnn_layer = layer_fn(
+        in_features=d.input_size,
+        out_features=d.hidden_size,
+        prior_mean=params["prior_mu"],
+        prior_variance=params["prior_sigma"],
+        posterior_mu_init=params["posterior_mu_init"],
+        posterior_rho_init=params["posterior_rho_init"],
+        bias=d.bias is not None,
+    )
+    return bnn_layer
 
 
 # get loss terms for energy functional

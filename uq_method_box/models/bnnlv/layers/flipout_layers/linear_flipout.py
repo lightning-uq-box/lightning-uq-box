@@ -95,7 +95,7 @@ class LinearFlipout(LinearFlipout):
         # return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
         return (0.5 * torch.log(v_W * 2 * math.pi) + 0.5 * m_W**2 / v_W).sum()
 
-    def log_normalizer(self, return_logs=True):
+    def log_normalizer(self):
         """Compute log terms for energy functional.
 
         Args:
@@ -103,26 +103,23 @@ class LinearFlipout(LinearFlipout):
         Returns:
             log_normalizer.
         """
-
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
 
         # get log_normalizer and log_f_hat for weights
-        if return_logs:
-            log_normalizer = self.calc_log_normalizer(
-                m_W=self.mu_weight, std_W=sigma_weight
-            )
+        log_normalizer = self.calc_log_normalizer(
+            m_W=self.mu_weight, std_W=sigma_weight
+        )
 
         # get log_normalizer for biases
         if self.mu_bias is not None:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            if return_logs:
-                log_normalizer = log_normalizer + self.calc_log_normalizer(
-                    m_W=self.mu_bias, std_W=sigma_bias
-                )
+            log_normalizer = log_normalizer + self.calc_log_normalizer(
+                m_W=self.mu_bias, std_W=sigma_bias
+            )
 
         return log_normalizer
 
-    def log_f_hat(self, return_logs=True):
+    def log_f_hat(self):
         """Compute log_f_hat for energy functional.
 
         Args:
@@ -130,7 +127,6 @@ class LinearFlipout(LinearFlipout):
         Returns:
             log_f_hat.
         """
-
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
         delta_weight = sigma_weight * self.eps_weight.data.normal_()
 
@@ -138,10 +134,9 @@ class LinearFlipout(LinearFlipout):
         weight = self.mu_weight + delta_weight
 
         # get log_f_hat for weights
-        if return_logs:
-            log_f_hat = self.calc_log_f_hat(
-                w=weight, m_W=self.mu_weight, std_W=sigma_weight
-            )
+        log_f_hat = self.calc_log_f_hat(
+            w=weight, m_W=self.mu_weight, std_W=sigma_weight
+        )
 
         bias = None
         # get log_f_hat for biases
@@ -149,14 +144,13 @@ class LinearFlipout(LinearFlipout):
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             delta_bias = sigma_bias * self.eps_bias.data.normal_()
             bias = self.mu_bias + delta_bias
-            if return_logs:
-                log_f_hat = log_f_hat + self.calc_log_f_hat(
-                    w=bias, m_W=self.mu_bias, std_W=sigma_bias
-                )
+            log_f_hat = log_f_hat + self.calc_log_f_hat(
+                w=bias, m_W=self.mu_bias, std_W=sigma_bias
+            )
 
         return log_f_hat
 
-    def forward(self, x, return_logs=False):
+    def forward(self, x):
         """Forward pass through layer.
 
         Args: self: layer.
@@ -164,11 +158,6 @@ class LinearFlipout(LinearFlipout):
         Returns:
             outputs+perturbed of layer.
         """
-        # gotta double check if we need this next line
-        # actually we want to use dnn_to_bnn_some extended for lvs
-        if self.dnn_to_bnn_flag:
-            return_logs = False
-
         # sampling delta_W and delta_b
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
         delta_weight = sigma_weight * self.eps_weight.data.normal_()
@@ -189,6 +178,4 @@ class LinearFlipout(LinearFlipout):
         perturbed_outputs = F.linear(x * sign_input, delta_weight, bias) * sign_output
 
         # returning outputs + perturbations
-        if return_logs:
-            return outputs + perturbed_outputs
         return outputs + perturbed_outputs
