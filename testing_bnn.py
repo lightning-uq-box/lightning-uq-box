@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,9 +46,8 @@ my_dir = tempfile.mkdtemp()
 max_epochs = 1000
 
 base_model = BNN_LV_VI(
-    MLP,
-    my_config["model_args"],
-    lr=4e-3,
+    MLP(**my_config["model_args"]),
+    optimizer=partial(torch.optim.Adam, lr=1e-3),
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
     num_stochastic_modules=1,
@@ -60,7 +60,7 @@ base_model = BNN_LV_VI(
     posterior_mu_init=0.0,
     posterior_rho_init=-6.0,
     alpha=1e-03,
-    type="Reparameterization",
+    layer_type="reparameterization",
 )
 
 logger = CSVLogger(my_dir)

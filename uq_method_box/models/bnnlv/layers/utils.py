@@ -1,9 +1,9 @@
+"""Utility functions for BNN Layers."""
+
 import math
 
 import torch
 from torch import Tensor
-
-# calculate calc_log_f_hat for layers
 
 
 def calc_log_f_hat(
@@ -31,7 +31,7 @@ def calc_log_f_hat(
     ).sum()
 
 
-def calc_log_normalizer(self, m_W: Tensor, std_W: Tensor) -> Tensor:
+def calc_log_normalizer(m_W: Tensor, std_W: Tensor) -> Tensor:
     """Compute single left summand of 3.18.
 
     Args:

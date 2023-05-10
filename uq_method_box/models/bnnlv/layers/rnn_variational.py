@@ -3,13 +3,15 @@
 import math
 
 import torch
-from bayesian_torch.layers.variational_layers.rnn_variational import *
+from bayesian_torch.layers.variational_layers.rnn_variational import (
+    LSTMReparameterization,
+)
 from torch import Tensor
 
-from .linear_variational import Linear
+from .linear_variational import LinearVariational
 
 
-class LSTM(LSTMReparameterization):
+class LSTMVariational(LSTMReparameterization):
     """LSTM Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -21,7 +23,7 @@ class LSTM(LSTMReparameterization):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
-        type: str = "Reparameterization",
+        layer_type: str = "reparameterization",
     ):
         """
         Implement LSTM layer with reparameterization trick.
@@ -44,7 +46,7 @@ class LSTM(LSTMReparameterization):
             bias: if set to False, the layer will not learn an additive bias.
                 Default: True.
             type: reparameterization trick with
-                "Reparameterization" or "Flipout".
+                "reparameterization" or "flipout".
         """
         super().__init__(
             in_features,
@@ -54,10 +56,10 @@ class LSTM(LSTMReparameterization):
             posterior_mu_init,
             posterior_rho_init,
             bias,
-            type,
+            layer_type,
         )
 
-        self.ih = Linear(
+        self.ih = LinearVariational(
             prior_mean=prior_mean,
             prior_variance=prior_variance,
             posterior_mu_init=posterior_mu_init,
@@ -65,10 +67,10 @@ class LSTM(LSTMReparameterization):
             in_features=in_features,
             out_features=out_features * 4,
             bias=bias,
-            type=type,
+            layer_type=layer_type,
         )
 
-        self.hh = Linear(
+        self.hh = LinearVariational(
             prior_mean=prior_mean,
             prior_variance=prior_variance,
             posterior_mu_init=posterior_mu_init,
@@ -76,7 +78,7 @@ class LSTM(LSTMReparameterization):
             in_features=out_features,
             out_features=out_features * 4,
             bias=bias,
-            type=type,
+            layer_type=layer_type,
         )
 
     def calc_log_Z_prior(self) -> Tensor:
@@ -152,10 +154,10 @@ class LSTM(LSTMReparameterization):
             gates = ff_i + ff_h
 
             i_t, f_t, g_t, o_t = (
-                torch.sigmoid(gates[:, :HS]),  # input
-                torch.sigmoid(gates[:, HS : HS * 2]),  # forget
-                torch.tanh(gates[:, HS * 2 : HS * 3]),
-                torch.sigmoid(gates[:, HS * 3 :]),  # output
+                torch.sigmoid(gates[:, :HS]),  # input # noqa: E203
+                torch.sigmoid(gates[:, HS : HS * 2]),  # forget # noqa: E203
+                torch.tanh(gates[:, HS * 2 : HS * 3]),  # noqa: E203
+                torch.sigmoid(gates[:, HS * 3 :]),  # output # noqa: E203
             )
 
             c_t = f_t * c_t + i_t * g_t

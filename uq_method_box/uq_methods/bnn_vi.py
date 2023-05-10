@@ -1,31 +1,6 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
-# TODO:
-# 1) change dnn_to_bnn function such that only some layers are made stochastic done!
-# 2) adjust loss functions such that also a two headed network output trained with nll
-# works, and add mse burin-phase as in other modules
-# 3) make loss function chooseable to be mse or nll like in other modules
-
-
-# 5) adapted function based on principles kl_divin bnn_t,
-# but with additional dependency on sampled weights yielded by reparameterization trick
-#  (additional argument that is stochastic sampled weights)
-# to do 5): copy bayesian torch library change layers to include output of term:
-# ((var^w - prior_var)/ 2 var^w) * w^2 + (mean^w/var^w)*w
-# (just like the kl term but now for computing f(W))
-# done for linear layer
-# 6) for loss computation include sampling operation
-#  in training step (already have this in bnn_vi)
-# 7) adapt _build_model function so that
-# we define a latent dimension Z neural network
-# and a utility function that adds the latent dimension at a desired layer
-# e.g. before last activation+linear block
-# 8) latent variable network is a BNN with prior variance dependent on input dimension
-#  (as a square root of the input dimension to the first stochastic layer chosen)
-# concatenate extracted features and output from latent variable BNN
-#  and push through stochastic layers to get final output
-
-from typing import Any, Dict, List, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -54,9 +29,8 @@ class BNN_VI(BaseModel):
 
     def __init__(
         self,
-        model_class: Union[type[nn.Module], str],
-        model_args: Dict[str, Any],
-        lr: float,
+        model: nn.Module,
+        optimizer: type[torch.optim.Optimizer],
         save_dir: str,
         num_training_points: int,
         num_stochastic_modules: int = 1,
@@ -69,7 +43,8 @@ class BNN_VI(BaseModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        layer_type: str = "reparametrization",
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of BNN+LV.
 
@@ -82,7 +57,7 @@ class BNN_VI(BaseModel):
             num_training_points: number of data points contained in the training dataset
             beta_elbo: beta factor for negative elbo loss computation
             num_mc_samples_train: number of MC samples during training when computing
-                the energy loss.
+                the energy loss
             num_mc_samples_test: number of MC samples during test and prediction
             output_noise_scale: scale of predicted sigmas
             prior_mu: prior mean value for bayesian layer
@@ -90,20 +65,14 @@ class BNN_VI(BaseModel):
             posterior_mu_init: mean initialization value for approximate posterior
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
-            alpha: alpha divergence parameter, set between [1e-6,1].
+            alpha: alpha divergence parameter
+            type: Bayesian layer_type type, "Reparametrization" or "flipout"
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
-        super().__init__(
-            model_class,
-            model_args,
-            optimizer=torch.optim.Adam,
-            optimizer_args={"lr": lr},
-            loss_fn=None,
-            save_dir=save_dir,
-        )
+        super().__init__(model, optimizer, None, save_dir)
 
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
@@ -127,6 +96,7 @@ class BNN_VI(BaseModel):
         self.hparams["num_training_points"] = num_training_points
         self.hparams["num_stochastic_modules"] = num_stochastic_modules
         self.hparams["alpha"] = alpha
+        self.hparams["layer_type"] = layer_type
 
         self.hparams["num_stochastic_modules"] = num_stochastic_modules
 
@@ -137,6 +107,7 @@ class BNN_VI(BaseModel):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
+            "layer_type": self.hparams.layer_type,
         }
         # convert deterministic model to BNN
         dnn_to_bnnlv_some(
@@ -263,7 +234,7 @@ class BNN_VI(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Prediction step.
 
         Args:
@@ -326,7 +297,7 @@ class BNN_VI(BaseModel):
             {"params": excluded_params, "weight_decay": 0.0},
         ]
 
-    def configure_optimizers(self) -> Dict[str, Any]:
+    def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -337,7 +308,5 @@ class BNN_VI(BaseModel):
             self.named_parameters(), weight_decay=self.hparams.weight_decay
         )
 
-        optimizer = torch.optim.AdamW(
-            params, lr=self.hparams.lr, weight_decay=self.hparams.weight_decay
-        )
+        optimizer = self.optimizer(params=params)
         return optimizer

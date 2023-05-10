@@ -4,23 +4,23 @@ import math
 
 import torch
 import torch.nn.functional as F
-from bayesian_torch.layers.variational_layers.conv_variational import *
+from bayesian_torch.layers.variational_layers.conv_variational import (
+    Conv1dReparameterization,
+    Conv2dReparameterization,
+    Conv3dReparameterization,
+    ConvTranspose1dReparameterization,
+    ConvTranspose2dReparameterization,
+    ConvTranspose3dReparameterization,
+)
 from torch import Tensor
 
 from .utils import calc_log_f_hat, calc_log_normalizer
 
-__all__ = [
-    "Conv1d",
-    "Conv2d",
-    "Conv3d",
-    "ConvTranspose1d",
-    "ConvTranspose2d",
-    "ConvTranspose3d",
-]
 
-
-class Conv1d(Conv1dReparameterization):
+class Conv1dVariational(Conv1dReparameterization):
     """Convolutional Variational Layer adapted for Alpha Divergence."""
+
+    valid_layer_types = ["reparameterization", "flipout"]
 
     def __init__(
         self,
@@ -36,7 +36,7 @@ class Conv1d(Conv1dReparameterization):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
-        type: str = "Reparameterization",
+        layer_type: str = "reparameterization",
     ):
         """
         Implement Conv1d layer with reparameterization trick.
@@ -65,8 +65,8 @@ class Conv1d(Conv1dReparameterization):
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
                 Default: True.
-            type: reparameterization trick with
-                "Reparameterization" or "Flipout".
+            layer_type: reparameterization trick with
+                "reparameterization" or "flipout".
         """
         super().__init__(
             in_channels,
@@ -81,8 +81,11 @@ class Conv1d(Conv1dReparameterization):
             posterior_mu_init,
             posterior_rho_init,
             bias,
-            type,
         )
+        assert (
+            layer_type in self.valid_layer_types
+        ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
+        self.layer_type = layer_type
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
@@ -95,7 +98,6 @@ class Conv1d(Conv1dReparameterization):
             0.5 * n_params * math.log(self.prior_variance * 2 * math.pi)
         )
 
-
     def log_normalizer(self):
         """Compute log terms for energy functional.
 
@@ -107,9 +109,7 @@ class Conv1d(Conv1dReparameterization):
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
         # get log_normalizer and log_f_hat for kernel weights
-        log_normalizer = calc_log_normalizer(
-            m_W=self.mu_kernel, std_W=sigma_weight
-        )
+        log_normalizer = calc_log_normalizer(m_W=self.mu_kernel, std_W=sigma_weight)
 
         # get log_normalizer for biases
         if self.mu_bias is not None:
@@ -163,10 +163,10 @@ class Conv1d(Conv1dReparameterization):
         Args: self: layer.
             x: input.
         Returns:
-            outputs of layer if type="Reparameterization"
-            outputs+perturbed of layer for type="Flipout".
+            outputs of layer if type="reparameterization"
+            outputs+perturbed of layer for type="flipout".
         """
-        if self.type == "Reparameterization":
+        if self.layer_type == "reparameterization":
             sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
             eps_kernel = self.eps_kernel.data.normal_()
             weight = self.mu_kernel + (sigma_weight * eps_kernel)
@@ -184,7 +184,7 @@ class Conv1d(Conv1dReparameterization):
 
             return out
 
-        if self.type == "Flipout":
+        if self.layer_type == "flipout":
             # linear outputs
             outputs = F.conv1d(
                 x,
@@ -230,7 +230,7 @@ class Conv1d(Conv1dReparameterization):
             return outputs + perturbed_outputs
 
 
-class Conv2d(Conv2dReparameterization):
+class Conv2dVariational(Conv2dReparameterization):
     """Convolutional Variational Layers adapted for Alpha Divergence."""
 
     def __init__(
@@ -247,7 +247,7 @@ class Conv2d(Conv2dReparameterization):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
-        type: str = "Reparameterization",
+        layer_type: str = "reparameterization",
     ):
         """
         Implement Conv2d layer with reparameterization trick.
@@ -278,8 +278,8 @@ class Conv2d(Conv2dReparameterization):
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
                 Default: True.
-            type: reparameterization trick with
-                "Reparameterization" or "Flipout".
+            layer_type: reparameterization trick with
+                "reparameterization" or "flipout".
         """
         super().__init__(
             in_channels,
@@ -294,8 +294,11 @@ class Conv2d(Conv2dReparameterization):
             posterior_mu_init,
             posterior_rho_init,
             bias,
-            type,
         )
+        assert (
+            layer_type in self.valid_layer_types
+        ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
+        self.layer_type = layer_type
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
@@ -319,9 +322,7 @@ class Conv2d(Conv2dReparameterization):
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
         # get log_normalizer and log_f_hat for weights
-        log_normalizer = calc_log_normalizer(
-            m_W=self.mu_kernel, std_W=sigma_weight
-        )
+        log_normalizer = calc_log_normalizer(m_W=self.mu_kernel, std_W=sigma_weight)
 
         # get log_normalizer for biases
         if self.mu_bias is not None:
@@ -375,10 +376,10 @@ class Conv2d(Conv2dReparameterization):
         Args: self: layer.
             x: input.
         Returns:
-            outputs of layer if type="Reparameterization"
-            outputs+perturbed of layer for type="Flipout".
+            outputs of layer if type="reparameterization"
+            outputs+perturbed of layer for type="flipout".
         """
-        if self.type == "Reparameterization":
+        if self.layer_type == "reparameterization":
             sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
             eps_kernel = self.eps_kernel.data.normal_()
             weight = self.mu_kernel + (sigma_weight * eps_kernel)
@@ -396,7 +397,7 @@ class Conv2d(Conv2dReparameterization):
 
             return out
 
-        if self.type == "Flipout":
+        if self.layer_type == "flipout":
             # linear outputs
             outputs = F.conv2d(
                 x,
@@ -442,7 +443,7 @@ class Conv2d(Conv2dReparameterization):
             return outputs + perturbed_outputs
 
 
-class Conv3d(Conv3dReparameterization):
+class Conv3dVariational(Conv3dReparameterization):
     """Convolutional Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -459,7 +460,7 @@ class Conv3d(Conv3dReparameterization):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
-        type: str = "Reparameterization",
+        layer_type: str = "reparameterization",
     ):
         """
         Implement Conv3d layer with reparameterization trick.
@@ -488,8 +489,8 @@ class Conv3d(Conv3dReparameterization):
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
                 Default: True.
-            type: reparameterization trick with
-                "Reparameterization" or "Flipout".
+            layer_type: reparameterization trick with
+                "reparameterization" or "flipout".
         """
         super().__init__(
             in_channels,
@@ -504,8 +505,11 @@ class Conv3d(Conv3dReparameterization):
             posterior_mu_init,
             posterior_rho_init,
             bias,
-            type,
         )
+        assert (
+            layer_type in self.valid_layer_types
+        ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
+        self.layer_type = layer_type
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
@@ -529,9 +533,7 @@ class Conv3d(Conv3dReparameterization):
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
         # get log_normalizer and log_f_hat for weights
-        log_normalizer = calc_log_normalizer(
-            m_W=self.mu_kernel, std_W=sigma_weight
-        )
+        log_normalizer = calc_log_normalizer(m_W=self.mu_kernel, std_W=sigma_weight)
 
         # get log_normalizer for biases
         if self.mu_bias is not None:
@@ -585,10 +587,10 @@ class Conv3d(Conv3dReparameterization):
         Args: self: layer.
             x: input.
         Returns:
-            outputs of layer if type="Reparameterization"
-            outputs+perturbed of layer for type="Flipout".
+            outputs of layer if type="reparameterization"
+            outputs+perturbed of layer for type="flipout".
         """
-        if self.type == "Reparameterization":
+        if self.layer_type == "reparameterization":
             sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
             eps_kernel = self.eps_kernel.data.normal_()
             weight = self.mu_kernel + (sigma_weight * eps_kernel)
@@ -606,7 +608,7 @@ class Conv3d(Conv3dReparameterization):
 
             return out
 
-        if self.type == "Flipout":
+        if self.layer_type == "flipout":
             # linear outputs
             outputs = F.conv3d(
                 x,
@@ -652,7 +654,7 @@ class Conv3d(Conv3dReparameterization):
             return outputs + perturbed_outputs
 
 
-class ConvTranspose1d(ConvTranspose1dReparameterization):
+class ConvTranspose1dVariational(ConvTranspose1dReparameterization):
     """Convolutional Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -669,7 +671,7 @@ class ConvTranspose1d(ConvTranspose1dReparameterization):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: type = True,
-        type: str = "Reparameterization",
+        layer_type: str = "reparameterization",
     ):
         """
         Implement ConvTranspose1d layer with reparameterization trick.
@@ -699,8 +701,8 @@ class ConvTranspose1d(ConvTranspose1dReparameterization):
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
                 Default: True.
-            type: reparameterization trick with
-                "Reparameterization" or "Flipout".
+            layer_type: reparameterization trick with
+                "reparameterization" or "flipout".
         """
         super().__init__(
             in_channels,
@@ -715,8 +717,11 @@ class ConvTranspose1d(ConvTranspose1dReparameterization):
             posterior_mu_init,
             posterior_rho_init,
             bias,
-            type,
         )
+        assert (
+            layer_type in self.valid_layer_types
+        ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
+        self.layer_type = layer_type
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
@@ -740,9 +745,7 @@ class ConvTranspose1d(ConvTranspose1dReparameterization):
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
         # get log_normalizer and log_f_hat for weights
-        log_normalizer = calc_log_normalizer(
-            m_W=self.mu_kernel, std_W=sigma_weight
-        )
+        log_normalizer = calc_log_normalizer(m_W=self.mu_kernel, std_W=sigma_weight)
 
         # get log_normalizer for biases
         if self.mu_bias is not None:
@@ -796,10 +799,10 @@ class ConvTranspose1d(ConvTranspose1dReparameterization):
         Args: self: layer.
             x: input.
         Returns:
-            outputs of layer if type="Reparameterization"
-            outputs+perturbed of layer for type="Flipout".
+            outputs of layer if type="reparameterization"
+            outputs+perturbed of layer for type="flipout".
         """
-        if self.type == "Reparameterization":
+        if self.layer_type == "reparameterization":
             sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
             eps_kernel = self.eps_kernel.data.normal_()
             weight = self.mu_kernel + (sigma_weight * eps_kernel)
@@ -824,7 +827,7 @@ class ConvTranspose1d(ConvTranspose1dReparameterization):
 
             return out
 
-        elif self.type == "Flipout":
+        elif self.layer_type == "flipout":
             # linear outputs
             outputs = F.conv_transpose1d(
                 x,
@@ -871,7 +874,7 @@ class ConvTranspose1d(ConvTranspose1dReparameterization):
             return outputs + perturbed_outputs
 
 
-class ConvTranspose2d(ConvTranspose2dReparameterization):
+class ConvTranspose2dVariational(ConvTranspose2dReparameterization):
     """Convolutional Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -888,7 +891,7 @@ class ConvTranspose2d(ConvTranspose2dReparameterization):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
-        type: str = "Reparameterization",
+        layer_type: str = "reparameterization",
     ):
         """
         Implement ConvTranspose2d layer with reparameterization trick.
@@ -919,7 +922,7 @@ class ConvTranspose2d(ConvTranspose2dReparameterization):
             bias: if set to False, the layer will not learn an additive bias.
                 Default: True.
             type: reparameterization trick with
-                "Reparameterization" or "Flipout".
+                "reparameterization" or "flipout".
         """
         super().__init__(
             in_channels,
@@ -934,8 +937,11 @@ class ConvTranspose2d(ConvTranspose2dReparameterization):
             posterior_mu_init,
             posterior_rho_init,
             bias,
-            type,
         )
+        assert (
+            layer_type in self.valid_layer_types
+        ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
+        self.layer_type = layer_type
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
@@ -959,9 +965,7 @@ class ConvTranspose2d(ConvTranspose2dReparameterization):
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
         # get log_normalizer and log_f_hat for weights
-        log_normalizer = calc_log_normalizer(
-            m_W=self.mu_kernel, std_W=sigma_weight
-        )
+        log_normalizer = calc_log_normalizer(m_W=self.mu_kernel, std_W=sigma_weight)
 
         # get log_normalizer for biases
         if self.mu_bias is not None:
@@ -1015,10 +1019,10 @@ class ConvTranspose2d(ConvTranspose2dReparameterization):
         Args: self: layer.
             x: input.
         Returns:
-            outputs of layer if type="Reparameterization"
-            outputs+perturbed of layer for type="Flipout".
+            outputs of layer if type="reparameterization"
+            outputs+perturbed of layer for type="flipout".
         """
-        if self.type == "Reparameterization":
+        if self.layer_type == "reparameterization":
             sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
             eps_kernel = self.eps_kernel.data.normal_()
             weight = self.mu_kernel + (sigma_weight * eps_kernel)
@@ -1043,7 +1047,7 @@ class ConvTranspose2d(ConvTranspose2dReparameterization):
 
             return out
 
-        elif self.type == "Flipout":
+        elif self.layer_type == "flipout":
             # linear outputs
             outputs = F.conv_transpose2d(
                 x,
@@ -1090,7 +1094,7 @@ class ConvTranspose2d(ConvTranspose2dReparameterization):
             return outputs + perturbed_outputs
 
 
-class ConvTranspose3d(ConvTranspose3dReparameterization):
+class ConvTranspose3dVariational(ConvTranspose3dReparameterization):
     """Convolutional Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -1107,7 +1111,7 @@ class ConvTranspose3d(ConvTranspose3dReparameterization):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
-        type: str = "Reparameterization",
+        layer_type: str = "reparameterization",
     ):
         """
         Implement ConvTranspose3d layer.
@@ -1139,8 +1143,8 @@ class ConvTranspose3d(ConvTranspose3dReparameterization):
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
                 Default: True.
-            type: reparameterization trick with
-                "Reparameterization" or "Flipout".
+            layer_type: reparameterization trick with
+                "reparameterization" or "flipout".
         """
         super().__init__(
             in_channels,
@@ -1155,8 +1159,12 @@ class ConvTranspose3d(ConvTranspose3dReparameterization):
             posterior_mu_init,
             posterior_rho_init,
             bias,
-            type,
         )
+
+        assert (
+            layer_type in self.valid_layer_types
+        ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
+        self.layer_type = layer_type
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
@@ -1180,9 +1188,7 @@ class ConvTranspose3d(ConvTranspose3dReparameterization):
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
         # get log_normalizer and log_f_hat for weights
-        log_normalizer = calc_log_normalizer(
-            m_W=self.mu_kernel, std_W=sigma_weight
-        )
+        log_normalizer = calc_log_normalizer(m_W=self.mu_kernel, std_W=sigma_weight)
 
         # get log_normalizer for biases
         if self.mu_bias is not None:
@@ -1236,10 +1242,10 @@ class ConvTranspose3d(ConvTranspose3dReparameterization):
         Args: self: layer.
             x: input.
         Returns:
-            outputs of layer if type="Reparameterization"
-            outputs+perturbed of layer for type="Flipout".
+            outputs of layer if type="reparameterization"
+            outputs+perturbed of layer for type="flipout".
         """
-        if self.type == "Reparameterization":
+        if self.layer_type == "reparameterization":
             sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
             eps_kernel = self.eps_kernel.data.normal_()
             weight = self.mu_kernel + (sigma_weight * eps_kernel)
@@ -1264,7 +1270,7 @@ class ConvTranspose3d(ConvTranspose3dReparameterization):
 
             return out
 
-        elif self.type == "Flipout":
+        elif self.layer_type == "flipout":
             # linear outputs
             outputs = F.conv_transpose3d(
                 x,
