@@ -80,8 +80,6 @@ class LinearVariational(LinearReparameterization):
     def log_normalizer(self):
         """Compute log terms for energy functional.
 
-        Args:
-            self.
         Returns:
             log_normalizer.
         """
@@ -102,8 +100,6 @@ class LinearVariational(LinearReparameterization):
     def log_f_hat(self):
         """Compute log_f_hat for energy functional.
 
-        Args:
-            self.
         Returns:
             log_f_hat.
         """
@@ -136,7 +132,7 @@ class LinearVariational(LinearReparameterization):
 
         return log_f_hat
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass through layer.
 
         Args:
@@ -145,41 +141,27 @@ class LinearVariational(LinearReparameterization):
         Returns:
             outputs of variational layer
         """
+        sigma_weight = torch.log1p(torch.exp(self.rho_weight))
+
+        # compute bias if available
+        bias = None
+        if self.mu_bias is not None:
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            bias = self.mu_bias + (sigma_bias * self.eps_bias.data.normal_())
+
+        # forward pass with chosen layer type
         if self.layer_type == "reparameterization":
-            sigma_weight = torch.log1p(torch.exp(self.rho_weight))
             weight = self.mu_weight + (sigma_weight * self.eps_weight.data.normal_())
-
-            bias = None
-
-            if self.mu_bias is not None:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                bias = self.mu_bias + (sigma_bias * self.eps_bias.data.normal_())
-
-            out = F.linear(x, weight, bias)
-
-            return out
-
-        elif self.layer_type == "flipout":
+            output = F.linear(x, weight, bias)
+        else:
             # sampling delta_W and delta_b
             sigma_weight = torch.log1p(torch.exp(self.rho_weight))
             delta_weight = sigma_weight * self.eps_weight.data.normal_()
-
-            bias = None
-            # get log_normalizer and log_f_hat for biases
-            if self.mu_bias is not None:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                delta_bias = sigma_bias * self.eps_bias.data.normal_()
-                bias = self.mu_bias + delta_bias
-
             # linear outputs
-            outputs = F.linear(x, self.mu_weight, self.mu_bias)
-
+            out = F.linear(x, self.mu_weight, self.mu_bias)
+            # flipout
             sign_input = x.clone().uniform_(-1, 1).sign()
-            sign_output = outputs.clone().uniform_(-1, 1).sign()
+            sign_output = out.clone().uniform_(-1, 1).sign()
+            output = out + (F.linear(x * sign_input, delta_weight, bias) * sign_output)
 
-            perturbed_outputs = (
-                F.linear(x * sign_input, delta_weight, bias) * sign_output
-            )
-
-            # returning outputs + perturbations
-            return outputs + perturbed_outputs
+        return output
