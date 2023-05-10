@@ -21,14 +21,19 @@ class QuantileRegressionModel(BaseModel):
         save_dir: str,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new instance of Quantile Regression Model."""
-        super().__init__(model, optimizer, None, save_dir)
+        """Initialize a new instance of Quantile Regression Model.
 
-        self.loss_fn = QuantileLoss(quantiles)
+        Args:
+            model:
+            optimizer:
+            save_dir:
+        """
+        assert all(i < 1 for i in quantiles), "Quantiles should be less than 1."
+        assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
+        super().__init__(model, optimizer, QuantileLoss(quantiles), save_dir)
 
         self.quantiles = quantiles
         self.median_index = self.hparams.quantiles.index(0.5)
-        self.criterion = QuantileLoss(quantiles=self.hparams.quantiles)
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean/median prediction from quantile regression model.
