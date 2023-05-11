@@ -43,16 +43,14 @@ class BNN_VI(BaseModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
-        layer_type: str = "reparametrization",
+        layer_type: str = "reparameterization",
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of BNN+LV.
 
         Args:
-            model_class: Model Class that can be initialized with arguments from dict,
-                or timm backbone name
-            model_args: arguments to initialize model_class
-            lr: learning rate for adam otimizer
+            model:
+            optimizer:
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
             beta_elbo: beta factor for negative elbo loss computation
@@ -159,11 +157,6 @@ class BNN_VI(BaseModel):
         # assume homoscedastic noise with std output_noise_scale
         output_var = torch.ones_like(y)  # * (torch.exp(self.log_aleatoric_std))
 
-        # the functions sum over the layers of any architecture
-        # log_normalizer [1]
-        log_normalizer = get_log_normalizer(self.model)
-        log_Z_prior = get_log_Z_prior(self.model)
-
         # draw samples for all stochastic functions
         for i in range(self.hparams.num_mc_samples_train):
             # mean prediction
@@ -176,21 +169,14 @@ class BNN_VI(BaseModel):
             log_f_hat.append(get_log_f_hat(self.model))
 
         # model_preds [num_mc_samples_train, batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=0)
-        # pred_losses [num_mc_samples_train, batch_size, 1]
-        pred_losses = torch.stack(pred_losses, dim=0)
-
-        # log_f_hat [num_mc_samples_train, 1]
-        log_f_hat = torch.stack(log_f_hat, dim=0)
-
-        mean_out = model_preds.mean(dim=0)
+        mean_out = torch.stack(model_preds, dim=0).mean(dim=0)
 
         # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
         energy_loss = self.energy_loss_module(
-            pred_losses,
-            log_f_hat,
-            log_Z_prior,
-            log_normalizer,
+            torch.stack(pred_losses, dim=0),
+            torch.stack(log_f_hat, dim=0),
+            get_log_Z_prior(self.model),
+            get_log_normalizer(self.model),
             0.0,  # log_normalizer_z
             0.0,  # log_f_hat_z
         )
