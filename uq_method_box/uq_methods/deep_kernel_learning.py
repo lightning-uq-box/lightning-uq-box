@@ -135,6 +135,11 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
 
+        # put gpytorch modules on cuda
+        if self.device.type == "cuda":
+            self.gp_layer = self.gp_layer.cuda()
+            self.likelihood = self.likelihood.cuda()
+
     def _fit_initial_lengthscale_and_inducing_points(self) -> None:
         """Fit the initial lengthscale and inducing points for DKL."""
         train_dataset = self.train_loader.dataset
@@ -143,6 +148,9 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self.initial_inducing_points, self.initial_lengthscale = initial_values(
             train_dataset, self.feature_extractor, self.hparams.n_inducing_points
         )
+        self.initial_inducing_points = self.initial_inducing_points.to(self.device)
+        self.initial_lengthscale = self.initial_lengthscale.to(self.device)
+
         # build the model ready for training
         self._build_model()
 
@@ -343,7 +351,9 @@ class DKLGPLayer(ApproximateGP):
                 f"choices are {self.kernel_choices}."
             )
 
-        kernel.lengthscale = initial_lengthscale * torch.ones_like(kernel.lengthscale)
+        kernel.lengthscale = initial_lengthscale.cpu() * torch.ones_like(
+            kernel.lengthscale
+        )
 
         self.mean_module = ConstantMean(batch_shape=batch_shape)
 
