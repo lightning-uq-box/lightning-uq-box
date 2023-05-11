@@ -87,14 +87,15 @@ class Conv1dVariational(Conv1dReparameterization):
         ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
         self.layer_type = layer_type
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass through layer.
 
         Args:
-            x: input.
+            x: input
+
         Returns:
             outputs of layer if type="reparameterization"
-            outputs+perturbed of layer for type="flipout".
+            outputs+perturbed of layer for type="flipout"
         """
         # compute variance of weight from unconstrained variable rho_kernel
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
@@ -237,11 +238,11 @@ class Conv2dVariational(Conv2dReparameterization):
             0.5 * n_params * math.log(self.prior_variance * 2 * math.pi)
         )
 
-    def log_normalizer(self):
+    def log_normalizer(self) -> Tensor:
         """Compute log terms for energy functional.
 
         Returns:
-            log_f_hat, log_normalizer.
+            log_normalizer.
         """
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
@@ -257,7 +258,7 @@ class Conv2dVariational(Conv2dReparameterization):
 
         return log_normalizer
 
-    def log_f_hat(self):
+    def log_f_hat(self) -> Tensor:
         """Compute log_f_hat for energy functional.
 
         Returns:
@@ -292,15 +293,15 @@ class Conv2dVariational(Conv2dReparameterization):
 
         return log_f_hat
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass through layer.
 
         Args:
-            x: input.
+            x: input
 
         Returns:
             outputs of layer if type="reparameterization"
-            outputs+perturbed of layer for type="flipout".
+            outputs+perturbed of layer for type="flipout"
         """
         # compute variance of weight from unconstrained variable rho_kernel
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
@@ -308,27 +309,21 @@ class Conv2dVariational(Conv2dReparameterization):
         # compute delta_kernel
         delta_kernel = sigma_weight * eps_kernel
 
+        bias = None
         if self.bias:
             # compute variance of bias from unconstrained variable rho_bias
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             eps_bias = self.eps_bias.data.normal_()
             # compute delta_bias
             delta_bias = sigma_bias * eps_bias
+            bias = self.mu_bias + delta_bias
 
         if self.layer_type == "reparameterization":
             weight = self.mu_kernel + delta_kernel
-
-            bias = None
-            if self.bias:
-                bias = self.mu_bias + delta_bias
-
             out = F.conv2d(
                 x, weight, bias, self.stride, self.padding, self.dilation, self.groups
             )
-
-            return out
-
-        if self.layer_type == "flipout":
+        else:
             # linear outputs
             outputs = F.conv2d(
                 x,
@@ -359,7 +354,8 @@ class Conv2dVariational(Conv2dReparameterization):
             )
 
             # returning outputs + perturbations
-            return outputs + perturbed_outputs
+            out = outputs + perturbed_outputs
+        return out
 
 
 class Conv3dVariational(Conv3dReparameterization):
@@ -441,13 +437,11 @@ class Conv3dVariational(Conv3dReparameterization):
             0.5 * n_params * math.log(self.prior_variance * 2 * math.pi)
         )
 
-    def log_normalizer(self):
+    def log_normalizer(self) -> Tensor:
         """Compute log terms for energy functional.
 
-        Args:
-            self.
         Returns:
-            log_f_hat, log_normalizer.
+            log_normalizer
         """
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
@@ -463,13 +457,11 @@ class Conv3dVariational(Conv3dReparameterization):
 
         return log_normalizer
 
-    def log_f_hat(self):
+    def log_f_hat(self) -> Tensor:
         """Compute log_f_hat for energy functional.
 
-        Args:
-            self.
         Returns:
-            log_f_hat.
+            log_f_hat
         """
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
         delta_weight = sigma_weight * self.eps_kernel.data.normal_()
@@ -500,14 +492,15 @@ class Conv3dVariational(Conv3dReparameterization):
 
         return log_f_hat
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass through layer.
 
-        Args: self: layer.
-            x: input.
+        Args:
+            x: input
+
         Returns:
             outputs of layer if type="reparameterization"
-            outputs+perturbed of layer for type="flipout".
+            outputs+perturbed of layer for type="flipout"
         """
         # compute variance of weight from unconstrained variable rho_kernel
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
@@ -515,27 +508,21 @@ class Conv3dVariational(Conv3dReparameterization):
         # compute delta_kernel
         delta_kernel = sigma_weight * eps_kernel
 
+        bias = None
         if self.bias:
             # compute variance of bias from unconstrained variable rho_bias
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             eps_bias = self.eps_bias.data.normal_()
             # compute delta_bias
             delta_bias = sigma_bias * eps_bias
+            bias = self.mu_bias + delta_bias
 
         if self.layer_type == "reparameterization":
             weight = self.mu_kernel + delta_kernel
-
-            bias = None
-            if self.bias:
-                bias = self.mu_bias + delta_bias
-
             out = F.conv3d(
                 x, weight, bias, self.stride, self.padding, self.dilation, self.groups
             )
-
-            return out
-
-        if self.layer_type == "flipout":
+        else:
             # linear outputs
             outputs = F.conv3d(
                 x,
@@ -566,7 +553,8 @@ class Conv3dVariational(Conv3dReparameterization):
             )
 
             # returning outputs + perturbations
-            return outputs + perturbed_outputs
+            out = outputs + perturbed_outputs
+        return out
 
 
 class ConvTranspose1dVariational(ConvTranspose1dReparameterization):
@@ -649,13 +637,11 @@ class ConvTranspose1dVariational(ConvTranspose1dReparameterization):
             0.5 * n_params * math.log(self.prior_variance * 2 * math.pi)
         )
 
-    def log_normalizer(self):
+    def log_normalizer(self) -> Tensor:
         """Compute log terms for energy functional.
 
-        Args:
-            self.
         Returns:
-            log_f_hat, log_normalizer.
+            log_normalizer
         """
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
@@ -671,13 +657,11 @@ class ConvTranspose1dVariational(ConvTranspose1dReparameterization):
 
         return log_normalizer
 
-    def log_f_hat(self):
+    def log_f_hat(self) -> Tensor:
         """Compute log_f_hat for energy functional.
 
-        Args:
-            self.
         Returns:
-            log_f_hat.
+            log_f_hat
         """
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
         delta_weight = sigma_weight * self.eps_kernel.data.normal_()
@@ -708,11 +692,11 @@ class ConvTranspose1dVariational(ConvTranspose1dReparameterization):
 
         return log_f_hat
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass through layer.
 
-        Args: self: layer.
-            x: input.
+        Args:
+            x: input
         Returns:
             outputs of layer if type="reparameterization"
             outputs+perturbed of layer for type="flipout".
@@ -725,20 +709,16 @@ class ConvTranspose1dVariational(ConvTranspose1dReparameterization):
         delta_kernel = sigma_weight + eps_kernel
 
         # compute variance of bias from unconstrained variable rho_bias
+        bias = None
         if self.bias:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             eps_bias = self.eps_bias.data.normal_()
             # compute delta kernel
             delta_bias = sigma_bias + eps_bias
+            bias = self.mu_bias + delta_bias
 
         if self.layer_type == "reparameterization":
             weight = self.mu_kernel + (delta_kernel)
-
-            bias = None
-
-            if self.bias:
-                bias = self.mu_bias + delta_bias
-
             out = F.conv_transpose1d(
                 x,
                 weight,
@@ -749,10 +729,7 @@ class ConvTranspose1dVariational(ConvTranspose1dReparameterization):
                 self.dilation,
                 self.groups,
             )
-
-            return out
-
-        elif self.layer_type == "flipout":
+        else:
             # linear outputs
             outputs = F.conv_transpose1d(
                 x,
@@ -783,8 +760,9 @@ class ConvTranspose1dVariational(ConvTranspose1dReparameterization):
                 )
                 * sign_output
             )
+            out = outputs + perturbed_outputs
 
-            return outputs + perturbed_outputs
+        return out
 
 
 class ConvTranspose2dVariational(ConvTranspose2dReparameterization):
@@ -867,13 +845,11 @@ class ConvTranspose2dVariational(ConvTranspose2dReparameterization):
             0.5 * n_params * math.log(self.prior_variance * 2 * math.pi)
         )
 
-    def log_normalizer(self):
+    def log_normalizer(self) -> Tensor:
         """Compute log terms for energy functional.
 
-        Args:
-            self.
         Returns:
-            log_f_hat, log_normalizer.
+            log_normalizer
         """
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
@@ -889,13 +865,11 @@ class ConvTranspose2dVariational(ConvTranspose2dReparameterization):
 
         return log_normalizer
 
-    def log_f_hat(self):
+    def log_f_hat(self) -> Tensor:
         """Compute log_f_hat for energy functional.
 
-        Args:
-            self.
         Returns:
-            log_f_hat.
+            log_f_hat
         """
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
         delta_weight = sigma_weight * self.eps_kernel.data.normal_()
@@ -926,14 +900,15 @@ class ConvTranspose2dVariational(ConvTranspose2dReparameterization):
 
         return log_f_hat
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass through layer.
 
-        Args: self: layer.
-            x: input.
+        Args:
+            x: input
+
         Returns:
             outputs of layer if type="reparameterization"
-            outputs+perturbed of layer for type="flipout".
+            outputs+perturbed of layer for type="flipout"
         """
         # compute variance of weight from unconstrained variable rho_kernel
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
@@ -943,20 +918,16 @@ class ConvTranspose2dVariational(ConvTranspose2dReparameterization):
         delta_kernel = sigma_weight + eps_kernel
 
         # compute variance of bias from unconstrained variable rho_bias
+        bias = None
         if self.bias:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             eps_bias = self.eps_bias.data.normal_()
             # compute delta kernel
             delta_bias = sigma_bias + eps_bias
+            bias = self.mu_bias + delta_bias
 
         if self.layer_type == "reparameterization":
             weight = self.mu_kernel + (delta_kernel)
-
-            bias = None
-
-            if self.bias:
-                bias = self.mu_bias + delta_bias
-
             out = F.conv_transpose2d(
                 x,
                 weight,
@@ -967,10 +938,7 @@ class ConvTranspose2dVariational(ConvTranspose2dReparameterization):
                 self.dilation,
                 self.groups,
             )
-
-            return out
-
-        elif self.layer_type == "flipout":
+        else:
             # linear outputs
             outputs = F.conv_transpose2d(
                 x,
@@ -1001,8 +969,8 @@ class ConvTranspose2dVariational(ConvTranspose2dReparameterization):
                 )
                 * sign_output
             )
-
-            return outputs + perturbed_outputs
+            out = outputs + perturbed_outputs
+        return out
 
 
 class ConvTranspose3dVariational(ConvTranspose3dReparameterization):
@@ -1088,13 +1056,11 @@ class ConvTranspose3dVariational(ConvTranspose3dReparameterization):
             0.5 * n_params * math.log(self.prior_variance * 2 * math.pi)
         )
 
-    def log_normalizer(self):
+    def log_normalizer(self) -> Tensor:
         """Compute log terms for energy functional.
 
-        Args:
-            self.
         Returns:
-            log_f_hat, log_normalizer.
+            log_normalizer
         """
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
 
@@ -1110,13 +1076,11 @@ class ConvTranspose3dVariational(ConvTranspose3dReparameterization):
 
         return log_normalizer
 
-    def log_f_hat(self):
+    def log_f_hat(self) -> Tensor:
         """Compute log_f_hat for energy functional.
 
-        Args:
-            self.
         Returns:
-            log_f_hat.
+            log_f_hat
         """
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
         delta_weight = sigma_weight * self.eps_kernel.data.normal_()
@@ -1147,14 +1111,15 @@ class ConvTranspose3dVariational(ConvTranspose3dReparameterization):
 
         return log_f_hat
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass through layer.
 
-        Args: self: layer.
-            x: input.
+        Args:
+            x: input
+
         Returns:
             outputs of layer if type="reparameterization"
-            outputs+perturbed of layer for type="flipout".
+            outputs+perturbed of layer for type="flipout"
         """
         # compute variance of weight from unconstrained variable rho_kernel
         sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
@@ -1164,20 +1129,16 @@ class ConvTranspose3dVariational(ConvTranspose3dReparameterization):
         delta_kernel = sigma_weight + eps_kernel
 
         # compute variance of bias from unconstrained variable rho_bias
+        bias = None
         if self.bias:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             eps_bias = self.eps_bias.data.normal_()
             # compute delta kernel
             delta_bias = sigma_bias + eps_bias
+            bias = self.mu_bias + delta_bias
 
         if self.layer_type == "reparameterization":
             weight = self.mu_kernel + (delta_kernel)
-
-            bias = None
-
-            if self.bias:
-                bias = self.mu_bias + delta_bias
-
             out = F.conv_transpose3d(
                 x,
                 weight,
@@ -1188,10 +1149,7 @@ class ConvTranspose3dVariational(ConvTranspose3dReparameterization):
                 self.dilation,
                 self.groups,
             )
-
-            return out
-
-        elif self.layer_type == "flipout":
+        else:
             # linear outputs
             outputs = F.conv_transpose3d(
                 x,
@@ -1222,5 +1180,5 @@ class ConvTranspose3dVariational(ConvTranspose3dReparameterization):
                 )
                 * sign_output
             )
-
-            return outputs + perturbed_outputs
+            out = outputs + perturbed_outputs
+        return out
