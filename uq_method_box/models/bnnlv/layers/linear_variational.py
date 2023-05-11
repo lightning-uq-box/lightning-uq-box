@@ -72,6 +72,7 @@ class LinearVariational(LinearReparameterization):
         Returns:
             tensor of shape 0
         """
+        # get number of weights and biases
         n_params = self.mu_weight.numel() + self.mu_bias.numel()
         return torch.tensor(
             0.5 * n_params * math.log(self.prior_variance * 2 * math.pi)
@@ -83,6 +84,7 @@ class LinearVariational(LinearReparameterization):
         Returns:
             log_normalizer.
         """
+        # compute variance of weight from unconstrained variable rho_weight
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
 
         # get log_normalizer and log_f_hat for weights
@@ -103,10 +105,11 @@ class LinearVariational(LinearReparameterization):
         Returns:
             log_f_hat.
         """
+        # compute variance of weight from unconstrained variable rho_weight
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
         delta_weight = sigma_weight * self.eps_weight.data.normal_()
 
-        # sampling weight and bias
+        # sampling weight
         weight = self.mu_weight + delta_weight
 
         # get log_f_hat for weights
@@ -119,10 +122,12 @@ class LinearVariational(LinearReparameterization):
 
         bias = None
         # get log_f_hat for biases
+        # first sample bias
         if self.mu_bias is not None:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             delta_bias = sigma_bias * self.eps_bias.data.normal_()
             bias = self.mu_bias + delta_bias
+            # compute log_f_hat for weights and biases
             log_f_hat = log_f_hat + calc_log_f_hat(
                 w=bias,
                 m_W=self.mu_bias,
@@ -141,27 +146,33 @@ class LinearVariational(LinearReparameterization):
         Returns:
             outputs of variational layer
         """
+        # compute variance of weight from unconstrained variable rho_weight
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
 
-        # compute bias if available
+        # compute bias and delta_bias if available
         bias = None
         if self.mu_bias is not None:
+            # compute variance of bias from unconstrained variable rho_bias
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            bias = self.mu_bias + (sigma_bias * self.eps_bias.data.normal_())
+            delta_bias = sigma_bias * self.eps_bias.data.normal_()
+            bias = self.mu_bias + delta_bias
 
         # forward pass with chosen layer type
         if self.layer_type == "reparameterization":
+            # sample weight via reparameterization trick
             weight = self.mu_weight + (sigma_weight * self.eps_weight.data.normal_())
             output = F.linear(x, weight, bias)
         else:
-            # sampling delta_W and delta_b
-            sigma_weight = torch.log1p(torch.exp(self.rho_weight))
+            # sampling delta_W
             delta_weight = sigma_weight * self.eps_weight.data.normal_()
             # linear outputs
             out = F.linear(x, self.mu_weight, self.mu_bias)
             # flipout
             sign_input = x.clone().uniform_(-1, 1).sign()
             sign_output = out.clone().uniform_(-1, 1).sign()
-            output = out + (F.linear(x * sign_input, delta_weight, bias) * sign_output)
+            # get outputs+perturbed outputs
+            output = out + (
+                F.linear(x * sign_input, delta_weight, delta_bias) * sign_output
+            )
 
         return output

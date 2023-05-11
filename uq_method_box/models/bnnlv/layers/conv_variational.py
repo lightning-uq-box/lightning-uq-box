@@ -96,17 +96,25 @@ class Conv1dVariational(Conv1dReparameterization):
             outputs of layer if type="reparameterization"
             outputs+perturbed of layer for type="flipout".
         """
+        # compute variance of weight from unconstrained variable rho_kernel
+        sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
+        eps_kernel = self.eps_kernel.data.normal_()
+        # compute delta_kernel
+        delta_kernel = sigma_weight * eps_kernel
+
+        if self.bias:
+            # compute variance of bias from unconstrained variable rho_bias
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            eps_bias = self.eps_bias.data.normal_()
+            # compute delta_bias
+            delta_bias = sigma_bias * eps_bias
+
         if self.layer_type == "reparameterization":
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-            weight = self.mu_kernel + (sigma_weight * eps_kernel)
+            weight = self.mu_kernel + delta_kernel
 
             bias = None
-
             if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = self.mu_bias + (sigma_bias * eps_bias)
+                bias = self.mu_bias + delta_bias
 
             out = F.conv1d(
                 x, weight, bias, self.stride, self.padding, self.dilation, self.groups
@@ -130,23 +138,11 @@ class Conv1dVariational(Conv1dReparameterization):
             sign_input = x.clone().uniform_(-1, 1).sign()
             sign_output = outputs.clone().uniform_(-1, 1).sign()
 
-            # gettin perturbation weights
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-
-            delta_kernel = sigma_weight * eps_kernel
-
-            bias = None
-            if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = sigma_bias * eps_bias
-
             # perturbed feedforward
             perturbed_outputs = (
                 F.conv1d(
                     x * sign_input,
-                    bias=bias,
+                    bias=delta_bias,
                     weight=delta_kernel,
                     stride=self.stride,
                     padding=self.padding,
@@ -306,17 +302,25 @@ class Conv2dVariational(Conv2dReparameterization):
             outputs of layer if type="reparameterization"
             outputs+perturbed of layer for type="flipout".
         """
+        # compute variance of weight from unconstrained variable rho_kernel
+        sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
+        eps_kernel = self.eps_kernel.data.normal_()
+        # compute delta_kernel
+        delta_kernel = sigma_weight * eps_kernel
+
+        if self.bias:
+            # compute variance of bias from unconstrained variable rho_bias
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            eps_bias = self.eps_bias.data.normal_()
+            # compute delta_bias
+            delta_bias = sigma_bias * eps_bias
+
         if self.layer_type == "reparameterization":
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-            weight = self.mu_kernel + (sigma_weight * eps_kernel)
+            weight = self.mu_kernel + delta_kernel
 
             bias = None
-
             if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = self.mu_bias + (sigma_bias * eps_bias)
+                bias = self.mu_bias + delta_bias
 
             out = F.conv2d(
                 x, weight, bias, self.stride, self.padding, self.dilation, self.groups
@@ -340,23 +344,11 @@ class Conv2dVariational(Conv2dReparameterization):
             sign_input = x.clone().uniform_(-1, 1).sign()
             sign_output = outputs.clone().uniform_(-1, 1).sign()
 
-            # gettin perturbation weights
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-
-            delta_kernel = sigma_weight * eps_kernel
-
-            bias = None
-            if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = sigma_bias * eps_bias
-
             # perturbed feedforward
             perturbed_outputs = (
                 F.conv2d(
                     x * sign_input,
-                    bias=bias,
+                    bias=delta_bias,
                     weight=delta_kernel,
                     stride=self.stride,
                     padding=self.padding,
@@ -517,17 +509,25 @@ class Conv3dVariational(Conv3dReparameterization):
             outputs of layer if type="reparameterization"
             outputs+perturbed of layer for type="flipout".
         """
+        # compute variance of weight from unconstrained variable rho_kernel
+        sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
+        eps_kernel = self.eps_kernel.data.normal_()
+        # compute delta_kernel
+        delta_kernel = sigma_weight * eps_kernel
+
+        if self.bias:
+            # compute variance of bias from unconstrained variable rho_bias
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            eps_bias = self.eps_bias.data.normal_()
+            # compute delta_bias
+            delta_bias = sigma_bias * eps_bias
+
         if self.layer_type == "reparameterization":
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-            weight = self.mu_kernel + (sigma_weight * eps_kernel)
+            weight = self.mu_kernel + delta_kernel
 
             bias = None
-
             if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = self.mu_bias + (sigma_bias * eps_bias)
+                bias = self.mu_bias + delta_bias
 
             out = F.conv3d(
                 x, weight, bias, self.stride, self.padding, self.dilation, self.groups
@@ -551,23 +551,11 @@ class Conv3dVariational(Conv3dReparameterization):
             sign_input = x.clone().uniform_(-1, 1).sign()
             sign_output = outputs.clone().uniform_(-1, 1).sign()
 
-            # gettin perturbation weights
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-
-            delta_kernel = sigma_weight * eps_kernel
-
-            bias = None
-            if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = sigma_bias * eps_bias
-
             # perturbed feedforward
             perturbed_outputs = (
                 F.conv3d(
                     x * sign_input,
-                    bias=bias,
+                    bias=delta_bias,
                     weight=delta_kernel,
                     stride=self.stride,
                     padding=self.padding,
@@ -729,17 +717,27 @@ class ConvTranspose1dVariational(ConvTranspose1dReparameterization):
             outputs of layer if type="reparameterization"
             outputs+perturbed of layer for type="flipout".
         """
+        # compute variance of weight from unconstrained variable rho_kernel
+        sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
+        eps_kernel = self.eps_kernel.data.normal_()
+
+        # compute delta kernel
+        delta_kernel = sigma_weight + eps_kernel
+
+        # compute variance of bias from unconstrained variable rho_bias
+        if self.bias:
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            eps_bias = self.eps_bias.data.normal_()
+            # compute delta kernel
+            delta_bias = sigma_bias + eps_bias
+
         if self.layer_type == "reparameterization":
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-            weight = self.mu_kernel + (sigma_weight * eps_kernel)
+            weight = self.mu_kernel + (delta_kernel)
 
             bias = None
 
             if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = self.mu_bias + (sigma_bias * eps_bias)
+                bias = self.mu_bias + delta_bias
 
             out = F.conv_transpose1d(
                 x,
@@ -771,24 +769,12 @@ class ConvTranspose1dVariational(ConvTranspose1dReparameterization):
             sign_input = x.clone().uniform_(-1, 1).sign()
             sign_output = outputs.clone().uniform_(-1, 1).sign()
 
-            # gettin perturbation weights
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-
-            delta_kernel = sigma_weight * eps_kernel
-
-            bias = None
-            if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = sigma_bias * eps_bias
-
             # perturbed feedforward
             perturbed_outputs = (
                 F.conv_transpose1d(
                     x * sign_input,
                     weight=delta_kernel,
-                    bias=bias,
+                    bias=delta_bias,
                     stride=self.stride,
                     padding=self.padding,
                     output_padding=self.output_padding,
@@ -949,17 +935,27 @@ class ConvTranspose2dVariational(ConvTranspose2dReparameterization):
             outputs of layer if type="reparameterization"
             outputs+perturbed of layer for type="flipout".
         """
+        # compute variance of weight from unconstrained variable rho_kernel
+        sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
+        eps_kernel = self.eps_kernel.data.normal_()
+
+        # compute delta kernel
+        delta_kernel = sigma_weight + eps_kernel
+
+        # compute variance of bias from unconstrained variable rho_bias
+        if self.bias:
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            eps_bias = self.eps_bias.data.normal_()
+            # compute delta kernel
+            delta_bias = sigma_bias + eps_bias
+
         if self.layer_type == "reparameterization":
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-            weight = self.mu_kernel + (sigma_weight * eps_kernel)
+            weight = self.mu_kernel + (delta_kernel)
 
             bias = None
 
             if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = self.mu_bias + (sigma_bias * eps_bias)
+                bias = self.mu_bias + delta_bias
 
             out = F.conv_transpose2d(
                 x,
@@ -991,24 +987,12 @@ class ConvTranspose2dVariational(ConvTranspose2dReparameterization):
             sign_input = x.clone().uniform_(-1, 1).sign()
             sign_output = outputs.clone().uniform_(-1, 1).sign()
 
-            # gettin perturbation weights
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-
-            delta_kernel = sigma_weight * eps_kernel
-
-            bias = None
-            if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = sigma_bias * eps_bias
-
             # perturbed feedforward
             perturbed_outputs = (
                 F.conv_transpose2d(
                     x * sign_input,
                     weight=delta_kernel,
-                    bias=bias,
+                    bias=delta_bias,
                     stride=self.stride,
                     padding=self.padding,
                     output_padding=self.output_padding,
@@ -1172,17 +1156,27 @@ class ConvTranspose3dVariational(ConvTranspose3dReparameterization):
             outputs of layer if type="reparameterization"
             outputs+perturbed of layer for type="flipout".
         """
+        # compute variance of weight from unconstrained variable rho_kernel
+        sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
+        eps_kernel = self.eps_kernel.data.normal_()
+
+        # compute delta kernel
+        delta_kernel = sigma_weight + eps_kernel
+
+        # compute variance of bias from unconstrained variable rho_bias
+        if self.bias:
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            eps_bias = self.eps_bias.data.normal_()
+            # compute delta kernel
+            delta_bias = sigma_bias + eps_bias
+
         if self.layer_type == "reparameterization":
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-            weight = self.mu_kernel + (sigma_weight * eps_kernel)
+            weight = self.mu_kernel + (delta_kernel)
 
             bias = None
 
             if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = self.mu_bias + (sigma_bias * eps_bias)
+                bias = self.mu_bias + delta_bias
 
             out = F.conv_transpose3d(
                 x,
@@ -1214,24 +1208,12 @@ class ConvTranspose3dVariational(ConvTranspose3dReparameterization):
             sign_input = x.clone().uniform_(-1, 1).sign()
             sign_output = outputs.clone().uniform_(-1, 1).sign()
 
-            # gettin perturbation weights
-            sigma_weight = torch.log1p(torch.exp(self.rho_kernel))
-            eps_kernel = self.eps_kernel.data.normal_()
-
-            delta_kernel = sigma_weight * eps_kernel
-
-            bias = None
-            if self.bias:
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                eps_bias = self.eps_bias.data.normal_()
-                bias = sigma_bias * eps_bias
-
             # perturbed feedforward
             perturbed_outputs = (
                 F.conv_transpose3d(
                     x * sign_input,
                     weight=delta_kernel,
-                    bias=bias,
+                    bias=delta_bias,
                     stride=self.stride,
                     padding=self.padding,
                     output_padding=self.output_padding,

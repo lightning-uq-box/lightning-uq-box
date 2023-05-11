@@ -37,7 +37,7 @@ class BNN_LV_VI(BNN_VI):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
-        layer_type: str = "Reparametrization",
+        layer_type: str = "reparametrization",
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of BNN+LV.
