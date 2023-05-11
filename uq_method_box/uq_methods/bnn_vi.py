@@ -177,9 +177,12 @@ class BNN_VI(BaseModel):
             torch.stack(log_f_hat, dim=0),
             get_log_Z_prior(self.model),
             get_log_normalizer(self.model),
-            0.0,  # log_normalizer_z
-            0.0,  # log_f_hat_z
+            log_normalizer_z=torch.zeros(1),  # log_normalizer_z
+            log_f_hat_z=torch.zeros(1),  # log_f_hat_z
         )
+        # import pdb
+        # pdb.set_trace()
+
         return energy_loss, mean_out
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:

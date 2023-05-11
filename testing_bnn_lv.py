@@ -12,22 +12,34 @@ import torch
 from lightning import Trainer
 from lightning.pytorch.loggers import CSVLogger
 
-from uq_method_box.datamodules import ToyBimodalDatamodule
+from uq_method_box.datamodules import (
+    ToyHeteroscedasticDatamodule,  # ToyBimodalDatamodule
+)
 from uq_method_box.models import MLP
 from uq_method_box.uq_methods import BNN_LV_VI
 from uq_method_box.viz_utils import plot_predictions
 
 # seed_everything(4)
-torch.set_float32_matmul_precision("medium")
+# torch.set_float32_matmul_precision("medium")
+dm = ToyHeteroscedasticDatamodule(batch_size=50)
 
-dm = ToyBimodalDatamodule(batch_size=100)
+# dm = ToyBimodalDatamodule(batch_size=100)
+
+# X_train, y_train, train_loader, X_test, y_test, test_loader = (
+#    dm.X,
+#    dm.y,
+#    dm.train_dataloader(),
+#    dm.X,
+#    dm.y,
+#    dm.test_dataloader(),
+# )
 
 X_train, y_train, train_loader, X_test, y_test, test_loader = (
-    dm.X,
-    dm.y,
+    dm.X_train,
+    dm.y_train,
     dm.train_dataloader(),
-    dm.X,
-    dm.y,
+    dm.X_test,
+    dm.y_test,
     dm.test_dataloader(),
 )
 
@@ -57,7 +69,7 @@ base_model = BNN_LV_VI(
     optimizer=partial(torch.optim.Adam, lr=1e-3),
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
-    num_stochastic_modules=3,
+    num_stochastic_modules=5,
     beta_elbo=1.0,
     num_mc_samples_train=10,
     num_mc_samples_test=50,

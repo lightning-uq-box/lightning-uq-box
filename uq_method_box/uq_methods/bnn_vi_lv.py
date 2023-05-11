@@ -171,6 +171,9 @@ class BNN_LV_VI(BNN_VI):
                 X = torch.cat([X, z], -1)
             X = layer(X)
 
+            # import pdb
+            # pdb.set_trace()
+
         return X
 
     def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
