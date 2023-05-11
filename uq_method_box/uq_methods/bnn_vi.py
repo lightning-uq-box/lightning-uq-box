@@ -77,7 +77,7 @@ class BNN_VI(BaseModel):
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["model"])
 
         self._setup_bnn_with_vi()
 
@@ -254,8 +254,8 @@ class BNN_VI(BaseModel):
         # model_preds [num_mc_samples_train, batch_size, output_dim]
         model_preds = torch.stack(model_preds, dim=0)
 
-        mean_out = model_preds.mean(dim=0).squeeze(-1)
-        std = model_preds.std(dim=0).squeeze(-1)
+        mean_out = model_preds.mean(dim=0).squeeze(-1).cpu().numpy()
+        std = model_preds.std(dim=0).squeeze(-1).cpu().numpy()
 
         # currently only single output, might want to support NLL output as well
         quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
