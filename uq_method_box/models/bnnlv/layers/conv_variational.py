@@ -103,27 +103,21 @@ class Conv1dVariational(Conv1dReparameterization):
         # compute delta_kernel
         delta_kernel = sigma_weight * eps_kernel
 
+        bias = None
         if self.bias:
             # compute variance of bias from unconstrained variable rho_bias
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
             eps_bias = self.eps_bias.data.normal_()
             # compute delta_bias
             delta_bias = sigma_bias * eps_bias
+            bias = self.mu_bias + delta_bias
 
         if self.layer_type == "reparameterization":
             weight = self.mu_kernel + delta_kernel
-
-            bias = None
-            if self.bias:
-                bias = self.mu_bias + delta_bias
-
             out = F.conv1d(
                 x, weight, bias, self.stride, self.padding, self.dilation, self.groups
             )
-
-            return out
-
-        if self.layer_type == "flipout":
+        else:
             # linear outputs
             outputs = F.conv1d(
                 x,
@@ -154,7 +148,8 @@ class Conv1dVariational(Conv1dReparameterization):
             )
 
             # returning outputs + perturbations
-            return outputs + perturbed_outputs
+            out = outputs + perturbed_outputs
+        return out
 
 
 class Conv2dVariational(Conv2dReparameterization):
