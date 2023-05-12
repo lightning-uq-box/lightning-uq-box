@@ -34,7 +34,6 @@ class BNN_VI(BaseModel):
         save_dir: str,
         num_training_points: int,
         num_stochastic_modules: int = 1,
-        beta_elbo: float = 1.0,
         num_mc_samples_train: int = 25,
         num_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -53,7 +52,6 @@ class BNN_VI(BaseModel):
             optimizer:
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
-            beta_elbo: beta factor for negative elbo loss computation
             num_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             num_mc_samples_test: number of MC samples during test and prediction
@@ -84,7 +82,6 @@ class BNN_VI(BaseModel):
         self.hparams["num_mc_samples_test"] = num_mc_samples_test
         self.hparams["quantiles"] = quantiles
         self.hparams["weight_decay"] = 1e-5
-        self.hparams["beta_elbo"] = beta_elbo  # this isn't used
         self.hparams["output_noise_scale"] = output_noise_scale
 
         self.hparams["prior_mu"] = prior_mu
@@ -180,8 +177,6 @@ class BNN_VI(BaseModel):
             log_normalizer_z=torch.zeros(1),  # log_normalizer_z
             log_f_hat_z=torch.zeros(1),  # log_f_hat_z
         )
-        # import pdb
-        # pdb.set_trace()
 
         return energy_loss, mean_out
 

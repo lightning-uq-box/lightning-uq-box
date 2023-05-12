@@ -1,6 +1,5 @@
 """Latent Variable Network."""
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,16 +17,16 @@ class LatentVariableNetwork(nn.Module):
         num_training_points: int,
         lv_prior_mu: float = 0.0,
         lv_prior_std: float = 5.0,
-        lv_init_mu: float = 0.0,
-        lv_init_std: float = 1.0,
+        # lv_init_mu: float = 0.0,
         lv_latent_dim: int = 1,
-        n_samples: int = 25,
+        lv_init_std: float = 1.0,
+        init_scaling: float = 0.01,
     ) -> None:
         """Initialize a new Latent Variable Network.
 
-        Used for amortized inference, as in eq. (3.22) 
+        Used for amortized inference, as in eq. (3.22)
         in [1].
-        [1]: Depeweg, Stefan. 
+        [1]: Depeweg, Stefan.
         Modeling epistemic and aleatoric uncertainty
         with Bayesian neural networks and latent variables.
         Diss. Technische Universität München, 2019.
@@ -39,14 +38,15 @@ class LatentVariableNetwork(nn.Module):
             lv_prior_mu: Prior mean for latent variables,
                 default: 0.0.
             lv_prior_std: Prior standard deviation for latent variables,
-                default: sqrt(d), where d is the dimension of the 
+                default: sqrt(d), where d is the dimension of the
                 features in the net layer to which the lv's
                 are added.
-            lv_init_mu: this is never used
+            #lv_init_mu: this is never used
             lv_init_std: Initialized standard deviation of lv's.
             lv_latent_dim: dimension of latent variables z.
                 Default: 1.
-            n_samples: this is never used, as we are doing amortized inference?
+            init_scaling: factor to make sure q(z)
+                is close to N(0,1) at initialization
         """
         super().__init__()
 
@@ -55,21 +55,18 @@ class LatentVariableNetwork(nn.Module):
         self.lv_prior_mu = lv_prior_mu
         self.lv_prior_std = lv_prior_std
 
-        
         self.lv_init_std = lv_init_std
         self.lv_latent_dim = lv_latent_dim
 
-        #the following variables are not used for amortized inference   
-        self.lv_init_mu = lv_init_mu
-        self.n_samples = n_samples #this is never used, why is it here?
-        #what do we need log_var_init for?
-        self.log_var_init = np.log(np.expm1(lv_init_std))
+        self.init_scaling = init_scaling
 
+        # the following variables are not used for amortized inference
+        # self.lv_init_mu = lv_init_mu
 
         self.z_mu = torch.tensor(0.0)
 
-        #the below variable isn't used?
-        self.z_log_sigma = torch.tensor(np.log(np.expm1(self.lv_init_std)))
+        # the below variable isn't used?
+        # self.z_log_sigma = torch.tensor(np.log(np.expm1(self.lv_init_std)))
 
         self.log_f_hat_z = None
         self.log_normalizer_z = None
@@ -105,53 +102,29 @@ class LatentVariableNetwork(nn.Module):
         x = self.net(torch.cat([x, y], dim=-1))  # out [batch_size, lv_latent_dim*2]
 
         # make sure q(z) is close to N(0,1) at initialization
-        # why does this work with a factor of 0.1?
-        # can we change this? does it help making this factor 
-        # a hyperparameter?
-        init_scaling = 0.1
         # extract encoded mean from NN output
-        z_mu = x[:, : self.lv_latent_dim] * init_scaling
+        z_mu = x[:, : self.lv_latent_dim] * self.init_scaling
         # extract encoded std from NN output
+        # shouldn't z_std be pos, why dont we use unconstrained
+        # optimatization wit z_rho and then
+        # use z_std = torch.log1p(torch.exp(self.z_rho))?
         z_std = (
             self.lv_init_std
-            - F.softplus(x[:, self.lv_latent_dim :]) * init_scaling  # noqa: E203
+            - F.softplus(x[:, self.lv_latent_dim :]) * self.init_scaling  # noqa: E203
         )
 
         self.z_mu = z_mu
 
-        #what does the below variable do/ is it ever used?
-        self.z_log_sigma = torch.log(torch.expm1(z_std))
+        # what does the below variable do/ is it ever used?
+        # self.z_log_sigma = torch.log(torch.expm1(z_std))
 
-        #but these are actually network outputs?
-        # so in eq. (3.17) in Stefan's thesis?
-        # this should be related to eq. (3.22)
-        weights = z_mu + z_std * weights_eps
+        # these are lv network outputs,
+        # as in eq. (3.22), [1]
+        latent_samples = z_mu + z_std * weights_eps
 
         self.log_f_hat_z = calc_log_f_hat(
-            weights, z_mu, z_std, prior_variance=self.lv_prior_std**2
+            latent_samples, z_mu, z_std, prior_variance=self.lv_prior_std**2
         )
         self.log_normalizer_z = calc_log_normalizer(z_mu, z_std)
 
-
-        return weights
-
-    def calc_log_f_hat_z(self, z, m_z, std_z) -> Tensor:
-        """Calculate log_f_hat_z.
-
-        Args:
-            z: sampled latent vector [batch_size, lv_latent_dim]
-            m_z: mean latent weight [num_training_points, lv_latent_dim]
-            std_z: std latent weight [num_training_poinst, lv_latent_dim]
-
-        Returns:
-            log_f_hat_z
-        """
-        v_prior_z = self.lv_prior_std**2
-        v_z = std_z**2
-
-        # natural parameters: -1/(2 sigma^2), mu/(sigma^2)
-        # \lambda is (\lambda_q - \lambda_prior) / N
-        return (
-            ((v_z - v_prior_z) / (2 * v_prior_z * v_z))[None, ...] * (z**2)
-            + (m_z / v_z)[None, ...] * z
-        ).sum(2)
+        return latent_samples
