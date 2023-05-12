@@ -39,8 +39,8 @@ class BNN_LV_VI(BNN_VI):
         save_dir: str,
         num_training_points: int,
         latent_intro_layer_idx: int = 0,
+        # above redundant, we can use  num_stochastic_modules to get this int
         num_stochastic_modules: int = 1,
-        beta_elbo: float = 1.0,
         num_mc_samples_train: int = 25,
         num_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -52,9 +52,10 @@ class BNN_LV_VI(BNN_VI):
         layer_type: str = "reparameterization",
         lv_prior_mu: float = 0.0,
         lv_prior_std: float = 1.0,
-        lv_init_mu: float = 0.0,
+        # lv_init_mu: float = 0.0,
         lv_init_std: float = 1.0,
         lv_latent_dim: int = 1,
+        init_scaling: float = 0.01,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of BNN+LV.
@@ -66,7 +67,6 @@ class BNN_LV_VI(BNN_VI):
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
             latent_intro_layer_idx: at which layer index to introduce the lv
-            beta_elbo: beta factor for negative elbo loss computation
             num_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
             num_mc_samples_test: number of MC samples during test and prediction
@@ -79,7 +79,7 @@ class BNN_LV_VI(BNN_VI):
             alpha: alpha divergence parameter
             lv_prior_mu: prior mean for latent variable network
             lv_prior_std: prior std for latent variable network
-            lv_init_mu: initial mean for latent variable network
+            #lv_init_mu: initial mean for latent variable network
             lv_init_std: initial std for latent variable network
             lv_latent_dim: number of latent dimension
             quantiles: quantiles to compute
@@ -95,7 +95,6 @@ class BNN_LV_VI(BNN_VI):
             save_dir,
             num_training_points,
             num_stochastic_modules,
-            beta_elbo,
             num_mc_samples_train,
             num_mc_samples_test,
             output_noise_scale,
@@ -111,9 +110,10 @@ class BNN_LV_VI(BNN_VI):
         self.hparams["latent_intro_layer_idx"] = latent_intro_layer_idx
         self.hparams["lv_prior_mu"] = lv_prior_mu
         self.hparams["lv_prior_std"] = lv_prior_std
-        self.hparams["lv_init_mu"] = lv_init_mu
+        # self.hparams["lv_init_mu"] = lv_init_mu
         self.hparams["lv_init_std"] = lv_init_std
         self.hparams["lv_latent_dim"] = lv_latent_dim
+        self.hparams["init_scaling"] = init_scaling
 
         self._setup_bnn_with_vi_lv(latent_net)
 
@@ -146,10 +146,11 @@ class BNN_LV_VI(BNN_VI):
             num_training_points=self.hparams.num_training_points,
             lv_prior_mu=self.hparams.lv_prior_mu,
             lv_prior_std=self.hparams.lv_prior_std,
-            lv_init_mu=self.hparams.lv_init_mu,
+            # lv_init_mu=self.hparams.lv_init_mu,
             lv_init_std=self.hparams.lv_init_std,
             lv_latent_dim=self.hparams.lv_latent_dim,
-            n_samples=self.hparams.num_mc_samples_train,
+            init_scaling=self.hparams.init_scaling,
+            # n_samples=self.hparams.num_mc_samples_train,
         )
 
         # assert that output of latent variable network is equal to latent dim
