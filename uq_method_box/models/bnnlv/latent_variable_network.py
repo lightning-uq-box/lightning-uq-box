@@ -79,7 +79,6 @@ class LatentVariableNetwork(nn.Module):
         # weight eps vector large enough to cover entire
         # dataset for full batch theoretically
         self.weight_eps = torch.randn(self.num_training_points, self.lv_latent_dim)
-        # .to(self.device)
 
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         """Forward pass where latent vector is sampled.
@@ -96,7 +95,7 @@ class LatentVariableNetwork(nn.Module):
         else:
             # always extract the same weight_eps since we
             # want it fixed
-            weights_eps = self.weight_eps[: x.shape[0], :]
+            weights_eps = self.weight_eps[: x.shape[0], :].to(x.device)
 
         # pass through NN
         # so here we are passing the input through the whole lv inf net
