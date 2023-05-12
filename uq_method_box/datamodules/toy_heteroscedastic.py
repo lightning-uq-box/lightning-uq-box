@@ -70,7 +70,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         y_true_sigma = q95 * sigma * X_test  # noqa: F841
 
         # train loader
-        gap_start = x_min + 0.5 * (x_max - x_min)
+        gap_start = x_min + 0.4 * (x_max - x_min)
         gap_end = x_min + 0.6 * (x_max - x_min)
 
         test_idx = ((X_train > gap_start) & (X_train < gap_end)).squeeze()

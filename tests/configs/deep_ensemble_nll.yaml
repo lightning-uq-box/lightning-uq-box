@@ -1,12 +1,16 @@
-model:
-  loss_fn: nll
-  ensemble: deep_ensemble # options are ["deep_ensemble", "mc_dropout_ensemble", "multi_swag"]
-  ensemble_members: 3
-  conformalized: False
-  burnin_epochs: 1
-  max_epochs: 2
-  model_args: # all arguments for the mlp
+uq_method:
+  _target_: uq_method_box.uq_methods.BaseModel
+  model:
+    _target_: uq_method_box.models.MLP
     n_outputs: 2
-    n_hidden: [10]  
-optimizer:
-  lr: 0.003
+    n_hidden: [50]
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  loss_fn:
+    _target_: uq_method_box.uq_methods.NLL
+
+post_processing:
+  _target_: uq_method_box.uq_methods.DeepEnsembleModel
+  n_ensemble_members: 3

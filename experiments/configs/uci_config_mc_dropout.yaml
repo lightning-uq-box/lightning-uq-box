@@ -5,29 +5,40 @@ wandb:
   project: uci_regression
   entity: uq-regression
   mode: offline
-model:
-  base_model: mc_dropout
-  loss_fn: nll
-  num_mc_samples: 10
-  burnin_epochs: 20 #if burnin_epochs and outputs= 1 this is model trained with mse
-  quantiles: [0.1, 0.5, 0.9] # return approx quantiles in prediction
-  model_args: # all arguments for the mlp
-    n_outputs: 2
+
+# everything to configure the UQ method
+uq_method:
+  _target_: uq_method_box.uq_methods.MCDropoutModel
+  model:
+    _target_: uq_method_box.models.MLP # timm.create_model for timm models
+    # all arguments to initiate the mlp for example
+    n_outputs: 1
     n_hidden: [50]
-    dropout_p: 0.2
-optimizer:
-  lr: 0.003
-ds:
+  optimizer:
+    _target_: torch.optim.SGD # can change optimizers here easily
+    _partial_: true
+    lr: 0.003
+  loss_fn:
+    _target_: torch.nn.MSELoss
+  num_mc_samples: 10
+  burnin_epochs: 5
+  max_epochs: 10
+  # quantiles: [0.1, 0.5, 0.9] # TODO: quantiles is causing errors
+
+# everything to configure the datamodule  
+datamodule:
+  _target_: uq_method_box.datamodules.UCIRegressionDatamodule
   dataset_name: boston
   root: "/home/nils/projects/uq-method-box/experiments/data/uci"
   train_size: 0.9
-dataloader: # arguments for dataloader
-  batch_size: 256
+  batch_size: 32
   num_workers: 4
-pl: # all flags to pytorch lightning trainer
-  # devices: 1 
-  precision: 32
+
+# all flags for the pytorch lightning trainer
+trainer:
+  _target_: lightning.pytorch.Trainer
   accelerator: cpu
+  precision: 32
   max_epochs: 10
   max_steps: -1
   limit_val_batches: 0.0 # no validation set

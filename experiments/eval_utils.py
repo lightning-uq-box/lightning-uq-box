@@ -3,7 +3,7 @@
 import glob
 import os
 from datetime import datetime
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import pandas as pd
 import uncertainty_toolbox as uct
@@ -57,18 +57,23 @@ def compute_results_over_seeds(exp_dir: str) -> pd.DataFrame:
 
 def compute_metrics_for_single_seed(
     seed_dir: str,
-) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Compute the metrics for a single seed."""
     pred_dir = os.path.join(seed_dir, "prediction")
     pred_csv = os.path.join(pred_dir, "predictions.csv")
     pred_df = pd.read_csv(pred_csv)
 
-    uq_metrics = uct.metrics.get_all_metrics(
-        pred_df["mean"].values.squeeze(),
-        pred_df["pred_uct"].values.squeeze(),
-        pred_df["targets"].values.squeeze(),
-        verbose=False,
-    )
+    try:
+        uq_metrics = uct.metrics.get_all_metrics(
+            pred_df["mean"].values.squeeze(),
+            pred_df["pred_uct"].values.squeeze(),
+            pred_df["targets"].values.squeeze(),
+            verbose=False,
+        )
+    except:
+        import pdb
+
+        pdb.set_trace()
 
     uq_metric_categories = ["scoring_rule", "avg_calibration", "sharpness", "accuracy"]
     metrics_dict = {uq_cat: uq_metrics[uq_cat] for uq_cat in uq_metric_categories}

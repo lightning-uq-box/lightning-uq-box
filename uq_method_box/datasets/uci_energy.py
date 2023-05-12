@@ -1,6 +1,5 @@
 """UCI Energy Dataset."""
 
-from typing import Tuple
 
 import numpy as np
 import pandas as pd
@@ -32,7 +31,7 @@ class UCIEnergy(UCIRegressionDataset):
         """
         super().__init__(root, train_size, seed, calibration_set)
 
-    def load_data(self) -> Tuple[np.ndarray]:
+    def load_data(self) -> tuple[np.ndarray]:
         """Load the Energy dataset."""
         data = pd.read_excel(self.datapath).values[:, :-1]
         return data[:, :-1], data[:, -1].reshape(-1, 1)
