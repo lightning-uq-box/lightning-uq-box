@@ -26,7 +26,7 @@ class BayesByBackpropModel(BaseModel):
         self,
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
-        loss_fn: str,
+        loss_fn: nn.Module,
         save_dir: str,
         num_mc_samples: int = 30,
         prior_mu: float = 0.0,
@@ -41,7 +41,7 @@ class BayesByBackpropModel(BaseModel):
         Args:
             model: underlying model
             optimizer: optimizer to use
-            loss_fn: string name of loss function to use
+            loss_fn: loss function module
             save_dir: directory path to save
             num_mc_samples: number of MC samples to draw for prediction
             prior_mu: prior mean value for bayesian layer

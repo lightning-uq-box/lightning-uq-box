@@ -34,14 +34,14 @@ __all__ = (
     "SWAGModel",
     # SGLD Model.
     "SGLDModel",
-    # Bayes by Backprop
-    "BayesByBackpropModel",
     # Deep Evidential Regression Model
     "DERModel",
     # Bayesian Neural Network trained with Variational Inference
     "BNN_VI",
     # BNN with Latent Variables
     "BNN_LV_VI",
+    # Bayes By Backprop
+    "BayesByBackpropModel",
     # Loss Functions
     "NLL",
     "QuantileLoss",
