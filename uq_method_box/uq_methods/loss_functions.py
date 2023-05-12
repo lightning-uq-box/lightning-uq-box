@@ -38,7 +38,7 @@ class EnergyAlphaDivergence(nn.Module):
             log_Z_prior: 0 shape
             log_normalizer: 0 shape
             log_noramlizer_z: 0 shape
-            log_f_hat_z: ["num_samples"]
+            log_f_hat_z: [num_samples,batch_size]
             loss_terms: collected loss terms over the variational layer weights
             #where are the loss terms?
             N: number of datapoints in dataset #train data set?
@@ -47,6 +47,7 @@ class EnergyAlphaDivergence(nn.Module):
         Returns:
             energy function loss
         """
+     
         S = pred_losses.size(dim=1)
         n_samples = pred_losses.size(dim=0)
         alpha = torch.tensor(self.alpha).to(pred_losses.device)
@@ -62,9 +63,9 @@ class EnergyAlphaDivergence(nn.Module):
         # the outer torch.sum need to be taken over the batchsize
         # the inner logsumexp over the numer of samples
         inner_term = self.alpha * (
-            -pred_losses
-            - (1 / self.N) * log_f_hat[:, None, None]
-            - log_f_hat_z[:, None, None]
+            -pred_losses.sum(-1)
+            - (1 / self.N) * log_f_hat[:, None]
+            - log_f_hat_z
         )
         loss = (
             -(1 / alpha)
