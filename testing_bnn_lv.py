@@ -20,19 +20,8 @@ from uq_method_box.uq_methods import BNN_LV_VI
 from uq_method_box.viz_utils import plot_predictions
 
 # seed_everything(4)
-# torch.set_float32_matmul_precision("medium")
+torch.set_float32_matmul_precision("medium")
 dm = ToyHeteroscedasticDatamodule(batch_size=50)
-
-# dm = ToyBimodalDatamodule(batch_size=100)
-
-# X_train, y_train, train_loader, X_test, y_test, test_loader = (
-#    dm.X,
-#    dm.y,
-#    dm.train_dataloader(),
-#    dm.X,
-#    dm.y,
-#    dm.test_dataloader(),
-# )
 
 X_train, y_train, train_loader, X_test, y_test, test_loader = (
     dm.X_train,
@@ -47,7 +36,7 @@ my_config = {
     "model_args": {
         "n_inputs": 2,
         "n_outputs": 1,
-        "n_hidden": [20, 19],
+        "n_hidden": [50, 50],
         "activation_fn": torch.nn.ReLU(),
     },
     "loss_fn": "nll",
@@ -61,16 +50,15 @@ my_config = {
 
 my_dir = tempfile.mkdtemp()
 
-max_epochs = 500
+max_epochs = 600
 
 base_model = BNN_LV_VI(
     model=MLP(**my_config["model_args"]),
     latent_net=MLP(**my_config["latent_net"]),
-    optimizer=partial(torch.optim.Adam, lr=1e-3),
+    optimizer=partial(torch.optim.Adam, lr=6e-3),
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
     num_stochastic_modules=5,
-    beta_elbo=1.0,
     num_mc_samples_train=10,
     num_mc_samples_test=50,
     output_noise_scale=1.3,
@@ -78,6 +66,7 @@ base_model = BNN_LV_VI(
     prior_sigma=1.0,
     posterior_mu_init=0.0,
     posterior_rho_init=-3.0,
+    init_scaling=0.001,
     alpha=1.0,
 )
 
@@ -99,15 +88,17 @@ start = time.time()
 trainer.fit(base_model, dm)
 print(f"Fit took {time.time() - start} seconds.")
 
-# using the trainer does save predictions
-trainer.test(base_model, dm.test_dataloader())
-
-csv_path = os.path.join(my_dir, "predictions.csv")
-
 pred = base_model.predict_step(X_test)
 
 my_fig = plot_predictions(
-    X_train, y_train, X_test, y_test, pred["mean"], title="BNN with VI"
+    X_train,
+    y_train,
+    X_test,
+    y_test,
+    pred["mean"],
+    pred["pred_uct"],
+    epistemic=pred["epistemic_uct"],
+    title="BNN LV with VI",
 )
 plt.savefig("preds.png")
 plt.show()

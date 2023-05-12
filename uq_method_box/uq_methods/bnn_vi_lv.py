@@ -127,7 +127,7 @@ class BNN_LV_VI(BNN_VI):
 
         # TODO need to check that where latent variablse are introduced
         # the following layer in the model needs to be a linear layer, right?
-        # actually not, but the latent variables 
+        # actually not, but the latent variables
         # should be introduced in the first stochastic layer
         # so at the first item of
         # replace_modules =
@@ -166,7 +166,7 @@ class BNN_LV_VI(BNN_VI):
             bnn output
         """
         # this sould introduce the lv's at first item of
-        # replace_modules = 
+        # replace_modules =
         # list(self.model._modules.items())[-self.num_stochastic_modules:]
         for idx, layer in enumerate(self.model.model):
             if idx == self.hparams.latent_intro_layer_idx:
@@ -177,10 +177,10 @@ class BNN_LV_VI(BNN_VI):
                     z = torch.randn(X.shape[0], self.hparams.lv_latent_dim).to(
                         self.device
                     )
-                # X shape [batch_size, n_hidden[?]], 
+                # X shape [batch_size, n_hidden[?]],
                 # z shape [batch_size, 1]
                 X = torch.cat([X, z], -1)  # [batch_size, n_hidden[?]+1]
-            # this doesn't make sense then, 
+            # this doesn't make sense then,
             # because the layer input is size is n_hidden[?]
             X = layer(X)
 
@@ -270,6 +270,5 @@ class BNN_LV_VI(BNN_VI):
         params = self.exclude_from_wt_decay(
             self.named_parameters(), weight_decay=self.hparams.weight_decay
         )
-
         optimizer = self.optimizer(params=params)
         return optimizer

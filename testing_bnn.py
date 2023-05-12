@@ -35,7 +35,7 @@ my_config = {
     "model_args": {
         "n_inputs": 1,
         "n_outputs": 1,
-        "n_hidden": [100, 100],
+        "n_hidden": [50, 50],
         "activation_fn": torch.nn.ReLU(),
     },
     "loss_fn": "nll",
@@ -59,7 +59,7 @@ base_model = BNN_VI(
     prior_sigma=1.0,
     posterior_mu_init=0.0,
     posterior_rho_init=-6.0,
-    alpha=1e-03,
+    alpha=1e-3,
     layer_type="reparameterization",
 )
 
