@@ -78,9 +78,8 @@ class LatentVariableNetwork(nn.Module):
         """Fix the randomness of reparameterization trick."""
         # weight eps vector large enough to cover entire
         # dataset for full batch theoretically
-        self.weight_eps = torch.randn(self.num_training_points, self.lv_latent_dim).to(
-            self.device
-        )
+        self.weight_eps = torch.randn(self.num_training_points, self.lv_latent_dim)
+        # .to(self.device)
 
     def forward(self, x: Tensor, y: Tensor) -> Tensor:
         """Forward pass where latent vector is sampled.
