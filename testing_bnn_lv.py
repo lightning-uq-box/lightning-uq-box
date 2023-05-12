@@ -67,7 +67,7 @@ base_model = BNN_LV_VI(
     posterior_mu_init=0.0,
     posterior_rho_init=-5.0,
     init_scaling=0.0001,
-    alpha=0.4,
+    alpha=0.9,
 )
 
 logger = CSVLogger(my_dir)
