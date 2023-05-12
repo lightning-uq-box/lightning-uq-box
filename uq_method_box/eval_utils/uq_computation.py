@@ -6,6 +6,13 @@ from collections import defaultdict
 import numpy as np
 from scipy import stats
 
+# TODO:
+# write function to compute nll for GMM for BNNs without moment matching
+# e.g. get preds shape [batch_size, n_outputs, num_mc_samples]
+# n_outputs are already transformed to be sigma's not log sigmas
+# compute sum_(over batch elements x,y) log ( sum_(over samples i)
+# (1/sqrt(2 *\pi* sigma(x)_i^2))*exp(-(mu_i(x)-y)^2/(2 sigma(x)_i^2)) )
+
 
 def compute_epistemic_uncertainty(sample_mean_preds: np.ndarray) -> np.ndarray:
     """Compute epistemic uncertainty as defined in Kendall et al. 2017.

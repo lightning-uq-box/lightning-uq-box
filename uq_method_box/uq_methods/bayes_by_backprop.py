@@ -26,7 +26,7 @@ class BayesByBackpropModel(BaseModel):
         self,
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
-        loss_fn: str,
+        loss_fn: nn.Module,
         save_dir: str,
         num_mc_samples: int = 30,
         prior_mu: float = 0.0,
@@ -41,7 +41,7 @@ class BayesByBackpropModel(BaseModel):
         Args:
             model: underlying model
             optimizer: optimizer to use
-            loss_fn: string name of loss function to use
+            loss_fn: loss function module
             save_dir: directory path to save
             num_mc_samples: number of MC samples to draw for prediction
             prior_mu: prior mean value for bayesian layer
@@ -66,6 +66,7 @@ class BayesByBackpropModel(BaseModel):
 
         self.num_mc_samples = num_mc_samples
         self.quantiles = quantiles
+        self.criterion = nn.MSELoss()
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute the training loss.
@@ -79,7 +80,7 @@ class BayesByBackpropModel(BaseModel):
         X, y = args[0]
         batch_size = X.shape[0]
 
-        out = self.forward(X)
+        out = self.model(X)
         kl_loss = get_kl_loss(self.model)
         mse_loss = self.loss_fn(out, y)
 
@@ -103,7 +104,7 @@ class BayesByBackpropModel(BaseModel):
         X, y = args[0]
         batch_size = X.shape[0]
 
-        out = self.forward(X)
+        out = self.model(X)
         kl_loss = get_kl_loss(self.model)
         mse_loss = self.loss_fn(out, y)
 
@@ -113,27 +114,21 @@ class BayesByBackpropModel(BaseModel):
 
         return loss
 
-    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Test Step."""
-        batch = args[0]
-        out_dict = self.predict_step(batch[0])
-        out_dict["targets"] = batch[1].detach().squeeze(-1).numpy()
-        return out_dict
-
     def predict_step(
-        self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
         """Predict step via Monte Carlo Sampling.
 
         Args:
-            batch: prediction batch of shape [batch_size x input_dims]
+            X: prediction batch of shape [batch_size x input_dims]
 
         Returns:
             mean and standard deviation of MC predictions
         """
         preds = (
-            torch.stack([self.model(batch) for _ in range(self.num_mc_samples)], dim=-1)
+            torch.stack([self.model(X) for _ in range(self.num_mc_samples)], dim=-1)
             .detach()
+            .cpu()
             .numpy()
         )  # shape [batch_size, num_outputs, num_samples]
 
