@@ -41,7 +41,7 @@ class BayesByBackpropModel(BaseModel):
         Args:
             model: underlying model
             optimizer: optimizer to use
-            loss_fn: loss module
+            loss_fn: loss function module
             save_dir: directory path to save
             num_mc_samples: number of MC samples to draw for prediction
             prior_mu: prior mean value for bayesian layer
