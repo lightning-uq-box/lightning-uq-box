@@ -127,6 +127,11 @@ class BNN_LV_VI(BNN_VI):
 
         # TODO need to check that where latent variablse are introduced
         # the following layer in the model needs to be a linear layer, right?
+        # actually not, but the latent variables 
+        # should be introduced in the first stochastic layer
+        # so at the first item of
+        # replace_modules =
+        #  list(self.model._modules.items())[-self.num_stochastic_modules:]
         _, lv_output_module = _get_output_layer_name_and_module(latent_net)
         assert lv_output_module.out_features == self.hparams.lv_latent_dim * 2, (
             "The specified latent network needs to have the same output dimension as "
@@ -160,19 +165,24 @@ class BNN_LV_VI(BNN_VI):
         Returns:
             bnn output
         """
+        # this sould introduce the lv's at first item of
+        # replace_modules = 
+        # list(self.model._modules.items())[-self.num_stochastic_modules:]
         for idx, layer in enumerate(self.model.model):
             if idx == self.hparams.latent_intro_layer_idx:
                 if y is not None:
+                    # this passes X,y through the whole self.lv_net
                     z = self.lv_net(X, y)
                 else:
                     z = torch.randn(X.shape[0], self.hparams.lv_latent_dim).to(
                         self.device
                     )
-                X = torch.cat([X, z], -1)
+                # X shape [batch_size, n_hidden[?]], 
+                # z shape [batch_size, 1]
+                X = torch.cat([X, z], -1)  # [batch_size, n_hidden[?]+1]
+            # this doesn't make sense then, 
+            # because the layer input is size is n_hidden[?]
             X = layer(X)
-
-            # import pdb
-            # pdb.set_trace()
 
         return X
 

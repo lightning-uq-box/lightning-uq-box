@@ -50,7 +50,7 @@ base_model = BNN_VI(
     optimizer=partial(torch.optim.Adam, lr=1e-3),
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
-    num_stochastic_modules=1,
+    num_stochastic_modules=5,
     beta_elbo=1.0,
     num_mc_samples_train=10,
     num_mc_samples_test=50,

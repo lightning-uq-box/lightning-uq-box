@@ -84,7 +84,7 @@ class BNN_VI(BaseModel):
         self.hparams["num_mc_samples_test"] = num_mc_samples_test
         self.hparams["quantiles"] = quantiles
         self.hparams["weight_decay"] = 1e-5
-        self.hparams["beta_elbo"] = beta_elbo
+        self.hparams["beta_elbo"] = beta_elbo  # this isn't used
         self.hparams["output_noise_scale"] = output_noise_scale
 
         self.hparams["prior_mu"] = prior_mu

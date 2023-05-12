@@ -47,7 +47,7 @@ my_config = {
     "model_args": {
         "n_inputs": 2,
         "n_outputs": 1,
-        "n_hidden": [20, 20],
+        "n_hidden": [20, 19],
         "activation_fn": torch.nn.ReLU(),
     },
     "loss_fn": "nll",
