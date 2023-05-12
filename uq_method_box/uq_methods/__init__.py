@@ -8,9 +8,11 @@ from .deep_ensemble_model import DeepEnsembleModel
 from .deep_evidential_regression import DERModel
 from .deterministic_gaussian import DeterministicGaussianModel
 from .laplace_model import LaplaceModel
+from .loss_functions import NLL, DERLoss, QuantileLoss
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
 from .sgld import SGLDModel
+from .swag import SWAGModel
 
 __all__ = (
     # base model
@@ -27,6 +29,8 @@ __all__ = (
     "DeepEnsembleModel",
     # Deterministic Gaussian Model
     "DeterministicGaussianModel",
+    # SWAG Model
+    "SWAGModel",
     # SGLD Model.
     "SGLDModel",
     # Bayes by Backprop
@@ -35,4 +39,8 @@ __all__ = (
     "DERModel",
     # Bayesian Neural Network trained with Variational Inference
     "BayesianNeuralNetwork_VI",
+    # Loss Functions
+    "NLL",
+    "QuantileLoss",
+    "DERLoss",
 )

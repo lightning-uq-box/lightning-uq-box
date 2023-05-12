@@ -32,7 +32,7 @@ class ToySineDatamodule(LightningDataModule):
 
         X_train = (torch.linspace(x_min, x_max, n_data)).unsqueeze(-1)
 
-        gap_start = x_min + 0.3 * (x_max - x_min)
+        gap_start = x_min + 0.4 * (x_max - x_min)
         gap_end = x_min + 0.6 * (x_max - x_min)
 
         # take out validation set as gap  also for calibration of conformal prediction

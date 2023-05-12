@@ -6,11 +6,11 @@ import numpy as np
 import pytest
 import torch
 from _pytest.fixtures import SubRequest
+from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
 
 from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
-from uq_method_box.models import MLP
 from uq_method_box.uq_methods import MCDropoutModel
 
 
@@ -20,29 +20,20 @@ class TestMCDropoutModel:
     def mc_model(self, tmp_path: Path, request: SubRequest) -> MCDropoutModel:
         """Create a MC Dropout model being used for different tests."""
         conf = OmegaConf.load(os.path.join("tests", "configs", request.param))
-        conf_dict = OmegaConf.to_object(conf)
-        return MCDropoutModel(
-            MLP,
-            model_args=conf_dict["model"]["model_args"],
-            num_mc_samples=conf_dict["model"]["num_mc_samples"],
-            lr=1e-3,
-            loss_fn=conf_dict["model"]["loss_fn"],
-            burnin_epochs=conf_dict["model"]["burnin_epochs"],
-            max_epochs=conf_dict["model"]["max_epochs"],
-            save_dir=tmp_path,
-        )
+        conf.uq_method["save_dir"] = str(tmp_path)
+        return instantiate(conf.uq_method)
 
     def test_forward(self, mc_model: MCDropoutModel) -> None:
         """Test forward pass of MC dropout model."""
-        n_inputs = mc_model.hparams.model_args["n_inputs"]
-        n_outputs = mc_model.hparams.model_args["n_outputs"]
+        n_inputs = mc_model.num_inputs
+        n_outputs = mc_model.num_outputs
         X = torch.randn(5, n_inputs)
         out = mc_model(X)
         assert out.shape[-1] == n_outputs
 
     def test_predict_step(self, mc_model: MCDropoutModel) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = mc_model.hparams.model_args["n_inputs"]
+        n_inputs = mc_model.num_inputs
         X = torch.randn(5, n_inputs)
         out = mc_model.predict_step(X)
         assert isinstance(out, dict)

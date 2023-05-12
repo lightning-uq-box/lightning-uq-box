@@ -1,11 +1,11 @@
 """Base datasets that can be used from other datasets."""
 
 import os
-from typing import Tuple
 
 import numpy as np
 import torch
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from torch.utils.data import TensorDataset
 from torchgeo.datasets.utils import download_and_extract_archive
 from torchvision.datasets.utils import download_url
@@ -50,6 +50,8 @@ class UCIRegressionDataset:
         # load data
         X, y = self.load_data()
 
+        self.N = X.shape[0]
+
         X_train, X_test, y_train, y_test = train_test_split(
             X,
             y,
@@ -67,34 +69,24 @@ class UCIRegressionDataset:
                 shuffle=True,
             )
 
-        # # split data into train and test
-        # ind = np.arange(X.shape[0])
-        # np.random.shuffle(ind)
-
-        # n = int(X.shape[0] * self.train_size)
-
-        # X_train = X[ind[:n]]
-        # y_train = y[ind[:n]]
-
-        # # if
-
-        # X_test = X[ind[n:]]
-        # y_test = y[ind[n:]]
-
-        # compute normalization statistics on train set
-        self.compute_normalization_statistics(X_train, y_train)
-
-        # normalize data, make this separately for each split
-        self.X_train, self.y_train = self.preprocess(X_train, y_train)
+        # this is how the Wilson group does it in their paper
+        self.input_scaler = StandardScaler()
+        self.input_scaler.fit(X)
+        self.X_train = self.input_scaler.transform(X_train)
+        self.target_scaler = StandardScaler()
+        self.target_scaler.fit(y)
+        self.y_train = self.target_scaler.transform(y_train)
 
         if calibration_set:
-            self.X_calib, self.y_calib = self.preprocess(X_calib, y_calib)
+            self.X_calib = self.input_scaler.transform(X_calib)
+            self.y_calib = self.target_scaler.transform(y_calib)
 
-        self.X_test, self.y_test = self.preprocess(X_test, y_test)
+        self.X_test = self.input_scaler.transform(X_test)
+        self.y_test = self.target_scaler.transform(y_test)
 
         self.num_features = self.X_train.shape[-1]
 
-    def load_data(self) -> Tuple[np.ndarray]:
+    def load_data(self) -> tuple[np.ndarray]:
         """Load the data from the file."""
         raise NotImplementedError
 
@@ -134,29 +126,29 @@ class UCIRegressionDataset:
             torch.from_numpy(self.y_test).to(torch.float32),
         )
 
-    def compute_normalization_statistics(
-        self, X_train: np.ndarray, y_train: np.ndarray
-    ) -> None:
-        """Compute the normalization statistics.
+    # def compute_normalization_statistics(
+    #     self, X_train: np.ndarray, y_train: np.ndarray
+    # ) -> None:
+    #     """Compute the normalization statistics.
 
-        Args:
-            X_train: training features of shape [N x num_features]
-            y_train: training targets of shape [N x 1]
-        """
-        self.X_mean, self.X_std = X_train.mean(axis=0), X_train.std(axis=0)
-        self.y_mean, self.y_std = y_train.mean(axis=0), y_train.std(axis=0)
+    #     Args:
+    #         X_train: training features of shape [N x num_features]
+    #         y_train: training targets of shape [N x 1]
+    #     """
+    #     self.X_mean, self.X_std = X_train.mean(axis=0), X_train.std(axis=0)
+    #     self.y_mean, self.y_std = y_train.mean(axis=0), y_train.std(axis=0)
 
-    def preprocess(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray]:
-        """Preprocess the training and testing data.
+    # def preprocess(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray]:
+    #     """Preprocess the training and testing data.
 
-        Args:
-            X: feature matrix of shape [N x num_features]
-            y: targets of shape [N x 1]
+    #     Args:
+    #         X: feature matrix of shape [N x num_features]
+    #         y: targets of shape [N x 1]
 
-        Returns:
-            processed versions of data
-        """
-        return (X - self.X_mean) / self.X_std, (y - self.y_mean) / self.y_std
+    #     Returns:
+    #         processed versions of data
+    #     """
+    #     return (X - self.X_mean) / self.X_std, (y - self.y_mean) / self.y_std
 
     def verify(self) -> None:
         """Verify presence of data."""

@@ -1,18 +1,17 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any, Dict, Union
+from typing import Any
 
 import numpy as np
-import pyro
-import timm
 import torch
 import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
+from torchgeo.trainers.utils import _get_input_layer_name_and_module
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
 
-from .utils import retrieve_loss_fn, save_predictions_to_csv
+from .utils import _get_output_layer_name_and_module, save_predictions_to_csv
 
 
 class BaseModel(LightningModule):
@@ -20,25 +19,23 @@ class BaseModel(LightningModule):
 
     def __init__(
         self,
-        model_class: Union[type[nn.Module], str],
-        model_args: Dict[str, Any],
-        lr: float,
-        loss_fn: str,
-        save_dir: str,
+        model: nn.Module,
+        optimizer: type[torch.optim.Optimizer],
+        loss_fn: nn.Module,
+        save_dir: str = None,
     ) -> None:
         """Initialize a new Base Model.
 
         Args:
-            model_class: Model Class that can be initialized with arguments from dict,
+            model: Model Class that can be initialized with arguments from dict,
                 or timm backbone name
-            model_args: arguments to initialize model_class
             lr: learning rate for adam otimizer
-            loss_fn: string name of loss function to use
+            loss_fn: loss function module
             save_dir: directory path to save predictions
         """
         super().__init__()
         # makes self.hparams accesible
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["model", "optimizer", "loss_fn"])
 
         self.train_metrics = MetricCollection(
             {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
@@ -54,25 +51,37 @@ class BaseModel(LightningModule):
             {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
             prefix="test_",
         )
+        self.model = model
+        self.optimizer = optimizer
+        self.loss_fn = loss_fn
 
-        self._build_model()
+    @property
+    def num_inputs(self) -> int:
+        """Retrieve input dimension to the model.
 
-    def _build_model(self) -> None:
-        """Build the underlying model and loss function."""
-        # timm model
-        if isinstance(self.hparams.model_class, str):
-            self.model = timm.create_model(
-                self.hparams.model_class, **self.hparams.model_args
-            )
-        # if own nn module
-        else:
-            self.model = self.hparams.model_class(**self.hparams.model_args)
-            # specific hack for MLP, maybe torchgeo has function that can find
-            # first and last layer
-            self.n_inputs = self.model.model[0].in_features
-            self.n_outputs = self.model.model[-1].out_features
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_input_layer_name_and_module(self.model)
+        if hasattr(module, "in_features"):  # Linear Layer
+            num_inputs = module.in_features
+        elif hasattr(module, "in_channels"):  # Conv Layer
+            num_inputs = module.in_channels
+        return num_inputs
 
-        self.criterion = retrieve_loss_fn(self.hparams.loss_fn)
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        _, module = _get_output_layer_name_and_module(self.model)
+        if hasattr(module, "out_features"):  # Linear Layer
+            num_outputs = module.out_features
+        elif hasattr(module, "out_channels"):  # Conv Layer
+            num_outputs = module.out_channels
+        return num_outputs
 
     def forward(self, X: Tensor, **kwargs: Any) -> Any:
         """Forward pass of the model.
@@ -112,7 +121,7 @@ class BaseModel(LightningModule):
         """
         X, y = args[0]
         out = self.forward(X)
-        loss = self.criterion(out, y)
+        loss = self.loss_fn(out, y)
 
         self.log("train_loss", loss)  # logging to Logger
         self.train_metrics(self.extract_mean_output(out), y)
@@ -136,7 +145,7 @@ class BaseModel(LightningModule):
         """
         X, y = args[0]
         out = self.forward(X)
-        loss = self.criterion(out, y)
+        loss = self.loss_fn(out, y)
 
         self.log("val_loss", loss)  # logging to Logger
         self.val_metrics(self.extract_mean_output(out), y)
@@ -157,7 +166,7 @@ class BaseModel(LightningModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Prediction step.
 
         Args:
@@ -171,109 +180,26 @@ class BaseModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: Dict[str, np.ndarray],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,
     ):
         """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
-        )
+        if self.hparams.save_dir:
+            save_predictions_to_csv(
+                outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+            )
 
-    def configure_optimizers(self) -> Dict[str, Any]:
+    def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
             a "lr dict" according to the pytorch lightning documentation --
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=self.hparams.lr)
+        optimizer = self.optimizer(params=self.parameters())
+        # optimizer = self.hparams.optimizer(
+        #     self.model.parameters(), **self.hparams.optimizer_args
+        # )
         return {"optimizer": optimizer}
-
-    # PYRO BNN Base
-
-
-class PyroOptWrap(pyro.infer.SVI):
-    """Wrapper for Pytorch Lightning to give a state_dict."""
-
-    def __init__(self, *args, **kwargs) -> None:
-        """Initialize a new wrapper."""
-        super().__init__(*args, **kwargs)
-
-    def state_dict(self):
-        """Return dummy state dict."""
-        return {}
-
-
-class PyroBNNBase(BaseModel):
-    """Bayesian Neural Network with Latent Variables."""
-
-    def __init__(self, config: Dict[str, Any]) -> None:
-        """Initialize a new instance of BNN_LV.
-
-        Args:
-            config:
-        """
-        super().__init__(config, None, None)  # no criterion
-
-        # how to save checkpoints from this model not sure
-        # https://pyro4ci.readthedocs.io/en/latest/_modules/pyro/params/param_store.html
-
-    def model(self, batch):
-        """Define the Pyro Model https://pyro.ai/examples/svi_part_i.html.
-
-        Args:
-            batch: input batch of data
-        """
-        raise NotImplementedError
-
-    def guide(self, batch):
-        """Define the Pyro Guide https://pyro.ai/examples/svi_part_i.html.
-
-        Args:
-            batch: input batch of data
-        """
-        raise NotImplementedError
-
-    def forward(self, x):
-        """Define the forward pass, function should be called.
-
-        Args:
-            x: input data x
-        """
-        raise NotImplementedError
-
-    def training_step(self, batch, batch_idx):
-        """Compute training Step for BNN+LV with SVI.
-
-        Args:
-            batch:
-            batch_idx:
-        """
-        loss = self.svi.step(batch)
-        loss = torch.tensor(loss).requires_grad_(True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        """Compute validation Step for BNN+LV with SVI.
-
-        Args:
-            batch:
-            batch_idx:
-        """
-        loss = self.svi.evaluate_loss(batch)
-        return loss
-
-    def configure_optimizers(self):
-        """Configure Pyro Optimizer."""
-        self.svi = PyroOptWrap(
-            model=self.model,
-            guide=self.guide,
-            optim=pyro.optim.Adam(
-                {"lr": self.config["optimizer"]["lr"], "momentum": 0.0}
-            ),
-            loss=pyro.infer.Trace_ELBO(),
-        )
-
-        return [self.svi]

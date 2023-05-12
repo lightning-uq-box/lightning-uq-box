@@ -1,7 +1,7 @@
 """ReforesTree Dataset."""
 
 import os
-from typing import Dict, Tuple, Union
+from typing import Union
 
 import kornia.augmentation as K
 import matplotlib.pyplot as plt
@@ -45,8 +45,8 @@ class ReforesTreeRegression(ReforesTree):
         download: bool = False,
         checksum: bool = False,
         split: str = "train",
-        img_size: Union[int, Tuple[int]] = 224,
-        crop_size: Union[int, Tuple[int]] = 1024,
+        img_size: Union[int, tuple[int]] = 224,
+        crop_size: Union[int, tuple[int]] = 1024,
     ) -> None:
         """Initialize a new instance of Dataset.
 
@@ -114,7 +114,7 @@ class ReforesTreeRegression(ReforesTree):
 
         return fig
 
-    def _load_target(self, filepath: str, bounds: Tuple[float]) -> Tensor:
+    def _load_target(self, filepath: str, bounds: tuple[float]) -> Tensor:
         """Load boxes and labels for a single image.
 
         Args:
@@ -140,7 +140,7 @@ class ReforesTreeRegression(ReforesTree):
 
         return agb
 
-    def __getitem__(self, index: int) -> Dict[str, Tensor]:
+    def __getitem__(self, index: int) -> dict[str, Tensor]:
         """Return a sample from the dataset.
 
         Args:

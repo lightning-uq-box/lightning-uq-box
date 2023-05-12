@@ -5,26 +5,34 @@ wandb:
   project: uci_regression
   entity: uq-regression
   mode: offline
-model:
-  base_model: quantile_regression
-  loss_fn: quantile
-  quantiles: [0.1, 0.5, 0.9]
-  model_args: # all arguments for the mlp
+
+# everything to configure the UQ method
+uq_method:
+  _target_: uq_method_box.uq_methods.QuantileRegressionModel
+  model:
+    _target_: uq_method_box.models.MLP # timm.create_model for timm models
+    # all arguments to initiate the mlp for example
     n_outputs: 3
     n_hidden: [50]
-optimizer:
-  lr: 0.003
-ds:
+  optimizer:
+    _target_: torch.optim.SGD # can change optimizers here easily
+    _partial_: true
+    lr: 0.003
+
+# everything to configure the datamodule  
+datamodule:
+  _target_: uq_method_box.datamodules.UCIRegressionDatamodule
   dataset_name: boston
   root: "/home/nils/projects/uq-method-box/experiments/data/uci"
   train_size: 0.9
-dataloader: # arguments for dataloader
-  batch_size: 256
+  batch_size: 32
   num_workers: 4
-pl: # all flags to pytorch lightning trainer
-  # devices: 1 
-  precision: 32
+
+# all flags for the pytorch lightning trainer
+trainer:
+  _target_: lightning.pytorch.Trainer
   accelerator: cpu
+  precision: 32
   max_epochs: 10
   max_steps: -1
   limit_val_batches: 0.0 # no validation set
