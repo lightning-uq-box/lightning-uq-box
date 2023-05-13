@@ -44,7 +44,6 @@ class LinearVariational(BaseVariationalLayer):
                 representing the sigma of the approximate
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
-                Default: True.
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """

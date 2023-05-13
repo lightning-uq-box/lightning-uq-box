@@ -50,7 +50,6 @@ class Conv1dVariational(BaseConvLayer_):
                 representing the sigma of the approximate
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
-                Default: True.
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
@@ -114,7 +113,6 @@ class Conv2dVariational(BaseConvLayer_):
                 representing the sigma of the approximate
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
-                Default: True.
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
@@ -177,7 +175,6 @@ class Conv3dVariational(BaseConvLayer_):
                 representing the sigma of the approximate
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
-                Default: True.
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
@@ -243,7 +240,6 @@ class ConvTranspose1dVariational(BaseConvLayer_):
                 representing the sigma of the approximate
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
-                Default: True.
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
@@ -306,7 +302,6 @@ class ConvTranspose2dVariational(BaseConvLayer_):
                 representing the sigma of the approximate
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
-                Default: True.
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
@@ -369,7 +364,6 @@ class ConvTranspose3dVariational(BaseConvLayer_):
                 representing the sigma of the approximate
                 posterior through softplus function,
             bias: if set to False, the layer will not learn an additive bias.
-                Default: True.
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """

@@ -42,7 +42,6 @@ class LSTMVariational(BaseVariationalLayer_):
             in_features: size of each input sample,
             out_features: size of each output sample,
             bias: if set to False, the layer will not learn an additive bias.
-                Default: True.
             type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
