@@ -38,7 +38,7 @@ class EnergyAlphaDivergence(nn.Module):
             log_Z_prior: 0 shape
             log_normalizer: 0 shape
             log_noramlizer_z: 0 shape
-            log_f_hat_z: ["num_samples"]
+            log_f_hat_z: [num_samples,batch_size]
             loss_terms: collected loss terms over the variational layer weights
             #where are the loss terms?
             N: number of datapoints in dataset #train data set?
@@ -47,11 +47,14 @@ class EnergyAlphaDivergence(nn.Module):
         Returns:
             energy function loss
         """
+     
         S = pred_losses.size(dim=1)
         n_samples = pred_losses.size(dim=0)
         alpha = torch.tensor(self.alpha).to(pred_losses.device)
-        SoverN = torch.tensor(S / self.N).to(pred_losses.device)
+        NoverS = torch.tensor(self.N / S).to(pred_losses.device)
         one_over_n_samples = torch.tensor(1 / n_samples).to(pred_losses.device)
+        one_over_N = torch.tensor(1 / self.N).to(pred_losses.device)
+
         # if we change y_pred: Normal dist output
         # with shape [batch_size, num_samples, output_dim]
         # to be a Normal dist output
@@ -62,12 +65,13 @@ class EnergyAlphaDivergence(nn.Module):
         # the outer torch.sum need to be taken over the batchsize
         # the inner logsumexp over the numer of samples
         inner_term = self.alpha * (
-            -pred_losses
-            - (1 / self.N) * log_f_hat[:, None, None]
-            - log_f_hat_z[:, None, None]
+            -pred_losses.sum(-1)
+            - (1 / self.N) * log_f_hat[:, None]
+            - log_f_hat_z
         )
         loss = (
             -(1 / alpha)
+            * NoverS
             * torch.sum(
                 torch.logsumexp(
                     inner_term,
@@ -77,11 +81,11 @@ class EnergyAlphaDivergence(nn.Module):
                 + torch.log(one_over_n_samples),
                 dim=0,
             )
-            - SoverN * log_normalizer
-            - log_normalizer_z
-            + SoverN * log_Z_prior
+            - log_normalizer
+            - NoverS * log_normalizer_z
+            + log_Z_prior
         )
-        return loss
+        return loss * one_over_N
 
 
 class NLL(nn.Module):

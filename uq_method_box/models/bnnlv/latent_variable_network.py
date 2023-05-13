@@ -5,9 +5,32 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from .layers.utils import calc_log_f_hat, calc_log_normalizer
+from .layers.utils import calc_log_normalizer
 
+def calc_log_f_hat_z(
+    z: Tensor, m_z: Tensor, std_z: Tensor, prior_variance: float
+) -> Tensor:
+    """Compute single summand in equation 3.16.
 
+    Args:
+        z: samples from lv [mb_size, lv_latent_dim]
+        m_z: mean of latent variables [mb_size, lv_latent_dim]
+        std_z: sigma weight matrix of latent variables [mb_size, lv_latent_dim]
+        prior_variance: Prior variance of latent variables
+
+    Returns:
+        log f hat summed over the latent dimension
+    """
+    v_z = std_z**2
+    m_z = m_z
+    # natural parameters: -1/(2 sigma^2), mu/(sigma^2)
+    # \lambda is (\lambda_q - \lambda_prior) / N
+    # assuming prior mean is 0 and moving N calculation outside
+
+    return (
+        ((v_z - prior_variance) / (2 * prior_variance * v_z)) * (z**2)
+        + (m_z / v_z) * z
+    ).sum(-1)
 class LatentVariableNetwork(nn.Module):
     """Latent Variable Network for BNN+LV."""
 
@@ -122,7 +145,7 @@ class LatentVariableNetwork(nn.Module):
         # as in eq. (3.22), [1]
         latent_samples = z_mu + z_std * weights_eps
 
-        self.log_f_hat_z = calc_log_f_hat(
+        self.log_f_hat_z = calc_log_f_hat_z(
             latent_samples, z_mu, z_std, prior_variance=self.lv_prior_std**2
         )
         self.log_normalizer_z = calc_log_normalizer(z_mu, z_std)
