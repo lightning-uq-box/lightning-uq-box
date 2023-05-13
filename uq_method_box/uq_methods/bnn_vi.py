@@ -1,6 +1,6 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
-from typing import Any
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -33,7 +33,7 @@ class BNN_VI(BaseModel):
         optimizer: type[torch.optim.Optimizer],
         save_dir: str,
         num_training_points: int,
-        num_stochastic_modules: int = 1,
+        stochastic_module_names: Optional[list[Union[str, int]]] = None,
         num_mc_samples_train: int = 25,
         num_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -52,6 +52,7 @@ class BNN_VI(BaseModel):
             optimizer:
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
+            stochastic_module_names:
             num_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             num_mc_samples_test: number of MC samples during test and prediction
@@ -62,7 +63,7 @@ class BNN_VI(BaseModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            type: Bayesian layer_type type, "Reparametrization" or "flipout"
+            type: Bayesian layer_type type, "reparametrization" or "flipout"
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -89,11 +90,9 @@ class BNN_VI(BaseModel):
         self.hparams["posterior_mu_init"] = posterior_mu_init
         self.hparams["posterior_rho_init"] = posterior_rho_init
         self.hparams["num_training_points"] = num_training_points
-        self.hparams["num_stochastic_modules"] = num_stochastic_modules
+        self.hparams["stochastic_module_names"] = stochastic_module_names
         self.hparams["alpha"] = alpha
         self.hparams["layer_type"] = layer_type
-
-        self.hparams["num_stochastic_modules"] = num_stochastic_modules
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
@@ -104,9 +103,13 @@ class BNN_VI(BaseModel):
             "posterior_rho_init": self.hparams.posterior_rho_init,
             "layer_type": self.hparams.layer_type,
         }
+        # TODO check what is num_stocha
         # convert deterministic model to BNN
+        # model_modules = list(self.model.named_modules())
+        # model_module_names = [module[0] for module in model_modules]
+
         dnn_to_bnnlv_some(
-            self.model, self.bnn_args, self.hparams.num_stochastic_modules
+            self.model, self.bnn_args, self.hparams.stochastic_module_names
         )
 
         # need individual nlls of a gaussian, as we first do logsumexp over samples
@@ -163,7 +166,7 @@ class BNN_VI(BaseModel):
             # note reduction = "None"
             pred_losses.append(self.nll_loss(pred, y, output_var))
             # dim=1
-            log_f_hat.append(get_log_f_hat(self.model))
+            log_f_hat.append(get_log_f_hat([self.model]))
 
         # model_preds [num_mc_samples_train, batch_size, output_dim]
         mean_out = torch.stack(model_preds, dim=0).mean(dim=0)
@@ -172,8 +175,8 @@ class BNN_VI(BaseModel):
         energy_loss = self.energy_loss_module(
             torch.stack(pred_losses, dim=0),
             torch.stack(log_f_hat, dim=0),
-            get_log_Z_prior(self.model),
-            get_log_normalizer(self.model),
+            get_log_Z_prior([self.model]),
+            get_log_normalizer([self.model]),
             log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
             log_f_hat_z=torch.zeros(1).to(self.device),  # log_f_hat_z
         )

@@ -34,7 +34,7 @@ X_train, y_train, train_loader, X_test, y_test, test_loader = (
 
 my_config = {
     "model_args": {
-        "n_inputs": 2,
+        "n_inputs": 1,
         "n_outputs": 1,
         "n_hidden": [50, 50],
         "activation_fn": torch.nn.ReLU(),
@@ -58,7 +58,8 @@ base_model = BNN_LV_VI(
     optimizer=partial(torch.optim.Adam, lr=6e-3),
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
-    num_stochastic_modules=5,
+    stochastic_module_names=["model.6"],
+    latent_variable_intro="first",
     num_mc_samples_train=10,
     num_mc_samples_test=50,
     output_noise_scale=1.3,
