@@ -233,7 +233,7 @@ class BNN_VI(BaseModel):
         # output from forward: [num_samples, batch_size, outputs]
         with torch.no_grad():
             # draw samples for all stochastic functions
-            for i in range(self.hparams.num_mc_samples_train):
+            for i in range(self.hparams.num_mc_samples_test):
                 # mean prediction
                 pred = self.forward(X)
                 model_preds.append(pred.detach())
