@@ -51,8 +51,10 @@ class EnergyAlphaDivergence(nn.Module):
         S = pred_losses.size(dim=1)
         n_samples = pred_losses.size(dim=0)
         alpha = torch.tensor(self.alpha).to(pred_losses.device)
-        SoverN = torch.tensor(S / self.N).to(pred_losses.device)
+        NoverS = torch.tensor(self.N / S).to(pred_losses.device)
         one_over_n_samples = torch.tensor(1 / n_samples).to(pred_losses.device)
+        one_over_N = torch.tensor(1 / self.N).to(pred_losses.device)
+
         # if we change y_pred: Normal dist output
         # with shape [batch_size, num_samples, output_dim]
         # to be a Normal dist output
@@ -69,6 +71,7 @@ class EnergyAlphaDivergence(nn.Module):
         )
         loss = (
             -(1 / alpha)
+            * NoverS
             * torch.sum(
                 torch.logsumexp(
                     inner_term,
@@ -78,11 +81,11 @@ class EnergyAlphaDivergence(nn.Module):
                 + torch.log(one_over_n_samples),
                 dim=0,
             )
-            - SoverN * log_normalizer
-            - log_normalizer_z
-            + SoverN * log_Z_prior
+            - log_normalizer
+            - NoverS * log_normalizer_z
+            + log_Z_prior
         )
-        return loss
+        return loss * one_over_N
 
 
 class NLL(nn.Module):
