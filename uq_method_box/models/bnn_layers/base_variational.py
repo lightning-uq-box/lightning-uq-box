@@ -5,12 +5,10 @@ https://github.com/IntelLabs/bayesian-torch (BSD-3 clause) but
 adjusted to reduce code duplication and to be trained with the Energy Loss.
 """
 
-
 import math
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Parameter
 
@@ -155,7 +153,7 @@ class BaseConvLayer_(BaseVariationalLayer_):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: int,
+        kernel_size: tuple[int],
         stride: int = 1,
         padding: int = 0,
         dilation: int = 1,
@@ -205,36 +203,39 @@ class BaseConvLayer_(BaseVariationalLayer_):
         self.dilation = dilation
         self.groups = groups
 
+        # define the bayesian parameters
+        self.define_bayesian_parameters()
+
     def define_bayesian_parameters(self):
         """Define Bayesian Parameters."""
         self.mu_weight = Parameter(
             torch.Tensor(
-                self.out_channels, self.in_channels // self.groups, self.kernel_size
+                self.out_channels, self.in_channels // self.groups, *self.kernel_size
             )
         )
         self.rho_weight = Parameter(
             torch.Tensor(
-                self.out_channels, self.in_channels // self.groups, self.kernel_size
+                self.out_channels, self.in_channels // self.groups, *self.kernel_size
             )
         )
         self.register_buffer(
             "eps_weight",
             torch.Tensor(
-                self.out_channels, self.in_channels // self.groups, self.kernel_size
+                self.out_channels, self.in_channels // self.groups, *self.kernel_size
             ),
             persistent=False,
         )
         self.register_buffer(
             "prior_weight_mu",
             torch.Tensor(
-                self.out_channels, self.in_channels // self.groups, self.kernel_size
+                self.out_channels, self.in_channels // self.groups, *self.kernel_size
             ),
             persistent=False,
         )
         self.register_buffer(
             "prior_weight_sigma",
             torch.Tensor(
-                self.out_channels, self.in_channels // self.groups, self.kernel_size
+                self.out_channels, self.in_channels // self.groups, *self.kernel_size
             ),
             persistent=False,
         )
@@ -287,7 +288,7 @@ class BaseConvLayer_(BaseVariationalLayer_):
 
         if self.layer_type == "reparameterization":
             weight = self.mu_weight + delta_weight
-            out = F.conv1d(
+            out = self.conv_function(
                 x, weight, bias, self.stride, self.padding, self.dilation, self.groups
             )
         else:

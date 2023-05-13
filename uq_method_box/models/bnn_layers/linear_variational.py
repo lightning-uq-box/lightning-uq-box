@@ -10,10 +10,10 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Parameter
 
-from .base_variational import BaseVariationalLayer
+from .base_variational import BaseVariationalLayer_
 
 
-class LinearVariational(BaseVariationalLayer):
+class LinearVariational(BaseVariationalLayer_):
     """Linear Variational Layer adapted for Alpha Divergence."""
 
     valid_layer_types = ["reparameterization", "flipout"]

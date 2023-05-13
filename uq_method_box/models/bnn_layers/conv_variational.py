@@ -17,7 +17,7 @@ class Conv1dVariational(BaseConvLayer_):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: int,
+        kernel_size: tuple[int],
         stride: int = 1,
         padding: int = 0,
         dilation: int = 1,
@@ -53,6 +53,8 @@ class Conv1dVariational(BaseConvLayer_):
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
+        assert isinstance(kernel_size, tuple)
+        assert len(kernel_size) == 1
         super().__init__(
             in_channels,
             out_channels,
@@ -80,7 +82,7 @@ class Conv2dVariational(BaseConvLayer_):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: int,
+        kernel_size: tuple[int],
         stride: int = 1,
         padding: int = 0,
         dilation: int = 1,
@@ -116,6 +118,8 @@ class Conv2dVariational(BaseConvLayer_):
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
+        assert isinstance(kernel_size, tuple)
+        assert len(kernel_size) == 2
         super().__init__(
             in_channels,
             out_channels,
@@ -142,7 +146,7 @@ class Conv3dVariational(BaseConvLayer_):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: int,
+        kernel_size: tuple[int],
         stride: int = 1,
         padding: int = 0,
         dilation: int = 1,
@@ -178,6 +182,8 @@ class Conv3dVariational(BaseConvLayer_):
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
+        assert isinstance(kernel_size, tuple)
+        assert len(kernel_size) == 3
         super().__init__(
             in_channels,
             out_channels,
@@ -201,13 +207,13 @@ class Conv3dVariational(BaseConvLayer_):
 
 
 class ConvTranspose1dVariational(BaseConvLayer_):
-    """Convolutional 2D Variational Layer adapted for Alpha Divergence."""
+    """Convolutional 1D Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: int,
+        kernel_size: tuple[int],
         stride: int = 1,
         padding: int = 0,
         dilation: int = 1,
@@ -243,6 +249,8 @@ class ConvTranspose1dVariational(BaseConvLayer_):
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
+        assert isinstance(kernel_size, tuple)
+        assert len(kernel_size) == 1
         super().__init__(
             in_channels,
             out_channels,
@@ -269,7 +277,7 @@ class ConvTranspose2dVariational(BaseConvLayer_):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: int,
+        kernel_size: tuple[int],
         stride: int = 1,
         padding: int = 0,
         dilation: int = 1,
@@ -305,6 +313,8 @@ class ConvTranspose2dVariational(BaseConvLayer_):
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
+        assert isinstance(kernel_size, tuple)
+        assert len(kernel_size) == 2
         super().__init__(
             in_channels,
             out_channels,
@@ -331,7 +341,7 @@ class ConvTranspose3dVariational(BaseConvLayer_):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: int,
+        kernel_size: tuple[int],
         stride: int = 1,
         padding: int = 0,
         dilation: int = 1,
@@ -367,6 +377,8 @@ class ConvTranspose3dVariational(BaseConvLayer_):
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
+        assert isinstance(kernel_size, tuple)
+        assert len(kernel_size) == 3
         super().__init__(
             in_channels,
             out_channels,
