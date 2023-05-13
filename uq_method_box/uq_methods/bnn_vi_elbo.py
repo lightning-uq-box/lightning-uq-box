@@ -16,7 +16,7 @@ from .loss_functions import NLL
 from .utils import dnn_to_bnn_some, process_model_prediction
 
 
-class BayesByBackpropModel(BaseModel):
+class BNN_VI_ELBO(BaseModel):
     """Bayes By Backprop Model with Variational Inference (VI)."""
 
     def __init__(
