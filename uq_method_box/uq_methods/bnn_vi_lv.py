@@ -204,9 +204,10 @@ class BNN_LV_VI(BNN_VI):
         log_f_hat = []
         log_f_hat_latent_net = []
 
-        # assume homoscedastic noise with std output_noise_scale
-        output_var = torch.ones_like(y)  # * (torch.exp(self.log_aleatoric_std))
+        # learn output noise 
+        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std))**2
 
+        
         # draw samples for all stochastic functions
         for i in range(self.hparams.num_mc_samples_train):
             # mean prediction

@@ -152,7 +152,8 @@ class BNN_VI(BaseModel):
         log_f_hat = []
 
         # assume homoscedastic noise with std output_noise_scale
-        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std))
+        
+        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std))**2
 
         # draw samples for all stochastic functions
         for i in range(self.hparams.num_mc_samples_train):
