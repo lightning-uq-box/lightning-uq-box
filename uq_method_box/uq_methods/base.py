@@ -1,10 +1,9 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
-
 import torch
 import torch.nn as nn
 from lightning import LightningModule
@@ -23,7 +22,7 @@ class BaseModel(LightningModule):
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
         loss_fn: nn.Module,
-        save_dir: str = None,
+        save_dir: Optional[str] = None,
     ) -> None:
         """Initialize a new Base Model.
 
@@ -158,7 +157,7 @@ class BaseModel(LightningModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def test_step(self, *args: Any, **kwargs: Any) -> None:
+    def test_step(self, *args: Any, **kwargs: Any) -> dict[str, np.ndarray]:
         """Test step."""
         X, y = args[0]
         out_dict = self.predict_step(X)
@@ -200,7 +199,4 @@ class BaseModel(LightningModule):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
         optimizer = self.optimizer(params=self.parameters())
-        # optimizer = self.hparams.optimizer(
-        #     self.model.parameters(), **self.hparams.optimizer_args
-        # )
         return {"optimizer": optimizer}

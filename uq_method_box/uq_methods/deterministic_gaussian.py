@@ -26,9 +26,8 @@ class DeterministicGaussianModel(BaseModel):
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of Deterministic Gaussian Model."""
-        super().__init__(model, optimizer, None, save_dir)
+        super().__init__(model, optimizer, NLL(), save_dir)
 
-        self.loss_fn = NLL()
         self.hparams["quantiles"] = quantiles
         self.hparams["burnin_epochs"] = burnin_epochs
         self.hparams["max_epochs"] = max_epochs

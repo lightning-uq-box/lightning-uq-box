@@ -66,7 +66,7 @@ def compute_predictive_uncertainty(
 
 def compute_sample_mean_std_from_quantile(
     inter_range_quantiles: np.ndarray, quantiles: list[float]
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray]:
     """Compute sample mean and std from inter quantiles.
 
     Taken from: https://stats.stackexchange.com/questions/256456/
@@ -115,8 +115,8 @@ def compute_quantiles_from_std(
             p = dist.ppf(ppf)
             ppfs[ppf].append(p)
 
-    quantiles = np.stack(list(ppfs.values()), axis=-1)
-    return quantiles
+    computed_quantiles: np.ndarray = np.stack(list(ppfs.values()), axis=-1)
+    return computed_quantiles
 
 
 def compute_empirical_coverage(quantile_preds: np.ndarray, targets: np.ndarray):

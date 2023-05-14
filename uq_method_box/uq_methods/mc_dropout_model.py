@@ -79,7 +79,7 @@ class MCDropoutModel(BaseModel):
 
         return loss
 
-    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def test_step(self, *args: Any, **kwargs: Any) -> dict[str, np.ndarray]:
         """Test Step."""
         X, y = args[0]
         out_dict = self.predict_step(X)
@@ -106,6 +106,5 @@ class MCDropoutModel(BaseModel):
                 .detach()
                 .numpy()
             )  # shape [batch_size, num_outputs, num_samples]
-
 
         return process_model_prediction(preds, self.hparams.quantiles)

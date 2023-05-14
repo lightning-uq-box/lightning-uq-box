@@ -75,7 +75,8 @@ class DERModel(BaseModel):
             loss_fn: string name of loss function to use
             save_dir: directory path to save predictions
         """
-        super().__init__(model, optimizer, None, save_dir)
+        # need to give control over the coeff through config or argument
+        super().__init__(model, optimizer, DERLoss(), save_dir)
 
         # check that output is 4 dimensional
         # _, output_module = list(self.model.named_children())[-1]
@@ -85,14 +86,9 @@ class DERModel(BaseModel):
         # add DER Layer
         self.model = nn.Sequential(self.model, DERLayer())
 
-        # set DER Loss
-        self.loss_fn = (
-            DERLoss()
-        )  # need to give control over the coeff through config or argument
-
         self.hparams["quantiles"] = quantiles
 
-    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def test_step(self, *args: Any, **kwargs: Any) -> dict[str, np.ndarray]:
         """Test step with Laplace Approximation.
 
         Args:

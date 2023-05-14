@@ -139,9 +139,7 @@ class LaplaceModel(LightningModule):
 
             self.laplace_fitted = True
 
-        # save this laplace fitted model as a checkpoint?!
-
-    def test_step(self, *args: Any, **kwargs: Any) -> None:
+    def test_step(self, *args: Any, **kwargs: Any) -> dict[str, np.ndarray]:
         """Test step."""
         X, y = args[0]
         out_dict = self.predict_step(X)
