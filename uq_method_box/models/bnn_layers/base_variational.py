@@ -205,6 +205,7 @@ class BaseConvLayer_(BaseVariationalLayer_):
 
         # define the bayesian parameters
         self.define_bayesian_parameters()
+        self.freeze = False
 
     def define_bayesian_parameters(self):
         """Define Bayesian Parameters."""
@@ -271,17 +272,29 @@ class BaseConvLayer_(BaseVariationalLayer_):
             outputs of layer if type="reparameterization"
             outputs+perturbed of layer for type="flipout"
         """
+
+                
+        if self.freeze:
+            eps_weight = self.eps_weight
+        else:
+            eps_weight = self.eps_weight.data.normal_()
+        
         # compute variance of weight from unconstrained variable rho_kernel
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
-        eps_weight = self.eps_weight.data.normal_()
         # compute delta_weight
         delta_weight = sigma_weight * eps_weight
 
         bias = None
+
+
+
         if self.bias:
+            if self.freeze:
+                eps_bias = self.eps_bias
+            else:
+                eps_bias = self.eps_bias.data.normal_()
             # compute variance of bias from unconstrained variable rho_bias
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            eps_bias = self.eps_bias.data.normal_()
             # compute delta_bias
             delta_bias = sigma_bias * eps_bias
             bias = self.mu_bias + delta_bias

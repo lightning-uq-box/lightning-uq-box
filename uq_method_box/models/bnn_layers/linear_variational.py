@@ -116,20 +116,32 @@ class LinearVariational(BaseVariationalLayer_):
 
         # compute bias and delta_bias if available
         bias = None
+        if self.freeze:
+            eps_weight = self.eps_weight
+        else:
+            eps_weight = self.eps_weight.data.normal_()
+
+
         if self.mu_bias is not None:
+            if self.freeze:
+                eps_bias = self.eps_bias
+            else:
+                eps_bias = self.eps_bias.data.normal_()
+
+
             # compute variance of bias from unconstrained variable rho_bias
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            delta_bias = sigma_bias * self.eps_bias.data.normal_()
+            delta_bias = sigma_bias * eps_bias
             bias = self.mu_bias + delta_bias
 
         # forward pass with chosen layer type
         if self.layer_type == "reparameterization":
             # sample weight via reparameterization trick
-            weight = self.mu_weight + (sigma_weight * self.eps_weight.data.normal_())
+            weight = self.mu_weight + (sigma_weight * eps_weight)
             output = F.linear(x, weight, bias)
         else:
             # sampling delta_W
-            delta_weight = sigma_weight * self.eps_weight.data.normal_()
+            delta_weight = sigma_weight * eps_weight
             # linear outputs
             out = F.linear(x, self.mu_weight, self.mu_bias)
             # flipout
