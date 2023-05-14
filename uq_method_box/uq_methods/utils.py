@@ -2,7 +2,7 @@
 
 import os
 from collections import defaultdict
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -12,10 +12,7 @@ from bayesian_torch.models.dnn_to_bnn import (
     bnn_linear_layer,
     bnn_lstm_layer,
 )
-
 from torch import Tensor
-from torch.optim import SGD, Adam
-
 
 from uq_method_box.eval_utils import (
     compute_aleatoric_uncertainty,
@@ -23,8 +20,6 @@ from uq_method_box.eval_utils import (
     compute_predictive_uncertainty,
     compute_quantiles_from_std,
 )
-
-from .loss_functions import NLL, QuantileLoss
 
 
 def process_model_prediction(
@@ -71,37 +66,6 @@ def process_model_prediction(
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
         }
-
-
-def retrieve_loss_fn(
-    loss_fn_name: str, quantiles: Optional[list[float]] = None
-) -> nn.Module:
-    """Retrieve the desired loss function.
-
-    Args:
-        loss_fn_name: name of the loss function, one of ['mse', 'nll', 'quantile']
-
-    Returns
-        desired loss function module
-    """
-    if loss_fn_name == "mse":
-        return nn.MSELoss()
-    elif loss_fn_name == "nll":
-        return NLL()
-    elif loss_fn_name == "quantile":
-        return QuantileLoss(quantiles)
-    elif loss_fn_name is None:
-        return None
-    else:
-        raise ValueError("Your loss function choice is not supported.")
-
-
-def retrieve_optimizer(optimizer_name: str):
-    """Retrieve an optimizer."""
-    if optimizer_name == "sgd":
-        return SGD
-    elif optimizer_name == "adam":
-        return Adam
 
 
 def merge_list_of_dictionaries(list_of_dicts: list[dict[str, Any]]):
@@ -170,6 +134,7 @@ def dnn_to_bnn_some(m, bnn_prior_parameters, num_stochastic_modules: int):
         else:
             pass
     return
+
 
 def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:
     """Retrieve the output layer name and module from a pytorch model.
