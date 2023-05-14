@@ -118,8 +118,6 @@ class SGLDModel(BaseModel):
         self.hparams["noise_factor"] = noise_factor
         self.hparams["quantiles"] = quantiles
         self.hparams["lr"] = lr
-        self.hparams["weight_decay"] = weight_decay
-        self.hparams["noise_factor"] = noise_factor
 
         self.train_loader = train_loader
         self.model_ckpt_list: list[str] = []
