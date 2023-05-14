@@ -12,10 +12,8 @@ from bayesian_torch.models.dnn_to_bnn import (
     bnn_linear_layer,
     bnn_lstm_layer,
 )
-
 from torch import Tensor
 from torch.optim import SGD, Adam
-
 
 from uq_method_box.eval_utils import (
     compute_aleatoric_uncertainty,
@@ -47,6 +45,7 @@ def process_model_prediction(
         sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
         mean = mean_samples.mean(-1)
         std = compute_predictive_uncertainty(mean_samples, sigma_samples)
+        std[std <= 0] = 1e-6
         aleatoric = compute_aleatoric_uncertainty(sigma_samples)
         epistemic = compute_epistemic_uncertainty(mean_samples)
         quantiles = compute_quantiles_from_std(mean, std, quantiles)
@@ -62,6 +61,7 @@ def process_model_prediction(
     else:
         mean = mean_samples.mean(-1)
         std = mean_samples.std(-1)
+        std[std <= 0] = 1e-6
         quantiles = compute_quantiles_from_std(mean, std, quantiles)
 
         return {
@@ -170,6 +170,7 @@ def dnn_to_bnn_some(m, bnn_prior_parameters, num_stochastic_modules: int):
         else:
             pass
     return
+
 
 def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:
     """Retrieve the output layer name and module from a pytorch model.

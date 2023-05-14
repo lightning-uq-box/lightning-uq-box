@@ -1,7 +1,6 @@
 """UQ-Methods as Lightning Modules."""
 
 from .base import BaseModel
-from .bnn_vi import BayesianNeuralNetwork_VI
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
 from .deep_evidential_regression import DERModel
@@ -34,8 +33,6 @@ __all__ = (
     "SGLDModel",
     # Deep Evidential Regression Model
     "DERModel",
-    # Bayesian Neural Network trained with Variational Inference
-    "BayesianNeuralNetwork_VI",
     # Loss Functions
     "NLL",
     "QuantileLoss",
