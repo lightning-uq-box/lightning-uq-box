@@ -101,6 +101,7 @@ class SGLDModel(BaseModel):
             weight_decay: weight decay parameter for SGLD optimizer
             noise_factor: parameter denoting how much noise to inject in the SGD update
             burnin_epochs: number of epochs to fit mse loss
+            max_epochs: maximum number of epochs to run sgld
             n_sgld_samples: number of sgld samples to collect
             quantiles:
 
