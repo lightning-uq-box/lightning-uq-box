@@ -77,11 +77,7 @@ class LaplaceModel(LightningModule):
             number of input dimension to the model
         """
         _, module = _get_output_layer_name_and_module(self.model)
-        if hasattr(module, "out_features"):  # Linear Layer
-            num_outputs = module.out_features
-        elif hasattr(module, "out_channels"):  # Conv Layer
-            num_outputs = module.out_channels
-        return num_outputs
+        return module.out_features
 
     def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
         """Fitted Laplace Model Forward Pass.

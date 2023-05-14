@@ -10,4 +10,4 @@ uq_method:
   n_sgld_samples: 5
   weight_decay: 0.1
   noise_factor: 0.2
-  burnin_epochs: 5
+  burnin_epochs: 1

@@ -32,29 +32,6 @@ class NLL(nn.Module):
         return loss
 
 
-class TheirNLL(nn.Module):
-    """NLL Loss from Wilson papers.
-
-    https://github.com/wjmaddox/drbayes/blob/0c0c32edade51f1ec471753b7bf258f40bf8fdd6/subspace_inference/losses.py#L4
-
-    """
-
-    def __init__(self, *args, **kwargs) -> None:
-        """Initialize a new instance."""
-        super().__init__(*args, **kwargs)
-
-    def forward(self, preds: Tensor, target: Tensor):
-        """Compute loss."""
-        mean = preds[:, 0].view_as(target)
-        var = preds[:, 1].view_as(target)
-
-        mse = torch.nn.functional.mse_loss(mean, target, reduction="none")
-        mean_portion = mse / (2 * var)
-        var_portion = 0.5 * torch.log(var)
-        loss = mean_portion + var_portion
-        return loss.mean()
-
-
 class QuantileLoss(nn.Module):
     """Quantile or Pinball Loss function."""
 

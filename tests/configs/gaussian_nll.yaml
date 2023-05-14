@@ -8,5 +8,5 @@ uq_method:
     _target_: torch.optim.SGD
     _partial_: true
     lr: 0.003
-  burnin_epochs: 5
-  max_epochs: 10
+  burnin_epochs: 1
+  max_epochs: 2

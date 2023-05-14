@@ -47,12 +47,13 @@ class TestLaplaceModel:
     def test_forward(self, laplace_model: LaplaceModel) -> None:
         """Test forward pass of conformalized model."""
         n_inputs = laplace_model.num_inputs
+        n_outputs = laplace_model.num_outputs
         X = torch.randn(5, n_inputs)
         # output of laplace like it is in the libray
         out = laplace_model(X)
         assert isinstance(out, tuple)
-        assert out[0].shape[-1] == 1
-        assert out[-1].shape[-1] == 1
+        assert out[0].shape[-1] == n_outputs
+        assert out[-1].shape[-1] == n_outputs
 
     def test_predict_step(self, laplace_model: LaplaceModel) -> None:
         """Test predict step outside of Lightning Trainer."""

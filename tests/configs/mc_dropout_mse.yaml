@@ -12,5 +12,5 @@ uq_method:
   loss_fn:
     _target_: torch.nn.MSELoss
   num_mc_samples: 10
-  burnin_epochs: 5
-  max_epochs: 10
+  burnin_epochs: 1
+  max_epochs: 2
