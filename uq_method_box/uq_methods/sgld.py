@@ -124,9 +124,6 @@ class SGLDModel(BaseModel):
         self.train_loader = train_loader
         self.model_ckpt_list: list[str] = []
 
-        # manual optimization with SGLD optimizer
-        self.automatic_optimization = False
-
         self.sgld_fitted = False
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
