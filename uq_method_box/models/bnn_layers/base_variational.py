@@ -57,6 +57,8 @@ class BaseVariationalLayer_(nn.Module):
             layer_type in self.valid_layer_types
         ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
         self.layer_type = layer_type
+        self.freeze = False
+
 
     def define_bayesian_parameters(self):
         """Define Bayesian parameters."""
@@ -115,7 +117,7 @@ class BaseVariationalLayer_(nn.Module):
         """
         # compute variance of weight from unconstrained variable rho_weight
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
-        delta_weight = sigma_weight * self.eps_weight.data.normal_()
+        delta_weight = sigma_weight * self.eps_weight
 
         # sampling weight
         weight = self.mu_weight + delta_weight
@@ -133,7 +135,7 @@ class BaseVariationalLayer_(nn.Module):
         # first sample bias
         if self.mu_bias is not None:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            delta_bias = sigma_bias * self.eps_bias.data.normal_()
+            delta_bias = sigma_bias * self.eps_bias
             bias = self.mu_bias + delta_bias
             # compute log_f_hat for weights and biases
             log_f_hat = log_f_hat + calc_log_f_hat(
@@ -205,7 +207,6 @@ class BaseConvLayer_(BaseVariationalLayer_):
 
         # define the bayesian parameters
         self.define_bayesian_parameters()
-        self.freeze = False
 
     def define_bayesian_parameters(self):
         """Define Bayesian Parameters."""
