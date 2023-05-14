@@ -107,7 +107,7 @@ class LinearVariational(LinearReparameterization):
         """
         # compute variance of weight from unconstrained variable rho_weight
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
-        delta_weight = sigma_weight * self.eps_weight.data.normal_()
+        delta_weight = sigma_weight * self.eps_weight
 
         # sampling weight
         weight = self.mu_weight + delta_weight
@@ -125,7 +125,7 @@ class LinearVariational(LinearReparameterization):
         # first sample bias
         if self.mu_bias is not None:
             sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            delta_bias = sigma_bias * self.eps_bias.data.normal_()
+            delta_bias = sigma_bias * self.eps_bias
             bias = self.mu_bias + delta_bias
             # compute log_f_hat for weights and biases
             log_f_hat = log_f_hat + calc_log_f_hat(
