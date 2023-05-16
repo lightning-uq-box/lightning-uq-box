@@ -2,7 +2,7 @@
 
 import os
 from collections import defaultdict
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import pandas as pd
@@ -66,6 +66,41 @@ def process_model_prediction(
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
         }
+
+
+def map_stochastic_modules(
+    model: nn.Module, part_stoch_module_names: Union[None, list[str, int]]
+) -> list[str]:
+    """Retrieve desired stochastic module names from user arg.
+
+    Args:
+        model: model from which to retrieve the module names
+        stochastic_module_names: argument to uq_method for partial stochasticity
+
+    Returns:
+        list of desired partially stochastic module names
+    """
+    module_names = [name for name, val in list(model.named_parameters())]  # all
+    # split of weight/bias
+    module_names = [".".join(name.split(".")[:-1]) for name in module_names]
+    # remove duplicates due to weight/bias
+    module_names = list(set(module_names))
+
+    if not part_stoch_module_names:  # None means fully stochastic
+        part_stoch_names = module_names.copy()
+    elif all(isinstance(elem, int) for elem in part_stoch_module_names):
+        part_stoch_names = [
+            module_names[idx] for idx in part_stoch_module_names
+        ]  # retrieve last ones
+    elif all(isinstance(elem, str) for elem in part_stoch_module_names):
+        assert set(part_stoch_module_names).issubset(module_names), (
+            f"Model only contains these parameter modules {module_names}, "
+            f"and you requested {part_stoch_module_names}."
+        )
+        part_stoch_names = module_names.copy()
+    else:
+        raise ValueError
+    return part_stoch_names
 
 
 def merge_list_of_dictionaries(list_of_dicts: list[dict[str, Any]]):
