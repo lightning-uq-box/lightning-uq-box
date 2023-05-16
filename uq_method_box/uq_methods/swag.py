@@ -255,9 +255,12 @@ class SWAGModel(BaseModel):
     def on_test_start(self) -> None:
         """Fit the SWAG approximation."""
         if not self.swag_fitted:
-            swag_optimizer = torch.optim.SGD(
-                self.model.parameters(), lr=self.hparams.swag_lr
-            )
+            swag_params: list[nn.Parameter] = [
+                param
+                for name, param in self.model.named_parameters()
+                if name in self.model_w_and_b_module_names
+            ]
+            swag_optimizer = torch.optim.SGD(swag_params, lr=self.hparams.swag_lr)
 
             # lightning automatically disables gradient computation during test
             with torch.inference_mode(False):
