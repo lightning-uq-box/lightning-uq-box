@@ -7,59 +7,6 @@ import torch.nn as nn
 
 import uq_method_box.models.bnn_layers as bayesian_layers
 
-# --------------------------------------------------------------------------------
-# Parameters used to define BNN layyers.
-#       "prior_mu": 0.0,
-#       "prior_sigma": 1.0,
-#       "posterior_mu_init": 0.0,
-#       "posterior_rho_init": -4.0,
-#       "type": "reparameterization",  # Flipout or Reparameterization
-
-
-def deterministic_linear_layer(
-    current_layer: nn.Linear, updated_args: dict[Union[str, int, float]]
-) -> nn.Linear:
-    """Reinitialize a nn.Linear Layer with updated args.
-
-    Args:
-        current_layer: layer that should be updated
-
-    Returns:
-        nn.Linear layer with updated arguments
-    """
-    current_args = {
-        "in_features": current_layer.in_features,
-        "out_features": current_layer.out_features,
-        "bias": current_layer.bias,
-    }
-    new_args = current_args.update(updated_args)
-    return nn.Linear(**new_args)
-
-
-def deterministic_conv_layer(
-    current_layer: Union[nn.Conv1d, nn.Conv2d, nn.Conv3d],
-    updated_args: dict[Union[str, int, float]],
-) -> Union[nn.Conv1d, nn.Conv2d, nn.Conv3d]:
-    """Reinitialize a nn.Conv Layer with updated args.
-
-    Args:
-        current_layer: layer that should be updated
-
-    Returns:
-        nn.Conv layer with update arguments
-    """
-    current_args = {
-        "in_channels": current_layer.in_channels,
-        "out_channels": current_layer.out_channels,
-        "kernel_size": current_layer.kernel_size,
-        "stride": current_layer.stride,
-        "padding": current_layer.padding,
-        "dilation": current_layer.dilation,
-        "groups": current_layer.groups,
-    }
-    new_args = current_args.update(updated_args)
-    return current_layer.__class__(**new_args)
-
 
 def bnnlv_linear_layer(params, d):
     """Convert deterministic linear layer to bayesian linear layer."""
@@ -213,12 +160,6 @@ def retrieve_module_init_args(
     for name in current_init_arg_names:
         if name == "bias":
             current_args[name] = current_module.bias is not None
-            continue
-        elif name == "posterior_mu_init":
-            current_args[name] = current_module.posterior_mu_init[0]
-            continue
-        elif name == "posterior_rho_init":
-            current_args[name] = current_module.posterior_rho_init[0]
             continue
         try:
             current_args[name] = getattr(current_module, name)

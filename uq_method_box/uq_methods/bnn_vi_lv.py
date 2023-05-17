@@ -43,7 +43,8 @@ class BNN_LV_VI(BNN_VI):
         optimizer: type[torch.optim.Optimizer],
         save_dir: str,
         num_training_points: int,
-        part_stoch_module_names: list[Union[str, int]] = 1,
+        prediction_head: Optional[nn.Module] = None,
+        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
         latent_variable_intro: str = "first",
         num_mc_samples_train: int = 25,
         num_mc_samples_test: int = 50,
@@ -70,6 +71,7 @@ class BNN_LV_VI(BNN_VI):
             optimizer:
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
+            prediction_head: prediction head that will be attached to the model
             part_stoch_module_names:
             latent_variable_intro:
             num_mc_samples_train: number of MC samples during training when computing
@@ -121,6 +123,8 @@ class BNN_LV_VI(BNN_VI):
         self.hparams["lv_latent_dim"] = lv_latent_dim
         self.hparams["init_scaling"] = init_scaling
 
+        self.prediction_head = prediction_head
+
         self._setup_bnn_with_vi_lv(latent_net)
 
     def _setup_bnn_with_vi_lv(self, latent_net: nn.Module) -> None:
@@ -135,33 +139,40 @@ class BNN_LV_VI(BNN_VI):
 
         if self.hparams.latent_variable_intro == "first":
             module_name, module = _get_input_layer_name_and_module(self.model)
-            new_init_args: dict[str, Union[str, int, float]] = {}
-            module_class_name = module.__class__.__name__
-            if "Linear" in module_class_name:
-                new_init_args["in_features"] = (
-                    module.in_features + self.hparams.lv_latent_dim
-                )
-                lv_init_std = math.sqrt(module.in_features)
-            elif "Conv" in module_class_name:
-                new_init_args["in_channels"] = (
-                    module.in_channels + self.hparams.lv_latent_dim
-                )
-                lv_init_std = math.sqrt(module.in_channels)
-            else:
-                raise ValueError
 
+            if "Conv" in module.__class__.__name__:
+                raise ValueError(
+                    "First layer cannot be Convolutional Layer if "
+                    "*latent_variable_intro* is 'first'. Please use 'last' instead."
+                )
+
+            lv_init_std = math.sqrt(module.in_features)
+            new_init_args: dict[str, Union[str, int, float]] = {}
+            new_init_args["in_features"] = (
+                module.in_features + self.hparams.lv_latent_dim
+            )
             current_args = retrieve_module_init_args(module)
             current_args.update(new_init_args)
             replace_module(self.model, module_name, module.__class__(**current_args))
-        else:
+        else:  # last layer
             last_module_args["in_features"] = (
                 last_module_args["in_features"] + self.hparams.lv_latent_dim
             )
 
-        # add our own final layer to respect possible custom forward pass
-        # import pdb
-        # pdb.set_trace()
-        self.final_output_module = last_module.__class__(**last_module_args)
+        if not self.prediction_head and self.hparams.latent_variable_intro == "first":
+            # keep last module
+            self.prediction_head = last_module.__class__(**last_module_args)
+        elif not self.prediction_head and self.hparams.latent_variable_intro == "last":
+            # provide a default
+            self.prediction_head = nn.Sequential(
+                nn.Linear(last_module_args["in_features"], 50),
+                nn.ReLU(),
+                nn.Linear(50, last_module_args["out_features"]),
+            )
+        else:
+            # use existing prediction head
+            _, module = _get_input_layer_name_and_module(self.prediction_head)
+            assert last_module_args["in_features"] == module.in_features
 
         _, lv_output_module = _get_output_layer_name_and_module(latent_net)
         assert lv_output_module.out_features == self.hparams.lv_latent_dim * 2, (
@@ -199,7 +210,7 @@ class BNN_LV_VI(BNN_VI):
                 z = torch.randn(X.shape[0], self.hparams.lv_latent_dim).to(self.device)
             X = torch.cat([X, z], -1)  # [batch_size, n_hidden[?]+1]
             X = self.model(X)
-            X = self.final_output_module(X)
+            X = self.prediction_head(X)
         else:
             X = self.model(X)
             # introduce lv
@@ -209,7 +220,7 @@ class BNN_LV_VI(BNN_VI):
             else:
                 z = torch.randn(X.shape[0], self.hparams.lv_latent_dim).to(self.device)
             X = torch.cat([X, z], -1)  # [batch_size, n_hidden[?]+1]
-            X = self.final_output_module(X)
+            X = self.prediction_head(X)
 
         return X
 
@@ -243,7 +254,7 @@ class BNN_LV_VI(BNN_VI):
             pred_losses.append(self.nll_loss(pred, y, output_var))
             # dim=1
             # collect log f hat from all module parts
-            log_f_hat.append(get_log_f_hat([self.model, self.final_output_module]))
+            log_f_hat.append(get_log_f_hat([self.model, self.prediction_head]))
             # latent net
             log_f_hat_latent_net.append(self.lv_net.log_f_hat_z)
 
@@ -253,8 +264,8 @@ class BNN_LV_VI(BNN_VI):
         energy_loss = self.energy_loss_module(
             torch.stack(pred_losses, dim=0),
             torch.stack(log_f_hat, dim=0),
-            get_log_Z_prior([self.model, self.final_output_module]),
-            get_log_normalizer([self.model, self.final_output_module]),
+            get_log_Z_prior([self.model, self.prediction_head]),
+            get_log_normalizer([self.model, self.prediction_head]),
             self.lv_net.log_normalizer_z,  # log_normalizer_z
             torch.stack(log_f_hat_latent_net, dim=0),  # log_f_hat_z
         )
