@@ -1,7 +1,6 @@
 """UQ-Methods as Lightning Modules."""
 
 from .base import BaseModel
-from .bayes_by_backprop import BayesByBackpropModel
 from .bnn_vi import BNN_VI
 from .bnn_vi_lv import BNN_LV_VI
 from .cqr_model import CQR
@@ -40,8 +39,6 @@ __all__ = (
     "BNN_VI",
     # BNN with Latent Variables
     "BNN_LV_VI",
-    # Bayes By Backprop
-    "BayesByBackpropModel",
     # Loss Functions
     "NLL",
     "QuantileLoss",

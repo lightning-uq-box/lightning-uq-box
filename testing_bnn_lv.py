@@ -58,7 +58,7 @@ base_model = BNN_LV_VI(
     optimizer=partial(torch.optim.Adam, lr=6e-3),
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
-    stochastic_module_names=["model.6"],
+    part_stoch_module_names=["model.6"],
     latent_variable_intro="first",
     num_mc_samples_train=10,
     num_mc_samples_test=50,

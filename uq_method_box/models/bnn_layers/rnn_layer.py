@@ -1,17 +1,20 @@
-"""LSTM Variational Layer adapted for Alpha Divergence."""
+"""LSTM Variational Layer adapted for Alpha Divergence.
+
+These are based on the Bayesian-torch library
+https://github.com/IntelLabs/bayesian-torch (BSD-3 clause) but
+adjusted to be trained with the Energy Loss.
+"""
 
 import math
 
 import torch
-from bayesian_torch.layers.variational_layers.rnn_variational import (
-    LSTMReparameterization,
-)
 from torch import Tensor
 
+from .base_variational import BaseVariationalLayer_
 from .linear_variational import LinearVariational
 
 
-class LSTMVariational(LSTMReparameterization):
+class LSTMVariational(BaseVariationalLayer_):
     """LSTM Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -25,12 +28,7 @@ class LSTMVariational(LSTMReparameterization):
         bias: bool = True,
         layer_type: str = "reparameterization",
     ):
-        """
-        Implement LSTM layer with reparameterization trick.
-
-        Inherits from bayesian_torch.layers.variational_layers.rnn_variational,
-        LSTMReparameterization. Works for Reparameterization
-        or Flipout reparameterization.
+        """Initialize a new instance of LSTM Variational Layer.
 
         Parameters:
             prior_mean: mean of the prior arbitrary
@@ -44,7 +42,6 @@ class LSTMVariational(LSTMReparameterization):
             in_features: size of each input sample,
             out_features: size of each output sample,
             bias: if set to False, the layer will not learn an additive bias.
-                Default: True.
             type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
@@ -80,6 +77,10 @@ class LSTMVariational(LSTMReparameterization):
             bias=bias,
             layer_type=layer_type,
         )
+
+    def define_bayesian_parameters(self):
+        """Define Bayesian parameters."""
+        pass
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.

@@ -19,6 +19,7 @@ from uq_method_box.models.bnnlv.utils import (
 
 from .base import BaseModel
 from .loss_functions import EnergyAlphaDivergence
+from .utils import map_stochastic_modules
 
 
 class BNN_VI(BaseModel):
@@ -33,7 +34,7 @@ class BNN_VI(BaseModel):
         optimizer: type[torch.optim.Optimizer],
         save_dir: str,
         num_training_points: int,
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
         num_mc_samples_train: int = 25,
         num_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -52,7 +53,7 @@ class BNN_VI(BaseModel):
             optimizer:
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
-            stochastic_module_names:
+            part_stoch_module_names:
             num_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             num_mc_samples_test: number of MC samples during test and prediction
@@ -76,8 +77,6 @@ class BNN_VI(BaseModel):
 
         self.save_hyperparameters(ignore=["model"])
 
-        self._setup_bnn_with_vi()
-
         # update hyperparameters
         self.hparams["num_mc_samples_train"] = num_mc_samples_train
         self.hparams["num_mc_samples_test"] = num_mc_samples_test
@@ -90,9 +89,13 @@ class BNN_VI(BaseModel):
         self.hparams["posterior_mu_init"] = posterior_mu_init
         self.hparams["posterior_rho_init"] = posterior_rho_init
         self.hparams["num_training_points"] = num_training_points
-        self.hparams["stochastic_module_names"] = stochastic_module_names
+        self.hparams["part_stoch_module_names"] = map_stochastic_modules(
+            self.model, part_stoch_module_names
+        )
         self.hparams["alpha"] = alpha
         self.hparams["layer_type"] = layer_type
+
+        self._setup_bnn_with_vi()
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
@@ -109,7 +112,7 @@ class BNN_VI(BaseModel):
         # model_module_names = [module[0] for module in model_modules]
 
         dnn_to_bnnlv_some(
-            self.model, self.bnn_args, self.hparams.stochastic_module_names
+            self.model, self.bnn_args, self.hparams.part_stoch_module_names
         )
 
         # need individual nlls of a gaussian, as we first do logsumexp over samples
@@ -155,8 +158,8 @@ class BNN_VI(BaseModel):
         log_f_hat = []
 
         # assume homoscedastic noise with std output_noise_scale
-        
-        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std))**2
+
+        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
 
         # draw samples for all stochastic functions
         for i in range(self.hparams.num_mc_samples_train):

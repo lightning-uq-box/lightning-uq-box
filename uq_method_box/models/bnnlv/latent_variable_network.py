@@ -5,7 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from .layers.utils import calc_log_normalizer
+from uq_method_box.models.bnn_layers.utils import calc_log_normalizer
+
 
 def calc_log_f_hat_z(
     z: Tensor, m_z: Tensor, std_z: Tensor, prior_variance: float
@@ -31,6 +32,8 @@ def calc_log_f_hat_z(
         ((v_z - prior_variance) / (2 * prior_variance * v_z)) * (z**2)
         + (m_z / v_z) * z
     ).sum(-1)
+
+
 class LatentVariableNetwork(nn.Module):
     """Latent Variable Network for BNN+LV."""
 

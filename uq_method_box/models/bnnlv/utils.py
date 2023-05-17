@@ -5,7 +5,7 @@ from typing import Union
 
 import torch.nn as nn
 
-import uq_method_box.models.bnnlv.layers as bayesian_layers
+import uq_method_box.models.bnn_layers as bayesian_layers
 
 # --------------------------------------------------------------------------------
 # Parameters used to define BNN layyers.
@@ -233,7 +233,7 @@ def retrieve_module_init_args(
 def dnn_to_bnnlv_some(
     m: nn.Module,
     bnn_prior_parameters: dict[str, Union[str, float]],
-    stochastic_module_names: list[str],
+    part_stoch_module_names: list[str],
 ) -> None:
     """Replace linear and conv. layers with stochastic layers.
 
@@ -257,14 +257,14 @@ def dnn_to_bnnlv_some(
 
     for name, value in replace_modules:
         if m._modules[name]._modules:
-            stochastic_module_names = [
+            part_stoch_module_names = [
                 module_name.removeprefix(name + ".")
-                for module_name in stochastic_module_names
+                for module_name in part_stoch_module_names
             ]
             dnn_to_bnnlv_some(
-                m._modules[name], bnn_prior_parameters, stochastic_module_names
+                m._modules[name], bnn_prior_parameters, part_stoch_module_names
             )
-        if name in stochastic_module_names:
+        if name in part_stoch_module_names:
             if "Conv" in m._modules[name].__class__.__name__:
                 setattr(
                     m, name, bnnlv_conv_layer(bnn_prior_parameters, m._modules[name])

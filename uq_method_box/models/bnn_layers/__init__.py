@@ -1,4 +1,6 @@
-"""Initialize layers."""
+"""Variational Layers."""
+
+from .base_variational import BaseConvLayer_, BaseVariationalLayer_
 from .conv_variational import (
     Conv1dVariational,
     Conv2dVariational,
@@ -8,18 +10,23 @@ from .conv_variational import (
     ConvTranspose3dVariational,
 )
 from .linear_variational import LinearVariational
-from .rnn_variational import LSTMVariational
+from .rnn_layer import LSTMVariational
+from .utils import calc_log_f_hat, calc_log_normalizer
 
 __all__ = (
-    # Linear Layers
+    "BaseVariationalLayer_",
+    "BaseConvLayer_",
     "LinearVariational",
     # Conv Layers
     "Conv1dVariational",
     "Conv2dVariational",
     "Conv3dVariational",
+    "LSTMVariational",
+    # Conv Transpose Layers
     "ConvTranspose1dVariational",
     "ConvTranspose2dVariational",
     "ConvTranspose3dVariational",
-    # Variational Layers
-    "LSTMVariational",
+    # utitlities
+    "calc_log_f_hat",
+    "calc_log_normalizer",
 )

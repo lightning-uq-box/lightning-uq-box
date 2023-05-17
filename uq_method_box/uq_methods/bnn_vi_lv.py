@@ -43,7 +43,7 @@ class BNN_LV_VI(BNN_VI):
         optimizer: type[torch.optim.Optimizer],
         save_dir: str,
         num_training_points: int,
-        stochastic_module_names: list[Union[str, int]] = 1,
+        part_stoch_module_names: list[Union[str, int]] = 1,
         latent_variable_intro: str = "first",
         num_mc_samples_train: int = 25,
         num_mc_samples_test: int = 50,
@@ -70,7 +70,7 @@ class BNN_LV_VI(BNN_VI):
             optimizer:
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
-            stochastic_module_names:
+            part_stoch_module_names:
             latent_variable_intro:
             num_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
@@ -98,7 +98,7 @@ class BNN_LV_VI(BNN_VI):
             optimizer,
             save_dir,
             num_training_points,
-            stochastic_module_names,
+            part_stoch_module_names,
             num_mc_samples_train,
             num_mc_samples_test,
             output_noise_scale,
@@ -230,10 +230,9 @@ class BNN_LV_VI(BNN_VI):
         log_f_hat = []
         log_f_hat_latent_net = []
 
-        # learn output noise 
-        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std))**2
+        # learn output noise
+        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
 
-        
         # draw samples for all stochastic functions
         for i in range(self.hparams.num_mc_samples_train):
             # mean prediction
