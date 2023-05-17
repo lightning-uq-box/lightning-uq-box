@@ -111,9 +111,9 @@ def map_stochastic_modules(
     Returns:
         list of desired partially stochastic module names
     """
-    module_names = [name for name, val in list(model.named_parameters())]  # all
+    ordered_module_names = [name for name, val in list(model.named_parameters())]  # all
     # split of weight/bias
-    module_names = [".".join(name.split(".")[:-1]) for name in module_names]
+    module_names = [".".join(name.split(".")[:-1]) for name in ordered_module_names]
     # remove duplicates due to weight/bias
     module_names = list(set(module_names))
 
@@ -121,7 +121,7 @@ def map_stochastic_modules(
         part_stoch_names = module_names.copy()
     elif all(isinstance(elem, int) for elem in part_stoch_module_names):
         part_stoch_names = [
-            module_names[idx] for idx in part_stoch_module_names
+            ordered_module_names[idx] for idx in part_stoch_module_names
         ]  # retrieve last ones
     elif all(isinstance(elem, str) for elem in part_stoch_module_names):
         assert set(part_stoch_module_names).issubset(module_names), (
