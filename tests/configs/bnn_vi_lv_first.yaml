@@ -1,9 +1,14 @@
 uq_method:
-  _target_: uq_method_box.uq_methods.BNN_VI
+  _target_: uq_method_box.uq_methods.BNN_LV_VI
   model:
     _target_: uq_method_box.models.MLP
     n_outputs: 1
     n_hidden: [50]
+  latent_net:
+    _target_: uq_method_box.models.MLP
+    n_outputs: 2
+    n_inputs: 2
+    n_hidden: [10,10]
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true

@@ -15,12 +15,8 @@ def bnnlv_linear_layer(params, d):
     bnn_layer = layer_fn(
         in_features=d.in_features,
         out_features=d.out_features,
-        prior_mean=params["prior_mu"],
-        prior_variance=params["prior_sigma"],
-        posterior_mu_init=params["posterior_mu_init"],
-        posterior_rho_init=params["posterior_rho_init"],
         bias=d.bias is not None,
-        layer_type=params["layer_type"],
+        **params,
     )
     return bnn_layer
 
@@ -37,12 +33,8 @@ def bnnlv_conv_layer(params, d):
         padding=d.padding,
         dilation=d.dilation,
         groups=d.groups,
-        prior_mean=params["prior_mu"],
-        prior_variance=params["prior_sigma"],
-        posterior_mu_init=params["posterior_mu_init"],
-        posterior_rho_init=params["posterior_rho_init"],
         bias=d.bias is not None,
-        layer_type=params["layer_type"],
+        **params,
     )
     return bnn_layer
 
@@ -54,12 +46,8 @@ def bnnlv_lstm_layer(params, d):
     bnn_layer = layer_fn(
         in_features=d.input_size,
         out_features=d.hidden_size,
-        prior_mean=params["prior_mu"],
-        prior_variance=params["prior_sigma"],
-        posterior_mu_init=params["posterior_mu_init"],
-        posterior_rho_init=params["posterior_rho_init"],
         bias=d.bias is not None,
-        layer_type=params["layer_type"],
+        **params,
     )
     return bnn_layer
 
@@ -81,9 +69,15 @@ def get_log_normalizer(models: list[nn.Module]):
         for layer in m.modules():
             if hasattr(layer, "log_normalizer"):
                 if log_normalizer is None:
-                    log_normalizer = layer.log_normalizer()
+                    try:
+                        log_normalizer = layer.log_normalizer()
+                    except TypeError:
+                        log_normalizer = layer.log_normalizer
                 else:
-                    log_normalizer += layer.log_normalizer()
+                    try:
+                        log_normalizer += layer.log_normalizer()
+                    except TypeError:
+                        log_normalizer += log_normalizer
     return log_normalizer
 
 
@@ -103,9 +97,15 @@ def get_log_f_hat(models: list[nn.Module]):
         for layer in m.modules():
             if hasattr(layer, "log_f_hat"):
                 if log_f_hat is None:
-                    log_f_hat = layer.log_f_hat()
+                    try:
+                        log_f_hat = layer.log_f_hat()
+                    except TypeError:
+                        log_f_hat = layer.log_f_hat
                 else:
-                    log_f_hat += layer.log_f_hat()
+                    try:
+                        log_f_hat += layer.log_f_hat()
+                    except TypeError:
+                        log_f_hat = layer.log_f_hat
     return log_f_hat
 
 

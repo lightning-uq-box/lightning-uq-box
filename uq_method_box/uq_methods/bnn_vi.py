@@ -2,14 +2,13 @@
 
 from typing import Any, Optional, Union
 
+import einops
 import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
-
-# this is almost like get kl_loss
 from uq_method_box.models.bnnlv.utils import (
     dnn_to_bnnlv_some,
     get_log_f_hat,
@@ -35,8 +34,8 @@ class BNN_VI(BaseModel):
         save_dir: str,
         num_training_points: int,
         part_stoch_module_names: Optional[list[Union[str, int]]] = None,
-        num_mc_samples_train: int = 25,
-        num_mc_samples_test: int = 50,
+        n_mc_samples_train: int = 25,
+        n_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
         prior_mu: float = 0.0,
         prior_sigma: float = 1.0,
@@ -46,7 +45,7 @@ class BNN_VI(BaseModel):
         layer_type: str = "reparameterization",
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new instace of BNN+LV.
+        """Initialize a new instace of BNN VI.
 
         Args:
             model:
@@ -54,9 +53,9 @@ class BNN_VI(BaseModel):
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
             part_stoch_module_names:
-            num_mc_samples_train: number of MC samples during training when computing
+            n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
-            num_mc_samples_test: number of MC samples during test and prediction
+            n_mc_samples_test: number of MC samples during test and prediction
             output_noise_scale: scale of predicted sigmas
             prior_mu: prior mean value for bayesian layer
             prior_sigma: prior variance value for bayesian layer
@@ -67,56 +66,42 @@ class BNN_VI(BaseModel):
             type: Bayesian layer_type type, "reparametrization" or "flipout"
 
         Raises:
-            AssertionError: if ``num_mc_samples_train`` is not positive.
-            AssertionError: if ``num_mc_samples_test`` is not positive.
+            AssertionError: if ``n_mc_samples_train`` is not positive.
+            AssertionError: if ``n_mc_samples_test`` is not positive.
         """
         super().__init__(model, optimizer, None, save_dir)
 
-        assert num_mc_samples_train > 0, "Need to sample at least once during training."
-        assert num_mc_samples_test > 0, "Need to sample at least once during testing."
+        assert n_mc_samples_train > 0, "Need to sample at least once during training."
+        assert n_mc_samples_test > 0, "Need to sample at least once during testing."
 
-        self.save_hyperparameters(ignore=["model"])
+        # update hparams
+        self.save_hyperparameters(ignore=["model", "latent_net"])
 
-        # update hyperparameters
-        self.hparams["num_mc_samples_train"] = num_mc_samples_train
-        self.hparams["num_mc_samples_test"] = num_mc_samples_test
-        self.hparams["quantiles"] = quantiles
-        self.hparams["weight_decay"] = 1e-5
-        self.hparams["output_noise_scale"] = output_noise_scale
-
-        self.hparams["prior_mu"] = prior_mu
-        self.hparams["prior_sigma"] = prior_sigma
-        self.hparams["posterior_mu_init"] = posterior_mu_init
-        self.hparams["posterior_rho_init"] = posterior_rho_init
-        self.hparams["num_training_points"] = num_training_points
-        self.hparams["part_stoch_module_names"] = map_stochastic_modules(
+        self.part_stoch_module_names = map_stochastic_modules(
             self.model, part_stoch_module_names
         )
-        self.hparams["alpha"] = alpha
-        self.hparams["layer_type"] = layer_type
 
         self._setup_bnn_with_vi()
 
-    def _setup_bnn_with_vi(self) -> None:
-        """Configure setup of the BNN Model."""
-        self.bnn_args = {
+    def _define_bnn_args(self):
+        """Define BNN Args."""
+        return {
             "prior_mu": self.hparams.prior_mu,
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
             "layer_type": self.hparams.layer_type,
         }
-        # TODO check what is num_stocha
-        # convert deterministic model to BNN
-        # model_modules = list(self.model.named_modules())
-        # model_module_names = [module[0] for module in model_modules]
 
+    def _setup_bnn_with_vi(self) -> None:
+        """Configure setup of the BNN Model."""
         dnn_to_bnnlv_some(
-            self.model, self.bnn_args, self.hparams.part_stoch_module_names
+            self.model, self._define_bnn_args(), self.part_stoch_module_names
         )
 
         # need individual nlls of a gaussian, as we first do logsumexp over samples
         # cannot sum over batch size first as logsumexp is non-linear
+        # TODO: do we support training with aleatoric output noise?
         self.nll_loss = nn.GaussianNLLLoss(reduction="none")
 
         self.energy_loss_module = EnergyAlphaDivergence(
@@ -129,7 +114,6 @@ class BNN_VI(BaseModel):
             torch.tensor([-2.5 for _ in range(1)], device=self.device)
         )
 
-    # can we add the latent variable here?
     def forward(self, X: Tensor) -> Tensor:
         """Forward pass BNN+LI.
 
@@ -151,7 +135,7 @@ class BNN_VI(BaseModel):
         Returns:
             energy loss and mean output for logging
             mean_out: mean output over samples,
-            dim [num_mc_samples_train, output_dim]
+            dim [n_mc_samples_train, output_dim]
         """
         model_preds = []
         pred_losses = []
@@ -162,7 +146,7 @@ class BNN_VI(BaseModel):
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
 
         # draw samples for all stochastic functions
-        for i in range(self.hparams.num_mc_samples_train):
+        for i in range(self.hparams.n_mc_samples_train):
             # mean prediction
             pred = self.forward(X)
             model_preds.append(pred)
@@ -172,9 +156,12 @@ class BNN_VI(BaseModel):
             # dim=1
             log_f_hat.append(get_log_f_hat([self.model]))
 
-        # model_preds [num_mc_samples_train, batch_size, output_dim]
+        # model_preds [n_mc_samples_train, batch_size, output_dim]
         mean_out = torch.stack(model_preds, dim=0).mean(dim=0)
 
+        import pdb
+
+        pdb.set_trace()
         # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
         energy_loss = self.energy_loss_module(
             torch.stack(pred_losses, dim=0),
@@ -231,22 +218,18 @@ class BNN_VI(BaseModel):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        model_preds = []
-
-        # output from forward: [num_samples, batch_size, outputs]
+        # output from forward: [n_samples, batch_size, outputs]
         with torch.no_grad():
-            # draw samples for all stochastic functions
-            for i in range(self.hparams.num_mc_samples_test):
-                # mean prediction
-                pred = self.forward(X)
-                model_preds.append(pred.detach())
-                # model_preds [num_mc_samples_train, batch_size, output_dim]
+            model_preds = [
+                self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
+            ]
 
-        # model_preds [num_mc_samples_train, batch_size, output_dim]
+        # model_preds [n_mc_samples_test, batch_size, output_dim]
         model_preds = torch.stack(model_preds, dim=0)
 
         mean_out = model_preds.mean(dim=0).squeeze(-1).cpu().numpy()
         std = model_preds.std(dim=0).squeeze(-1).cpu().numpy()
+        std[std <= 0] = 1e-6
 
         # currently only single output, might want to support NLL output as well
         quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
@@ -301,3 +284,149 @@ class BNN_VI(BaseModel):
 
         optimizer = self.optimizer(params=params)
         return optimizer
+
+
+class BNN_VI_Batched(BNN_VI):
+    """Batched sampling version of BNN_VI."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        optimizer: type[torch.optim.Optimizer],
+        save_dir: str,
+        num_training_points: int,
+        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
+        n_mc_samples_train: int = 25,
+        n_mc_samples_test: int = 50,
+        output_noise_scale: float = 1.3,
+        prior_mu: float = 0,
+        prior_sigma: float = 1,
+        posterior_mu_init: float = 0,
+        posterior_rho_init: float = -5,
+        alpha: float = 1,
+        layer_type: str = "reparameterization",
+        quantiles: list[float] = [0.1, 0.5, 0.9],
+    ) -> None:
+        """Initialize a new instace of BNN VI Batched.
+
+        Args:
+            model:
+            optimizer:
+            save_dir: directory path to save
+            num_training_points: number of data points contained in the training dataset
+            part_stoch_module_names:
+            n_mc_samples_train: number of MC samples during training when computing
+                the energy loss
+            n_mc_samples_test: number of MC samples during test and prediction
+            output_noise_scale: scale of predicted sigmas
+            prior_mu: prior mean value for bayesian layer
+            prior_sigma: prior variance value for bayesian layer
+            posterior_mu_init: mean initialization value for approximate posterior
+            posterior_rho_init: variance initialization value for approximate posterior
+                through softplus σ = log(1 + exp(ρ))
+            alpha: alpha divergence parameter
+            type: Bayesian layer_type type, "reparametrization" or "flipout"
+
+        Raises:
+            AssertionError: if ``n_mc_samples_train`` is not positive.
+            AssertionError: if ``n_mc_samples_test`` is not positive.
+        """
+        super().__init__(
+            model,
+            optimizer,
+            save_dir,
+            num_training_points,
+            part_stoch_module_names,
+            n_mc_samples_train,
+            n_mc_samples_test,
+            output_noise_scale,
+            prior_mu,
+            prior_sigma,
+            posterior_mu_init,
+            posterior_rho_init,
+            alpha,
+            layer_type,
+            quantiles,
+        )
+
+    def _define_bnn_args(self):
+        """Define BNN Args."""
+        return {
+            "prior_mu": self.hparams.prior_mu,
+            "prior_sigma": self.hparams.prior_sigma,
+            "posterior_mu_init": self.hparams.posterior_mu_init,
+            "posterior_rho_init": self.hparams.posterior_rho_init,
+            "layer_type": self.hparams.layer_type,
+            "batched_samples": True,
+            "max_n_samples": max(
+                self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
+            ),
+        }
+
+    def forward(self, X: Tensor, n_samples: int = 5) -> Tensor:
+        """Forward pass BNN+LI.
+
+        Args:
+            X: input data
+            n_samples: number of samples to compute
+
+        Returns:
+            bnn output
+        """
+        batched_sample_X = einops.repeat(X, "b f -> s b f", s=n_samples)
+        return self.model(batched_sample_X)
+
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
+        """Compute the loss for BNN with alpha divergence.
+
+        Args:
+            X: input tensor
+            y: target tensor
+
+        Returns:
+            energy loss and mean output for logging
+            mean_out: mean output over samples,
+            dim [n_mc_samples_train, output_dim]
+        """
+        out = self.forward(
+            X, n_samples=self.hparams.n_mc_samples_train
+        )  # [n_samples, batch_size, output_dim]
+
+        y = einops.repeat(y, "b f -> s b f", s=self.hparams.n_mc_samples_train)
+
+        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
+        energy_loss = self.energy_loss_module(
+            self.nll_loss(out, y, output_var),
+            get_log_f_hat([self.model]),
+            get_log_Z_prior([self.model]),
+            get_log_normalizer([self.model]),
+            log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
+            log_f_hat_z=torch.zeros(1).to(self.device),  # log_f_hat_z
+        )
+        return energy_loss, out.mean(dim=0)
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+        """
+        # output from forward: [n_samples, batch_size, outputs]
+        with torch.no_grad():
+            model_preds = self.forward(X, self.hparams.n_mc_samples_test)
+
+        mean_out = model_preds.mean(dim=0).squeeze(-1).cpu().numpy()
+        std = model_preds.std(dim=0).squeeze(-1).cpu().numpy()
+        std[std <= 0] = 1e-6
+
+        # currently only single output, might want to support NLL output as well
+        quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
+        return {
+            "mean": mean_out,
+            "pred_uct": std,
+            "epistemic_uct": std,
+            "lower_quant": quantiles[:, 0],
+            "upper_quant": quantiles[:, -1],
+        }

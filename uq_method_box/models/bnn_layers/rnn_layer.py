@@ -21,8 +21,8 @@ class LSTMVariational(BaseVariationalLayer_):
         self,
         in_features: int,
         out_features: int,
-        prior_mean: float = 0.0,
-        prior_variance: float = 1.0,
+        prior_mu: float = 0.0,
+        prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
@@ -31,9 +31,9 @@ class LSTMVariational(BaseVariationalLayer_):
         """Initialize a new instance of LSTM Variational Layer.
 
         Parameters:
-            prior_mean: mean of the prior arbitrary
+            prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
-            prior_variance: variance of the prior
+            prior_sigma: variance of the prior
                 arbitrary distribution to be used on the complexity cost,
             posterior_mu_init: init std for the trainable mu parameter,
                 sampled from N(0, posterior_mu_init),
@@ -48,8 +48,8 @@ class LSTMVariational(BaseVariationalLayer_):
         super().__init__(
             in_features,
             out_features,
-            prior_mean,
-            prior_variance,
+            prior_mu,
+            prior_sigma,
             posterior_mu_init,
             posterior_rho_init,
             bias,
@@ -57,8 +57,8 @@ class LSTMVariational(BaseVariationalLayer_):
         )
 
         self.ih = LinearVariational(
-            prior_mean=prior_mean,
-            prior_variance=prior_variance,
+            prior_mu=prior_mu,
+            prior_sigma=prior_sigma,
             posterior_mu_init=posterior_mu_init,
             posterior_rho_init=posterior_rho_init,
             in_features=in_features,
@@ -68,8 +68,8 @@ class LSTMVariational(BaseVariationalLayer_):
         )
 
         self.hh = LinearVariational(
-            prior_mean=prior_mean,
-            prior_variance=prior_variance,
+            prior_mu=prior_mu,
+            prior_sigma=prior_sigma,
             posterior_mu_init=posterior_mu_init,
             posterior_rho_init=posterior_rho_init,
             in_features=out_features,
@@ -94,9 +94,7 @@ class LSTMVariational(BaseVariationalLayer_):
             + self.ih.mu_bias.numel()
             + self.ih.mu_bias.numel()
         )
-        return torch.tensor(
-            0.5 * n_params * math.log(self.prior_variance * 2 * math.pi)
-        )
+        return torch.tensor(0.5 * n_params * math.log(self.prior_sigma * 2 * math.pi))
 
     def log_f_hat(self):
         """Compute log_f_hat for energy functional.

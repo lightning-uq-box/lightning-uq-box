@@ -9,7 +9,7 @@ from uq_method_box.models.bnn_layers.utils import calc_log_normalizer
 
 
 def calc_log_f_hat_z(
-    z: Tensor, m_z: Tensor, std_z: Tensor, prior_variance: float
+    z: Tensor, m_z: Tensor, std_z: Tensor, prior_sigma: float
 ) -> Tensor:
     """Compute single summand in equation 3.16.
 
@@ -17,7 +17,7 @@ def calc_log_f_hat_z(
         z: samples from lv [mb_size, lv_latent_dim]
         m_z: mean of latent variables [mb_size, lv_latent_dim]
         std_z: sigma weight matrix of latent variables [mb_size, lv_latent_dim]
-        prior_variance: Prior variance of latent variables
+        prior_sigma: Prior variance of latent variables
 
     Returns:
         log f hat summed over the latent dimension
@@ -29,8 +29,7 @@ def calc_log_f_hat_z(
     # assuming prior mean is 0 and moving N calculation outside
 
     return (
-        ((v_z - prior_variance) / (2 * prior_variance * v_z)) * (z**2)
-        + (m_z / v_z) * z
+        ((v_z - prior_sigma) / (2 * prior_sigma * v_z)) * (z**2) + (m_z / v_z) * z
     ).sum(-1)
 
 
@@ -43,7 +42,6 @@ class LatentVariableNetwork(nn.Module):
         num_training_points: int,
         lv_prior_mu: float = 0.0,
         lv_prior_std: float = 5.0,
-        # lv_init_mu: float = 0.0,
         lv_latent_dim: int = 1,
         lv_init_std: float = 1.0,
         init_scaling: float = 0.01,
@@ -67,7 +65,6 @@ class LatentVariableNetwork(nn.Module):
                 default: sqrt(d), where d is the dimension of the
                 features in the net layer to which the lv's
                 are added.
-            #lv_init_mu: this is never used
             lv_init_std: Initialized standard deviation of lv's.
             lv_latent_dim: dimension of latent variables z.
                 Default: 1.
@@ -86,13 +83,7 @@ class LatentVariableNetwork(nn.Module):
 
         self.init_scaling = init_scaling
 
-        # the following variables are not used for amortized inference
-        # self.lv_init_mu = lv_init_mu
-
         self.z_mu = torch.tensor(0.0)
-
-        # the below variable isn't used?
-        # self.z_log_sigma = torch.tensor(np.log(np.expm1(self.lv_init_std)))
 
         self.log_f_hat_z = None
         self.log_normalizer_z = None
@@ -149,7 +140,7 @@ class LatentVariableNetwork(nn.Module):
         latent_samples = z_mu + z_std * weights_eps
 
         self.log_f_hat_z = calc_log_f_hat_z(
-            latent_samples, z_mu, z_std, prior_variance=self.lv_prior_std**2
+            latent_samples, z_mu, z_std, prior_sigma=self.lv_prior_std**2
         )
         self.log_normalizer_z = calc_log_normalizer(z_mu, z_std)
 

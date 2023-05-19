@@ -2,7 +2,7 @@
 
 These are based on the Bayesian-torch library
 https://github.com/IntelLabs/bayesian-torch (BSD-3 clause) but
-adjusted to reduce code duplication and to be trained with the Energy Loss.
+adjusted to be trained with the Energy Loss.
 """
 
 import torch.nn.functional as F
@@ -22,8 +22,8 @@ class Conv1dVariational(BaseConvLayer_):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
-        prior_mean: float = 0.0,
-        prior_variance: float = 1.0,
+        prior_mu: float = 0.0,
+        prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
@@ -40,9 +40,9 @@ class Conv1dVariational(BaseConvLayer_):
             dilation: spacing between kernel elements. Default: 1,
             groups: number of blocked connections
                 from input channels to output channels,
-            prior_mean: mean of the prior arbitrary
+            prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
-            prior_variance: variance of the prior arbitrary
+            prior_sigma: variance of the prior arbitrary
                 distribution to be used on the complexity cost,
             posterior_mu_init: init trainable mu parameter
                 representing mean of the approximate posterior,
@@ -63,8 +63,8 @@ class Conv1dVariational(BaseConvLayer_):
             padding,
             dilation,
             groups,
-            prior_mean,
-            prior_variance,
+            prior_mu,
+            prior_sigma,
             posterior_mu_init,
             posterior_rho_init,
             bias,
@@ -87,8 +87,8 @@ class Conv2dVariational(BaseConvLayer_):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
-        prior_mean: float = 0.0,
-        prior_variance: float = 1.0,
+        prior_mu: float = 0.0,
+        prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
@@ -105,9 +105,9 @@ class Conv2dVariational(BaseConvLayer_):
             dilation: spacing between kernel elements. Default: 1,
             groups: number of blocked connections
                 from input channels to output channels,
-            prior_mean: mean of the prior arbitrary
+            prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
-            prior_variance: variance of the prior arbitrary
+            prior_sigma: variance of the prior arbitrary
                 distribution to be used on the complexity cost,
             posterior_mu_init: init trainable mu parameter
                 representing mean of the approximate posterior,
@@ -128,8 +128,8 @@ class Conv2dVariational(BaseConvLayer_):
             padding,
             dilation,
             groups,
-            prior_mean,
-            prior_variance,
+            prior_mu,
+            prior_sigma,
             posterior_mu_init,
             posterior_rho_init,
             bias,
@@ -151,8 +151,8 @@ class Conv3dVariational(BaseConvLayer_):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
-        prior_mean: float = 0.0,
-        prior_variance: float = 1.0,
+        prior_mu: float = 0.0,
+        prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
@@ -169,9 +169,9 @@ class Conv3dVariational(BaseConvLayer_):
             dilation: spacing between kernel elements. Default: 1,
             groups: number of blocked connections
                 from input channels to output channels,
-            prior_mean: mean of the prior arbitrary
+            prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
-            prior_variance: variance of the prior arbitrary
+            prior_sigma: variance of the prior arbitrary
                 distribution to be used on the complexity cost,
             posterior_mu_init: init trainable mu parameter
                 representing mean of the approximate posterior,
@@ -192,8 +192,8 @@ class Conv3dVariational(BaseConvLayer_):
             padding,
             dilation,
             groups,
-            prior_mean,
-            prior_variance,
+            prior_mu,
+            prior_sigma,
             posterior_mu_init,
             posterior_rho_init,
             bias,
@@ -218,8 +218,8 @@ class ConvTranspose1dVariational(BaseConvLayer_):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
-        prior_mean: float = 0.0,
-        prior_variance: float = 1.0,
+        prior_mu: float = 0.0,
+        prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
@@ -236,9 +236,9 @@ class ConvTranspose1dVariational(BaseConvLayer_):
             dilation: spacing between kernel elements. Default: 1,
             groups: number of blocked connections
                 from input channels to output channels,
-            prior_mean: mean of the prior arbitrary
+            prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
-            prior_variance: variance of the prior arbitrary
+            prior_sigma: variance of the prior arbitrary
                 distribution to be used on the complexity cost,
             posterior_mu_init: init trainable mu parameter
                 representing mean of the approximate posterior,
@@ -259,8 +259,8 @@ class ConvTranspose1dVariational(BaseConvLayer_):
             padding,
             dilation,
             groups,
-            prior_mean,
-            prior_variance,
+            prior_mu,
+            prior_sigma,
             posterior_mu_init,
             posterior_rho_init,
             bias,
@@ -282,8 +282,8 @@ class ConvTranspose2dVariational(BaseConvLayer_):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
-        prior_mean: float = 0.0,
-        prior_variance: float = 1.0,
+        prior_mu: float = 0.0,
+        prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
@@ -300,9 +300,9 @@ class ConvTranspose2dVariational(BaseConvLayer_):
             dilation: spacing between kernel elements. Default: 1,
             groups: number of blocked connections
                 from input channels to output channels,
-            prior_mean: mean of the prior arbitrary
+            prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
-            prior_variance: variance of the prior arbitrary
+            prior_sigma: variance of the prior arbitrary
                 distribution to be used on the complexity cost,
             posterior_mu_init: init trainable mu parameter
                 representing mean of the approximate posterior,
@@ -323,8 +323,8 @@ class ConvTranspose2dVariational(BaseConvLayer_):
             padding,
             dilation,
             groups,
-            prior_mean,
-            prior_variance,
+            prior_mu,
+            prior_sigma,
             posterior_mu_init,
             posterior_rho_init,
             bias,
@@ -346,8 +346,8 @@ class ConvTranspose3dVariational(BaseConvLayer_):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
-        prior_mean: float = 0.0,
-        prior_variance: float = 1.0,
+        prior_mu: float = 0.0,
+        prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
@@ -364,9 +364,9 @@ class ConvTranspose3dVariational(BaseConvLayer_):
             dilation: spacing between kernel elements. Default: 1,
             groups: number of blocked connections
                 from input channels to output channels,
-            prior_mean: mean of the prior arbitrary
+            prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
-            prior_variance: variance of the prior arbitrary
+            prior_sigma: variance of the prior arbitrary
                 distribution to be used on the complexity cost,
             posterior_mu_init: init trainable mu parameter
                 representing mean of the approximate posterior,
@@ -387,8 +387,8 @@ class ConvTranspose3dVariational(BaseConvLayer_):
             padding,
             dilation,
             groups,
-            prior_mean,
-            prior_variance,
+            prior_mu,
+            prior_sigma,
             posterior_mu_init,
             posterior_rho_init,
             bias,
