@@ -33,7 +33,7 @@ class UCINaval(UCIRegressionDataset):
         """
         super().__init__(root, train_size, seed, calibration_set)
 
-    def load_data(self) -> tuple[np.ndarray]:
+    def load_data(self) -> tuple["np.typing.NDArray[np.float_]"]:
         """Load the Naval dataset."""
         data = pd.read_fwf(self.datapath, header=None).values
         # NB this is the first output

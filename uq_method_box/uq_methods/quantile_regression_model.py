@@ -48,7 +48,7 @@ class QuantileRegressionModel(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, "np.typing.NDArray[np.float_]"]:
         """Predict step with Quantile Regression.
 
         Args:

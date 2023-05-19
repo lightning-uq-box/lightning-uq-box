@@ -88,7 +88,9 @@ class DERModel(BaseModel):
 
         self.hparams["quantiles"] = quantiles
 
-    def test_step(self, *args: Any, **kwargs: Any) -> dict[str, np.ndarray]:
+    def test_step(
+        self, *args: Any, **kwargs: Any
+    ) -> dict[str, "np.typing.NDArray[np.float_]"]:
         """Test step with Laplace Approximation.
 
         Args:
@@ -145,7 +147,10 @@ class DERModel(BaseModel):
         return out[:, 0:1]
 
     def compute_aleatoric_uct(
-        self, beta: np.ndarray, alpha: np.ndarray, nu: np.ndarray
+        self,
+        beta: "np.typing.NDArray[np.float_]",
+        alpha: "np.typing.NDArray[np.float_]",
+        nu: "np.typing.NDArray[np.float_]",
     ) -> Tensor:
         """Compute the aleatoric uncertainty for DER model.
 
@@ -162,7 +167,9 @@ class DERModel(BaseModel):
         # Equation 10 from the above paper
         return np.sqrt(np.divide(beta * (1 + nu), alpha * nu))
 
-    def compute_epistemic_uct(self, nu: np.ndarray) -> np.ndarray:
+    def compute_epistemic_uct(
+        self, nu: "np.typing.NDArray[np.float_]"
+    ) -> "np.typing.NDArray[np.float_]":
         """Compute the aleatoric uncertainty for DER model.
 
         Equation 10:

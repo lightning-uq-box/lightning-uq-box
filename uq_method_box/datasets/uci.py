@@ -86,7 +86,7 @@ class UCIRegressionDataset:
 
         self.num_features = self.X_train.shape[-1]
 
-    def load_data(self) -> tuple[np.ndarray]:
+    def load_data(self) -> tuple["np.typing.NDArray[np.float_]"]:
         """Load the data from the file."""
         raise NotImplementedError
 
@@ -125,30 +125,6 @@ class UCIRegressionDataset:
             torch.from_numpy(self.X_test).to(torch.float32),
             torch.from_numpy(self.y_test).to(torch.float32),
         )
-
-    # def compute_normalization_statistics(
-    #     self, X_train: np.ndarray, y_train: np.ndarray
-    # ) -> None:
-    #     """Compute the normalization statistics.
-
-    #     Args:
-    #         X_train: training features of shape [N x num_features]
-    #         y_train: training targets of shape [N x 1]
-    #     """
-    #     self.X_mean, self.X_std = X_train.mean(axis=0), X_train.std(axis=0)
-    #     self.y_mean, self.y_std = y_train.mean(axis=0), y_train.std(axis=0)
-
-    # def preprocess(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray]:
-    #     """Preprocess the training and testing data.
-
-    #     Args:
-    #         X: feature matrix of shape [N x num_features]
-    #         y: targets of shape [N x 1]
-
-    #     Returns:
-    #         processed versions of data
-    #     """
-    #     return (X - self.X_mean) / self.X_std, (y - self.y_mean) / self.y_std
 
     def verify(self) -> None:
         """Verify presence of data."""

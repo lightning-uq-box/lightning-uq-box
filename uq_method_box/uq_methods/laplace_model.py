@@ -83,7 +83,7 @@ class LaplaceModel(LightningModule):
             num_outputs = module.out_channels
         return num_outputs
 
-    def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
+    def forward(self, X: Tensor, **kwargs: Any) -> "np.typing.NDArray[np.float_]":
         """Fitted Laplace Model Forward Pass.
 
         Args:
@@ -139,7 +139,9 @@ class LaplaceModel(LightningModule):
 
             self.laplace_fitted = True
 
-    def test_step(self, *args: Any, **kwargs: Any) -> dict[str, np.ndarray]:
+    def test_step(
+        self, *args: Any, **kwargs: Any
+    ) -> dict[str, "np.typing.NDArray[np.float_]"]:
         """Test step."""
         X, y = args[0]
         out_dict = self.predict_step(X)
@@ -148,7 +150,7 @@ class LaplaceModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, np.ndarray],
+        outputs: dict[str, "np.typing.NDArray[np.float_]"],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,
@@ -160,7 +162,7 @@ class LaplaceModel(LightningModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, "np.typing.NDArray[np.float_]"]:
         """Predict step with Laplace Approximation.
 
         Args:

@@ -74,7 +74,7 @@ class DeterministicGaussianModel(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, "np.typing.NDArray[np.float_]"]:
         """Prediction step.
 
         Args:

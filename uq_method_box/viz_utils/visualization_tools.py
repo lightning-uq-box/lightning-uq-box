@@ -35,7 +35,10 @@ def plot_training_metrics(save_dir: str) -> plt.figure:
 
 
 def plot_toy_data(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
+    X_train: "np.typing.NDArray[np.float_]",
+    y_train: "np.typing.NDArray[np.float_]",
+    X_test: "np.typing.NDArray[np.float_]",
+    y_test: "np.typing.NDArray[np.float_]",
 ):
     """Plot the toy data.
 
@@ -54,15 +57,15 @@ def plot_toy_data(
 
 
 def plot_predictions(
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_test: np.ndarray,
-    y_test: np.ndarray,
-    y_pred: np.ndarray,
-    pred_std: Optional[np.ndarray] = None,
-    pred_quantiles: Optional[np.ndarray] = None,
-    epistemic: Optional[np.ndarray] = None,
-    aleatoric: Optional[np.ndarray] = None,
+    X_train: "np.typing.NDArray[np.float_]",
+    y_train: "np.typing.NDArray[np.float_]",
+    X_test: "np.typing.NDArray[np.float_]",
+    y_test: "np.typing.NDArray[np.float_]",
+    y_pred: "np.typing.NDArray[np.float_]",
+    pred_std: Optional["np.typing.NDArray[np.float_]"] = None,
+    pred_quantiles: Optional["np.typing.NDArray[np.float_]"] = None,
+    epistemic: Optional["np.typing.NDArray[np.float_]"] = None,
+    aleatoric: Optional["np.typing.NDArray[np.float_]"] = None,
     title: str = None,
 ) -> None:
     """Plot predictive uncertainty as well as epistemic and aleatoric separately.
@@ -163,7 +166,10 @@ def plot_predictions(
 
 
 def plot_calibration_uq_toolbox(
-    y_pred: np.ndarray, pred_std: np.ndarray, y_test: np.ndarray, x_test: np.ndarray
+    y_pred: "np.typing.NDArray[np.float_]",
+    pred_std: "np.typing.NDArray[np.float_]",
+    y_test: "np.typing.NDArray[np.float_]",
+    x_test: "np.typing.NDArray[np.float_]",
 ) -> None:
     """Plot calibration from uq_toolbox.
 

@@ -23,7 +23,9 @@ from .utils import (
 
 
 def compute_q_hat_with_cqr(
-    cal_preds: np.ndarray, cal_labels: np.ndarray, error_rate: float
+    cal_preds: "np.typing.NDArray[np.float_]",
+    cal_labels: "np.typing.NDArray[np.float_]",
+    error_rate: float,
 ) -> float:
     """Compute q_hat which is the adjustment factor for quantiles.
 
@@ -119,7 +121,7 @@ class CQR(LightningModule):
             num_outputs = module.out_channels
         return num_outputs
 
-    def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
+    def forward(self, X: Tensor, **kwargs: Any) -> "np.typing.NDArray[np.float_]":
         """Conformalized Forward Pass.
 
         Args:
@@ -133,7 +135,9 @@ class CQR(LightningModule):
 
         # predict with underlying model
         with torch.no_grad():
-            model_preds: dict[str, np.ndarray] = self.model.predict_step(X)
+            model_preds: dict[
+                str, "np.typing.NDArray[np.float_]"
+            ] = self.model.predict_step(X)
 
         # conformalize predictions
         cqr_sets = np.stack(
@@ -159,7 +163,9 @@ class CQR(LightningModule):
             )
             self.cqr_fitted = True
 
-    def compute_calibration_scores(self) -> tuple[np.ndarray, np.ndarray]:
+    def compute_calibration_scores(
+        self,
+    ) -> tuple["np.typing.NDArray[np.float_]", "np.typing.NDArray[np.float_]"]:
         """Compute calibration scores."""
         # model predict steps return a dictionary that contains quantiles
         outputs = [
@@ -186,7 +192,7 @@ class CQR(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, np.ndarray],
+        outputs: dict[str, "np.typing.NDArray[np.float_]"],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,

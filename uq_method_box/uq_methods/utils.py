@@ -24,7 +24,7 @@ from uq_method_box.eval_utils import (
 
 def process_model_prediction(
     preds: Tensor, quantiles: list[float]
-) -> dict[str, np.ndarray]:
+) -> dict[str, "np.typing.NDArray[np.float_]"]:
     """Process model predictions that could be mse or nll predictions.
 
     Args:
@@ -79,7 +79,9 @@ def merge_list_of_dictionaries(list_of_dicts: list[dict[str, Any]]):
     return merged_dict
 
 
-def save_predictions_to_csv(outputs: dict[str, np.ndarray], path: str) -> None:
+def save_predictions_to_csv(
+    outputs: dict[str, "np.typing.NDArray[np.float_]"], path: str
+) -> None:
     """Save model predictions to csv file.
 
     Args:

@@ -71,7 +71,7 @@ class DeepEnsembleModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, np.ndarray],
+        outputs: dict[str, "np.typing.NDArray[np.float_]"],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,

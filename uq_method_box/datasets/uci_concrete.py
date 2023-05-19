@@ -33,7 +33,7 @@ class UCIConcrete(UCIRegressionDataset):
         """
         super().__init__(root, train_size, seed, calibration_set)
 
-    def load_data(self) -> tuple[np.ndarray]:
+    def load_data(self) -> tuple["np.typing.NDArray[np.float_]"]:
         """Load the Concrete dataset."""
         data = pd.read_excel(self.datapath).values
         return data[:, :-1], data[:, -1].reshape(-1, 1)

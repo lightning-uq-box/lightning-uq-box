@@ -157,7 +157,9 @@ class BaseModel(LightningModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def test_step(self, *args: Any, **kwargs: Any) -> dict[str, np.ndarray]:
+    def test_step(
+        self, *args: Any, **kwargs: Any
+    ) -> dict[str, "np.typing.NDArray[np.float_]"]:
         """Test step."""
         X, y = args[0]
         out_dict = self.predict_step(X)
@@ -166,7 +168,7 @@ class BaseModel(LightningModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, "np.typing.NDArray[np.float_]"]:
         """Prediction step.
 
         Args:
@@ -180,7 +182,7 @@ class BaseModel(LightningModule):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, np.ndarray],
+        outputs: dict[str, "np.typing.NDArray[np.float_]"],
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,

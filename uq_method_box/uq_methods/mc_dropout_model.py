@@ -79,7 +79,9 @@ class MCDropoutModel(BaseModel):
 
         return loss
 
-    def test_step(self, *args: Any, **kwargs: Any) -> dict[str, np.ndarray]:
+    def test_step(
+        self, *args: Any, **kwargs: Any
+    ) -> dict[str, "np.typing.NDArray[np.float_]"]:
         """Test Step."""
         X, y = args[0]
         out_dict = self.predict_step(X)
@@ -88,7 +90,7 @@ class MCDropoutModel(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, "np.typing.NDArray[np.float_]"]:
         """Predict steps via Monte Carlo Sampling.
 
         Args:

@@ -222,7 +222,7 @@ class SGLDModel(BaseModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, "np.typing.NDArray[np.float_]"]:
         """Predict step with SGLD, take n_sgld_sampled models, get mean and variance.
 
         Args:
@@ -234,12 +234,12 @@ class SGLDModel(BaseModel):
             output dictionary with uncertainty estimates
         """
         # create predictions from models loaded from checkpoints
-        preds: list[torch.Tensor] = []
+        pred_samples: list[torch.Tensor] = []
         for ckpt_path in self.dir_list:
             self.model.load_state_dict(torch.load(ckpt_path))
-            preds.append(self.model(X))
+            pred_samples.append(self.model(X))
 
-        preds = torch.stack(preds, dim=-1).detach().numpy()
+        preds: Tensor = torch.stack(pred_samples, dim=-1).detach()
         # shape [batch_size, num_outputs, n_sgld_samples]
 
         return process_model_prediction(preds, self.hparams.quantiles)

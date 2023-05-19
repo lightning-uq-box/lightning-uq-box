@@ -14,7 +14,9 @@ from scipy import stats
 # (1/sqrt(2 *\pi* sigma(x)_i^2))*exp(-(mu_i(x)-y)^2/(2 sigma(x)_i^2)) )
 
 
-def compute_epistemic_uncertainty(sample_mean_preds: np.ndarray) -> np.ndarray:
+def compute_epistemic_uncertainty(
+    sample_mean_preds: "np.typing.NDArray[np.float_]",
+) -> np.typing.NDArray[np.float_]:
     """Compute epistemic uncertainty as defined in Kendall et al. 2017.
 
     Equation (9) left hand side. Gaussian Mixture Model assumption.
@@ -29,7 +31,9 @@ def compute_epistemic_uncertainty(sample_mean_preds: np.ndarray) -> np.ndarray:
     return np.sqrt((sample_mean_preds**2).mean(axis=1) - right_term)
 
 
-def compute_aleatoric_uncertainty(sample_sigma_preds: np.ndarray) -> np.ndarray:
+def compute_aleatoric_uncertainty(
+    sample_sigma_preds: "np.typing.NDArray[np.float_]",
+) -> np.typing.NDArray[np.float_]:
     """Compute aleatoric uncertainty as defined in Kendall et al. 2017.
 
     Equation (9) right hand side. Gaussian Mixture Model assumption.
@@ -44,8 +48,9 @@ def compute_aleatoric_uncertainty(sample_sigma_preds: np.ndarray) -> np.ndarray:
 
 
 def compute_predictive_uncertainty(
-    sample_mean_preds: np.ndarray, sample_sigma_preds: np.ndarray
-) -> np.ndarray:
+    sample_mean_preds: "np.typing.NDArray[np.float_]",
+    sample_sigma_preds: "np.typing.NDArray[np.float_]",
+) -> np.typing.NDArray[np.float_]:
     """Compute predictive uncertainty as defined in Kendall et al. 2017.
 
     Equation (9). Gaussian Mixture Model.
@@ -65,8 +70,8 @@ def compute_predictive_uncertainty(
 
 
 def compute_sample_mean_std_from_quantile(
-    inter_range_quantiles: np.ndarray, quantiles: list[float]
-) -> tuple[np.ndarray, np.ndarray]:
+    inter_range_quantiles: "np.typing.NDArray[np.float_]", quantiles: list[float]
+) -> tuple["np.typing.NDArray[np.float_]"]:
     """Compute sample mean and std from inter quantiles.
 
     Taken from: https://stats.stackexchange.com/questions/256456/
@@ -81,20 +86,18 @@ def compute_sample_mean_std_from_quantile(
     Returns:
       tuple of estimated mean and std for each sample
     """
-    # n = inter_range_quantiles.shape[0]
-    mu = inter_range_quantiles.mean(-1)
-    upper_q = max(quantiles)
-    # lower_q = min(quantiles)
+    mu: "np.typing.NDArray[np.float_]" = inter_range_quantiles.mean(-1)
+    upper_q: float = max(quantiles)
 
-    std = (inter_range_quantiles[:, -1] - inter_range_quantiles[:, 0]) / (
-        2 * stats.norm.ppf(upper_q)
-    )
+    std: "np.typing.NDArray[np.float_]" = (
+        inter_range_quantiles[:, -1] - inter_range_quantiles[:, 0]
+    ) / (2 * stats.norm.ppf(upper_q))
     return mu, std
 
 
 def compute_quantiles_from_std(
     means: np.array, stds: np.array, quantiles: list[float]
-) -> np.ndarray:
+) -> np.typing.NDArray[np.float_]:
     """Compute quantiles from standard deviations assuming a Gaussian.
 
     Args:
@@ -115,11 +118,16 @@ def compute_quantiles_from_std(
             p = dist.ppf(ppf)
             ppfs[ppf].append(p)
 
-    computed_quantiles: np.ndarray = np.stack(list(ppfs.values()), axis=-1)
+    computed_quantiles: "np.typing.NDArray[np.float_]" = np.stack(
+        list(ppfs.values()), axis=-1
+    )
     return computed_quantiles
 
 
-def compute_empirical_coverage(quantile_preds: np.ndarray, targets: np.ndarray):
+def compute_empirical_coverage(
+    quantile_preds: "np.typing.NDArray[np.float_]",
+    targets: "np.typing.NDArray[np.float_]",
+):
     """Compute the empirical coverage.
 
     Args:
@@ -135,7 +143,9 @@ def compute_empirical_coverage(quantile_preds: np.ndarray, targets: np.ndarray):
     ).mean()
 
 
-def compute_predictive_entropy(std: np.ndarray) -> np.ndarray:
+def compute_predictive_entropy(
+    std: "np.typing.NDArray[np.float_]",
+) -> np.typing.NDArray[np.float_]:
     """Compute differential entropy for a Gaussian Distribution.
 
     Args:
