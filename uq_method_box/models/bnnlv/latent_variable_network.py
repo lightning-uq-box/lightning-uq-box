@@ -121,27 +121,22 @@ class LatentVariableNetwork(nn.Module):
         # so here we are passing the input through the whole lv inf net
         x = self.net(torch.cat([x, y], dim=-1))  # out [batch_size, lv_latent_dim*2]
 
-        if x.dim() == 3:  # batched LVs
-            # x [num_samples, batch_size, lv_latent_dim*2]
-            z_mu = x[:, :, : self.lv_latent_dim] * self.init_scaling
-            z_std = (
-                self.lv_init_std
-                - F.softplus(x[:, :, self.lv_latent_dim :])  # noqa: E203
-                * self.init_scaling
-            )
-        else:
-            # make sure q(z) is close to N(0,1) at initialization
-            # extract encoded mean from NN output
-            z_mu = x[:, : self.lv_latent_dim] * self.init_scaling
-            # extract encoded std from NN output
-            # shouldn't z_std be pos, why dont we use unconstrained
-            # optimatization wit z_rho and then
-            # use z_std = torch.log1p(torch.exp(self.z_rho))?
-            z_std = (
-                self.lv_init_std
-                - F.softplus(x[:, self.lv_latent_dim :])  # noqa: E203
-                * self.init_scaling
-            )
+
+        # make sure q(z) is close to N(0,1) at initialization
+        # extract encoded mean from NN output
+        z_mu = x[..., : self.lv_latent_dim] * self.init_scaling
+        # extract encoded std from NN output
+        # shouldn't z_std be pos, why dont we use unconstrained
+        # optimatization wit z_rho and then
+        # use z_std = torch.log1p(torch.exp(self.z_rho))?
+        z_std = (
+            self.lv_init_std
+            - F.softplus(x[..., self.lv_latent_dim :])  # noqa: E203
+            * self.init_scaling
+        )
+        eps = 1e-6
+        z_std = eps + self.config["lv_prior_std"]* (1 - F.sigmoid(x[..., self.config['lv_latent_dim']:])) 
+
 
         # these are lv network outputs,
         # as in eq. (3.22), [1]
