@@ -89,8 +89,6 @@ class LatentVariableNetwork(nn.Module):
         self.log_normalizer_z = None
         self.weight_eps = None
 
-        self.fix_randomness()
-
     def fix_randomness(self) -> None:
         """Fix the randomness of reparameterization trick."""
         # weight eps vector large enough to cover entire
@@ -108,7 +106,12 @@ class LatentVariableNetwork(nn.Module):
             z vector of dimension [batch_size, latent_dim]
         """
         if self.weight_eps is None:
-            weights_eps = torch.randn(x.shape[0], self.lv_latent_dim).to(x.device)
+            if x.dim() == 3:
+                weights_eps = torch.randn(
+                    x.shape[0], x.shape[1], self.lv_latent_dim
+                ).to(x.device)
+            else:
+                weights_eps = torch.randn(x.shape[0], self.lv_latent_dim).to(x.device)
         else:
             # always extract the same weight_eps since we
             # want it fixed
@@ -118,22 +121,27 @@ class LatentVariableNetwork(nn.Module):
         # so here we are passing the input through the whole lv inf net
         x = self.net(torch.cat([x, y], dim=-1))  # out [batch_size, lv_latent_dim*2]
 
-        # make sure q(z) is close to N(0,1) at initialization
-        # extract encoded mean from NN output
-        z_mu = x[:, : self.lv_latent_dim] * self.init_scaling
-        # extract encoded std from NN output
-        # shouldn't z_std be pos, why dont we use unconstrained
-        # optimatization wit z_rho and then
-        # use z_std = torch.log1p(torch.exp(self.z_rho))?
-        z_std = (
-            self.lv_init_std
-            - F.softplus(x[:, self.lv_latent_dim :]) * self.init_scaling  # noqa: E203
-        )
-
-        self.z_mu = z_mu
-
-        # what does the below variable do/ is it ever used?
-        # self.z_log_sigma = torch.log(torch.expm1(z_std))
+        if x.dim() == 3:  # batched LVs
+            # x [num_samples, batch_size, lv_latent_dim*2]
+            z_mu = x[:, :, : self.lv_latent_dim] * self.init_scaling
+            z_std = (
+                self.lv_init_std
+                - F.softplus(x[:, :, self.lv_latent_dim :])  # noqa: E203
+                * self.init_scaling
+            )
+        else:
+            # make sure q(z) is close to N(0,1) at initialization
+            # extract encoded mean from NN output
+            z_mu = x[:, : self.lv_latent_dim] * self.init_scaling
+            # extract encoded std from NN output
+            # shouldn't z_std be pos, why dont we use unconstrained
+            # optimatization wit z_rho and then
+            # use z_std = torch.log1p(torch.exp(self.z_rho))?
+            z_std = (
+                self.lv_init_std
+                - F.softplus(x[:, self.lv_latent_dim :])  # noqa: E203
+                * self.init_scaling
+            )
 
         # these are lv network outputs,
         # as in eq. (3.22), [1]

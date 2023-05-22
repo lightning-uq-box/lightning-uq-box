@@ -216,18 +216,15 @@ class BNN_LV_VI(BNN_VI):
             init_scaling=self.hparams.init_scaling,
         )
 
-    def forward(
-        self, X: Tensor, y: Optional[Tensor] = None, n_samples: int = 5
-    ) -> Tensor:
+    def forward(self, X: Tensor, y: Optional[Tensor] = None) -> Tensor:
         """Forward pass BNN LV.
 
         Args:
             X: input data
             y: target
-            n_samples: number OF
 
         Returns:
-            bnn output
+            bnn output of size [batch_size, output_dim]
         """
         if self.hparams.latent_variable_intro == "first":
             if y is not None:
@@ -302,8 +299,8 @@ class BNN_LV_VI(BNN_VI):
             # latent net
             log_f_hat_latent_net.append(self.lv_net.log_f_hat_z)
 
-        # model_preds [n_mc_samples_train, batch_size, output_dim]
-        mean_out = torch.stack(model_preds, dim=0).mean(dim=0)
+        # model_preds [batch_size, output_dim, n_mc_samples_train]
+        mean_out = torch.stack(model_preds, dim=-1).mean(dim=-1)
 
         energy_loss = self.energy_loss_module(
             torch.stack(pred_losses, dim=0),
@@ -449,18 +446,25 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             ),
         }
 
-    def forward(self, X: Tensor, n_samples: int = 25) -> Tensor:
+    def forward(
+        self, X: Tensor, y: Optional[Tensor] = None, n_samples: int = 5
+    ) -> Tensor:
         """Forward pass BNN+LI.
 
         Args:
             X: input data
+            y: target
             n_samples: number of samples to compute
 
         Returns:
-            bnn output
+            bnn output [batch_size, output_dim, num_samples]
         """
         batched_sample_X = einops.repeat(X, "b f -> s b f", s=n_samples)
-        return super().forward(batched_sample_X)
+        if y is not None:
+            batched_sample_y = einops.repeat(X, "b f -> s b f", s=n_samples)
+        else:
+            batched_sample_y = None
+        return super().forward(batched_sample_X, batched_sample_y).permute(1, 2, 0)
 
     def sample_latent_variable_prior(self, X: Tensor) -> Tensor:
         """Sample the latent variable prior during inference.
@@ -491,9 +495,9 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         """
         out = self.forward(
             X, n_samples=self.hparams.n_mc_samples_train
-        )  # [n_samples, batch_size, output_dim]
+        )  # [batch_size, output_dim, n_samples]
 
-        y = einops.repeat(y, "b f -> s b f", s=self.hparams.n_mc_samples_train)
+        y = einops.repeat(y, "b f -> b f s", s=self.hparams.n_mc_samples_train)
 
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
         energy_loss = self.energy_loss_module(
@@ -504,7 +508,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             log_normalizer_z=self.lv_net.log_normalizer_z,  # log_normalizer_z
             log_f_hat_z=self.lv_net.log_f_hat_z,  # log_f_hat_z
         )
-        return energy_loss, out.mean(dim=0)
+        return energy_loss, out.mean(dim=-1)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -520,8 +524,8 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         with torch.no_grad():
             model_preds = self.forward(X, self.hparams.n_mc_samples_test)
 
-        mean_out = model_preds.mean(dim=0).squeeze(-1).cpu().numpy()
-        std = model_preds.std(dim=0).squeeze(-1).cpu().numpy()
+        mean_out = model_preds.mean(dim=-1).squeeze(-1).cpu().numpy()
+        std = model_preds.std(dim=-1).squeeze(-1).cpu().numpy()
 
         # currently only single output, might want to support NLL output as well
         quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)

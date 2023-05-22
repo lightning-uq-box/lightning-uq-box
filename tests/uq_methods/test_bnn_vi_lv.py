@@ -24,14 +24,16 @@ from uq_method_box.uq_methods import BNN_LV_VI, BNN_LV_VI_Batched
 
 class TestBNN_LV_VI_Model:
     # fixture for iterative sampling
-    # "uq_method_box.uq_methods.BNN_LV_VI",
     @pytest.fixture(
         params=product(
-            ["uq_method_box.uq_methods.BNN_LV_VI_Batched"],
-            ["reparameterization", "flipout"],
-            ["first", "last"],
-            [None, [-1], ["model.0"]],
-        )  # test everything for both layer_types
+            [
+                "uq_method_box.uq_methods.BNN_LV_VI",
+                "uq_method_box.uq_methods.BNN_LV_VI_Batched",
+            ],
+            ["reparameterization", "flipout"],  # layer types
+            ["first", "last"],  # LV intro options
+            [None, [-1], ["model.0"]],  # part stochastic
+        )
     )
     def bnn_vi_lv_model_tabular(self, tmp_path: Path, request: SubRequest) -> BNN_LV_VI:
         """Create BNN_LV_VI model from an underlying model."""
@@ -52,25 +54,25 @@ class TestBNN_LV_VI_Model:
         self, bnn_vi_lv_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
     ) -> None:
         """Test forward pass of model."""
-        X = torch.randn(5, 1)
-        y = torch.randn(5, 1)
+        X = torch.randn(4, 1)
+        y = torch.randn(4, 1)
         out = bnn_vi_lv_model_tabular(X, y)
         assert isinstance(out, Tensor)
-        assert out.shape[0] == 5
-        assert out.shape[-1] == 1
+        assert out.shape[0] == 4
+        assert out.shape[1] == 1
 
     def test_predict_step(
         self, bnn_vi_lv_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
     ) -> None:
         """Test predict step outside of Lightning Trainer."""
-        X = torch.randn(5, 1)
+        X = torch.randn(4, 1)
         out = bnn_vi_lv_model_tabular.predict_step(X)
         assert isinstance(out, dict)
         assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 5
+        assert out["mean"].shape[0] == 4
 
     def test_trainer(
-        self, bnn_vi_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
+        self, bnn_vi_lv_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
     ) -> None:
         """Test Model with a Lightning Trainer."""
         # instantiate datamodule
@@ -78,16 +80,16 @@ class TestBNN_LV_VI_Model:
         trainer = Trainer(
             logger=False,
             max_epochs=1,
-            default_root_dir=bnn_vi_model_tabular.hparams.save_dir,
+            default_root_dir=bnn_vi_lv_model_tabular.hparams.save_dir,
         )
-        trainer.test(model=bnn_vi_model_tabular, datamodule=datamodule)
+        trainer.test(model=bnn_vi_lv_model_tabular, datamodule=datamodule)
 
     # tests for image data
     @pytest.fixture(
         params=product(
-            ["reparameterization", "flipout"],
-            [None, [-1], ["layer4.1.conv1", "layer4.1.conv2"]],
-        )  # test everything for both layer_types
+            ["reparameterization", "flipout"],  # layer types
+            [None, [-1], ["layer4.1.conv1", "layer4.1.conv2"]],  # part stochastic
+        )
     )
     def bnn_vi_lv_model_image(self, tmp_path: Path, request: SubRequest) -> BNN_LV_VI:
         """Create BNN_LV_VI model from an underlying model."""

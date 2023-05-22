@@ -4,7 +4,6 @@ These are based on the Bayesian-torch library
 https://github.com/IntelLabs/bayesian-torch (BSD-3 clause) but
 adjusted to be trained with the Energy Loss.
 """
-
 import math
 
 import torch
@@ -57,7 +56,7 @@ class BaseVariationalLayer_(nn.Module):
             layer_type in self.valid_layer_types
         ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
         self.layer_type = layer_type
-        self.freeze = False
+        self.is_frozen = False
 
     def define_bayesian_parameters(self):
         """Define Bayesian parameters."""
@@ -140,6 +139,18 @@ class BaseVariationalLayer_(nn.Module):
             )
 
         return log_f_hat
+
+    def freeze(self) -> None:
+        """Freeze Variational Layers.
+
+        This is useful when using BNN+LV to fix the BNN parameters
+        to sample the Latent Variables to estimate aleatoric uncertainy.
+        """
+        self.is_frozen = True
+
+    def unfreeze(self) -> None:
+        """Unfreeze Variational Layers."""
+        self.is_frozen = False
 
 
 class BaseConvLayer_(BaseVariationalLayer_):
@@ -267,7 +278,7 @@ class BaseConvLayer_(BaseVariationalLayer_):
             outputs of layer if type="reparameterization"
             outputs+perturbed of layer for type="flipout"
         """
-        if self.freeze:
+        if self.is_frozen:
             eps_weight = self.eps_weight
         else:
             eps_weight = self.eps_weight.data.normal_()
@@ -280,7 +291,7 @@ class BaseConvLayer_(BaseVariationalLayer_):
         bias = None
         delta_bias = None
         if self.bias:
-            if self.freeze:
+            if self.is_frozen:
                 eps_bias = self.eps_bias
             else:
                 eps_bias = self.eps_bias.data.normal_()

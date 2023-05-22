@@ -65,7 +65,7 @@ class LinearVariational(BaseVariationalLayer_):
         if batched_samples:
             assert isinstance(
                 max_n_samples, int
-            ), "If you use `batched_sampling`, you need to specify `max_n_samples`."
+            ), "If you use `batched_samples`, you need to specify `max_n_samples`."
             self.max_n_samples = max_n_samples
 
         assert (
@@ -154,55 +154,110 @@ class LinearVariational(BaseVariationalLayer_):
                 "[num_samples, batch_size, num_features], "
                 f"but found shape {x.shape}"
             )
-            weight, bias = self.sample_weights(n_samples)
-
-            output = x.matmul(weight.transpose(-1, -2)) + bias.unsqueeze(-1).transpose(
-                1, 2
-            )  # n_samples x batch_size x out_features
-
-            return output
-
+            delta_weight, delta_bias = self.sample_batched_weights(n_samples)
         else:
-            # compute variance of weight from unconstrained variable rho_weight
-            sigma_weight = torch.log1p(torch.exp(self.rho_weight))
+            delta_weight, delta_bias = self.sample_iterative_weights()
 
-            if self.freeze:
-                eps_weight = self.eps_weight
+        # forward pass with chosen layer type
+        if self.layer_type == "reparameterization":
+            # sample weight via reparameterization trick
+            output = x.matmul((self.mu_weight + delta_weight).transpose(-1, -2)) + (
+                self.mu_bias + delta_bias
+            )
+        else:
+            # linear outputs
+            out = F.linear(x, self.mu_weight, self.mu_bias)
+            # flipout
+            sign_input = x.clone().uniform_(-1, 1).sign()
+            sign_output = out.clone().uniform_(-1, 1).sign()
+            # get outputs+perturbed outputs
+            output = out + (
+                ((x * sign_input).matmul(delta_weight.transpose(-1, -2)) + delta_bias)
+                * sign_output
+            )
+
+        return output
+
+    def sample_iterative_weights(self) -> tuple[Tensor]:
+        """Sample Variational weights for single sample.
+
+        Returns:
+            delta_weight and delta_bias
+        """
+        if self.is_frozen:
+            eps_weight = self.eps_weight
+        else:
+            eps_weight = self.eps_weight.data.normal_()
+
+        # compute bias and delta_bias if available
+        delta_bias = torch.zeros(1).to(self.rho_weight.device)
+        if self.mu_bias is not None:
+            if self.is_frozen:
+                eps_bias = self.eps_bias
             else:
-                eps_weight = self.eps_weight.data.normal_()
+                eps_bias = self.eps_bias.data.normal_()
+            # compute variance of bias from unconstrained variable rho_bias
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            delta_bias = sigma_bias * eps_bias
 
-            # compute bias and delta_bias if available
-            bias = None
-            delta_bias = None
+        # compute variance of weight from unconstrained variable rho_weight
+        sigma_weight = torch.log1p(torch.exp(self.rho_weight))
+        # sampling delta_W
+        delta_weight = sigma_weight * eps_weight
+
+        return delta_weight, delta_bias
+
+    def sample_batched_weights(self, n_samples: int) -> tuple[Tensor]:
+        """Sample variational weights for batched sampling.
+
+        Args:
+            n_samples: number of samples to draw
+
+        Returns:
+            delta_weight and delta_bias
+        """
+        if self.is_frozen:
+            eps_weight = self.eps_weight
+            bias_eps = self.eps_bias
+        else:
+            eps_weight = self.eps_weight.data.normal_()
             if self.mu_bias is not None:
-                if self.freeze:
-                    eps_bias = self.eps_bias
-                else:
-                    eps_bias = self.eps_bias.data.normal_()
-                # compute variance of bias from unconstrained variable rho_bias
-                sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-                delta_bias = sigma_bias * eps_bias
-                bias = self.mu_bias + delta_bias
+                bias_eps = self.eps_bias.data.normal_()
 
-            # forward pass with chosen layer type
-            if self.layer_type == "reparameterization":
-                # sample weight via reparameterization trick
-                weight = self.mu_weight + (sigma_weight * eps_weight)
-                output = F.linear(x, weight, bias)
-            else:
-                # sampling delta_W
-                delta_weight = sigma_weight * eps_weight
-                # linear outputs
-                out = F.linear(x, self.mu_weight, self.mu_bias)
-                # flipout
-                sign_input = x.clone().uniform_(-1, 1).sign()
-                sign_output = out.clone().uniform_(-1, 1).sign()
-                # get outputs+perturbed outputs
-                output = out + (
-                    F.linear(x * sign_input, delta_weight, delta_bias) * sign_output
-                )
+        # select from max_samples
+        eps_weight = eps_weight[:n_samples]
 
-            return output
+        # sample weight with reparameterization trick
+        sigma_weight = F.softplus(self.rho_weight)
+        delta_weight = eps_weight * sigma_weight
+        weight_sample = self.mu_weight + delta_weight
+
+        if self.mu_bias is not None:
+            bias_eps = bias_eps[:n_samples]
+            # sample bias with reparameterization trick
+            sigma_bias = F.softplus(self.rho_bias)
+            delta_bias = bias_eps * sigma_bias
+            bias_sample = self.mu_bias + delta_bias
+            all_params_mu = torch.cat(
+                [self.mu_weight.flatten(), self.mu_bias.flatten()]
+            )
+            all_params_sigma = torch.cat([sigma_weight.flatten(), sigma_bias.flatten()])
+            all_sample = torch.cat(
+                [weight_sample.flatten(1), bias_sample.flatten(1)], 1
+            )
+            # return 3D tensor for broadcasting, create batch dimension
+            delta_bias = delta_bias.unsqueeze(1)
+        else:
+            delta_bias = torch.zeros_like(delta_weight)
+            all_params_mu = self.mu_weight.flatten()
+            all_params_sigma = sigma_weight.flatten()
+            all_sample = weight_sample.flatten(1)
+
+        self.log_normalizer = calc_log_normalizer(all_params_mu, all_params_sigma)
+        self.log_f_hat = calc_log_f_hat_batched(
+            all_sample, all_params_mu, all_params_sigma, self.prior_sigma
+        )
+        return delta_weight, delta_bias
 
     def sample_weights(self, n_samples: int) -> tuple[Tensor]:
         """Sample variational weights.

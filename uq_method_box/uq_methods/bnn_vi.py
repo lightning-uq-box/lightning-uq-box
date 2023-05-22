@@ -135,7 +135,7 @@ class BNN_VI(BaseModel):
         Returns:
             energy loss and mean output for logging
             mean_out: mean output over samples,
-            dim [n_mc_samples_train, output_dim]
+                dim [batch_size, output_dim]
         """
         model_preds = []
         pred_losses = []
@@ -156,12 +156,9 @@ class BNN_VI(BaseModel):
             # dim=1
             log_f_hat.append(get_log_f_hat([self.model]))
 
-        # model_preds [n_mc_samples_train, batch_size, output_dim]
-        mean_out = torch.stack(model_preds, dim=0).mean(dim=0)
+        # model_preds [batch_size, output_dim, n_mc_samples_train, ]
+        mean_out = torch.stack(model_preds, dim=-1).mean(dim=-1)
 
-        import pdb
-
-        pdb.set_trace()
         # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
         energy_loss = self.energy_loss_module(
             torch.stack(pred_losses, dim=0),
@@ -224,11 +221,11 @@ class BNN_VI(BaseModel):
                 self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
             ]
 
-        # model_preds [n_mc_samples_test, batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=0)
+        # model_preds [batch_size, output_dim]
+        model_preds = torch.stack(model_preds, dim=-1)
 
-        mean_out = model_preds.mean(dim=0).squeeze(-1).cpu().numpy()
-        std = model_preds.std(dim=0).squeeze(-1).cpu().numpy()
+        mean_out = model_preds.mean(dim=-1).squeeze(-1).cpu().numpy()
+        std = model_preds.std(dim=-1).squeeze(-1).cpu().numpy()
         std[std <= 0] = 1e-6
 
         # currently only single output, might want to support NLL output as well
@@ -371,10 +368,10 @@ class BNN_VI_Batched(BNN_VI):
             n_samples: number of samples to compute
 
         Returns:
-            bnn output
+            bnn output of shape [batch_size, num_outputs, num_samples]
         """
         batched_sample_X = einops.repeat(X, "b f -> s b f", s=n_samples)
-        return self.model(batched_sample_X)
+        return self.model(batched_sample_X).permute(1, 2, 0)
 
     def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
         """Compute the loss for BNN with alpha divergence.
@@ -386,13 +383,13 @@ class BNN_VI_Batched(BNN_VI):
         Returns:
             energy loss and mean output for logging
             mean_out: mean output over samples,
-            dim [n_mc_samples_train, output_dim]
+                dim [n_mc_samples_train, output_dim]
         """
         out = self.forward(
             X, n_samples=self.hparams.n_mc_samples_train
-        )  # [n_samples, batch_size, output_dim]
+        )  # [batch_size, output_dim, num_samples]
 
-        y = einops.repeat(y, "b f -> s b f", s=self.hparams.n_mc_samples_train)
+        y = einops.repeat(y, "b f -> b f s", s=self.hparams.n_mc_samples_train)
 
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
         energy_loss = self.energy_loss_module(
@@ -403,7 +400,7 @@ class BNN_VI_Batched(BNN_VI):
             log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
             log_f_hat_z=torch.zeros(1).to(self.device),  # log_f_hat_z
         )
-        return energy_loss, out.mean(dim=0)
+        return energy_loss, out.mean(dim=-1)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -413,14 +410,12 @@ class BNN_VI_Batched(BNN_VI):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        # output from forward: [n_samples, batch_size, outputs]
         with torch.no_grad():
             model_preds = self.forward(X, self.hparams.n_mc_samples_test)
 
-        mean_out = model_preds.mean(dim=0).squeeze(-1).cpu().numpy()
-        std = model_preds.std(dim=0).squeeze(-1).cpu().numpy()
+        mean_out = model_preds.mean(dim=-1).squeeze(-1).cpu().numpy()
+        std = model_preds.std(dim=-1).squeeze(-1).cpu().numpy()
         std[std <= 0] = 1e-6
-
         # currently only single output, might want to support NLL output as well
         quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
         return {
