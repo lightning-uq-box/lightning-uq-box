@@ -277,6 +277,7 @@ class BNN_LV_VI(BNN_VI):
             for i in range(self.hparams.num_mc_samples_test):
                 # mean prediction
                 pred = self.forward(X)
+                pred += torch.randn_like(pred) * torch.exp(self.log_aleatoric_std)
                 model_preds.append(pred.detach())
                 # model_preds [num_mc_samples_train, batch_size, output_dim]
 
