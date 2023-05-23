@@ -222,10 +222,10 @@ class BNN_VI(BaseModel):
                 self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
             ]
         # model_preds [batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=-1).detach().cpu().numpy()
+        model_preds = torch.stack(model_preds, dim=0).detach().cpu().numpy()
 
-        mean_out = model_preds.mean(axis=-1).squeeze()
-        std_epistemic = model_preds.std(axis=-1).squeeze()
+        mean_out = model_preds.mean(axis=0).squeeze()
+        std_epistemic = model_preds.std(axis=0).squeeze()
         std_epistemic[std_epistemic <= 0] = 1e-6
         std_aleatoric = std_epistemic*0. + torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
 
@@ -406,6 +406,7 @@ class BNN_VI_Batched(BNN_VI):
         y = torch.tile(y[None,...], (self.hparams.n_mc_samples_train, 1, 1))
 
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
+        # BUGS here in log_f_hat should be shape [n_samples] 
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
             get_log_f_hat([self.model]),
@@ -427,16 +428,23 @@ class BNN_VI_Batched(BNN_VI):
         with torch.no_grad():
             model_preds = self.forward(X, self.hparams.n_mc_samples_test)
 
-        mean_out = model_preds.mean(dim=-1).squeeze(-1).cpu().numpy()
-        std_epi
-        std = model_preds.std(dim=-1).squeeze(-1).cpu().numpy()
-        std[std <= 0] = 1e-6
+
+        mean_out = model_preds.mean(axis=0).squeeze()
+        std_epistemic = model_preds.std(axis=0).squeeze()
+        std_epistemic[std_epistemic <= 0] = 1e-6
+        std_aleatoric = std_epistemic*0. + torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
+
+        std = np.sqrt(std_epistemic ** 2 + std_aleatoric ** 2)
+
+
+        std = np.sqrt(std_epistemic ** 2 + std_aleatoric ** 2)
         # currently only single output, might want to support NLL output as well
         quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
         return {
             "mean": mean_out,
             "pred_uct": std,
-            "epistemic_uct": std,
+            "epistemic_uct": std_epistemic,
+            "aleatoric_uct": std_aleatoric,
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
         }

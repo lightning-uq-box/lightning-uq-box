@@ -534,6 +534,10 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
 
         y = torch.tile(y[None,...], (self.hparams.n_mc_samples_train, 1, 1))
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
+
+        # BUGS here in log_f_hat should be shape [n_samples] 
+        # log_f_hat_z should be shape [n_samples, batch_size]
+
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
             get_log_f_hat([self.model, self.prediction_head]),
