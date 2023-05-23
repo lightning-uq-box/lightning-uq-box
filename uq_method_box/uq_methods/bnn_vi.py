@@ -238,6 +238,18 @@ class BNN_VI(BaseModel):
             "upper_quant": quantiles[:, -1],
         }
 
+    def freeze_layers(self) -> None:
+        """Freeze BNN Layers to fix the stochasticity over forward passes."""
+        for _, module in self.named_modules():
+            if "Variational" in module.__class__.__name__:
+                module.freeze_layer()
+
+    def unfreeze_layers(self) -> None:
+        """Unfreeze BNN Layers to make them fully stochastic."""
+        for _, module in self.named_modules():
+            if "Variational" in module.__class__.__name__:
+                module.unfreeze_layer()
+
     def exclude_from_wt_decay(
         self, named_params, weight_decay, skip_list=("mu", "rho")
     ):
@@ -425,3 +437,13 @@ class BNN_VI_Batched(BNN_VI):
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
         }
+
+    def freeze_layers(self, n_samples: int) -> None:
+        """Freeze BNN Layers to fix the stochasticity over forward passes.
+
+        Args:
+            n_samples: number of samples used in frozen layers
+        """
+        for _, module in self.named_modules():
+            if "Variational" in module.__class__.__name__:
+                module.freeze_layer(n_samples)

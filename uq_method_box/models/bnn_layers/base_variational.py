@@ -140,7 +140,7 @@ class BaseVariationalLayer_(nn.Module):
 
         return log_f_hat
 
-    def freeze(self) -> None:
+    def freeze_layer(self) -> None:
         """Freeze Variational Layers.
 
         This is useful when using BNN+LV to fix the BNN parameters
@@ -148,7 +148,7 @@ class BaseVariationalLayer_(nn.Module):
         """
         self.is_frozen = True
 
-    def unfreeze(self) -> None:
+    def unfreeze_layer(self) -> None:
         """Unfreeze Variational Layers."""
         self.is_frozen = False
 
@@ -227,7 +227,7 @@ class BaseConvLayer_(BaseVariationalLayer_):
         )
         self.register_buffer(
             "eps_weight",
-            torch.Tensor(
+            torch.randn(
                 self.out_channels, self.in_channels // self.groups, *self.kernel_size
             ),
             persistent=False,
@@ -251,7 +251,7 @@ class BaseConvLayer_(BaseVariationalLayer_):
             self.mu_bias = Parameter(torch.Tensor(self.out_channels))
             self.rho_bias = Parameter(torch.Tensor(self.out_channels))
             self.register_buffer(
-                "eps_bias", torch.Tensor(self.out_channels), persistent=False
+                "eps_bias", torch.randn(self.out_channels), persistent=False
             )
             self.register_buffer(
                 "prior_bias_mu", torch.Tensor(self.out_channels), persistent=False
@@ -319,6 +319,8 @@ class BaseConvLayer_(BaseVariationalLayer_):
             )
 
             # sampling perturbation signs
+            if self.is_frozen:
+                torch.manual_seed(0)
             sign_input = x.clone().uniform_(-1, 1).sign()
             sign_output = outputs.clone().uniform_(-1, 1).sign()
 
@@ -344,7 +346,7 @@ class BaseConvLayer_(BaseVariationalLayer_):
         """Representation when printing out layer."""
         s = (
             "{in_channels}, {out_channels}, kernel_size={kernel_size}"
-            ", stride={stride}"
+            ", stride={stride}, is_frozen={is_frozen}"
         )
         if self.padding != (0,) * len(self.padding):
             s += ", padding={padding}"

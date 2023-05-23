@@ -1,7 +1,7 @@
 """Utilities for UQ-Method Implementations."""
 
 import os
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from typing import Any, Union
 
 import numpy as np
@@ -111,9 +111,18 @@ def map_stochastic_modules(
     Returns:
         list of desired partially stochastic module names
     """
-    ordered_module_names = [name for name, val in list(model.named_parameters())]  # all
+    ordered_module_names: list[str] = []
+    # ignore batchnorm
+    for name, val in model.named_parameters():
+        # module = getattr(model, )
+        ordered_module_names.append(".".join(name.split(".")[:-1]))
+    ordered_module_names = list(OrderedDict.fromkeys(ordered_module_names))
+
     # split of weight/bias
-    module_names = [".".join(name.split(".")[:-1]) for name in ordered_module_names]
+    ordered_module_params = [
+        name for name, val in list(model.named_parameters())
+    ]  # all
+    module_names = [".".join(name.split(".")[:-1]) for name in ordered_module_params]
     # remove duplicates due to weight/bias
     module_names = list(set(module_names))
 

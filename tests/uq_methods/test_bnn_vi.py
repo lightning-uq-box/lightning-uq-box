@@ -50,8 +50,7 @@ class TestBNN_VI_Model:
     # tests for tabular data
     def test_forward(self, bnn_vi_model_tabular: Union[BNN_VI, BNN_VI_Batched]) -> None:
         """Test forward pass of model."""
-        n_inputs = bnn_vi_model_tabular.num_inputs
-        X = torch.randn(4, n_inputs)
+        X = torch.randn(4, 1)
         out = bnn_vi_model_tabular(X)
         assert isinstance(out, Tensor)
         assert out.shape[0] == 4
@@ -61,8 +60,7 @@ class TestBNN_VI_Model:
         self, bnn_vi_model_tabular: Union[BNN_VI, BNN_VI_Batched]
     ) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = bnn_vi_model_tabular.num_inputs
-        X = torch.randn(4, n_inputs)
+        X = torch.randn(4, 1)
         out = bnn_vi_model_tabular.predict_step(X)
         assert isinstance(out, dict)
         assert isinstance(out["mean"], np.ndarray)
@@ -79,11 +77,30 @@ class TestBNN_VI_Model:
         )
         trainer.test(model=bnn_vi_model_tabular, datamodule=datamodule)
 
+    def test_freeze(self, bnn_vi_model_tabular: Union[BNN_VI, BNN_VI_Batched]) -> None:
+        """Test freezing functionality."""
+        if isinstance(bnn_vi_model_tabular, BNN_VI_Batched):
+            bnn_vi_model_tabular.freeze_layers(n_samples=5)
+        else:
+            bnn_vi_model_tabular.freeze_layers()
+        X = torch.randn(4, 1)
+        with torch.no_grad():
+            out1_frozen = bnn_vi_model_tabular(X)
+            out2_frozen = bnn_vi_model_tabular(X)
+        assert torch.equal(out1_frozen, out2_frozen) is True
+
+        # unfreeze again
+        bnn_vi_model_tabular.unfreeze_layers()
+        with torch.no_grad():
+            out1 = bnn_vi_model_tabular(X)
+            out2 = bnn_vi_model_tabular(X)
+        assert torch.equal(out1, out2) is False
+
     # test for image task
     @pytest.fixture(
         params=product(
             ["reparameterization", "flipout"],
-            [[-1], ["layer4.1.conv1", "layer4.1.conv2"]],
+            [None, [-1], ["layer4.1.conv1", "layer4.1.conv2"]],
         )  # test everything for both layer_types
     )
     def bnn_vi_model_image(self, tmp_path: Path, request: SubRequest) -> BNN_VI:
@@ -124,3 +141,18 @@ class TestBNN_VI_Model:
             default_root_dir=bnn_vi_model_image.hparams.save_dir,
         )
         trainer.test(model=bnn_vi_model_image, datamodule=datamodule)
+
+    def test_freeze_image(self, bnn_vi_model_image: BNN_VI) -> None:
+        """Test freezing functionality."""
+        bnn_vi_model_image.freeze_layers()
+        X = torch.randn(2, 3, 32, 32)
+        with torch.no_grad():
+            out1_frozen = bnn_vi_model_image(X)
+            out2_frozen = bnn_vi_model_image(X)
+        assert torch.equal(out1_frozen, out2_frozen) is True
+
+        bnn_vi_model_image.unfreeze_layers()
+        with torch.no_grad():
+            out1 = bnn_vi_model_image(X)
+            out2 = bnn_vi_model_image(X)
+        assert torch.equal(out1, out2) is False

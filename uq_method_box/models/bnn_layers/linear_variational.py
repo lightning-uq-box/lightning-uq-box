@@ -88,13 +88,13 @@ class LinearVariational(BaseVariationalLayer_):
         if self.batched_samples:
             self.register_buffer(
                 "eps_weight",
-                torch.Tensor(self.max_n_samples, self.out_features, self.in_features),
+                torch.randn(self.max_n_samples, self.out_features, self.in_features),
                 persistent=False,
             )
         else:
             self.register_buffer(
                 "eps_weight",
-                torch.Tensor(self.out_features, self.in_features),
+                torch.randn(self.out_features, self.in_features),
                 persistent=False,
             )
         self.register_buffer(
@@ -119,12 +119,12 @@ class LinearVariational(BaseVariationalLayer_):
             if self.batched_samples:
                 self.register_buffer(
                     "eps_bias",
-                    torch.Tensor(self.max_n_samples, self.out_features),
+                    torch.randn(self.max_n_samples, self.out_features),
                     persistent=False,
                 )
             else:
                 self.register_buffer(
-                    "eps_bias", torch.Tensor(self.out_features), persistent=False
+                    "eps_bias", torch.randn(self.out_features), persistent=False
                 )
         else:
             self.register_buffer("prior_bias_mu", None, persistent=False)
@@ -168,6 +168,8 @@ class LinearVariational(BaseVariationalLayer_):
             # linear outputs
             out = F.linear(x, self.mu_weight, self.mu_bias)
             # flipout
+            if self.is_frozen:
+                torch.manual_seed(0)
             sign_input = x.clone().uniform_(-1, 1).sign()
             sign_output = out.clone().uniform_(-1, 1).sign()
             # get outputs+perturbed outputs
@@ -259,8 +261,32 @@ class LinearVariational(BaseVariationalLayer_):
         )
         return delta_weight, delta_bias
 
+    def freeze_layer(self, n_samples: Optional[int] = None) -> None:
+        """Freeze Variational Layers.
+
+        This is useful when using BNN+LV to fix the BNN parameters
+        to sample the Latent Variables to estimate aleatoric uncertainy.
+
+        Args:
+            n_samples: number of samples to fix for batched approach
+        """
+        self.is_frozen = True
+        if n_samples is not None:
+            if self.max_n_samples < n_samples:
+                self.max_n_samples = n_samples
+                setattr(
+                    self,
+                    "eps_weight",
+                    torch.randn(
+                        self.max_n_samples, self.out_features, self.in_features
+                    ),
+                )
+                setattr(
+                    self, "eps_bias", torch.randn(self.max_n_samples, self.out_features)
+                )
+
     def extra_repr(self) -> str:
         """Representation when printing out Layer."""
-        return "in_features={}, out_features={}, bias={}".format(
-            self.in_features, self.out_features, self.bias is not None
+        return "in_features={}, out_features={}, bias={}, is_frozen={}".format(
+            self.in_features, self.out_features, self.bias is not None, self.is_frozen
         )
