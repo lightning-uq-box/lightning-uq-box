@@ -259,53 +259,6 @@ class LinearVariational(BaseVariationalLayer_):
         )
         return delta_weight, delta_bias
 
-    def sample_weights(self, n_samples: int) -> tuple[Tensor]:
-        """Sample variational weights.
-
-        Args:
-            n_samples: number of samples to draw
-
-        Returns:
-            weight and bias sample for layer of shape [num_samples, num_parameters]
-        """
-        if self.freeze:
-            eps_weight = self.eps_weight
-            bias_eps = self.eps_bias
-        else:
-            eps_weight = self.eps_weight.data.normal_()
-            if self.mu_bias is not None:
-                bias_eps = self.eps_bias.data.normal_()
-
-        # select from max_samples
-        eps_weight = eps_weight[:n_samples]
-
-        # sample weight with reparameterization trick
-        sigma_weight = F.softplus(self.rho_weight)
-        weight_sample = self.mu_weight + eps_weight * sigma_weight
-
-        if self.mu_bias is not None:
-            bias_eps = bias_eps[:n_samples]
-            # sample bias with reparameterization trick
-            sigma_bias = F.softplus(self.rho_bias)
-            bias_sample = self.mu_bias + bias_eps * sigma_bias
-            all_params_mu = torch.cat(
-                [self.mu_weight.flatten(), self.mu_bias.flatten()]
-            )
-            all_params_sigma = torch.cat([sigma_weight.flatten(), sigma_bias.flatten()])
-            all_sample = torch.cat(
-                [weight_sample.flatten(1), bias_sample.flatten(1)], 1
-            )
-        else:
-            all_params_mu = self.mu_weight.flatten()
-            all_params_sigma = sigma_weight.flatten()
-            all_sample = weight_sample.flatten(1)
-
-        self.log_normalizer = calc_log_normalizer(all_params_mu, all_params_sigma)
-        self.log_f_hat = calc_log_f_hat_batched(
-            all_sample, all_params_mu, all_params_sigma, self.prior_sigma
-        )
-        return weight_sample, bias_sample
-
     def extra_repr(self) -> str:
         """Representation when printing out Layer."""
         return "in_features={}, out_features={}, bias={}".format(
