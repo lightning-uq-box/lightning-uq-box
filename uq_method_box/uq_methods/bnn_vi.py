@@ -75,6 +75,7 @@ class BNN_VI(BaseModel):
         assert n_mc_samples_test > 0, "Need to sample at least once during testing."
 
         # update hparams
+        self.hparams.weight_decay = 0.0
         self.save_hyperparameters(ignore=["model", "latent_net"])
 
         self.part_stoch_module_names = map_stochastic_modules(
@@ -220,20 +221,22 @@ class BNN_VI(BaseModel):
             model_preds = [
                 self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
             ]
-
         # model_preds [batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=-1)
+        model_preds = torch.stack(model_preds, dim=-1).detach().cpu().numpy()
 
-        mean_out = model_preds.mean(dim=-1).squeeze(-1).cpu().numpy()
-        std = model_preds.std(dim=-1).squeeze(-1).cpu().numpy()
-        std[std <= 0] = 1e-6
+        mean_out = model_preds.mean(axis=-1).squeeze()
+        std_epistemic = model_preds.std(axis=-1).squeeze()
+        std_epistemic[std_epistemic <= 0] = 1e-6
+        std_aleatoric = std_epistemic*0. + torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
 
+        std = np.sqrt(std_epistemic ** 2 + std_aleatoric ** 2)
         # currently only single output, might want to support NLL output as well
         quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
         return {
             "mean": mean_out,
             "pred_uct": std,
-            "epistemic_uct": std,
+            "epistemic_uct": std_epistemic,
+            "aleatoric_uct": std_aleatoric,
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
         }

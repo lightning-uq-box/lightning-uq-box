@@ -321,18 +321,30 @@ class BNN_LV_VI(BNN_VI):
             X: prediction batch of shape [batch_size x input_dims]
         """
         # TODO correctly decompose uncertainty epistemic and aleatoric with LV
+
+        n_aleatoric = 25
+        n_epistemic = 25
+        output_dim = self.prediction_head.out_features
+        model_preds = np.zeros((n_epistemic, n_aleatoric, X.shape[0], output_dim))
         with torch.no_grad():
-            model_preds = [
-                self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
-            ]
+            for i in range(n_epistemic):
+                # one forward pass to resample
+                _ = self.forward(X)
+                self.freeze_layers()
+                for j in range(n_aleatoric):
+                    model_preds[i, j] = self.forward(X).detach().cpu().numpy()
+                self.unfreeze_layers()
+        
+        mean_out = model_preds.mean(axis=(0, 1)).squeeze()
+        std_epistemic = model_preds.mean(axis=1).std(axis=0).squeeze()
+        o_noise = torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
+        std_aleatoric = np.sqrt(o_noise ** 2 + model_preds.std(axis=1).mean(axis=0) ** 2).squeeze()
+        std = np.sqrt(std_epistemic ** 2 + std_aleatoric ** 2)
 
         # model_preds [n_mc_samples_test, batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=0)
 
-        mean_out = model_preds.mean(dim=0).squeeze(-1).cpu().numpy()
-        std = model_preds.std(dim=0).squeeze(-1).cpu().numpy()
 
-        return {"mean": mean_out, "pred_uct": std, "epistemic_uct": std}
+        return {"mean": mean_out, "pred_uct": std, "epistemic_uct": std_epistemic, "aleatoric_uct": std_aleatoric}
 
     def freeze_layers(self) -> None:
         """Freeze BNN Layers to fix the stochasticity over forward passes."""
