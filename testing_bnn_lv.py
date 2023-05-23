@@ -16,12 +16,12 @@ from uq_method_box.datamodules import (
     ToyHeteroscedasticDatamodule,  # ToyBimodalDatamodule
 )
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import BNN_LV_VI
+from uq_method_box.uq_methods import BNN_LV_VI,BNN_LV_VI_Batched
 from uq_method_box.viz_utils import plot_predictions
 
 # seed_everything(4)
 torch.set_float32_matmul_precision("medium")
-dm = ToyHeteroscedasticDatamodule(batch_size=50)
+dm = ToyHeteroscedasticDatamodule(batch_size=50,n_train=1000)
 
 X_train, y_train, train_loader, X_test, y_test, test_loader = (
     dm.X_train,
@@ -50,9 +50,9 @@ my_config = {
 
 my_dir = tempfile.mkdtemp()
 
-max_epochs = 1500
+max_epochs = 1000
 
-base_model = BNN_LV_VI(
+base_model = BNN_LV_VI_Batched(
     model=MLP(**my_config["model_args"]),
     latent_net=MLP(**my_config["latent_net"]),
     optimizer=partial(torch.optim.Adam, lr=1e-3),
@@ -60,13 +60,13 @@ base_model = BNN_LV_VI(
     num_training_points=X_train.shape[0],
     part_stoch_module_names=["model.6"],
     latent_variable_intro="first",
-    n_mc_samples_train=10,
+    n_mc_samples_train=15,
     n_mc_samples_test=50,
     output_noise_scale=1.3,
     prior_mu=0.0,
     prior_sigma=1.0,
     posterior_mu_init=0.0,
-    posterior_rho_init=-6.0,
+    posterior_rho_init=-5.0,
     init_scaling=0.01,
     alpha=1.0,
 )
