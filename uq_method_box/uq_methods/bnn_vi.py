@@ -386,7 +386,7 @@ class BNN_VI_Batched(BNN_VI):
             bnn output of shape [batch_size, num_outputs, num_samples]
         """
         batched_sample_X = einops.repeat(X, "b f -> s b f", s=n_samples)
-        return self.model(batched_sample_X).permute(1, 2, 0)
+        return self.model(batched_sample_X)
 
     def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
         """Compute the loss for BNN with alpha divergence.
@@ -402,9 +402,8 @@ class BNN_VI_Batched(BNN_VI):
         """
         out = self.forward(
             X, n_samples=self.hparams.n_mc_samples_train
-        )  # [batch_size, output_dim, num_samples]
-
-        y = einops.repeat(y, "b f -> b f s", s=self.hparams.n_mc_samples_train)
+        )  # [num_samples, batch_size, output_dim]
+        y = torch.tile(y[None,...], (self.hparams.n_mc_samples_train, 1, 1))
 
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
         energy_loss = self.energy_loss_module(
@@ -415,7 +414,7 @@ class BNN_VI_Batched(BNN_VI):
             log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
             log_f_hat_z=torch.zeros(1).to(self.device),  # log_f_hat_z
         )
-        return energy_loss, out.mean(dim=-1)
+        return energy_loss, out.mean(dim=0)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -429,6 +428,7 @@ class BNN_VI_Batched(BNN_VI):
             model_preds = self.forward(X, self.hparams.n_mc_samples_test)
 
         mean_out = model_preds.mean(dim=-1).squeeze(-1).cpu().numpy()
+        std_epi
         std = model_preds.std(dim=-1).squeeze(-1).cpu().numpy()
         std[std <= 0] = 1e-6
         # currently only single output, might want to support NLL output as well
