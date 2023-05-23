@@ -50,12 +50,12 @@ my_config = {
 
 my_dir = tempfile.mkdtemp()
 
-max_epochs = 600
+max_epochs = 1500
 
 base_model = BNN_LV_VI(
     model=MLP(**my_config["model_args"]),
     latent_net=MLP(**my_config["latent_net"]),
-    optimizer=partial(torch.optim.Adam, lr=6e-3),
+    optimizer=partial(torch.optim.Adam, lr=1e-3),
     save_dir=my_dir,
     num_training_points=X_train.shape[0],
     part_stoch_module_names=["model.6"],
@@ -66,9 +66,9 @@ base_model = BNN_LV_VI(
     prior_mu=0.0,
     prior_sigma=1.0,
     posterior_mu_init=0.0,
-    posterior_rho_init=-5.0,
-    init_scaling=0.0001,
-    alpha=0.9,
+    posterior_rho_init=-6.0,
+    init_scaling=0.01,
+    alpha=1.0,
 )
 
 logger = CSVLogger(my_dir)
@@ -91,6 +91,7 @@ print(f"Fit took {time.time() - start} seconds.")
 
 pred = base_model.predict_step(X_test)
 
+
 my_fig = plot_predictions(
     X_train,
     y_train,
@@ -98,9 +99,11 @@ my_fig = plot_predictions(
     y_test,
     pred["mean"],
     pred["pred_uct"],
-    epistemic=pred["epistemic_uct"],
-    title="BNN LV with VI",
+    epistemic=pred.get("epistemic_uct", None),
+    aleatoric=pred.get("aleatoric_uct", None),
+    title="BNN+LV with VI",
 )
+
 plt.savefig("preds.png")
 plt.show()
 
