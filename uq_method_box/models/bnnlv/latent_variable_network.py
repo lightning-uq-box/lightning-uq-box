@@ -135,8 +135,8 @@ class LatentVariableNetwork(nn.Module):
             * self.init_scaling
         )
         eps = 1e-6
-        z_std = eps + self.lv_prior_std* (1 - F.sigmoid(x[..., self.lv_latent_dim:])) 
-
+        init_shift = 3.
+        z_std = eps + self.lv_prior_std* (1 - F.sigmoid(x[..., self.lv_latent_dim:]-init_shift)) 
         # these are lv network outputs,
         # as in eq. (3.22), [1]
         latent_samples = z_mu + z_std * weights_eps
