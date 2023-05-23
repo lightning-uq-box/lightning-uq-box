@@ -216,22 +216,26 @@ class BNN_LV_VI(BNN_VI):
             init_scaling=self.hparams.init_scaling,
         )
 
-    def forward(self, X: Tensor, y: Optional[Tensor] = None) -> Tensor:
+    def forward(self, X: Tensor, y: Optional[Tensor] = None,training=True) -> Tensor:
         """Forward pass BNN LV.
 
         Args:
             X: input data
             y: target
+            training: if yes, smple from  lv posterior, else use sample from prior or provide z 
 
         Returns:
             bnn output of size [batch_size, output_dim]
         """
         if self.hparams.latent_variable_intro == "first":
-            if y is not None:
+            if training:
                 # this passes X,y through the whole self.lv_net
                 z = self.lv_net(X, y)  # [batch_size, lv_latent_dim]
             else:
-                z = self.sample_latent_variable_prior(X)
+                if y is not None:
+                    z = y
+                else:
+                    z = self.sample_latent_variable_prior(X)
 
             X = torch.cat(
                 [X, z], -1
@@ -241,11 +245,14 @@ class BNN_LV_VI(BNN_VI):
         else:
             X = self.model(X)
             # introduce lv
-            if y is not None:
+            if training:
                 # this passes X,y through the whole self.lv_net
                 z = self.lv_net(X, y)
             else:
-                z = self.sample_latent_variable_prior(X)
+                if y is not None:
+                    z = y
+                else:
+                    z = self.sample_latent_variable_prior(X)
 
             X = torch.cat(
                 [X, z], -1
@@ -322,17 +329,20 @@ class BNN_LV_VI(BNN_VI):
         """
         # TODO correctly decompose uncertainty epistemic and aleatoric with LV
 
-        n_aleatoric = 25
-        n_epistemic = 25
+        n_aleatoric = 100
+        n_epistemic = 100
         output_dim = self.prediction_head.out_features
+        in_noise = torch.randn(n_aleatoric)
+
         model_preds = np.zeros((n_epistemic, n_aleatoric, X.shape[0], output_dim))
         with torch.no_grad():
             for i in range(n_epistemic):
                 # one forward pass to resample
-                _ = self.forward(X)
+                _ = self.forward(X,training=False)
                 self.freeze_layers()
                 for j in range(n_aleatoric):
-                    model_preds[i, j] = self.forward(X).detach().cpu().numpy()
+                    z = torch.tile(in_noise[j], (X.shape[0], 1))
+                    model_preds[i, j] = self.forward(X,z,training=False).detach().cpu().numpy()
                 self.unfreeze_layers()
         
         mean_out = model_preds.mean(axis=(0, 1)).squeeze()
@@ -471,7 +481,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         }
 
     def forward(
-        self, X: Tensor, y: Optional[Tensor] = None, n_samples: int = 5
+        self, X: Tensor, y: Optional[Tensor] = None, n_samples: int = 5, training=True
     ) -> Tensor:
         """Forward pass BNN+LI.
 
@@ -533,7 +543,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             log_f_hat_z=self.lv_net.log_f_hat_z,  # log_f_hat_z
         )
         return energy_loss, out.mean(dim=-1)
-
+    '''
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
@@ -560,7 +570,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
         }
-
+    '''
     def freeze_layers(self, n_samples: int) -> None:
         """Freeze BNN Layers to fix the stochasticity over forward passes.
 
