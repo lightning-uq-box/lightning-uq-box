@@ -498,7 +498,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             batched_sample_y = einops.repeat(X, "b f -> s b f", s=n_samples)
         else:
             batched_sample_y = None
-        return super().forward(batched_sample_X, batched_sample_y).permute(1, 2, 0)
+        return super().forward(batched_sample_X, batched_sample_y, training=training)
 
     def sample_latent_variable_prior(self, X: Tensor) -> Tensor:
         """Sample the latent variable prior during inference.
@@ -514,6 +514,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         return torch.randn(num_samples, batch_size, self.hparams.lv_latent_dim).to(
             self.device
         )
+    
 
     def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
         """Compute the loss for BNN with alpha divergence.
@@ -528,11 +529,10 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             dim [n_mc_samples_train, output_dim]
         """
         out = self.forward(
-            X, n_samples=self.hparams.n_mc_samples_train
-        )  # [batch_size, output_dim, n_samples]
+            X, y,n_samples=self.hparams.n_mc_samples_train
+        )  # [n_mc_samples_train, batch_size, output_dim]
 
-        y = einops.repeat(y, "b f -> b f s", s=self.hparams.n_mc_samples_train)
-
+        y = torch.tile(y[None,...], (self.hparams.n_mc_samples_train, 1, 1))
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
@@ -542,8 +542,8 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             log_normalizer_z=self.lv_net.log_normalizer_z,  # log_normalizer_z
             log_f_hat_z=self.lv_net.log_f_hat_z,  # log_f_hat_z
         )
-        return energy_loss, out.mean(dim=-1)
-    '''
+        return energy_loss, out.mean(dim=0)
+    
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
@@ -552,25 +552,38 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        model_preds = []
 
-        # output from forward: [n_samples, batch_size, outputs]
+        n_aleatoric = 100
+        n_epistemic = 100
+        n_samples = self.hparams.n_mc_samples_train
+        output_dim = self.prediction_head.out_features
+        in_noise = torch.randn(n_aleatoric)
+
+        model_preds = np.zeros((n_epistemic, n_aleatoric, X.shape[0], output_dim))
+
         with torch.no_grad():
-            model_preds = self.forward(X, self.hparams.n_mc_samples_test)
+            for i in range(int(n_epistemic/n_samples)):
+                # one forward pass to resample
+                _ = super().forward(torch.tile(X[None,...],[n_samples,1,1]),training=False)
+                self.freeze_layers(n_samples)
+                for j in range(n_aleatoric):
+                    z = torch.tile(in_noise[j], (n_samples,X.shape[0], 1))
+                    model_preds[i*n_samples:(i+1)*n_samples, j,:,:] = super().forward(
+                        torch.tile(X[None,...],[n_samples,1,1]),
+                        z,
+                        training=False
+                        ).detach().cpu().numpy()
+                self.unfreeze_layers()
+        
+        mean_out = model_preds.mean(axis=(0, 1)).squeeze()
+        std_epistemic = model_preds.mean(axis=1).std(axis=0).squeeze()
+        o_noise = torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
+        std_aleatoric = np.sqrt(o_noise ** 2 + model_preds.std(axis=1).mean(axis=0) ** 2).squeeze()
+        std = np.sqrt(std_epistemic ** 2 + std_aleatoric ** 2)
 
-        mean_out = model_preds.mean(dim=-1).squeeze(-1).cpu().numpy()
-        std = model_preds.std(dim=-1).squeeze(-1).cpu().numpy()
 
-        # currently only single output, might want to support NLL output as well
-        quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
-        return {
-            "mean": mean_out,
-            "pred_uct": std,
-            "epistemic_uct": std,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
-        }
-    '''
+
+        return {"mean": mean_out, "pred_uct": std, "epistemic_uct": std_epistemic, "aleatoric_uct": std_aleatoric}
     def freeze_layers(self, n_samples: int) -> None:
         """Freeze BNN Layers to fix the stochasticity over forward passes.
 
