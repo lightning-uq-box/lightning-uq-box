@@ -69,15 +69,9 @@ def get_log_normalizer(models: list[nn.Module]):
         for layer in m.modules():
             if hasattr(layer, "log_normalizer"):
                 if log_normalizer is None:
-                    try:
-                        log_normalizer = layer.log_normalizer()
-                    except TypeError:
-                        log_normalizer = layer.log_normalizer
+                    log_normalizer = layer.log_normalizer()
                 else:
-                    try:
-                        log_normalizer += layer.log_normalizer()
-                    except TypeError:
-                        log_normalizer += log_normalizer
+                    log_normalizer += layer.log_normalizer()
     return log_normalizer
 
 
@@ -97,15 +91,10 @@ def get_log_f_hat(models: list[nn.Module]):
         for layer in m.modules():
             if hasattr(layer, "log_f_hat"):
                 if log_f_hat is None:
-                    try:
-                        log_f_hat = layer.log_f_hat()
-                    except TypeError:
-                        log_f_hat = layer.log_f_hat
+                    log_f_hat = layer.log_f_hat()
                 else:
-                    try:
-                        log_f_hat += layer.log_f_hat()
-                    except TypeError:
-                        log_f_hat = layer.log_f_hat
+                    log_f_hat += layer.log_f_hat()
+            
     return log_f_hat
 
 
