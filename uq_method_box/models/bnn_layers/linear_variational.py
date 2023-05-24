@@ -13,7 +13,6 @@ from torch import Tensor
 from torch.nn import Parameter
 
 from .base_variational import BaseVariationalLayer_
-from .utils import calc_log_f_hat_batched, calc_log_normalizer
 
 
 class LinearVariational(BaseVariationalLayer_):
@@ -76,6 +75,8 @@ class LinearVariational(BaseVariationalLayer_):
         self.in_features = in_features
         self.out_features = out_features
         self.batched_samples = batched_samples
+        if not self.batched_samples:
+            self.max_n_samples = 1
 
         # creat and initialize bayesian parameters
         self.define_bayesian_parameters()
@@ -85,18 +86,12 @@ class LinearVariational(BaseVariationalLayer_):
         self.mu_weight = Parameter(torch.Tensor(self.out_features, self.in_features))
         self.rho_weight = Parameter(torch.Tensor(self.out_features, self.in_features))
 
-        if self.batched_samples:
-            self.register_buffer(
+        self.register_buffer(
                 "eps_weight",
                 torch.randn(self.max_n_samples, self.out_features, self.in_features),
                 persistent=False,
             )
-        else:
-            self.register_buffer(
-                "eps_weight",
-                torch.randn(self.out_features, self.in_features),
-                persistent=False,
-            )
+
         self.register_buffer(
             "prior_weight_mu",
             torch.Tensor(self.out_features, self.in_features),
@@ -116,16 +111,12 @@ class LinearVariational(BaseVariationalLayer_):
             self.register_buffer(
                 "prior_bias_sigma", torch.Tensor(self.out_features), persistent=False
             )
-            if self.batched_samples:
-                self.register_buffer(
-                    "eps_bias",
-                    torch.randn(self.max_n_samples, self.out_features),
-                    persistent=False,
-                )
-            else:
-                self.register_buffer(
-                    "eps_bias", torch.randn(self.out_features), persistent=False
-                )
+            self.register_buffer(
+                "eps_bias",
+                torch.randn(self.max_n_samples, self.out_features),
+                persistent=False,
+            )
+   
         else:
             self.register_buffer("prior_bias_mu", None, persistent=False)
             self.register_buffer("prior_bias_sigma", None, persistent=False)
@@ -154,15 +145,16 @@ class LinearVariational(BaseVariationalLayer_):
                 "[num_samples, batch_size, num_features], "
                 f"but found shape {x.shape}"
             )
-            delta_weight, delta_bias = self.sample_batched_weights(n_samples)
         else:
-            delta_weight, delta_bias = self.sample_iterative_weights()
+            n_samples = 1
+
+        delta_weight, delta_bias = self.sample_weights(n_samples)
 
         # forward pass with chosen layer type
         if self.layer_type == "reparameterization":
             # sample weight via reparameterization trick
             output = x.matmul((self.mu_weight + delta_weight).transpose(-1, -2)) + (
-                self.mu_bias + delta_bias
+                (self.mu_bias + delta_bias).unsqueeze(1)
             )
         else:
             # linear outputs
@@ -177,39 +169,12 @@ class LinearVariational(BaseVariationalLayer_):
                 ((x * sign_input).matmul(delta_weight.transpose(-1, -2)) + delta_bias)
                 * sign_output
             )
-
+        if not self.batched_samples:
+            output = output.squeeze(0)
         return output
 
-    def sample_iterative_weights(self) -> tuple[Tensor]:
-        """Sample Variational weights for single sample.
-
-        Returns:
-            delta_weight and delta_bias
-        """
-        if self.is_frozen:
-            eps_weight = self.eps_weight
-        else:
-            eps_weight = self.eps_weight.data.normal_()
-
-        # compute bias and delta_bias if available
-        delta_bias = torch.zeros(1).to(self.rho_weight.device)
-        if self.mu_bias is not None:
-            if self.is_frozen:
-                eps_bias = self.eps_bias
-            else:
-                eps_bias = self.eps_bias.data.normal_()
-            # compute variance of bias from unconstrained variable rho_bias
-            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            delta_bias = sigma_bias * eps_bias
-
-        # compute variance of weight from unconstrained variable rho_weight
-        sigma_weight = torch.log1p(torch.exp(self.rho_weight))
-        # sampling delta_W
-        delta_weight = sigma_weight * eps_weight
-
-        return delta_weight, delta_bias
-
-    def sample_batched_weights(self, n_samples: int) -> tuple[Tensor]:
+    
+    def sample_weights(self, n_samples: int) -> tuple[Tensor]:
         """Sample variational weights for batched sampling.
 
         Args:
@@ -218,6 +183,7 @@ class LinearVariational(BaseVariationalLayer_):
         Returns:
             delta_weight and delta_bias
         """
+
         if self.is_frozen:
             eps_weight = self.eps_weight
             bias_eps = self.eps_bias
@@ -225,41 +191,26 @@ class LinearVariational(BaseVariationalLayer_):
             eps_weight = self.eps_weight.data.normal_()
             if self.mu_bias is not None:
                 bias_eps = self.eps_bias.data.normal_()
-
+      
         # select from max_samples
         eps_weight = eps_weight[:n_samples]
 
+        # select first sample if not batched to keep consistent shape
+       
         # sample weight with reparameterization trick
         sigma_weight = F.softplus(self.rho_weight)
         delta_weight = eps_weight * sigma_weight
-        weight_sample = self.mu_weight + delta_weight
+       
+        delta_bias = torch.zeros(1).to(self.rho_weight.device)
 
         if self.mu_bias is not None:
             bias_eps = bias_eps[:n_samples]
+         
             # sample bias with reparameterization trick
             sigma_bias = F.softplus(self.rho_bias)
             delta_bias = bias_eps * sigma_bias
-            bias_sample = self.mu_bias + delta_bias
-            all_params_mu = torch.cat(
-                [self.mu_weight.flatten(), self.mu_bias.flatten()]
-            )
-            all_params_sigma = torch.cat([sigma_weight.flatten(), sigma_bias.flatten()])
-            all_sample = torch.cat(
-                [weight_sample.flatten(1), bias_sample.flatten(1)], 1
-            )
-            # return 3D tensor for broadcasting, create batch dimension
-            delta_bias = delta_bias.unsqueeze(1)
-        else:
-            delta_bias = torch.zeros_like(delta_weight)
-            all_params_mu = self.mu_weight.flatten()
-            all_params_sigma = sigma_weight.flatten()
-            all_sample = weight_sample.flatten(1)
-
-        self.log_normalizer = calc_log_normalizer(all_params_mu, all_params_sigma)
-        self.log_f_hat = calc_log_f_hat_batched(
-            all_sample, all_params_mu, all_params_sigma, self.prior_sigma
-        )
         return delta_weight, delta_bias
+ 
 
     def freeze_layer(self, n_samples: Optional[int] = None) -> None:
         """Freeze Variational Layers.
