@@ -307,16 +307,18 @@ class BNN_LV_VI(BNN_VI):
             log_f_hat_latent_net.append(self.lv_net.log_f_hat_z)
 
         # model_preds [batch_size, output_dim, n_mc_samples_train]
+
         mean_out = torch.stack(model_preds, dim=-1).mean(dim=-1)
 
         energy_loss = self.energy_loss_module(
             torch.stack(pred_losses, dim=0),
-            torch.stack(log_f_hat, dim=0),
+            torch.concat(log_f_hat, dim=0),
             get_log_Z_prior([self.model, self.prediction_head]),
             get_log_normalizer([self.model, self.prediction_head]),
             self.lv_net.log_normalizer_z,  # log_normalizer_z
             torch.stack(log_f_hat_latent_net, dim=0),  # log_f_hat_z
         )
+
         return energy_loss, mean_out
 
     def predict_step(
@@ -475,9 +477,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             "posterior_rho_init": self.hparams.posterior_rho_init,
             "layer_type": self.hparams.layer_type,
             "batched_samples": True,
-            "max_n_samples": max(
-                self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
-            ),
+            "max_n_samples": self.hparams.n_mc_samples_train
         }
 
     def forward(
@@ -534,10 +534,6 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
 
         y = torch.tile(y[None,...], (self.hparams.n_mc_samples_train, 1, 1))
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
-
-        # BUGS here in log_f_hat should be shape [n_samples] 
-        # log_f_hat_z should be shape [n_samples, batch_size]
-
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
             get_log_f_hat([self.model, self.prediction_head]),
