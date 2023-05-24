@@ -163,7 +163,7 @@ class BNN_VI(BaseModel):
         # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
         energy_loss = self.energy_loss_module(
             torch.stack(pred_losses, dim=0),
-            torch.stack(log_f_hat, dim=0),
+            torch.concat(log_f_hat, dim=0),
             get_log_Z_prior([self.model]),
             get_log_normalizer([self.model]),
             log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
@@ -370,9 +370,8 @@ class BNN_VI_Batched(BNN_VI):
             "posterior_rho_init": self.hparams.posterior_rho_init,
             "layer_type": self.hparams.layer_type,
             "batched_samples": True,
-            "max_n_samples": max(
-                self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
-            ),
+            "max_n_samples": self.hparams.n_mc_samples_train
+
         }
 
     def forward(self, X: Tensor, n_samples: int = 5) -> Tensor:
@@ -407,6 +406,7 @@ class BNN_VI_Batched(BNN_VI):
 
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
         # BUGS here in log_f_hat should be shape [n_samples] 
+
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
             get_log_f_hat([self.model]),
@@ -425,9 +425,11 @@ class BNN_VI_Batched(BNN_VI):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
+        preds = []
         with torch.no_grad():
-            model_preds = self.forward(X, self.hparams.n_mc_samples_test)
-
+            for _ in range(int(self.hparams.n_mc_samples_test/self.hparams.n_mc_samples_train)):
+                preds.append(self.forward(X).detach().cpu().numpy())
+        model_preds = np.concatenate(preds, axis=0)
 
         mean_out = model_preds.mean(axis=0).squeeze()
         std_epistemic = model_preds.std(axis=0).squeeze()
