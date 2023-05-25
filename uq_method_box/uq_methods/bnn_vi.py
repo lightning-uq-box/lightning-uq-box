@@ -292,9 +292,9 @@ class BNN_VI(BaseModel):
             a "lr dict" according to the pytorch lightning documentation --
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        params = self.exclude_from_wt_decay(
-            self.named_parameters(), weight_decay=self.hparams.weight_decay
-        )
+        optimizer_args = getattr(self.optimizer, "keywords")
+        wd = optimizer_args.get("weight_decay", 0.0)
+        params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=wd)
 
         optimizer = self.optimizer(params=params)
         return optimizer
