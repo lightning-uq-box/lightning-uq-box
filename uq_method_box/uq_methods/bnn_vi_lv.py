@@ -549,7 +549,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         return energy_loss, out.detach().mean(dim=0)
 
     def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0, n_samples_pred: int = 100
     ) -> dict[str, np.ndarray]:
         """Prediction step.
 
@@ -559,8 +559,8 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         Returns:
             prediction dictionary
         """
-        n_aleatoric = 100
-        n_epistemic = 100
+        n_aleatoric = n_samples_pred
+        n_epistemic = n_samples_pred
         n_samples = self.hparams.n_mc_samples_train
         output_dim = self.prediction_head.out_features
         in_noise = torch.randn(n_aleatoric)
@@ -569,10 +569,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
 
         with torch.no_grad():
             for i in range(int(n_epistemic / n_samples)):
-                # one forward pass to resample
-                _ = super().forward(
-                    torch.tile(X[None, ...], [n_samples, 1, 1]), training=False
-                )
+                # freeze will resample 
                 self.freeze_layers(n_samples)
                 for j in range(n_aleatoric):
                     z = torch.tile(in_noise[j], (n_samples, X.shape[0], 1))
