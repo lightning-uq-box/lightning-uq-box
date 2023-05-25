@@ -169,7 +169,7 @@ class BNN_VI(BaseModel):
             log_f_hat_z=torch.zeros(1).to(self.device),  # log_f_hat_z
         )
 
-        return energy_loss, mean_out
+        return energy_loss, mean_out.detach()
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
@@ -416,7 +416,7 @@ class BNN_VI_Batched(BNN_VI):
             log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
             log_f_hat_z=torch.zeros(1).to(self.device),  # log_f_hat_z
         )
-        return energy_loss, out.mean(dim=0)
+        return energy_loss, out.detach().mean(dim=0)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0

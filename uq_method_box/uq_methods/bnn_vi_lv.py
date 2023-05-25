@@ -318,7 +318,7 @@ class BNN_LV_VI(BNN_VI):
             torch.stack(log_f_hat_latent_net, dim=0),  # log_f_hat_z
         )
 
-        return energy_loss, mean_out
+        return energy_loss, mean_out.detach()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -545,7 +545,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             log_normalizer_z=self.lv_net.log_normalizer_z,  # log_normalizer_z
             log_f_hat_z=self.lv_net.log_f_hat_z,  # log_f_hat_z
         )
-        return energy_loss, out.mean(dim=0)
+        return energy_loss, out.detach().mean(dim=0)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
