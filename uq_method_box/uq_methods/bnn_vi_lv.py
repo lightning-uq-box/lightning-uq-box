@@ -344,9 +344,7 @@ class BNN_LV_VI(BNN_VI):
                 self.freeze_layers()
                 for j in range(n_aleatoric):
                     z = torch.tile(in_noise[j], (X.shape[0], 1))
-                    model_preds[i, j] = (
-                        self.forward(X, z, training=False).detach().cpu().numpy()
-                    )
+                    model_preds[i, j] = self.forward(X, z, training=False).cpu().numpy()
                 self.unfreeze_layers()
 
         mean_out = model_preds.mean(axis=(0, 1)).squeeze()
@@ -586,7 +584,6 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
                             z,
                             training=False,
                         )
-                        .detach()
                         .cpu()
                         .numpy()
                     )

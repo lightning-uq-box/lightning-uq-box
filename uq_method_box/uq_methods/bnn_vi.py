@@ -431,7 +431,7 @@ class BNN_VI_Batched(BNN_VI):
             for _ in range(
                 int(self.hparams.n_mc_samples_test / self.hparams.n_mc_samples_train)
             ):
-                preds.append(self.forward(X).detach().cpu().numpy())
+                preds.append(self.forward(X).cpu().numpy())
 
         model_preds = np.concatenate(preds, axis=0)
         mean_out = model_preds.mean(axis=0).squeeze()
