@@ -10,7 +10,6 @@ import torch.nn as nn
 from torch import Tensor
 from torchgeo.trainers.utils import _get_input_layer_name_and_module
 
-from uq_method_box.eval_utils import compute_quantiles_from_std
 from uq_method_box.models.bnnlv.latent_variable_network import LatentVariableNetwork
 from uq_method_box.models.bnnlv.utils import (
     get_log_f_hat,
@@ -216,13 +215,14 @@ class BNN_LV_VI(BNN_VI):
             init_scaling=self.hparams.init_scaling,
         )
 
-    def forward(self, X: Tensor, y: Optional[Tensor] = None,training=True) -> Tensor:
+    def forward(self, X: Tensor, y: Optional[Tensor] = None, training=True) -> Tensor:
         """Forward pass BNN LV.
 
         Args:
             X: input data
             y: target
-            training: if yes, smple from  lv posterior, else use sample from prior or provide z 
+            training: if yes, smple from lv posterior,
+                else use sample from prior or provide z
 
         Returns:
             bnn output of size [batch_size, output_dim]
@@ -307,7 +307,6 @@ class BNN_LV_VI(BNN_VI):
             log_f_hat_latent_net.append(self.lv_net.log_f_hat_z)
 
         # model_preds [batch_size, output_dim, n_mc_samples_train]
-
         mean_out = torch.stack(model_preds, dim=-1).mean(dim=-1)
 
         energy_loss = self.energy_loss_module(
@@ -328,9 +327,10 @@ class BNN_LV_VI(BNN_VI):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
-        """
-        # TODO correctly decompose uncertainty epistemic and aleatoric with LV
 
+        Returns:
+            prediction dictionary
+        """
         n_aleatoric = 100
         n_epistemic = 100
         output_dim = self.prediction_head.out_features
@@ -340,23 +340,29 @@ class BNN_LV_VI(BNN_VI):
         with torch.no_grad():
             for i in range(n_epistemic):
                 # one forward pass to resample
-                _ = self.forward(X,training=False)
+                _ = self.forward(X, training=False)
                 self.freeze_layers()
                 for j in range(n_aleatoric):
                     z = torch.tile(in_noise[j], (X.shape[0], 1))
-                    model_preds[i, j] = self.forward(X,z,training=False).detach().cpu().numpy()
+                    model_preds[i, j] = (
+                        self.forward(X, z, training=False).detach().cpu().numpy()
+                    )
                 self.unfreeze_layers()
-        
+
         mean_out = model_preds.mean(axis=(0, 1)).squeeze()
         std_epistemic = model_preds.mean(axis=1).std(axis=0).squeeze()
         o_noise = torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
-        std_aleatoric = np.sqrt(o_noise ** 2 + model_preds.std(axis=1).mean(axis=0) ** 2).squeeze()
-        std = np.sqrt(std_epistemic ** 2 + std_aleatoric ** 2)
+        std_aleatoric = np.sqrt(
+            o_noise**2 + model_preds.std(axis=1).mean(axis=0) ** 2
+        ).squeeze()
+        std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
 
-        # model_preds [n_mc_samples_test, batch_size, output_dim]
-
-
-        return {"mean": mean_out, "pred_uct": std, "epistemic_uct": std_epistemic, "aleatoric_uct": std_aleatoric}
+        return {
+            "mean": mean_out,
+            "pred_uct": std,
+            "epistemic_uct": std_epistemic,
+            "aleatoric_uct": std_aleatoric,
+        }
 
     def freeze_layers(self) -> None:
         """Freeze BNN Layers to fix the stochasticity over forward passes."""
@@ -477,7 +483,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             "posterior_rho_init": self.hparams.posterior_rho_init,
             "layer_type": self.hparams.layer_type,
             "batched_samples": True,
-            "max_n_samples": self.hparams.n_mc_samples_train
+            "max_n_samples": self.hparams.n_mc_samples_train,
         }
 
     def forward(
@@ -514,7 +520,6 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         return torch.randn(num_samples, batch_size, self.hparams.lv_latent_dim).to(
             self.device
         )
-    
 
     def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
         """Compute the loss for BNN with alpha divergence.
@@ -529,10 +534,10 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             dim [n_mc_samples_train, output_dim]
         """
         out = self.forward(
-            X, y,n_samples=self.hparams.n_mc_samples_train
+            X, y, n_samples=self.hparams.n_mc_samples_train
         )  # [n_mc_samples_train, batch_size, output_dim]
 
-        y = torch.tile(y[None,...], (self.hparams.n_mc_samples_train, 1, 1))
+        y = torch.tile(y[None, ...], (self.hparams.n_mc_samples_train, 1, 1))
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
@@ -543,7 +548,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             log_f_hat_z=self.lv_net.log_f_hat_z,  # log_f_hat_z
         )
         return energy_loss, out.mean(dim=0)
-    
+
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
@@ -551,8 +556,10 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
-        """
 
+        Returns:
+            prediction dictionary
+        """
         n_aleatoric = 100
         n_epistemic = 100
         n_samples = self.hparams.n_mc_samples_train
@@ -562,28 +569,43 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         model_preds = np.zeros((n_epistemic, n_aleatoric, X.shape[0], output_dim))
 
         with torch.no_grad():
-            for i in range(int(n_epistemic/n_samples)):
+            for i in range(int(n_epistemic / n_samples)):
                 # one forward pass to resample
-                _ = super().forward(torch.tile(X[None,...],[n_samples,1,1]),training=False)
+                _ = super().forward(
+                    torch.tile(X[None, ...], [n_samples, 1, 1]), training=False
+                )
                 self.freeze_layers(n_samples)
                 for j in range(n_aleatoric):
-                    z = torch.tile(in_noise[j], (n_samples,X.shape[0], 1))
-                    model_preds[i*n_samples:(i+1)*n_samples, j,:,:] = super().forward(
-                        torch.tile(X[None,...],[n_samples,1,1]),
-                        z,
-                        training=False
-                        ).detach().cpu().numpy()
+                    z = torch.tile(in_noise[j], (n_samples, X.shape[0], 1))
+                    model_preds[
+                        i * n_samples : (i + 1) * n_samples, j, :, :  # noqa: E203
+                    ] = (
+                        super()
+                        .forward(
+                            torch.tile(X[None, ...], [n_samples, 1, 1]),
+                            z,
+                            training=False,
+                        )
+                        .detach()
+                        .cpu()
+                        .numpy()
+                    )
                 self.unfreeze_layers()
-        
+
         mean_out = model_preds.mean(axis=(0, 1)).squeeze()
         std_epistemic = model_preds.mean(axis=1).std(axis=0).squeeze()
         o_noise = torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
-        std_aleatoric = np.sqrt(o_noise ** 2 + model_preds.std(axis=1).mean(axis=0) ** 2).squeeze()
-        std = np.sqrt(std_epistemic ** 2 + std_aleatoric ** 2)
+        std_aleatoric = np.sqrt(
+            o_noise**2 + model_preds.std(axis=1).mean(axis=0) ** 2
+        ).squeeze()
+        std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
+        return {
+            "mean": mean_out,
+            "pred_uct": std,
+            "epistemic_uct": std_epistemic,
+            "aleatoric_uct": std_aleatoric,
+        }
 
-
-
-        return {"mean": mean_out, "pred_uct": std, "epistemic_uct": std_epistemic, "aleatoric_uct": std_aleatoric}
     def freeze_layers(self, n_samples: int) -> None:
         """Freeze BNN Layers to fix the stochasticity over forward passes.
 

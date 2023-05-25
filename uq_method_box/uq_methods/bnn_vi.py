@@ -138,12 +138,11 @@ class BNN_VI(BaseModel):
             mean_out: mean output over samples,
                 dim [batch_size, output_dim]
         """
-        model_preds = []
-        pred_losses = []
-        log_f_hat = []
+        model_preds: list[Tensor] = []
+        pred_losses: list[Tensor] = []
+        log_f_hat: list[Tensor] = []
 
         # assume homoscedastic noise with std output_noise_scale
-
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
 
         # draw samples for all stochastic functions
@@ -223,13 +222,16 @@ class BNN_VI(BaseModel):
             ]
         # model_preds [batch_size, output_dim]
         model_preds = torch.stack(model_preds, dim=0).detach().cpu().numpy()
-
         mean_out = model_preds.mean(axis=0).squeeze()
+
         std_epistemic = model_preds.std(axis=0).squeeze()
         std_epistemic[std_epistemic <= 0] = 1e-6
-        std_aleatoric = std_epistemic*0. + torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
+        std_aleatoric = (
+            std_epistemic * 0.0
+            + torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
+        )
 
-        std = np.sqrt(std_epistemic ** 2 + std_aleatoric ** 2)
+        std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
         # currently only single output, might want to support NLL output as well
         quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
         return {
@@ -370,8 +372,7 @@ class BNN_VI_Batched(BNN_VI):
             "posterior_rho_init": self.hparams.posterior_rho_init,
             "layer_type": self.hparams.layer_type,
             "batched_samples": True,
-            "max_n_samples": self.hparams.n_mc_samples_train
-
+            "max_n_samples": self.hparams.n_mc_samples_train,
         }
 
     def forward(self, X: Tensor, n_samples: int = 5) -> Tensor:
@@ -402,10 +403,10 @@ class BNN_VI_Batched(BNN_VI):
         out = self.forward(
             X, n_samples=self.hparams.n_mc_samples_train
         )  # [num_samples, batch_size, output_dim]
-        y = torch.tile(y[None,...], (self.hparams.n_mc_samples_train, 1, 1))
+        y = torch.tile(y[None, ...], (self.hparams.n_mc_samples_train, 1, 1))
 
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
-        # BUGS here in log_f_hat should be shape [n_samples] 
+        # BUGS here in log_f_hat should be shape [n_samples]
 
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
@@ -427,19 +428,22 @@ class BNN_VI_Batched(BNN_VI):
         """
         preds = []
         with torch.no_grad():
-            for _ in range(int(self.hparams.n_mc_samples_test/self.hparams.n_mc_samples_train)):
+            for _ in range(
+                int(self.hparams.n_mc_samples_test / self.hparams.n_mc_samples_train)
+            ):
                 preds.append(self.forward(X).detach().cpu().numpy())
-        model_preds = np.concatenate(preds, axis=0)
 
+        model_preds = np.concatenate(preds, axis=0)
         mean_out = model_preds.mean(axis=0).squeeze()
+
         std_epistemic = model_preds.std(axis=0).squeeze()
         std_epistemic[std_epistemic <= 0] = 1e-6
-        std_aleatoric = std_epistemic*0. + torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
+        std_aleatoric = (
+            std_epistemic * 0.0
+            + torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
+        )
+        std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
 
-        std = np.sqrt(std_epistemic ** 2 + std_aleatoric ** 2)
-
-
-        std = np.sqrt(std_epistemic ** 2 + std_aleatoric ** 2)
         # currently only single output, might want to support NLL output as well
         quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
         return {
