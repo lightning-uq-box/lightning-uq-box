@@ -163,6 +163,8 @@ class BaseModel(LightningModule):
         X, y = args[0]
         out_dict = self.predict_step(X)
         out_dict["targets"] = y.detach().squeeze(-1).cpu().numpy()
+        scaler_std =  self.trainer.datamodule.uci_ds.target_scaler.var_[0] ** 0.5
+        out_dict["unnorm_targets"] = y.detach().squeeze(-1).cpu().numpy() * scaler_std
         return out_dict
 
     def predict_step(

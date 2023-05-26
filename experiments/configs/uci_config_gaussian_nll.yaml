@@ -15,27 +15,28 @@ uq_method:
     n_outputs: 2
     n_hidden: [50]
   optimizer:
-    _target_: torch.optim.SGD # can change optimizers here easily
+    _target_: torch.optim.Adam # can change optimizers here easily
     _partial_: true
     lr: 0.003
   burnin_epochs: 5
-  max_epochs: 10
+  max_epochs: 1000
 
 # everything to configure the datamodule  
 datamodule:
-  _target_: uq_method_box.datamodules.UCIRegressionDatamodule
-  dataset_name: boston
-  root: "/home/nils/projects/uq-method-box/experiments/data/uci"
+  _target_: uq_method_box.datamodules.uci.UCIRegressionDatamodule
+  dataset_name: concrete
+  root: "/mnt/SSD2/nils/uq-method-box/experiments/data"
   train_size: 0.9
-  batch_size: 32
-  num_workers: 4
+  batch_size: 100
+  num_workers: 1
 
 # all flags for the pytorch lightning trainer
 trainer:
   _target_: lightning.pytorch.Trainer
-  accelerator: cpu
+  accelerator: gpu
+  devices: [4]
   precision: 32
-  max_epochs: 10
+  max_epochs: 1000
   max_steps: -1
   limit_val_batches: 0.0 # no validation set
   limit_test_batches: 1.0

@@ -86,9 +86,18 @@ class DeterministicGaussianModel(BaseModel):
         mean, log_sigma_2 = preds[:, 0], preds[:, 1]
         eps = np.ones_like(log_sigma_2) * 1e-6
         std = np.sqrt(eps + np.exp(log_sigma_2))
+        
+        # unnormalize data
+        scaler_std =  self.trainer.datamodule.uci_ds.target_scaler.var_[0] ** 0.5
+        unnorm_mean = mean * scaler_std
+        unnorm_std = std * scaler_std
+
+
         quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
         return {
             "mean": mean,
+            "unnorm_mean": unnorm_mean,
+            "unnorm_std": unnorm_std,
             "pred_uct": std,
             "aleatoric_uct": std,
             "lower_quant": quantiles[:, 0],

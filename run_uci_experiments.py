@@ -4,6 +4,7 @@ import argparse
 import copy
 import glob
 import os
+import torch
 
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
@@ -19,12 +20,13 @@ def run(config_path: str) -> None:
     Args:
         config_path: path to config file
     """
+    torch.set_float32_matmul_precision('medium')
     conf = OmegaConf.load(config_path)
 
     # main directory for the
     experiment_config = create_experiment_dir(conf)
 
-    for i in range(2):  # 20 random seeds
+    for i in range(10):  # num random seeds
         seed_config = copy.deepcopy(experiment_config)
 
         # create a subdirectory for this seed
@@ -62,7 +64,7 @@ def run(config_path: str) -> None:
             trainer = generate_trainer(run_config)
 
             # fit model
-            trainer.fit(model, dm)
+            trainer.fit(model, datamodule=dm)
 
             # save config for this particular run
             with open(
@@ -146,7 +148,7 @@ def run(config_path: str) -> None:
         model.hparams.save_dir = pred_dir
 
         # make predictions on test set, check that it still takes the best model?
-        trainer.test(model, dataloaders=dm.test_dataloader())
+        trainer.test(model, datamodule=dm)
 
         # save run_config to sub directory for the seed experiment directory
         with open(os.path.join(pred_dir, "seed_config.yaml"), "w") as fp:
