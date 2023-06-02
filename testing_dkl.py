@@ -15,8 +15,6 @@ from lightning.pytorch.loggers import CSVLogger
 
 from uq_method_box.datamodules import ToyDUE, ToyHeteroscedasticDatamodule
 from uq_method_box.models import MLP
-
-# from uq_method_box.uq_methods import DUEModel  # noqa: F401
 from uq_method_box.uq_methods import (  # BaseModel,; DeterministicGaussianModel,
     DeepKernelLearningModel,
     DKLGPLayer,
@@ -48,11 +46,11 @@ feature_extractor = MLP(
     n_inputs=1, n_outputs=10, n_hidden=[100], activation_fn=torch.nn.ReLU()
 )
 
-dkl_model = DUEModel(
+dkl_model = DeepKernelLearningModel(
     feature_extractor,
     gp_layer=partial(DKLGPLayer, n_outputs=1, kernel="RBF"),
     elbo_fn=partial(VariationalELBO),
-    optimizer=partial(torch.optim.Adam, lr=1e-3),
+    optimizer=partial(torch.optim.Adam, lr=1e-2),
     train_loader=train_loader,
     n_inducing_points=50,
     save_dir=my_dir,

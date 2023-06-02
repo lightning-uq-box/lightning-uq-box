@@ -244,15 +244,10 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self.gp_layer.eval()
         self.likelihood.eval()
 
-        with torch.no_grad():
-            out = self.forward(X)  # GPytorch MultivariatNormal Object
-
-        mean = out.mean.cpu().numpy()
-        # preds.confidence_region() Returns 2 standard deviations
-        # above and below the mean. Return type (torch.Tensor, torch.Tensor)
-        confidence = out.confidence_region()
-
-        std = ((confidence[1] - confidence[0]) * 0.5).cpu().numpy()
+        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(64):
+            output = self.likelihood(self.forward(X))
+            mean = output.mean.cpu().numpy()
+            std = output.stddev.cpu().numpy()
 
         quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
         return {
