@@ -83,22 +83,22 @@ def plot_predictions(
     fig = plt.figure(figsize=(10, 7))
     ax0 = fig.add_subplot(1, 2, 1)
     if samples is not None:
-        ax0.scatter(X_test, samples[0], color="black", label="samples", s=0.1,alpha=0.5)
+        ax0.scatter(X_test, samples[0], color="black", label="samples", s=0.1,alpha=0.7)
         for i in range(1, len(samples)):
-            ax0.scatter(X_test, samples[i], color="black", s=0.1,alpha=0.5)
+            ax0.scatter(X_test, samples[i], color="black", s=0.1,alpha=0.7)
     
 
     # model predictive uncertainty bands on the left
-    ax0.scatter(X_test, y_test, color="gray", label="ground truth", s=0.5)
-    ax0.scatter(X_train, y_train, color="blue", label="train_data")
-    ax0.scatter(X_test, y_pred, color="orange", label="predictions")
+    ax0.scatter(X_test, y_test, color="gray", label="ground truth", s=0.5,alpha=0.5)
+    ax0.scatter(X_train, y_train, color="blue", label="train_data",alpha=0.5)
+    ax0.scatter(X_test, y_pred, color="orange", label="predictions",alpha=0.5)
 
     if pred_std is not None:
         ax0.fill_between(
             X_test.squeeze(),
             y_pred - pred_std,
             y_pred + pred_std,
-            alpha=0.3,
+            alpha=0.2,
             color="tab:red",
             label=r"$\sqrt{\mathbb{V}\,[y]}$",
         )
