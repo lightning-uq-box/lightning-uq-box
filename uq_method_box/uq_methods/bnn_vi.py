@@ -103,7 +103,7 @@ class BNN_VI(BaseModel):
         # need individual nlls of a gaussian, as we first do logsumexp over samples
         # cannot sum over batch size first as logsumexp is non-linear
         # TODO: do we support training with aleatoric output noise?
-        self.nll_loss = nn.GaussianNLLLoss(reduction="none")
+        self.nll_loss = nn.GaussianNLLLoss(reduction="none",full=True)
 
         self.energy_loss_module = EnergyAlphaDivergence(
             N=self.hparams.num_training_points, alpha=self.hparams.alpha
