@@ -241,6 +241,7 @@ class BNN_VI(BaseModel):
             "aleatoric_uct": std_aleatoric,
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
+            "samples": model_preds,
         }
 
     def freeze_layers(self) -> None:
@@ -453,6 +454,8 @@ class BNN_VI_Batched(BNN_VI):
             "aleatoric_uct": std_aleatoric,
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
+            "samples": model_preds,
+
         }
 
     def freeze_layers(self, n_samples: int) -> None:

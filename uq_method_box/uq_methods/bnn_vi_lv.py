@@ -376,6 +376,7 @@ class BNN_LV_VI(BNN_VI):
             "pred_uct": std_full,
             "epistemic_uct": epistemic_uncertainty,
             "aleatoric_uct": aleatoric_uncertainty,
+            "samples": model_preds_hy
         }
 
     def freeze_layers(self) -> None:
@@ -624,6 +625,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
                 "pred_uct": std_full,
                 "epistemic_uct": epistemic_uncertainty,
                 "aleatoric_uct": aleatoric_uncertainty,
+                "samples": model_preds_hy
             }
 
     def freeze_layers(self, n_samples: int) -> None:
