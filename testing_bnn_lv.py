@@ -13,15 +13,15 @@ from lightning import Trainer
 from lightning.pytorch.loggers import CSVLogger
 
 from uq_method_box.datamodules import (
-    ToyHeteroscedasticDatamodule,  # ToyBimodalDatamodule
+    ToyHeteroscedasticDatamodule,  ToyBimodalDatamodule
 )
 from uq_method_box.models import MLP
-from uq_method_box.uq_methods import BNN_LV_VI,BNN_LV_VI_Batched
+from uq_method_box.uq_methods import BNN_LV_VI,BNN_LV_VI_Batched, BNN_VI_Batched, BNN_VI
 from uq_method_box.viz_utils import plot_predictions
 
 # seed_everything(4)
 torch.set_float32_matmul_precision("medium")
-dm = ToyHeteroscedasticDatamodule(batch_size=50,n_train=1000)
+dm = ToyBimodalDatamodule(batch_size=64,n_train=750)
 
 X_train, y_train, train_loader, X_test, y_test, test_loader = (
     dm.X_train,
@@ -36,21 +36,21 @@ my_config = {
     "model_args": {
         "n_inputs": 1,
         "n_outputs": 1,
-        "n_hidden": [50, 50],
+        "n_hidden": [20, 20],
         "activation_fn": torch.nn.ReLU(),
     },
     "loss_fn": "nll",
     "latent_net": {
         "n_inputs": 2,  # num_input_features + num_target_dim
         "n_outputs": 2,  # 2 * lv_latent_dimx
-        "n_hidden": [20],
+        "n_hidden": [20,20],
         "activation_fn": torch.nn.ReLU(),
     },
 }
 
 my_dir = tempfile.mkdtemp()
 
-max_epochs = 1000
+max_epochs = 2000
 
 base_model = BNN_LV_VI_Batched(
     model=MLP(**my_config["model_args"]),
@@ -60,14 +60,13 @@ base_model = BNN_LV_VI_Batched(
     num_training_points=X_train.shape[0],
     part_stoch_module_names=["model.6"],
     latent_variable_intro="first",
-    n_mc_samples_train=15,
+    n_mc_samples_train=50,
     n_mc_samples_test=50,
     output_noise_scale=1.3,
     prior_mu=0.0,
     prior_sigma=1.0,
     posterior_mu_init=0.0,
-    posterior_rho_init=-5.0,
-    init_scaling=0.01,
+    posterior_rho_init=-2.2522,
     alpha=1.0,
 )
 
@@ -79,7 +78,7 @@ pl_args = {
     "logger": logger,
     "log_every_n_steps": 1,
     "accelerator": "cpu",
-    # "devices": [0],
+    #"devices": [0],
     "limit_val_batches": 0.0,
 }
 trainer = Trainer(**pl_args)
@@ -87,7 +86,9 @@ trainer = Trainer(**pl_args)
 # fit model
 start = time.time()
 trainer.fit(base_model, dm)
+#base_model.load_state_dict(torch.load('bnnlv.pt'))
 print(f"Fit took {time.time() - start} seconds.")
+
 
 pred = base_model.predict_step(X_test)
 
@@ -101,6 +102,7 @@ my_fig = plot_predictions(
     pred["pred_uct"],
     epistemic=pred.get("epistemic_uct", None),
     aleatoric=pred.get("aleatoric_uct", None),
+    samples=pred.get("samples", None),
     title="BNN+LV with VI",
 )
 
