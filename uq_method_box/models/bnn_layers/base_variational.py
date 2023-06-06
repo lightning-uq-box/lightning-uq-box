@@ -68,12 +68,12 @@ class BaseVariationalLayer_(nn.Module):
         self.prior_weight_sigma.fill_(self.prior_sigma)
 
         self.mu_weight.data.normal_(mean=self.posterior_mu_init, std=0.1)
-        self.rho_weight.data.normal_(mean=self.posterior_rho_init, std=0.1)
+        self.rho_weight.data.normal_(mean=self.posterior_rho_init, std=0.0)
         if self.bias:
             self.prior_bias_mu.data.fill_(self.prior_mu)
             self.prior_bias_sigma.fill_(self.prior_sigma)
             self.mu_bias.data.normal_(mean=self.posterior_mu_init, std=0.1)
-            self.rho_bias.data.normal_(mean=self.posterior_rho_init, std=0.1)
+            self.rho_bias.data.normal_(mean=self.posterior_rho_init, std=0.0)
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
@@ -81,8 +81,10 @@ class BaseVariationalLayer_(nn.Module):
         Returns:
             tensor of shape 0
         """
-        n_params = self.mu_weight.numel() + self.mu_weight.numel()
-        return torch.tensor(0.5 * n_params * math.log(self.prior_sigma * 2 * math.pi))
+        n_params = self.mu_weight.numel() 
+        if self.bias:
+            n_params += self.mu_bias.numel()
+        return torch.tensor(0.5 * n_params * math.log(self.prior_sigma**2  * 2 * math.pi))
 
     def log_normalizer(self):
         """Compute log terms for energy functional.
