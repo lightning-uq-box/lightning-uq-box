@@ -23,6 +23,7 @@ from uq_method_box.uq_methods.utils import _get_output_layer_name_and_module
 from .bnn_vi import BNN_VI
 
 
+
 class BNN_LV_VI(BNN_VI):
     """Bayesian Neural Network (BNN) with Latent Variables (LV) trained with Variational Inferece."""  # noqa: E501
 
@@ -50,7 +51,7 @@ class BNN_LV_VI(BNN_VI):
         lv_prior_mu: float = 0.0,
         lv_prior_std: float = 1.0,
         lv_latent_dim: int = 1,
-        init_scaling: float = 0.01,
+        init_scaling: float = 0.1,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of BNN+LV.
@@ -331,35 +332,50 @@ class BNN_LV_VI(BNN_VI):
         Returns:
             prediction dictionary
         """
-        n_aleatoric = 100
-        n_epistemic = 100
+        n_epistemic = 750
+        n_aleatoric = n_epistemic
         output_dim = self.prediction_head.out_features
         in_noise = torch.randn(n_aleatoric)
-
+        model_preds_hy = np.zeros((n_epistemic, X.shape[0], output_dim))
         model_preds = np.zeros((n_epistemic, n_aleatoric, X.shape[0], output_dim))
+        o_noise = torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
         with torch.no_grad():
+
+            for i in range(n_epistemic):
+                self.freeze_layers()
+                z = torch.tile(in_noise[i], (X.shape[0], 1))
+                pred = self.forward(X, z, training=False).cpu().numpy()
+                pred += np.tile(np.random.randn(1, output_dim),[ X.shape[0], 1])*o_noise
+                model_preds_hy[i, :, :] = pred
+
+
             for i in range(n_epistemic):
                 # one forward pass to resample
-                _ = self.forward(X, training=False)
                 self.freeze_layers()
                 for j in range(n_aleatoric):
                     z = torch.tile(in_noise[j], (X.shape[0], 1))
-                    model_preds[i, j] = self.forward(X, z, training=False).cpu().numpy()
+                    pred = self.forward(X, z, training=False).cpu().numpy()
+                    pred += np.tile(np.random.randn(1, output_dim),[ X.shape[0], 1])*o_noise
+                    model_preds[i , j, :, :] = pred 
                 self.unfreeze_layers()
 
         mean_out = model_preds.mean(axis=(0, 1)).squeeze()
-        std_epistemic = model_preds.mean(axis=1).std(axis=0).squeeze()
-        o_noise = torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
-        std_aleatoric = np.sqrt(
-            o_noise**2 + model_preds.std(axis=1).mean(axis=0) ** 2
-        ).squeeze()
-        std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
+        def entropy(x,axis=None):
+            var_x = x.var(axis=axis)
+            # clip variance to avoid numerical issues
+            var_x = np.clip(var_x, 1e-6, None)
+            return 0.5 * np.log(2 * np.pi * var_x) + 0.5
+  
+        full_uncertainty = entropy(model_preds_hy,axis=0).ravel()
+        aleatoric_uncertainty = entropy(model_preds,axis=1).mean(axis=0).ravel()
+        epistemic_uncertainty = full_uncertainty - aleatoric_uncertainty
+        std_full = model_preds_hy.std(axis=0).squeeze()
 
         return {
             "mean": mean_out,
-            "pred_uct": std,
-            "epistemic_uct": std_epistemic,
-            "aleatoric_uct": std_aleatoric,
+            "pred_uct": std_full,
+            "epistemic_uct": epistemic_uncertainty,
+            "aleatoric_uct": aleatoric_uncertainty,
         }
 
     def freeze_layers(self) -> None:
@@ -415,7 +431,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         lv_prior_mu: float = 0,
         lv_prior_std: float = 1,
         lv_latent_dim: int = 1,
-        init_scaling: float = 0.01,
+        init_scaling: float = 0.1,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of BNN+LV Batched.
@@ -538,6 +554,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
 
         y = torch.tile(y[None, ...], (self.hparams.n_mc_samples_train, 1, 1))
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
+     
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
             get_log_f_hat([self.model, self.prediction_head]),
@@ -559,47 +576,55 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         Returns:
             prediction dictionary
         """
-        n_aleatoric = n_samples_pred
-        n_epistemic = n_samples_pred
+        n_epistemic = 750
+        n_aleatoric = n_epistemic
         n_samples = self.hparams.n_mc_samples_train
         output_dim = self.prediction_head.out_features
         in_noise = torch.randn(n_aleatoric)
+        model_preds_hy = np.zeros((n_epistemic, X.shape[0], output_dim))
 
         model_preds = np.zeros((n_epistemic, n_aleatoric, X.shape[0], output_dim))
+        o_noise = torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
 
         with torch.no_grad():
+            for i in range(int(n_epistemic / n_samples)):
+                self.freeze_layers(n_samples)
+                z = torch.tile(in_noise[i*n_samples:(i+1)*n_samples][:,None,None], (1, X.shape[0], 1))
+                pred =  super().forward(torch.tile(X[None, ...], [n_samples, 1, 1]),z,training=False,).cpu().numpy()
+                pred += np.tile(np.random.randn(n_samples, 1, output_dim),[1, X.shape[0], 1])*o_noise
+                model_preds_hy[i*n_samples:(i+1)*n_samples, :, :] = pred
+
             for i in range(int(n_epistemic / n_samples)):
                 # freeze will resample 
                 self.freeze_layers(n_samples)
                 for j in range(n_aleatoric):
                     z = torch.tile(in_noise[j], (n_samples, X.shape[0], 1))
+                    pred =  super().forward(torch.tile(X[None, ...], [n_samples, 1, 1]),z,training=False,).cpu().numpy()
+                    pred += np.tile(np.random.randn(n_samples, 1, output_dim),[1, X.shape[0], 1])*o_noise
                     model_preds[
                         i * n_samples : (i + 1) * n_samples, j, :, :  # noqa: E203
-                    ] = (
-                        super()
-                        .forward(
-                            torch.tile(X[None, ...], [n_samples, 1, 1]),
-                            z,
-                            training=False,
-                        )
-                        .cpu()
-                        .numpy()
-                    )
+                    ] = pred 
                 self.unfreeze_layers()
 
         mean_out = model_preds.mean(axis=(0, 1)).squeeze()
-        std_epistemic = model_preds.mean(axis=1).std(axis=0).squeeze()
-        o_noise = torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
-        std_aleatoric = np.sqrt(
-            o_noise**2 + model_preds.std(axis=1).mean(axis=0) ** 2
-        ).squeeze()
-        std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
+        def entropy(x,axis=None):
+            var_x = x.var(axis=axis)
+            # clip variance to avoid numerical issues
+            var_x = np.clip(var_x, 1e-6, None)
+            return 0.5 * np.log(2 * np.pi * var_x) + 0.5
+  
+        full_uncertainty = entropy(model_preds_hy,axis=0).ravel()
+        aleatoric_uncertainty = entropy(model_preds,axis=1).mean(axis=0).ravel()
+        epistemic_uncertainty = full_uncertainty - aleatoric_uncertainty
+        std_full = model_preds_hy.std(axis=0).squeeze()
+
+
         return {
-            "mean": mean_out,
-            "pred_uct": std,
-            "epistemic_uct": std_epistemic,
-            "aleatoric_uct": std_aleatoric,
-        }
+                "mean": mean_out,
+                "pred_uct": std_full,
+                "epistemic_uct": epistemic_uncertainty,
+                "aleatoric_uct": aleatoric_uncertainty,
+            }
 
     def freeze_layers(self, n_samples: int) -> None:
         """Freeze BNN Layers to fix the stochasticity over forward passes.
