@@ -3,6 +3,7 @@
 import torch
 import torch.nn as nn
 from torch import Tensor
+import torch.nn.functional as F
 
 from uq_method_box.models.bnn_layers.utils import calc_log_normalizer
 
@@ -43,7 +44,7 @@ class LatentVariableNetwork(nn.Module):
         lv_prior_std: float = 5.0,
         lv_latent_dim: int = 1,
         lv_init_std: float = 1.0,
-        init_scaling: float = 0.01,
+        init_scaling: float = 0.1,
     ) -> None:
         """Initialize a new Latent Variable Network.
 
@@ -132,12 +133,9 @@ class LatentVariableNetwork(nn.Module):
         # shouldn't z_std be pos, why dont we use unconstrained
         # optimatization wit z_rho and then
         # use z_std = torch.log1p(torch.exp(self.z_rho))?
-
-        eps = 1e-6
-        init_shift = 3.0
-        z_std = eps + self.lv_prior_std * (
-            1 - torch.sigmoid(x[..., self.lv_latent_dim :] - init_shift)  # noqa: E203
-        )
+        z_std = self.lv_init_std - F.softplus(x[:, self.lv_latent_dim:])*self.init_scaling
+        z_std = torch.clamp(z_std, min=1e-3)
+      
         # these are lv network outputs,
         # as in eq. (3.22), [1]
         latent_samples = z_mu + z_std * weights_eps
