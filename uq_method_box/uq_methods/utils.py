@@ -1,8 +1,8 @@
 """Utilities for UQ-Method Implementations."""
 
 import os
-from collections import defaultdict
-from typing import Any
+from collections import OrderedDict, defaultdict
+from typing import Any, Union
 
 import numpy as np
 import pandas as pd
@@ -97,6 +97,50 @@ def save_predictions_to_csv(outputs: dict[str, np.ndarray], path: str) -> None:
         df.to_csv(path, mode="a", index=False, header=False)
     else:  # create new csv
         df.to_csv(path, index=False)
+
+
+def map_stochastic_modules(
+    model: nn.Module, part_stoch_module_names: Union[None, list[str, int]]
+) -> list[str]:
+    """Retrieve desired stochastic module names from user arg.
+
+    Args:
+        model: model from which to retrieve the module names
+        part_stoch_module_names: argument to uq_method for partial stochasticity
+
+    Returns:
+        list of desired partially stochastic module names
+    """
+    ordered_module_names: list[str] = []
+    # ignore batchnorm
+    for name, val in model.named_parameters():
+        # module = getattr(model, )
+        ordered_module_names.append(".".join(name.split(".")[:-1]))
+    ordered_module_names = list(OrderedDict.fromkeys(ordered_module_names))
+
+    # split of weight/bias
+    ordered_module_params = [
+        name for name, val in list(model.named_parameters())
+    ]  # all
+    module_names = [".".join(name.split(".")[:-1]) for name in ordered_module_params]
+    # remove duplicates due to weight/bias
+    module_names = list(set(module_names))
+
+    if not part_stoch_module_names:  # None means fully stochastic
+        part_stoch_names = module_names.copy()
+    elif all(isinstance(elem, int) for elem in part_stoch_module_names):
+        part_stoch_names = [
+            ordered_module_names[idx] for idx in part_stoch_module_names
+        ]  # retrieve last ones
+    elif all(isinstance(elem, str) for elem in part_stoch_module_names):
+        assert set(part_stoch_module_names).issubset(module_names), (
+            f"Model only contains these parameter modules {module_names}, "
+            f"and you requested {part_stoch_module_names}."
+        )
+        part_stoch_names = module_names.copy()
+    else:
+        raise ValueError
+    return part_stoch_names
 
 
 def dnn_to_bnn_some(m, bnn_prior_parameters, num_stochastic_modules: int):

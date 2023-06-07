@@ -2,9 +2,8 @@
 
 These are based on the Bayesian-torch library
 https://github.com/IntelLabs/bayesian-torch (BSD-3 clause) but
-adjusted to reduce code duplication and to be trained with the Energy Loss.
+adjusted to be trained with the Energy Loss.
 """
-
 import math
 
 import torch
@@ -22,8 +21,8 @@ class BaseVariationalLayer_(nn.Module):
 
     def __init__(
         self,
-        prior_mean: float = 0.0,
-        prior_variance: float = 1.0,
+        prior_mu: float = 0.0,
+        prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -3.0,
         bias: bool = True,
@@ -32,9 +31,9 @@ class BaseVariationalLayer_(nn.Module):
         """Initialize a new instance of Base Variational Layer.
 
         Args:
-            prior_mean: mean of the prior arbitrary
+            prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
-            prior_variance: variance of the prior arbitrary
+            prior_sigma: variance of the prior arbitrary
                 distribution to be used on the complexity cost,
             posterior_mu_init: init trainable mu parameter
                 representing mean of the approximate posterior,
@@ -47,8 +46,8 @@ class BaseVariationalLayer_(nn.Module):
         """
         super().__init__()
 
-        self.prior_mean = prior_mean
-        self.prior_variance = prior_variance
+        self.prior_mu = prior_mu
+        self.prior_sigma = prior_sigma
         self.posterior_mu_init = posterior_mu_init
         self.posterior_rho_init = posterior_rho_init
         self.bias = bias
@@ -57,8 +56,7 @@ class BaseVariationalLayer_(nn.Module):
             layer_type in self.valid_layer_types
         ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
         self.layer_type = layer_type
-        self.freeze = False
-
+        self.is_frozen = False
 
     def define_bayesian_parameters(self):
         """Define Bayesian parameters."""
@@ -66,16 +64,16 @@ class BaseVariationalLayer_(nn.Module):
 
     def init_parameters(self):
         """Initialize Bayesian Parameters."""
-        self.prior_weight_mu.data.fill_(self.prior_mean)
-        self.prior_weight_sigma.fill_(self.prior_variance)
+        self.prior_weight_mu.data.fill_(self.prior_mu)
+        self.prior_weight_sigma.fill_(self.prior_sigma)
 
         self.mu_weight.data.normal_(mean=self.posterior_mu_init, std=0.1)
-        self.rho_weight.data.normal_(mean=self.posterior_rho_init, std=0.1)
+        self.rho_weight.data.normal_(mean=self.posterior_rho_init, std=0.0)
         if self.bias:
-            self.prior_bias_mu.data.fill_(self.prior_mean)
-            self.prior_bias_sigma.fill_(self.prior_variance)
+            self.prior_bias_mu.data.fill_(self.prior_mu)
+            self.prior_bias_sigma.fill_(self.prior_sigma)
             self.mu_bias.data.normal_(mean=self.posterior_mu_init, std=0.1)
-            self.rho_bias.data.normal_(mean=self.posterior_rho_init, std=0.1)
+            self.rho_bias.data.normal_(mean=self.posterior_rho_init, std=0.0)
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
@@ -83,10 +81,10 @@ class BaseVariationalLayer_(nn.Module):
         Returns:
             tensor of shape 0
         """
-        n_params = self.mu_weight.numel() + self.mu_weight.numel()
-        return torch.tensor(
-            0.5 * n_params * math.log(self.prior_variance * 2 * math.pi)
-        )
+        n_params = self.mu_weight.numel() 
+        if self.bias:
+            n_params += self.mu_bias.numel()
+        return torch.tensor(0.5 * n_params * math.log(self.prior_sigma**2  * 2 * math.pi))
 
     def log_normalizer(self):
         """Compute log terms for energy functional.
@@ -127,7 +125,7 @@ class BaseVariationalLayer_(nn.Module):
             w=weight,
             m_W=self.mu_weight,
             std_W=sigma_weight,
-            prior_variance=self.prior_variance,
+            prior_sigma=self.prior_sigma,
         )
 
         bias = None
@@ -139,13 +137,22 @@ class BaseVariationalLayer_(nn.Module):
             bias = self.mu_bias + delta_bias
             # compute log_f_hat for weights and biases
             log_f_hat = log_f_hat + calc_log_f_hat(
-                w=bias,
-                m_W=self.mu_bias,
-                std_W=sigma_bias,
-                prior_variance=self.prior_variance,
+                w=bias, m_W=self.mu_bias, std_W=sigma_bias, prior_sigma=self.prior_sigma
             )
 
         return log_f_hat
+
+    def freeze_layer(self) -> None:
+        """Freeze Variational Layers.
+
+        This is useful when using BNN+LV to fix the BNN parameters
+        to sample the Latent Variables to estimate aleatoric uncertainy.
+        """
+        self.is_frozen = True
+
+    def unfreeze_layer(self) -> None:
+        """Unfreeze Variational Layers."""
+        self.is_frozen = False
 
 
 class BaseConvLayer_(BaseVariationalLayer_):
@@ -160,8 +167,8 @@ class BaseConvLayer_(BaseVariationalLayer_):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
-        prior_mean: float = 0,
-        prior_variance: float = 1,
+        prior_mu: float = 0,
+        prior_sigma: float = 1,
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -3,
         bias: bool = True,
@@ -170,9 +177,9 @@ class BaseConvLayer_(BaseVariationalLayer_):
         """Initialize a new instance of BaseConvLayer.
 
         Args:
-            prior_mean: mean of the prior arbitrary
+            prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
-            prior_variance: variance of the prior arbitrary
+            prior_sigma: variance of the prior arbitrary
                 distribution to be used on the complexity cost,
             posterior_mu_init: init trainable mu parameter
                 representing mean of the approximate posterior,
@@ -184,8 +191,8 @@ class BaseConvLayer_(BaseVariationalLayer_):
                 "reparameterization" or "flipout".
         """
         super().__init__(
-            prior_mean,
-            prior_variance,
+            prior_mu,
+            prior_sigma,
             posterior_mu_init,
             posterior_rho_init,
             bias,
@@ -222,7 +229,7 @@ class BaseConvLayer_(BaseVariationalLayer_):
         )
         self.register_buffer(
             "eps_weight",
-            torch.Tensor(
+            torch.randn(
                 self.out_channels, self.in_channels // self.groups, *self.kernel_size
             ),
             persistent=False,
@@ -246,7 +253,7 @@ class BaseConvLayer_(BaseVariationalLayer_):
             self.mu_bias = Parameter(torch.Tensor(self.out_channels))
             self.rho_bias = Parameter(torch.Tensor(self.out_channels))
             self.register_buffer(
-                "eps_bias", torch.Tensor(self.out_channels), persistent=False
+                "eps_bias", torch.randn(self.out_channels), persistent=False
             )
             self.register_buffer(
                 "prior_bias_mu", torch.Tensor(self.out_channels), persistent=False
@@ -273,24 +280,20 @@ class BaseConvLayer_(BaseVariationalLayer_):
             outputs of layer if type="reparameterization"
             outputs+perturbed of layer for type="flipout"
         """
-
-                
-        if self.freeze:
+        if self.is_frozen:
             eps_weight = self.eps_weight
         else:
             eps_weight = self.eps_weight.data.normal_()
-        
+
         # compute variance of weight from unconstrained variable rho_kernel
         sigma_weight = torch.log1p(torch.exp(self.rho_weight))
         # compute delta_weight
         delta_weight = sigma_weight * eps_weight
 
         bias = None
-
-
-
+        delta_bias = None
         if self.bias:
-            if self.freeze:
+            if self.is_frozen:
                 eps_bias = self.eps_bias
             else:
                 eps_bias = self.eps_bias.data.normal_()
@@ -318,6 +321,8 @@ class BaseConvLayer_(BaseVariationalLayer_):
             )
 
             # sampling perturbation signs
+            if self.is_frozen:
+                torch.manual_seed(0)
             sign_input = x.clone().uniform_(-1, 1).sign()
             sign_output = outputs.clone().uniform_(-1, 1).sign()
 
@@ -338,3 +343,19 @@ class BaseConvLayer_(BaseVariationalLayer_):
             # returning outputs + perturbations
             out = outputs + perturbed_outputs
         return out
+
+    def extra_repr(self):
+        """Representation when printing out layer."""
+        s = (
+            "{in_channels}, {out_channels}, kernel_size={kernel_size}"
+            ", stride={stride}, is_frozen={is_frozen}"
+        )
+        if self.padding != (0,) * len(self.padding):
+            s += ", padding={padding}"
+        if self.dilation != (1,) * len(self.dilation):
+            s += ", dilation={dilation}"
+        if self.groups != 1:
+            s += ", groups={groups}"
+        if self.bias is None:
+            s += ", bias=False"
+        return s.format(**self.__dict__)
