@@ -54,22 +54,22 @@ class TestBNN_LV_VI_Model:
         self, bnn_vi_lv_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
     ) -> None:
         """Test forward pass of model."""
-        X = torch.randn(4, 1)
-        y = torch.randn(4, 1)
+        X = torch.randn(3, 1)
+        y = torch.randn(3, 1)
         out = bnn_vi_lv_model_tabular(X, y)
         assert isinstance(out, Tensor)
-        assert out.shape[0] == 4
-        assert out.shape[1] == 1
+        assert out.shape[-2] == 3
+        assert out.shape[-1] == 1
 
     def test_predict_step(
         self, bnn_vi_lv_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
     ) -> None:
         """Test predict step outside of Lightning Trainer."""
-        X = torch.randn(4, 1)
+        X = torch.randn(3, 1)
         out = bnn_vi_lv_model_tabular.predict_step(X)
         assert isinstance(out, dict)
         assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 4
+        assert out["mean"].shape[0] == 3
 
     def test_trainer(
         self, bnn_vi_lv_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
@@ -84,7 +84,7 @@ class TestBNN_LV_VI_Model:
         )
         trainer.test(model=bnn_vi_lv_model_tabular, datamodule=datamodule)
 
-    # tests for image data
+    # # tests for image data
     @pytest.fixture(
         params=product(
             ["reparameterization", "flipout"],  # layer types

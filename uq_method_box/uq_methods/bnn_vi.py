@@ -1,5 +1,6 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
+import os
 from typing import Any, Optional, Union
 
 import einops
@@ -18,7 +19,7 @@ from uq_method_box.models.bnnlv.utils import (
 
 from .base import BaseModel
 from .loss_functions import EnergyAlphaDivergence
-from .utils import map_stochastic_modules
+from .utils import map_stochastic_modules, save_predictions_to_csv
 
 
 class BNN_VI(BaseModel):
@@ -103,7 +104,7 @@ class BNN_VI(BaseModel):
         # need individual nlls of a gaussian, as we first do logsumexp over samples
         # cannot sum over batch size first as logsumexp is non-linear
         # TODO: do we support training with aleatoric output noise?
-        self.nll_loss = nn.GaussianNLLLoss(reduction="none",full=True)
+        self.nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
         self.energy_loss_module = EnergyAlphaDivergence(
             N=self.hparams.num_training_points, alpha=self.hparams.alpha
@@ -206,6 +207,20 @@ class BNN_VI(BaseModel):
         self.train_metrics(mean_output, y)
 
         return energy_loss
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, np.ndarray],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx=0,
+    ):
+        """Test batch end save predictions."""
+        if self.hparams.save_dir:
+            outputs = {key: val for key, val in outputs.items() if key != "samples"}
+            save_predictions_to_csv(
+                outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+            )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -373,7 +388,9 @@ class BNN_VI_Batched(BNN_VI):
             "posterior_rho_init": self.hparams.posterior_rho_init,
             "layer_type": self.hparams.layer_type,
             "batched_samples": True,
-            "max_n_samples": self.hparams.n_mc_samples_train,
+            "max_n_samples": max(
+                self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
+            ),
         }
 
     def forward(self, X: Tensor, n_samples: int = 5) -> Tensor:
@@ -384,7 +401,7 @@ class BNN_VI_Batched(BNN_VI):
             n_samples: number of samples to compute
 
         Returns:
-            bnn output of shape [batch_size, num_outputs, num_samples]
+            bnn output of shape [num_samples, batch_size, num_outputs]
         """
         batched_sample_X = einops.repeat(X, "b f -> s b f", s=n_samples)
         return self.model(batched_sample_X)
@@ -455,7 +472,6 @@ class BNN_VI_Batched(BNN_VI):
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
             "samples": model_preds,
-
         }
 
     def freeze_layers(self, n_samples: int) -> None:

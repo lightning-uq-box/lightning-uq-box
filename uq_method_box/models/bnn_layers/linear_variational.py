@@ -87,10 +87,10 @@ class LinearVariational(BaseVariationalLayer_):
         self.rho_weight = Parameter(torch.Tensor(self.out_features, self.in_features))
 
         self.register_buffer(
-                "eps_weight",
-                torch.randn(self.max_n_samples, self.out_features, self.in_features),
-                persistent=False,
-            )
+            "eps_weight",
+            torch.randn(self.max_n_samples, self.out_features, self.in_features),
+            persistent=False,
+        )
 
         self.register_buffer(
             "prior_weight_mu",
@@ -116,7 +116,7 @@ class LinearVariational(BaseVariationalLayer_):
                 torch.randn(self.max_n_samples, self.out_features),
                 persistent=False,
             )
-   
+
         else:
             self.register_buffer("prior_bias_mu", None, persistent=False)
             self.register_buffer("prior_bias_sigma", None, persistent=False)
@@ -137,9 +137,11 @@ class LinearVariational(BaseVariationalLayer_):
         """
         if self.batched_samples:
             n_samples = x.shape[0]
-            assert (
-                n_samples <= self.max_n_samples
-            ), "Number of samples needs to be <= max_n_samples"
+            assert n_samples <= self.max_n_samples, (
+                "Number of samples needs to be <= max_n_samples"
+                f" but found max_n_samples {self.max_n_samples} "
+                f" and {n_samples} in input tensor."
+            )
             assert x.dim() == 3, (
                 "Expect input to be a tensor of shape "
                 "[num_samples, batch_size, num_features], "
@@ -166,14 +168,16 @@ class LinearVariational(BaseVariationalLayer_):
             sign_output = out.clone().uniform_(-1, 1).sign()
             # get outputs+perturbed outputs
             output = out + (
-                ((x * sign_input).matmul(delta_weight.transpose(-1, -2)) + delta_bias)
+                (
+                    (x * sign_input).matmul(delta_weight.transpose(-1, -2))
+                    + delta_bias.unsqueeze(1)
+                )
                 * sign_output
             )
         if not self.batched_samples:
             output = output.squeeze(0)
         return output
 
-    
     def sample_weights(self, n_samples: int) -> tuple[Tensor]:
         """Sample variational weights for batched sampling.
 
@@ -183,7 +187,6 @@ class LinearVariational(BaseVariationalLayer_):
         Returns:
             delta_weight and delta_bias
         """
-
         if self.is_frozen:
             eps_weight = self.eps_weight
             bias_eps = self.eps_bias
@@ -191,26 +194,25 @@ class LinearVariational(BaseVariationalLayer_):
             eps_weight = self.eps_weight.data.normal_()
             if self.mu_bias is not None:
                 bias_eps = self.eps_bias.data.normal_()
-      
+
         # select from max_samples
         eps_weight = eps_weight[:n_samples]
 
         # select first sample if not batched to keep consistent shape
-       
+
         # sample weight with reparameterization trick
         sigma_weight = F.softplus(self.rho_weight)
         delta_weight = eps_weight * sigma_weight
-       
+
         delta_bias = torch.zeros(1).to(self.rho_weight.device)
 
         if self.mu_bias is not None:
             bias_eps = bias_eps[:n_samples]
-         
+
             # sample bias with reparameterization trick
             sigma_bias = F.softplus(self.rho_bias)
             delta_bias = bias_eps * sigma_bias
         return delta_weight, delta_bias
- 
 
     def freeze_layer(self, n_samples: Optional[int] = None) -> None:
         """Freeze Variational Layers.
@@ -225,17 +227,13 @@ class LinearVariational(BaseVariationalLayer_):
         if n_samples is not None:
             if self.max_n_samples < n_samples:
                 self.max_n_samples = n_samples
-        
+
         setattr(
             self,
             "eps_weight",
-            torch.randn(
-                self.max_n_samples, self.out_features, self.in_features
-            ),
+            torch.randn(self.max_n_samples, self.out_features, self.in_features),
         )
-        setattr(
-            self, "eps_bias", torch.randn(self.max_n_samples, self.out_features)
-        )
+        setattr(self, "eps_bias", torch.randn(self.max_n_samples, self.out_features))
 
     def extra_repr(self) -> str:
         """Representation when printing out Layer."""

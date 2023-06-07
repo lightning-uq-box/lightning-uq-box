@@ -50,21 +50,21 @@ class TestBNN_VI_Model:
     # tests for tabular data
     def test_forward(self, bnn_vi_model_tabular: Union[BNN_VI, BNN_VI_Batched]) -> None:
         """Test forward pass of model."""
-        X = torch.randn(4, 1)
+        X = torch.randn(3, 1)
         out = bnn_vi_model_tabular(X)
         assert isinstance(out, Tensor)
-        assert out.shape[0] == 4
-        assert out.shape[1] == 1
+        assert out.shape[-2] == 3
+        assert out.shape[-1] == 1
 
     def test_predict_step(
         self, bnn_vi_model_tabular: Union[BNN_VI, BNN_VI_Batched]
     ) -> None:
         """Test predict step outside of Lightning Trainer."""
-        X = torch.randn(4, 1)
+        X = torch.randn(3, 1)
         out = bnn_vi_model_tabular.predict_step(X)
         assert isinstance(out, dict)
         assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 4
+        assert out["mean"].shape[0] == 3
 
     def test_trainer(self, bnn_vi_model_tabular: Union[BNN_VI, BNN_VI_Batched]) -> None:
         """Test Model with a Lightning Trainer."""
