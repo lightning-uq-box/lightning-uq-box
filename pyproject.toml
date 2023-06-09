@@ -32,6 +32,8 @@ filterwarnings = [
     "ignore:GPU available but not used.:UserWarning",
     # timm swinv2_tiny_transformer meshgrid
     #"ignore::UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3483.)"
+    # save_hyperparameters() Lightning
+    #"ignore:is an instance of `nn.Module` is already saved during checkpointing. It is recommended to ignore them using"
 ]
 markers = [
     "slow: marks tests as slow",

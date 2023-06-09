@@ -4,7 +4,6 @@ import os
 from typing import Any
 
 import numpy as np
-
 import torch
 import torch.nn as nn
 from lightning import LightningModule
@@ -35,8 +34,6 @@ class BaseModel(LightningModule):
             save_dir: directory path to save predictions
         """
         super().__init__()
-        # makes self.hparams accesible
-        self.save_hyperparameters(ignore=["model", "optimizer", "loss_fn"])
 
         self.train_metrics = MetricCollection(
             {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},

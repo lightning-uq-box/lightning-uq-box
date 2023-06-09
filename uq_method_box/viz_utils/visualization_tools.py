@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import uncertainty_toolbox as uct
-
+import seaborn
 
 def plot_training_metrics(save_dir: str) -> plt.figure:
     """Plot training metrics from latest lightning CSVLogger version.
@@ -63,6 +63,7 @@ def plot_predictions(
     pred_quantiles: Optional[np.ndarray] = None,
     epistemic: Optional[np.ndarray] = None,
     aleatoric: Optional[np.ndarray] = None,
+    samples: Optional[np.ndarray] = None,
     title: str = None,
 ) -> None:
     """Plot predictive uncertainty as well as epistemic and aleatoric separately.
@@ -79,20 +80,25 @@ def plot_predictions(
       aleatoric: aleatoric uncertainty
     """
     # fig, ax = plt.subplots(ncols=2)
-    fig = plt.figure()
+    fig = plt.figure(figsize=(10, 7))
     ax0 = fig.add_subplot(1, 2, 1)
+    if samples is not None:
+        ax0.scatter(X_test, samples[0], color="black", label="samples", s=0.1,alpha=0.7)
+        for i in range(1, len(samples)):
+            ax0.scatter(X_test, samples[i], color="black", s=0.1,alpha=0.7)
+    
 
     # model predictive uncertainty bands on the left
-    ax0.scatter(X_test, y_test, color="gray", label="ground truth", s=0.5)
-    ax0.scatter(X_train, y_train, color="blue", label="train_data")
-    ax0.scatter(X_test, y_pred, color="orange", label="predictions")
+    ax0.scatter(X_test, y_test, color="gray", label="ground truth", s=0.5,alpha=0.5)
+    ax0.scatter(X_train, y_train, color="blue", label="train_data",alpha=0.5)
+    ax0.scatter(X_test, y_pred, color="orange", label="predictions",alpha=0.5)
 
     if pred_std is not None:
         ax0.fill_between(
             X_test.squeeze(),
             y_pred - pred_std,
             y_pred + pred_std,
-            alpha=0.3,
+            alpha=0.2,
             color="tab:red",
             label=r"$\sqrt{\mathbb{V}\,[y]}$",
         )
@@ -109,15 +115,15 @@ def plot_predictions(
     # epistemic uncertainty figure
     ax1 = fig.add_subplot(2, 2, 2)
     if epistemic is not None:
-        ax1.scatter(
-            X_test, y_test, color="gray", edgecolor="black", label="ground truth", s=0.6
-        )
+        #ax1.scatter(
+        #    X_test, y_test, color="gray", edgecolor="black", label="ground truth", s=0.6
+        #)
         ax1.set_title("Epistemic Uncertainty")
         ax1.fill_between(
             X_test.squeeze(),
-            y_pred - epistemic,
-            y_pred + epistemic,
-            alpha=0.3,
+            epistemic,
+            epistemic,
+            alpha=0.7,
             color="tab:red",
             label="Epistemic",
         )
@@ -136,13 +142,13 @@ def plot_predictions(
     # aleatoric uncertainty figure
     ax2 = fig.add_subplot(2, 2, 4)
     if aleatoric is not None:
-        ax2.scatter(
-            X_test, y_test, color="gray", edgecolor="black", label="ground truth", s=0.6
-        )
+        #ax2.scatter(
+        #    X_test, y_test, color="gray", edgecolor="black", label="ground truth", s=0.6
+        #)
         ax2.fill_between(
             X_test.squeeze(),
-            y_pred - aleatoric,
-            y_pred + aleatoric,
+            aleatoric,
+            aleatoric,
             alpha=0.3,
             color="tab:red",
             label="Aleatoric",
