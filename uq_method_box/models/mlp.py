@@ -1,6 +1,5 @@
 """Simple MLP for Toy Regression Problems."""
 
-from typing import List
 
 import torch.nn as nn
 from torch import Tensor
@@ -13,7 +12,7 @@ class MLP(nn.Module):
         self,
         dropout_p: float = 0.0,
         n_inputs: int = 1,
-        n_hidden: List[int] = [100],
+        n_hidden: list[int] = [100],
         n_outputs: int = 1,
         activation_fn: nn.Module = nn.ReLU(),
     ) -> None:

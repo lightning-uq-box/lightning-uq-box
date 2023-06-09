@@ -1,35 +1,27 @@
 """Stochastic Weight Averaging - Gaussian.
 
-Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/trackers.py # noqa: E501
+Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/trackers.py (Apache License 2.0) # noqa: E501
+for support of partial stochasticity.
 """
 
 import math
-import os
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
-from lightning import LightningModule
-from sklearn.preprocessing import StandardScaler
 from torch import Tensor
 from torch.distributions import Normal
 from torch.utils.data import DataLoader
 from tqdm import trange
 
-from uq_method_box.eval_utils import (
-    compute_aleatoric_uncertainty,
-    compute_epistemic_uncertainty,
-    compute_predictive_uncertainty,
-    compute_quantiles_from_std,
-)
-
-from .utils import retrieve_loss_fn, save_predictions_to_csv
+from .base import BaseModel
+from .utils import map_stochastic_modules, process_model_prediction
 
 
-class SWAGModel(LightningModule):
+class SWAGModel(BaseModel):
     """Stochastic Weight Averaging - Gaussian (SWAG)."""
 
     def __init__(
@@ -40,13 +32,12 @@ class SWAGModel(LightningModule):
         snapshot_freq: int,
         num_mc_samples: int,
         swag_lr: float,
-        loss_fn: str,
+        loss_fn: nn.Module,
         train_loader: DataLoader,
         save_dir: str,
+        part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         num_datapoints_for_bn_update: Optional[int] = None,
-        target_scaler: StandardScaler = None,
-        swag_fitted: bool = False,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
@@ -57,27 +48,43 @@ class SWAGModel(LightningModule):
                 also be accessed through the trainer or write a
                 train_dataloader() method for this model based on the config?
         """
-        super().__init__()
+        super().__init__(model, None, loss_fn, save_dir)
 
-        self.save_hyperparameters(ignore=["model", "train_loader"])
-
+        self.save_hyperparameters(ignore=["model", "train_loader", "loss_fn"])
+        self.hparams["part_stoch_module_names"] = map_stochastic_modules(
+            self.model, part_stoch_module_names
+        )
         self.train_loader = train_loader
         self.model = model
 
-        self.criterion = retrieve_loss_fn(loss_fn)
-
+        self.loss_fn = loss_fn
+        self.swag_fitted = False
         self.current_iteration = 0
         self.num_tracked = 0
-        self.target_scaler = target_scaler
 
-        self._create_swag_buffers(model)
+        self.model_w_and_b_module_names = self._find_weights_and_bias_modules(
+            self.model
+        )
+        self._create_swag_buffers(self.model)
 
-    def forward(self, X: Tensor, **kwargs: Any) -> Any:
-        """Forward method."""
-        if self.hparams.swag_fitted:
-            return self.model(X)
-        else:
-            raise RuntimeError("Forward only after SWAG has been fitted.")
+    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
+        """Not intended to be used."""
+        pass
+
+    def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
+        """Not intended to be used."""
+        pass
+
+    def _find_weights_and_bias_modules(self, instance: nn.Module) -> list[str]:
+        """Find weights and bias modules corresponding to part stochastic modules."""
+        model_w_and_b_module_names: list[str] = []
+        for name, _ in instance.named_parameters():
+            if (
+                name.removesuffix(".weight").removesuffix(".bias")
+                in self.hparams.part_stoch_module_names
+            ):  # noqa: E501
+                model_w_and_b_module_names.append(name)
+        return model_w_and_b_module_names
 
     def _create_swag_buffers(self, instance: nn.Module) -> None:
         """Create swawg buffers for an underlying module.
@@ -86,18 +93,22 @@ class SWAGModel(LightningModule):
             instance: underlying model instance for which to create buffers
         """
         for name, parameter in instance.named_parameters():
-            name = name.replace(".", "_")
-            instance.register_buffer(f"{name}_mean", deepcopy(parameter))
-            instance.register_buffer(
-                f"{name}_squared_mean", torch.zeros_like(parameter)
-            )
-            instance.register_buffer(
-                f"{name}_D_block",
-                torch.zeros(
-                    (self.hparams.max_swag_snapshots, *parameter.shape),
-                    device=parameter.device,
-                ),
-            )
+            # check for partial stochasticity modules
+            if name in self.model_w_and_b_module_names:
+                name = name.replace(".", "_")
+                instance.register_buffer(f"{name}_mean", deepcopy(parameter))
+                instance.register_buffer(
+                    f"{name}_squared_mean", torch.zeros_like(parameter)
+                )
+                instance.register_buffer(
+                    f"{name}_D_block",
+                    torch.zeros(
+                        (self.hparams.max_swag_snapshots, *parameter.shape),
+                        device=parameter.device,
+                    ),
+                )
+            else:
+                continue
         instance.register_buffer("num_snapshots_tracked", torch.tensor(0, dtype=int))
         # return instance
 
@@ -109,13 +120,15 @@ class SWAGModel(LightningModule):
             buffer_name: buffer_name
         """
         safe_name = param_name.replace(".", "_")
+        # TODO be able to access and retrieve nested
+        # param names in custom models
         return getattr(self.model, f"{safe_name}_{buffer_name}")
 
     def _set_buffer_for_param(self, param_name, buffer_name, value):
         safe_name = param_name.replace(".", "_")
         setattr(self.model, f"{safe_name}_{buffer_name}", value)
 
-    def _update_tracked_state_dict(self, state_dict: Dict[str, nn.Parameter]) -> None:
+    def _update_tracked_state_dict(self, state_dict: dict[str, nn.Parameter]) -> None:
         """Update tracked state_dict.
 
         Args:
@@ -132,12 +145,12 @@ class SWAGModel(LightningModule):
 
         self.model.load_state_dict(full_state_dict)
 
-    def _untracked_state_dict(self) -> Dict[str, nn.Parameter]:
+    def _untracked_state_dict(self) -> dict[str, nn.Parameter]:
         """Return filtered untracked state dict."""
         filtered_state_dict = {}
-        tracked_keys = {name for name, _ in self.model.named_parameters()}
+        # tracked_keys = {name for name, _ in self.model.named_parameters() }
         for k, v in self.model.state_dict().items():
-            if k not in tracked_keys:
+            if k not in self.model_w_and_b_module_names:
                 filtered_state_dict[k] = v
         return filtered_state_dict
 
@@ -151,17 +164,23 @@ class SWAGModel(LightningModule):
 
         sampled = {}
 
-        _, first_param = next(iter(self.model.named_parameters()))
-        K_sample = (
-            Normal(
-                torch.zeros(self.hparams.max_swag_snapshots),
-                torch.ones(self.hparams.max_swag_snapshots),
-            )
-            .sample()
-            .to(first_param.device)  # should have lightning device
-        )
+        # find first param
+        for name, param in self.model.named_parameters():
+            if name in self.model_w_and_b_module_names:
+                # _, first_param = next(iter(self.model.named_parameters()))
+                K_sample = (
+                    Normal(
+                        torch.zeros(self.hparams.max_swag_snapshots),
+                        torch.ones(self.hparams.max_swag_snapshots),
+                    )
+                    .sample()
+                    .to(param.device)  # should have lightning device
+                )
+                break
+            else:
+                continue
 
-        for name, _ in self.model.named_parameters():
+        for name in self.model_w_and_b_module_names:
             mean = self._get_buffer_for_param(name, "mean")
             squared_mean = self._get_buffer_for_param(name, "squared_mean")
             d_block = self._get_buffer_for_param(name, "D_block")
@@ -183,32 +202,39 @@ class SWAGModel(LightningModule):
         if self.num_tracked == 0:
             with torch.no_grad():
                 for name, parameter in self.model.named_parameters():
-                    mean = self._get_buffer_for_param(name, "mean")
-                    squared_mean = self._get_buffer_for_param(name, "squared_mean")
-                    self._set_buffer_for_param(name, "mean", mean + parameter)
-                    self._set_buffer_for_param(
-                        name, "squared_mean", squared_mean + parameter.pow(2)
-                    )
+                    if name in self.model_w_and_b_module_names:
+                        mean = self._get_buffer_for_param(name, "mean")
+                        squared_mean = self._get_buffer_for_param(name, "squared_mean")
+                        self._set_buffer_for_param(name, "mean", mean + parameter)
+                        self._set_buffer_for_param(
+                            name, "squared_mean", squared_mean + parameter.pow(2)
+                        )
+                    else:
+                        continue
         else:
             with torch.no_grad():
                 for name, parameter in self.model.named_parameters():
-                    mean = self._get_buffer_for_param(name, "mean")
-                    squared_mean = self._get_buffer_for_param(name, "squared_mean")
-                    d_block = self._get_buffer_for_param(name, "D_block")
-                    self._set_buffer_for_param(
-                        name,
-                        "mean",
-                        (self.num_tracked * mean + parameter) / (self.num_tracked + 1),
-                    )
-                    self._set_buffer_for_param(
-                        name,
-                        "squared_mean",
-                        (self.num_tracked * squared_mean + parameter.pow(2))
-                        / (self.num_tracked + 1),
-                    )
-                    d_block = d_block.roll(1, dims=0)
-                    d_block[0] = parameter - mean
-                    self._set_buffer_for_param(name, "D_block", d_block)
+                    if name in self.model_w_and_b_module_names:
+                        mean = self._get_buffer_for_param(name, "mean")
+                        squared_mean = self._get_buffer_for_param(name, "squared_mean")
+                        d_block = self._get_buffer_for_param(name, "D_block")
+                        self._set_buffer_for_param(
+                            name,
+                            "mean",
+                            (self.num_tracked * mean + parameter)
+                            / (self.num_tracked + 1),
+                        )
+                        self._set_buffer_for_param(
+                            name,
+                            "squared_mean",
+                            (self.num_tracked * squared_mean + parameter.pow(2))
+                            / (self.num_tracked + 1),
+                        )
+                        d_block = d_block.roll(1, dims=0)
+                        d_block[0] = parameter - mean
+                        self._set_buffer_for_param(name, "D_block", d_block)
+                    else:
+                        continue
 
         self.num_tracked += 1
 
@@ -229,10 +255,13 @@ class SWAGModel(LightningModule):
 
     def on_test_start(self) -> None:
         """Fit the SWAG approximation."""
-        if not self.hparams.swag_fitted:
-            swag_optimizer = torch.optim.SGD(
-                self.model.parameters(), lr=self.hparams.swag_lr
-            )
+        if not self.swag_fitted:
+            swag_params: list[nn.Parameter] = [
+                param
+                for name, param in self.model.named_parameters()
+                if name in self.model_w_and_b_module_names
+            ]
+            swag_optimizer = torch.optim.SGD(swag_params, lr=self.hparams.swag_lr)
 
             # lightning automatically disables gradient computation during test
             with torch.inference_mode(False):
@@ -248,34 +277,15 @@ class SWAGModel(LightningModule):
                         # do model forward pass and sgd update
                         swag_optimizer.zero_grad()
                         out = self.model(X)
-                        loss = self.criterion(out, y)
+                        loss = self.loss_fn(out, y)
                         loss.backward()
                         swag_optimizer.step()
 
             self.hparams["swag_fitted"] = True
 
-    def test_step(self, *args: Any, **kwargs: Any) -> None:
-        """Test step."""
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.squeeze(-1).numpy()
-        return out_dict
-
-    def on_test_batch_end(
-        self,
-        outputs: Dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
-        )
-
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """Prediction step that produces conformalized prediction sets.
 
         Args:
@@ -297,39 +307,11 @@ class SWAGModel(LightningModule):
 
         preds = np.stack(preds, axis=-1)
 
-        mean_samples = preds[:, 0, :]
+        return process_model_prediction(preds, self.hparams.quantiles)
 
-        # assume prediction with sigma
-        # this is also quiet common across models so standardize this
-        if preds.shape[1] == 2:
-            log_sigma_2_samples = preds[:, 1, :]
-            eps = np.ones_like(log_sigma_2_samples) * 1e-6
-            sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
-            mean = mean_samples.mean(-1)
-            std = compute_predictive_uncertainty(mean_samples, sigma_samples)
-            aleatoric = compute_aleatoric_uncertainty(sigma_samples)
-            epistemic = compute_epistemic_uncertainty(mean_samples)
-            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": epistemic,
-                "aleatoric_uct": aleatoric,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
-        # assume mse prediction
-        else:
-            mean = mean_samples.mean(-1)
-            std = mean_samples.std(-1)
-            quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-            return {
-                "mean": mean,
-                "pred_uct": std,
-                "epistemic_uct": std,
-                "lower_quant": quantiles[:, 0],
-                "upper_quant": quantiles[:, -1],
-            }
+    def configure_optimizers(self) -> dict[str, Any]:
+        """Manually implemented."""
+        pass
 
 
 # Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501

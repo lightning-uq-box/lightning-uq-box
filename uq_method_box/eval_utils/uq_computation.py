@@ -2,10 +2,16 @@
 
 import math
 from collections import defaultdict
-from typing import List
 
 import numpy as np
 from scipy import stats
+
+# TODO:
+# write function to compute nll for GMM for BNNs without moment matching
+# e.g. get preds shape [batch_size, n_outputs, num_mc_samples]
+# n_outputs are already transformed to be sigma's not log sigmas
+# compute sum_(over batch elements x,y) log ( sum_(over samples i)
+# (1/sqrt(2 *\pi* sigma(x)_i^2))*exp(-(mu_i(x)-y)^2/(2 sigma(x)_i^2)) )
 
 
 def compute_epistemic_uncertainty(sample_mean_preds: np.ndarray) -> np.ndarray:
@@ -59,7 +65,7 @@ def compute_predictive_uncertainty(
 
 
 def compute_sample_mean_std_from_quantile(
-    inter_range_quantiles: np.ndarray, quantiles: List[float]
+    inter_range_quantiles: np.ndarray, quantiles: list[float]
 ) -> np.ndarray:
     """Compute sample mean and std from inter quantiles.
 
@@ -87,7 +93,7 @@ def compute_sample_mean_std_from_quantile(
 
 
 def compute_quantiles_from_std(
-    means: np.array, stds: np.array, quantiles: List[float]
+    means: np.array, stds: np.array, quantiles: list[float]
 ) -> np.ndarray:
     """Compute quantiles from standard deviations assuming a Gaussian.
 
@@ -140,3 +146,22 @@ def compute_predictive_entropy(std: np.ndarray) -> np.ndarray:
       predictive entropy per sample
     """
     return 0.5 + 0.5 * math.log(2 * math.pi) + np.log(std)
+
+
+# TODO:
+# write function to compute nll for GMM for BNNs without moment matching
+# e.g. get preds shape [batch_size, n_outputs, num_mc_samples]
+# n_outputs are already transformed to be sigma's not log sigmas
+# compute sum_(over batch elements x,y) log ( sum_(over samples i)
+# (1/sqrt(2 *\pi* sigma(x)_i^2))*exp(-(mu_i(x)-y)^2/(2 sigma(x)_i^2)) )
+
+
+def compute_test_nll_on_gmm(std: np.ndarray) -> np.ndarray:
+    """Compute test negative log-likelihood of GMM.
+
+    Args:
+      mean: prediction of the mean from network,
+        shape [num_mc_samples, batch_size, 1]
+      sigma^2: preds.
+    """
+    return NotImplementedError
