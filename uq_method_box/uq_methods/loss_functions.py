@@ -7,6 +7,84 @@ import torch.nn as nn
 from torch import Tensor
 
 
+class EnergyAlphaDivergence(nn.Module):
+    """Energy Alpha Divergence Loss."""
+
+    def __init__(self, N: int, alpha: float = 1.0) -> None:
+        """Initialize a new instance of Energy Alpha Divergence loss.
+
+        Args:
+            N: number of datapoints in training set
+            alpha: alpha divergence parameter
+        """
+        super().__init__()
+        self.N = N
+        self.alpha = alpha
+
+    def forward(
+        self,
+        pred_losses: Tensor,
+        log_f_hat: Tensor,
+        log_Z_prior: Tensor,
+        log_normalizer: Tensor,
+        log_normalizer_z: Tensor,
+        log_f_hat_z: Tensor,
+    ) -> Tensor:
+        """Compute the energy function loss.
+
+        Args:
+            pred_losses: nll of predictions vs targets [num_samples, batch_size, 1]
+            log_f_hat: ["num_samples"]
+            log_Z_prior: 0 shape
+            log_normalizer: 0 shape
+            log_noramlizer_z: 0 shape
+            log_f_hat_z: [num_samples,batch_size]
+            loss_terms: collected loss terms over the variational layer weights
+            #where are the loss terms?
+            N: number of datapoints in dataset #train data set?
+            alpha: alpha divergence value
+
+        Returns:
+            energy function loss
+        """
+        S = pred_losses.size(dim=1)
+        n_samples = pred_losses.size(dim=0)
+        alpha = torch.tensor(self.alpha).to(pred_losses.device)
+        NoverS = torch.tensor(self.N / S).to(pred_losses.device)
+        one_over_n_samples = torch.tensor(1 / n_samples).to(pred_losses.device)
+        one_over_N = torch.tensor(1 / self.N).to(pred_losses.device)
+
+        # if we change y_pred: Normal dist output
+        # with shape [batch_size, num_samples, output_dim]
+        # to be a Normal dist output
+        # with shape [num_samples, batch_size, output_dim]
+        # then the below should be y_pred.log_prob(y[None, :, :]).sum(-1)?
+        # Can we do this to be lazy and
+        # avoid the changing of forward passes in each layer?
+        # the outer torch.sum need to be taken over the batchsize
+        # the inner logsumexp over the numer of samples
+        inner_term = self.alpha * (
+            -pred_losses.sum(-1) - (1 / self.N) * log_f_hat[:, None] - log_f_hat_z
+        )
+        loss = (
+            -(1 / alpha)
+            * NoverS
+            * torch.sum(
+                torch.logsumexp(
+                    inner_term,
+                    dim=0,  # number of dimensions that should be reduced
+                    # i.e. logsumexp over samples
+                )
+                + torch.log(one_over_n_samples),
+                dim=0,
+            )
+            - log_normalizer
+            - NoverS * log_normalizer_z
+            + log_Z_prior
+        )
+        return loss * one_over_N
+
+
 class NLL(nn.Module):
     """Negative Log Likelihood loss."""
 
