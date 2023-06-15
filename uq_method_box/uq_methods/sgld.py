@@ -2,7 +2,7 @@
 
 import os
 from collections.abc import Iterator
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from tqdm import trange
 
 from .base import BaseModel
-from .utils import process_model_prediction
+from .utils import map_stochastic_modules, process_model_prediction
 
 
 # SGLD Optimizer from Izmailov, currently in __init__.py
@@ -88,6 +88,7 @@ class SGLDModel(BaseModel):
         burnin_epochs: int,
         max_epochs: int,
         n_sgld_samples: int,
+        part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of SGLD model.
@@ -95,7 +96,7 @@ class SGLDModel(BaseModel):
         Args:
             model_class: underlying model class
             model_args: arguments to initialize *model_class*
-            lr: initial learning rate
+            lr: initial learning rate for SGLD optimizer
             loss_fn: choice of loss function
             save_dir: directory where to save SGLD snapshots
             weight_decay: weight decay parameter for SGLD optimizer
@@ -108,22 +109,40 @@ class SGLDModel(BaseModel):
         """
         super().__init__(model, None, loss_fn, save_dir)
 
+        self.save_hyperparameters(ignore=["model", "train_loader"])
+        self.hparams["part_stoch_module_names"] = map_stochastic_modules(
+            self.model, part_stoch_module_names
+        )
         self.snapshot_dir = os.path.join(self.hparams.save_dir, "model_snapshots")
         os.makedirs(self.snapshot_dir)
-
-        self.hparams["burnin_epochs"] = burnin_epochs
-        self.hparams["max_epochs"] = max_epochs
-        self.hparams["n_sgld_samples"] = n_sgld_samples
-        self.hparams["quantiles"] = quantiles
-        self.hparams["weight_decay"] = weight_decay
-        self.hparams["noise_factor"] = noise_factor
-        self.hparams["quantiles"] = quantiles
-        self.hparams["lr"] = lr
 
         self.train_loader = train_loader
         self.model_ckpt_list: list[str] = []
 
         self.sgld_fitted = False
+
+        self.model_w_and_b_module_names = self._find_weights_and_bias_modules(
+            self.model
+        )
+
+    def _find_weights_and_bias_modules(self, instance: nn.Module) -> list[str]:
+        """Find weights and bias modules corresponding to part stochastic modules."""
+        model_w_and_b_module_names: list[str] = []
+        for name, _ in instance.named_parameters():
+            if (
+                name.removesuffix(".weight").removesuffix(".bias")
+                in self.hparams.part_stoch_module_names
+            ):  # noqa: E501
+                model_w_and_b_module_names.append(name)
+        return model_w_and_b_module_names
+
+    def _state_dict_to_save(self):
+        """Create the optionally partial state dict to save."""
+        state_dict: dict[str, nn.Parameter] = {}
+        for key, val in self.model.state_dict().items():
+            if key in self.model_w_and_b_module_names:
+                state_dict[key] = val
+        return state_dict
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Not intended."""
@@ -143,8 +162,14 @@ class SGLDModel(BaseModel):
             training loss
         """
         if not self.sgld_fitted:
+            # only update sgld_params we really want to update
+            sgld_params: list[nn.Parameter] = [
+                param
+                for name, param in self.model.named_parameters()
+                if name in self.model_w_and_b_module_names
+            ]
             sgld_opt = SGLD(
-                params=self.parameters(),
+                params=sgld_params,
                 lr=self.hparams.lr,
                 weight_decay=self.hparams.weight_decay,
                 noise_factor=self.hparams.noise_factor,
@@ -168,7 +193,7 @@ class SGLDModel(BaseModel):
                             path = os.path.join(
                                 self.snapshot_dir, f"{self.current_epoch}_model.ckpt"
                             )
-                            torch.save(self.model.state_dict(), path)
+                            torch.save(self._state_dict_to_save(), path)
                             self.model_ckpt_list.append(path)
 
             self.sgld_fitted = True
@@ -191,7 +216,8 @@ class SGLDModel(BaseModel):
         # create predictions from models loaded from checkpoints
         preds: list[torch.Tensor] = []
         for ckpt_path in self.model_ckpt_list:
-            self.model.load_state_dict(torch.load(ckpt_path))
+            # strict to false for partially stochastic
+            self.model.load_state_dict(torch.load(ckpt_path), strict=False)
             preds.append(self.model(X))
 
         preds = torch.stack(preds, dim=-1).detach().numpy()
