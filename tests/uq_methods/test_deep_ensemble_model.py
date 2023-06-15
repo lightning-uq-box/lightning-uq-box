@@ -15,7 +15,7 @@ from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
 from uq_method_box.uq_methods import DeepEnsembleModel
 
 
-class TestBaseEnsembleModel:
+class TestDeepEnsembleModel:
     @pytest.fixture(params=["deep_ensemble_nll.yaml", "deep_ensemble_mse.yaml"])
     def ensemble_model(self, tmp_path: Path, request: SubRequest) -> DeepEnsembleModel:
         """Create a Deep Ensemble Model being used for tests."""
@@ -62,9 +62,7 @@ class TestBaseEnsembleModel:
             ensemble_members.append({"base_model": model, "ckpt_path": ckpt_path})
 
         return DeepEnsembleModel(
-            n_ensemble_members,
-            ensemble_members,
-            save_dir=os.path.join(tmp_path, "prediction"),
+            ensemble_members, save_dir=os.path.join(tmp_path, "prediction")
         )
 
     def test_ensemble_forward(self, ensemble_model: DeepEnsembleModel) -> None:

@@ -16,7 +16,6 @@ class DeepEnsembleModel(LightningModule):
 
     def __init__(
         self,
-        n_ensemble_members: int,
         ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
         save_dir: str,
         quantiles: list[float] = [0.1, 0.5, 0.9],
@@ -24,14 +23,12 @@ class DeepEnsembleModel(LightningModule):
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
         Args:
-            n_ensemble_members: number of ensemble members
             ensemble_members: List of dicts where each element specifies the
                 LightningModule class and a path to a checkpoint
             save_dir: path to directory where to store prediction
             quantiles: quantile values to compute for prediction
         """
         super().__init__()
-        assert len(ensemble_members) == n_ensemble_members
         # make hparams accessible
         self.save_hyperparameters(ignore=["ensemble_members"])
         self.ensemble_members = ensemble_members
