@@ -24,7 +24,7 @@ uq_method:
 # everything to configure the datamodule  
 datamodule:
   _target_: uq_method_box.datamodules.uci.UCIRegressionDatamodule
-  dataset_name: concrete
+  dataset_name: energy
   root: "/mnt/SSD2/nils/uq-method-box/experiments/data"
   train_size: 0.9
   batch_size: 100

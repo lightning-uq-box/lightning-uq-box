@@ -31,6 +31,7 @@ def create_experiment_dir(config: dict[str, Any]) -> str:
     exp_dir_name = (
         f"{config['experiment']['experiment_name']}"
         f"_{config['uq_method']['_target_'].split('.')[-1]}"
+        f"_{config['datamodule']['dataset_name']}"
         f"_{datetime.now().strftime('%m-%d-%Y_%H-%M-%S')}"
     )
     exp_dir_path = os.path.join(config["experiment"]["exp_dir"], exp_dir_name)
