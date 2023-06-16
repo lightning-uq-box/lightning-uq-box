@@ -8,6 +8,7 @@ from .uci_concrete import UCIConcrete
 from .uci_energy import UCIEnergy
 from .uci_naval import UCINaval
 from .uci_yacht import UCIYacht
+from .usa_vars import USAVarsOOD
 
 __all__ = (
     # Toy Image dataset
@@ -19,4 +20,6 @@ __all__ = (
     "UCIConcrete",
     "UCINaval",
     "UCIYacht",
+    # Image Datasets
+    "USAVarsOOD",
 )

@@ -1,67 +1,48 @@
 """Experiment generator to setup an experiment based on a config file."""
 
-from typing import Any, Union
+import os
+from datetime import datetime
+from typing import Any
 
 from hydra.utils import instantiate
-from lightning import LightningDataModule, LightningModule, Trainer
+from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 
-from uq_method_box.uq_methods import DeepEnsembleModel
 
-
-def generate_ensemble_model(
-    config: dict[str, Any],
-    ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
-) -> LightningModule:
-    """Generate an ensemble model.
+def create_experiment_dir(config: dict[str, Any]) -> str:
+    """Create experiment directory.
 
     Args:
-        config: config dictionary
-        ensemble_members: ensemble models
+        config: config file
 
     Returns:
-        configureed ensemble lightning module
+        config with updated save_dir
     """
-    if config["model"]["ensemble"] == "deep_ensemble":
-        return DeepEnsembleModel(
-            ensemble_members,
-            config["experiment"]["save_dir"],
-            config["model"]["quantiles"],
-        )
-
-    # multi swag
-
-    # mc-dropout ensemble similar to swag
-
-    else:
-        raise ValueError("Your ensemble choice is currently not supported.")
-
-
-def generate_datamodule(config: dict[str, Any]) -> LightningDataModule:
-    """Generate LightningDataModule from config file.
-
-    Args:
-        config: config dictionary
-
-    Returns:
-        configured datamodule for experiment
-    """
-    pass
+    os.makedirs(config["experiment"]["exp_dir"], exist_ok=True)
+    exp_dir_name = (
+        f"{config['experiment']['experiment_name']}"
+        f"_{config['uq_method']['_target_'].split('.')[-1]}"
+        f"_{datetime.now().strftime('%m-%d-%Y_%H-%M-%S')}"
+    )
+    exp_dir_path = os.path.join(config["experiment"]["exp_dir"], exp_dir_name)
+    os.makedirs(exp_dir_path)
+    config["experiment"]["save_dir"] = exp_dir_path
+    return config
 
 
 def generate_trainer(config: dict[str, Any]) -> Trainer:
     """Generate a pytorch lightning trainer."""
     loggers = [
         CSVLogger(config["experiment"]["save_dir"], name="csv_logs"),
-        # WandbLogger(
-        #   save_dir=config["experiment"]["save_dir"],
-        #    project=config["wandb"]["project"],
-        #    entity=config["wandb"]["entity"],
-        #    resume="allow",
-        #    config=config,
-        #    mode=config["wandb"].get("mode", "online"),
-        # ),
+        WandbLogger(
+            save_dir=config["experiment"]["save_dir"],
+            project=config["wandb"]["project"],
+            entity=config["wandb"]["entity"],
+            resume="allow",
+            config=config,
+            mode=config["wandb"].get("mode", "online"),
+        ),
     ]
 
     track_metric = "train_loss"

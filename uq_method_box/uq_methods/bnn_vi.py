@@ -85,6 +85,8 @@ class BNN_VI(BaseModel):
 
         self._setup_bnn_with_vi()
 
+        self.pred_file_name = "predictions.csv"
+
     def _define_bnn_args(self):
         """Define BNN Args."""
         return {
@@ -219,7 +221,7 @@ class BNN_VI(BaseModel):
         if self.hparams.save_dir:
             outputs = {key: val for key, val in outputs.items() if key != "samples"}
             save_predictions_to_csv(
-                outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
             )
 
     def predict_step(

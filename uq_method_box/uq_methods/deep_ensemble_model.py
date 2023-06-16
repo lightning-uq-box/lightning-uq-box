@@ -36,6 +36,8 @@ class DeepEnsembleModel(LightningModule):
         self.save_hyperparameters(ignore=["ensemble_members"])
         self.ensemble_members = ensemble_members
 
+        self.pred_file_name = "predictions.csv"
+
     def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
         """Forward step of Deep Ensemble.
 
@@ -78,7 +80,7 @@ class DeepEnsembleModel(LightningModule):
     ):
         """Test batch end save predictions."""
         save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+            outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
         )
 
     def generate_ensemble_predictions(self, X: Tensor) -> Tensor:

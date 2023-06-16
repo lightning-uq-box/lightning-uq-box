@@ -1,6 +1,7 @@
 experiment:
   experiment_name: "uci"
   exp_dir: "experiments/experiments/"
+  seed: 0
 wandb:
   project: uci_regression
   entity: uq-regression

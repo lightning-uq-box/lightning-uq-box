@@ -53,6 +53,8 @@ class BaseModel(LightningModule):
         self.optimizer = optimizer
         self.loss_fn = loss_fn
 
+        self.pred_file_name = "predictions.csv"
+
     @property
     def num_inputs(self) -> int:
         """Retrieve input dimension to the model.
@@ -108,7 +110,9 @@ class BaseModel(LightningModule):
         assert out.shape[-1] <= 2, "Ony support single mean or Gaussian output."
         return out[:, 0:1]
 
-    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the training loss.
 
         Args:
@@ -117,12 +121,11 @@ class BaseModel(LightningModule):
         Returns:
             training loss
         """
-        X, y = args[0]
-        out = self.forward(X)
-        loss = self.loss_fn(out, y)
+        out = self.forward(batch["inputs"])
+        loss = self.loss_fn(out, batch["targets"])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), y)
+        self.train_metrics(self.extract_mean_output(out), batch["targets"])
 
         return loss
 
@@ -131,7 +134,9 @@ class BaseModel(LightningModule):
         self.log_dict(self.train_metrics.compute())
         self.train_metrics.reset()
 
-    def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute validation loss and log example predictions.
 
         Args:
@@ -141,12 +146,11 @@ class BaseModel(LightningModule):
         Returns:
             validation loss
         """
-        X, y = args[0]
-        out = self.forward(X)
-        loss = self.loss_fn(out, y)
+        out = self.forward(batch["inputs"])
+        loss = self.loss_fn(out, batch["targets"])
 
         self.log("val_loss", loss)  # logging to Logger
-        self.val_metrics(self.extract_mean_output(out), y)
+        self.val_metrics(self.extract_mean_output(out), batch["targets"])
 
         return loss
 
@@ -155,11 +159,12 @@ class BaseModel(LightningModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def test_step(self, *args: Any, **kwargs: Any) -> None:
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
         """Test step."""
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).cpu().numpy()
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
         return out_dict
 
     def predict_step(
@@ -186,7 +191,7 @@ class BaseModel(LightningModule):
         """Test batch end save predictions."""
         if self.hparams.save_dir:
             save_predictions_to_csv(
-                outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
             )
 
     def configure_optimizers(self) -> dict[str, Any]:

@@ -1,9 +1,11 @@
 """USA Vars Dataset for OOD Tasks."""
 
+import copy
 import os
-from typing import Optional
+from typing import Dict, Optional
 
 import numpy as np
+from torch import Tensor
 from torchgeo.datasets import USAVars
 
 
@@ -42,6 +44,8 @@ class USAVarsOOD(USAVars):
         """
         super().__init__(root, "train", ["treecover"], None, download, checksum)
 
+        self.availabel_files = copy.deepcopy(self.files)
+
         assert (
             split in self.valid_splits
         ), f"Valid splits are {self.valid_splits}, but found {split}."
@@ -49,6 +53,11 @@ class USAVarsOOD(USAVars):
             raise ValueError("Need to specify `ood_range`.")
 
         self.label_df = self.label_dfs["treecover"]
+
+        # there are more ids in label df present than files included
+        self.file_ids = [file.split("_")[1].split(".")[0] for file in self.files]
+        self.label_df = self.label_df.loc[self.file_ids]
+
         self.in_dist_set = self.label_df[self.label_df["treecover"] <= 10]
 
         if split == "ood":
@@ -80,7 +89,7 @@ class USAVarsOOD(USAVars):
         elif split == "val":
             self.files = [f"tile_{id}.tif" for id in self.val_ids]
         elif split == "test":
-            self.files = [f"tile_{id}.tif" for id in self.test_ids_ids]
+            self.files = [f"tile_{id}.tif" for id in self.test_ids]
         else:  # ood
             self.files = [f"tile_{id}.tif" for id in self.ood_ids]
 
@@ -92,6 +101,21 @@ class USAVarsOOD(USAVars):
                 files = f.read().splitlines()
                 all_files.extend(files)
         return all_files
+
+    def __getitem__(self, index: int) -> Dict[str, Tensor]:
+        """Return an index within the dataset.
+
+        Args:
+            index: index to return
+
+        Returns:
+            data and label at that index
+        """
+        sample = super().__getitem__(index)
+        return {
+            "inputs": sample["image"].float(),
+            "targets": sample["labels"].float() / 100,
+        }
 
     def plot_geo_distribution(self):
         """Plot geo distribution."""

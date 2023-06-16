@@ -1,0 +1,40 @@
+experiment:
+  experiment_name: "uci"
+  exp_dir: "experiments/experiments/"
+wandb:
+  project: usa_vars_regression
+  entity: uq-regression
+  mode: offline
+
+# everything to configure the UQ method
+uq_method:
+  _target_: uq_method_box.uq_methods.DeterministicGaussianModel
+  model:
+    _target_: timm.create_model # timm.create_model for timm models
+    # all arguments to initiate the mlp for example
+    model_name: "resnet18"
+    num_classes: 2
+    in_chans: 4
+    pretrained: True
+  optimizer:
+    _target_: torch.optim.Adam # can change optimizers here easily
+    _partial_: true
+    lr: 0.001
+  burnin_epochs: 20
+
+# everything to configure the datamodule  
+datamodule:
+  _target_: uq_method_box.datamodules.USAVarsDataModuleOOD
+  root: "/mnt/SSD2/nils/uq-method-box/experiments/data/usa_vars"
+  batch_size: 256
+  num_workers: 4
+
+# all flags for the pytorch lightning trainer
+trainer:
+  _target_: lightning.pytorch.Trainer
+  accelerator: gpu
+  precision: 32
+  min_epochs: 50
+  max_epochs: 100
+  log_every_n_steps: 50
+  enable_progress_bar: True
