@@ -1,88 +1,106 @@
 """USA Vars Dataset for OOD Tasks."""
 
-from collections.abc import Sequence
-from typing import Any, Callable, Optional
+import os
+from typing import Optional
 
-import geopandas
-import geoplot as gplt
-import matplotlib.pyplot as plt
-from torchgeo.datasets import RasterDataset, USAVars
-
-# TODO
-# 97871 images
-# Come up with new loading strategy for the corresponding split
-# 1. Come up with a useful OOD split, EAST/WEST or big Checkerboard split?
-#    - or define range values on the target
-# 2. Visualize the split with lat lon locations
-# 3. Labels contain an id to the imagery so can also work backwards from
-#   label to img to decide upon a split / probably cheaper than with Raster
-
-# QUESTIONS:
-# 1. How to constrain problem for treecover percentage as a percentage prediction with UQ
-# 2. Should come up with a fixed dataset version for reproducibility
-
-ds = USAVars(
-    root="/home/nils/projects/uq-regression-box/experiments/data/usa_vars/",
-    labels=["treecover"],
-)
-
-fig, axs = plt.subplots(ncols=3)
-for idx, i in enumerate([57, 7862, 11728]):
-    sample = ds[i]
-    plt.sca(axs[idx])
-    ds.plot(sample, axs=axs[idx])
-
-import pdb
-
-pdb.set_trace()
-
-
-class USAVarsRaster(RasterDataset):
-    """Raster Dataset to utitlize the geo information."""
-
-    def __init__(
-        self,
-        root: str = "data",
-        crs=None,
-        res: Optional[float] = None,
-        bands: Optional[Sequence[str]] = None,
-        transforms: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None,
-        cache: bool = True,
-    ) -> None:
-        super().__init__(root, crs, res, bands, transforms, cache)
-
-        filename_glob = "tile_*.tif"
-        filename_regex = r"^.{6}_(?P<date>\d{8}T\d{6})_(?P<band>B0[\d])"
-        is_image = True
-        separate_files = False
-
-
-# ds = USAVarsRaster(
-#     root="/home/nils/projects/uq-regression-box/experiments/data/usa_vars/uar"
-# )
+import numpy as np
+from torchgeo.datasets import USAVars
 
 
 class USAVarsOOD(USAVars):
     """USA Vars Dataset adapted for OOD."""
 
+    valid_splits = ["train", "val", "test", "ood"]
+
     def __init__(
         self,
         root: str = "data",
         split: str = "train",
-        labels: Sequence[str] = ["treecover"],
+        # labels: Sequence[str] = ["treecover"],
+        ood_range: Optional[tuple[float, float]] = None,
         download: bool = False,
         checksum: bool = False,
     ) -> None:
-        super().__init__(root, split, labels, None, download, checksum)
+        """Initialize a new USAVars dataset instance.
 
-        # how to get the ood splits we want
+        Args:
+            root: root directory where dataset can be found
+            split: train/val/test split to load in distribution sets, `ood`
+                for out-of distribution set
+            labels: list of labels to include
+            ood_range: range of target values which to consider for ood split
+            transforms: a function/transform that takes input sample and its target as
+                entry and returns a transformed version
+            download: if True, download dataset and store it in the root directory
+            checksum: if True, check the MD5 of the downloaded files (may be slow)
 
-        # adapt self.files and self.label_dfs
-        treecover_df = self.label_dfs["treecover"]
+        Raises:
+            AssertionError: if invalid labels are provided
+            ImportError: if pandas is not installed
+            RuntimeError: if ``download=False`` and data is not found, or checksums
+                don't match
+        """
+        super().__init__(root, "train", ["treecover"], None, download, checksum)
+
+        assert (
+            split in self.valid_splits
+        ), f"Valid splits are {self.valid_splits}, but found {split}."
+        if split == "ood" and not ood_range:
+            raise ValueError("Need to specify `ood_range`.")
+
+        self.label_df = self.label_dfs["treecover"]
+        self.in_dist_set = self.label_df[self.label_df["treecover"] <= 10]
+
+        if split == "ood":
+            assert (
+                len(ood_range) == 2
+            ), "Please only specify a min and max range value in that order."
+            assert (
+                ood_range[0] < ood_range[1]
+            ), "Please first specify the min and then the max range value."
+            self.ood_range = ood_range
+            self.ood_set = self.label_df[
+                (self.label_df["treecover"] > ood_range[0])
+                & (self.label_df["treecover"] <= ood_range[1])
+            ]
+            self.ood_ids = self.ood_set.index.values
+
+        np.random.seed(0)
+        in_dist_file_ids = self.in_dist_set.index.values
+        split1 = int(0.7 * len(in_dist_file_ids))
+        split2 = int(0.85 * len(in_dist_file_ids))
+
+        np.random.shuffle(in_dist_file_ids)
+        self.train_ids = in_dist_file_ids[:split1]
+        self.val_ids = in_dist_file_ids[split1:split2]
+        self.test_ids = in_dist_file_ids[split2:]
+
+        if split == "train":
+            self.files = [f"tile_{id}.tif" for id in self.train_ids]
+        elif split == "val":
+            self.files = [f"tile_{id}.tif" for id in self.val_ids]
+        elif split == "test":
+            self.files = [f"tile_{id}.tif" for id in self.test_ids_ids]
+        else:  # ood
+            self.files = [f"tile_{id}.tif" for id in self.ood_ids]
+
+    def _load_files(self) -> list[str]:
+        """Load all files."""
+        all_files = []
+        for split in self.split_metadata.keys():
+            with open(os.path.join(self.root, f"{split}_split.txt")) as f:
+                files = f.read().splitlines()
+                all_files.extend(files)
+        return all_files
+
+    def plot_geo_distribution(self):
+        """Plot geo distribution."""
+        import geopandas
+        import geoplot as gplt
 
         treecover_gdf = geopandas.GeoDataFrame(
-            treecover_df,
-            geometry=geopandas.points_from_xy(treecover_df.lon, treecover_df.lat),
+            self.label_df,
+            geometry=geopandas.points_from_xy(self.label_df.lon, self.label_df.lat),
         )
 
         n = 20000
@@ -94,11 +112,10 @@ class USAVarsOOD(USAVars):
             f"Spatial Distribution of Treecover for {n} randomly sampled points."
         )
 
-        import pdb
 
-        pdb.set_trace()
-
-        print(0)
-
-
-ds = USAVarsOOD(root="/home/nils/projects/uq-regression-box/experiments/data/usa_vars/")
+ds = USAVarsOOD(
+    root="/mnt/SSD2/nils/uq-method-box/experiments/data/usa_vars",
+    split="ood",
+    ood_range=[20, 30]
+    # download=True
+)

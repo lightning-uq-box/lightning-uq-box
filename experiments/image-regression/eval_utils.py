@@ -70,7 +70,7 @@ def compute_metrics_for_single_seed(
             pred_df["targets"].values.squeeze(),
             verbose=False,
         )
-    except:
+    except ValueError:
         import pdb
 
         pdb.set_trace()
