@@ -32,7 +32,7 @@ class QuantileRegressionModel(BaseModel):
         assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
         super().__init__(model, optimizer, QuantileLoss(quantiles), save_dir)
 
-        self.quantiles = quantiles
+        self.save_hyperparameters(ignore=["model"])
         self.median_index = self.hparams.quantiles.index(0.5)
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
@@ -58,7 +58,7 @@ class QuantileRegressionModel(BaseModel):
             predicted uncertainties
         """
         with torch.no_grad():
-            out = self.model(X).numpy()  # [batch_size, len(self.quantiles)]
+            out = self.model(X).cpu().numpy()  # [batch_size, len(self.quantiles)]
         median = out[:, self.median_index]
         mean, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
 

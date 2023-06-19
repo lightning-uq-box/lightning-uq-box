@@ -3,7 +3,7 @@ import itertools
 import os
 import stat
 
-GPUS = [2]
+GPUS = [2, 3]
 CONF_FILE_NAMES = ["gaussian_nll.yaml"]
 CONF_BASE_DIR = (
     "/mnt/SSD2/nils/uq-method-box/experiments/image-regression/configs/usa_vars"

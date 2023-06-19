@@ -2,57 +2,40 @@
 
 
 import os
-from typing import cast
 
 import lightning.pytorch as pl
 import torch
 from hydra.utils import instantiate
 from lightning.pytorch import LightningDataModule, LightningModule
 from omegaconf import DictConfig, OmegaConf
-from setup_experiment import create_experiment_dir, generate_trainer
+from setup_experiment import create_experiment_dir, generate_trainer, set_up_omegaconf
+from utils import ignore_args
+
+from uq_method_box.datamodules.utils import collate_fn_laplace_torch
 
 
-def set_up_omegaconf() -> DictConfig:
-    """Loads program arguments from either YAML config files or command line arguments.
+def train_from_scratch():
+    pass
 
-    This method loads defaults/a schema from "conf/defaults.yaml" as well as potential
-    arguments from the command line. If one of the command line arguments is
-    "config_file", then we additionally read arguments from that YAML file. One of the
-    config file based arguments or command line arguments must specify task.name. The
-    task.name value is used to grab a task specific defaults from its respective
-    trainer. The final configuration is given as merge(task_defaults, defaults,
-    config file, command line). The merge() works from the first argument to the last,
-    replacing existing values with newer values. Additionally, if any values are
-    merged into task_defaults without matching types, then there will be a runtime
-    error.
 
-    Returns:
-        an OmegaConf DictConfig containing all the validated program arguments
+def train_from_scratch_and_fit_postprocess():
+    pass
 
-    Raises:
-        FileNotFoundError: when ``config_file`` does not exist
-    """
-    conf = OmegaConf.load("configs/usa_vars/gaussian_nll.yaml")
-    command_line_conf = OmegaConf.from_cli()
 
-    if "config_file" in command_line_conf:
-        config_fn = command_line_conf.config_file
-        if not os.path.isfile(config_fn):
-            raise FileNotFoundError(f"config_file={config_fn} is not a valid file")
+def fit_postprocess_from_ckpt():
+    pass
 
-        user_conf = OmegaConf.load(config_fn)
-        conf = OmegaConf.merge(conf, user_conf)
 
-    conf = OmegaConf.merge(  # Merge in any arguments passed via the command line
-        conf, command_line_conf
-    )
-    conf = cast(DictConfig, conf)  # convince mypy that everything is alright
-    return conf
+def train_ensemble_from_scratch():
+    pass
+
+
+def fit_ensemble_from_ckpts():
+    pass
 
 
 def main(conf: DictConfig) -> None:
     """Main training loop."""
-    os.environ["HYDRA_FULL_ERROR"] = "1"
     torch.set_float32_matmul_precision("medium")
 
     exp_conf = create_experiment_dir(conf)
@@ -64,17 +47,33 @@ def main(conf: DictConfig) -> None:
 
     # Define module and datamodule
     datamodule: LightningDataModule = instantiate(conf.datamodule)
-    model: LightningModule = instantiate(
-        conf.uq_method, save_dir=conf.experiment.save_dir
-    )
-
     trainer = generate_trainer(exp_conf)
 
     # run training
-    trainer.fit(model=model, datamodule=datamodule)
+    if "post_processing" in conf:
+        # import pdb
+        # pdb.set_trace()
+        base_model = instantiate(conf.uq_method, save_dir=conf.experiment.save_dir)
+        state_dict = torch.load(conf.ckpt_path)["state_dict"]
+        base_model.load_state_dict(state_dict)
+        datamodule.setup("fit")
+        train_loader = datamodule.train_dataloader()
+        train_loader.collate_fn = collate_fn_laplace_torch
 
-    # test on IID
-    trainer.test(ckpt_path="best", datamodule=datamodule)
+        model = instantiate(
+            conf.post_processing,
+            model=base_model.model,
+            train_loader=train_loader,
+            save_dir=conf.experiment.save_dir,
+        )
+        trainer.test(model=model, datamodule=datamodule)
+    else:
+        model: LightningModule = instantiate(
+            conf.uq_method, save_dir=conf.experiment.save_dir
+        )
+        trainer.fit(model=model, datamodule=datamodule)
+        # test on IID
+        trainer.test(ckpt_path="best", datamodule=datamodule)
 
     ood_splits = [
         (10, 20),
@@ -92,7 +91,12 @@ def main(conf: DictConfig) -> None:
         # set pred file name
         model.pred_file_name = f"predictions_{ood_range[0]}_{ood_range[1]}.csv"
 
-        trainer.test(ckpt_path="best", dataloaders=datamodule.ood_dataloader(ood_range))
+        if "post_processing" in conf:
+            trainer.test(model, dataloaders=datamodule.ood_dataloader(ood_range))
+        else:
+            trainer.test(
+                ckpt_path="best", dataloaders=datamodule.ood_dataloader(ood_range)
+            )
 
     print("Finish Evaluation.")
 

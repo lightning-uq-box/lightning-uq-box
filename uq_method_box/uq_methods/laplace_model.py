@@ -143,11 +143,12 @@ class LaplaceModel(LightningModule):
 
         # save this laplace fitted model as a checkpoint?!
 
-    def test_step(self, *args: Any, **kwargs: Any) -> None:
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
         """Test step."""
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().cpu().squeeze(-1).numpy()
         return out_dict
 
     def on_test_batch_end(

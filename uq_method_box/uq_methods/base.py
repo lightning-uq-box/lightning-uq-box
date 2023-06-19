@@ -52,6 +52,7 @@ class BaseModel(LightningModule):
         self.model = model
         self.optimizer = optimizer
         self.loss_fn = loss_fn
+        self.save_dir = save_dir
 
         self.pred_file_name = "predictions.csv"
 
@@ -189,9 +190,9 @@ class BaseModel(LightningModule):
         dataloader_idx=0,
     ):
         """Test batch end save predictions."""
-        if self.hparams.save_dir:
+        if self.save_dir:
             save_predictions_to_csv(
-                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+                outputs, os.path.join(self.save_dir, self.pred_file_name)
             )
 
     def configure_optimizers(self) -> dict[str, Any]:
@@ -202,7 +203,4 @@ class BaseModel(LightningModule):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
         optimizer = self.optimizer(params=self.parameters())
-        # optimizer = self.hparams.optimizer(
-        #     self.model.parameters(), **self.hparams.optimizer_args
-        # )
         return {"optimizer": optimizer}

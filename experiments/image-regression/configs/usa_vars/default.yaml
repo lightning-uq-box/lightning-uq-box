@@ -1,0 +1,25 @@
+experiment:
+  experiment_name: "usa_vars"
+  exp_dir: "experiments/usa_vars/"
+wandb:
+  project: usa_vars_regression
+  entity: uq-regression
+  mode: online
+
+
+# everything to configure the datamodule  
+datamodule:
+  _target_: uq_method_box.datamodules.USAVarsDataModuleOOD
+  root: "/home/user/uq-method-box/experiments/data/usa_vars"
+  batch_size: 256
+  num_workers: 4
+
+# all flags for the pytorch lightning trainer
+trainer:
+  _target_: lightning.pytorch.Trainer
+  accelerator: gpu
+  precision: 32
+  min_epochs: 50
+  max_epochs: 100
+  log_every_n_steps: 50
+  enable_progress_bar: True

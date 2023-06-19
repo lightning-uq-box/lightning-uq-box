@@ -1,8 +1,5 @@
 """Mc-Dropout module."""
 
-
-from typing import Any
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -22,7 +19,6 @@ class MCDropoutModel(BaseModel):
         num_mc_samples: int,
         loss_fn: nn.Module,
         burnin_epochs: int,
-        max_epochs: int,
         save_dir: str,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -34,15 +30,7 @@ class MCDropoutModel(BaseModel):
             num_mc_samples: number of MC samples during prediction
         """
         super().__init__(model, optimizer, loss_fn, save_dir)
-
-        self.hparams["quantiles"] = quantiles
-        self.hparams["num_mc_samples"] = num_mc_samples
-        self.hparams["burnin_epochs"] = burnin_epochs
-        self.hparams["max_epochs"] = max_epochs
-
-        assert (
-            self.hparams.burnin_epochs <= self.hparams.max_epochs
-        ), "The max_epochs needs to be larger than the burnin phase."
+        self.save_hyperparameters(ignore=["model"])
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean output from model prediction.
@@ -57,7 +45,9 @@ class MCDropoutModel(BaseModel):
         """
         return out[:, 0:1]
 
-    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the training loss.
 
         Args:
@@ -66,24 +56,26 @@ class MCDropoutModel(BaseModel):
         Returns:
             training loss
         """
-        X, y = args[0]
-        out = self.forward(X)
+        out = self.forward(batch["inputs"])
 
         if self.current_epoch < self.hparams.burnin_epochs:
-            loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
+            loss = nn.functional.mse_loss(
+                self.extract_mean_output(out), batch["targets"]
+            )
         else:
-            loss = self.loss_fn(out, y)
+            loss = self.loss_fn(out, batch["targets"])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), y)
+        self.train_metrics(self.extract_mean_output(out), batch["targets"])
 
         return loss
 
-    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
         """Test Step."""
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).cpu().numpy()
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
         return out_dict
 
     def predict_step(
@@ -103,9 +95,8 @@ class MCDropoutModel(BaseModel):
                 torch.stack(
                     [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
                 )
-                .detach()
+                .cpu()
                 .numpy()
             )  # shape [batch_size, num_outputs, num_samples]
-
 
         return process_model_prediction(preds, self.hparams.quantiles)
