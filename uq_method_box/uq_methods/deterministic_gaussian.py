@@ -29,9 +29,7 @@ class DeterministicGaussianModel(BaseModel):
         super().__init__(model, optimizer, None, save_dir)
 
         self.loss_fn = NLL()
-        self.hparams["quantiles"] = quantiles
-        self.hparams["burnin_epochs"] = burnin_epochs
-        self.hparams["max_epochs"] = max_epochs
+        self.save_hyperparameters(ignore=["model"])
 
         assert (
             self.hparams.burnin_epochs <= self.hparams.max_epochs
