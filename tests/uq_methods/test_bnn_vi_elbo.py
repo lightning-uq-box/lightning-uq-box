@@ -17,9 +17,7 @@ from uq_method_box.uq_methods import BNN_VI_ELBO
 class TestBNN_VI_ELBO:
     @pytest.fixture
     def bnn_vi_elbo_model(self, tmp_path: Path) -> BNN_VI_ELBO:
-        conf = OmegaConf.load(
-            os.path.join("tests", "configs", "bayes_by_backprop.yaml")
-        )
+        conf = OmegaConf.load(os.path.join("tests", "configs", "bnn_vi_elbo.yaml"))
         conf.uq_method["save_dir"] = str(tmp_path)
         return instantiate(conf.uq_method)
 

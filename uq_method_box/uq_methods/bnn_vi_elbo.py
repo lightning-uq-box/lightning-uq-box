@@ -72,26 +72,12 @@ class BNN_VI_ELBO(BaseModel):
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["model", "loss_fn"])
 
         self._setup_bnn_with_vi()
 
         # update hyperparameters
-        self.hparams["num_training_points"] = num_training_points
-        self.hparams["num_mc_samples_train"] = num_mc_samples_train
-        self.hparams["num_mc_samples_test"] = num_mc_samples_test
-        self.hparams["quantiles"] = quantiles
         self.hparams["weight_decay"] = 1e-5
-        self.hparams["output_noise_scale"] = output_noise_scale
-
-        self.hparams["prior_mu"] = prior_mu
-        self.hparams["prior_sigma"] = prior_sigma
-        self.hparams["posterior_mu_init"] = posterior_mu_init
-        self.hparams["posterior_rho_init"] = posterior_rho_init
-        self.hparams["bayesian_layer_type"] = bayesian_layer_type
-        self.hparams["num_training_points"] = num_training_points
-
-        self.hparams["num_stochastic_modules"] = num_stochastic_modules
 
         # hyperparameter depending on network size
         self.beta = beta
