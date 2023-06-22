@@ -162,11 +162,3 @@ class USAVarsOOD(USAVars):
         ax.set_title(
             f"Spatial Distribution of Treecover for {n} randomly sampled points."
         )
-
-
-ds = USAVarsOOD(
-    root="/mnt/SSD2/nils/uq-method-box/experiments/data/usa_vars",
-    split="ood",
-    ood_range=[20, 30]
-    # download=True
-)
