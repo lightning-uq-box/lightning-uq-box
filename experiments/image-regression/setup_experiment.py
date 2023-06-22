@@ -62,7 +62,7 @@ def create_experiment_dir(config: dict[str, Any]) -> str:
     exp_dir_name = (
         f"{config['experiment']['experiment_name']}"
         f"_{config['uq_method']['_target_'].split('.')[-1]}"
-        f"_{config.get('post_processing', None).get('_target_').split('.')[-1]}"
+        f"_{config.get('post_processing', {}).get('_target_', '0.None').split('.')[-1]}"
         f"_{datetime.now().strftime('%m-%d-%Y_%H-%M-%S')}"
     )
     config["experiment"]["experiment_name"] = exp_dir_name

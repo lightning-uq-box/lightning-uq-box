@@ -5,6 +5,7 @@ import os
 
 import lightning.pytorch as pl
 import torch
+import wandb
 from hydra.utils import instantiate
 from lightning.pytorch import LightningDataModule, LightningModule
 from omegaconf import DictConfig, OmegaConf
@@ -97,7 +98,7 @@ def main(conf: DictConfig) -> None:
             trainer.test(
                 ckpt_path="best", dataloaders=datamodule.ood_dataloader(ood_range)
             )
-
+    wandb.finish()
     print("Finish Evaluation.")
 
 

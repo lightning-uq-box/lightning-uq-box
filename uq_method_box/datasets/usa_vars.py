@@ -2,11 +2,40 @@
 
 import copy
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 import numpy as np
 from torch import Tensor
 from torchgeo.datasets import USAVars
+
+# class USAVarsOur(USAVars):
+#     def __init__(
+#         self,
+#         root: str = "data",
+#         split: str = "train",
+#         labels: Sequence[str] = ["treecover"],
+#         download: bool = False,
+#         checksum: bool = False,
+#     ) -> None:
+#         """Initialize a new USAVars dataset instance.
+
+#         Args:
+#             root: root directory where dataset can be found
+#             split: train/val/test split to load in distribution sets, `ood`
+#                 for out-of distribution set
+#             labels: list of labels to include
+#             transforms: a function/transform that takes input sample and its target as
+#                 entry and returns a transformed version
+#             download: if True, download dataset and store it in the root directory
+#             checksum: if True, check the MD5 of the downloaded files (may be slow)
+
+#         Raises:
+#             AssertionError: if invalid labels are provided
+#             ImportError: if pandas is not installed
+#             RuntimeError: if ``download=False`` and data is not found, or checksums
+#                 don't match
+#         """
+#         super().__init__(root, split, labels, None, download, checksum)
 
 
 class USAVarsOOD(USAVars):
@@ -42,6 +71,7 @@ class USAVarsOOD(USAVars):
             RuntimeError: if ``download=False`` and data is not found, or checksums
                 don't match
         """
+        # root = '/home/user/uq-method-box/experiments/data/usa_vars'
         super().__init__(root, "train", ["treecover"], None, download, checksum)
 
         self.availabel_files = copy.deepcopy(self.files)
@@ -112,10 +142,7 @@ class USAVarsOOD(USAVars):
             data and label at that index
         """
         sample = super().__getitem__(index)
-        return {
-            "inputs": sample["image"].float(),
-            "targets": sample["labels"].float() / 100,
-        }
+        return {"inputs": sample["image"].float(), "targets": sample["labels"].float()}
 
     def plot_geo_distribution(self):
         """Plot geo distribution."""

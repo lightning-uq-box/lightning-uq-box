@@ -1,22 +1,31 @@
 experiment:
-  experiment_name: "usa_vars"
-  exp_dir: "experiments/usa_vars/"
+  experiment_name: "usa_vars_reproduce"
+  exp_dir: "experiments/usa_vars_new/"
 wandb:
-  project: usa_vars_regression
+  project: usa_vars_reproduce
   entity: uq-regression
   mode: online
 
 
 # everything to configure the datamodule  
+# datamodule:
+#   _target_: uq_method_box.datamodules.USAVarsDataModuleOOD
+#   root: "/home/user/uq-method-box/experiments/data/usa_vars"
+#   batch_size: 256
+#   num_workers: 4
+
 datamodule:
-  _target_: uq_method_box.datamodules.USAVarsDataModuleOOD
-  root: "/home/user/uq-method-box/experiments/data/usa_vars"
-  batch_size: 256
+  _target_: uq_method_box.datamodules.USAVarsDataModuleOur
+  # root: "/home/user/uq-method-box/experiments/data/usa_vars"
+  root: "/mnt/SSD2/nils/uq-method-box/experiments/data/usa_vars"
+  labels: ["treecover"]
+  batch_size: 128
   num_workers: 4
 
 # all flags for the pytorch lightning trainer
 trainer:
   _target_: lightning.pytorch.Trainer
+  detect_anomaly: True
   accelerator: gpu
   precision: 32
   min_epochs: 50
