@@ -1,0 +1,12 @@
+# everything to configure the UQ method
+uq_method:
+  _target_: uq_method_box.uq_methods.BaseModel
+  model:
+    _target_: uq_method_box.models.RCFLinearModel
+    num_targets: 1
+    in_channels: 4
+    features: 512
+    kernel_size: 3
+    seed: 0
+  loss_fn:
+    _target_: torch.nn.MSELoss

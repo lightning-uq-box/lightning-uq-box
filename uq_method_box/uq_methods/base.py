@@ -9,7 +9,7 @@ import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
 from torchgeo.trainers.utils import _get_input_layer_name_and_module
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
+from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 
 from .utils import _get_output_layer_name_and_module, save_predictions_to_csv
 
@@ -21,6 +21,7 @@ class BaseModel(LightningModule):
         self,
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler],
         loss_fn: nn.Module,
         save_dir: str = None,
     ) -> None:
@@ -36,21 +37,34 @@ class BaseModel(LightningModule):
         super().__init__()
 
         self.train_metrics = MetricCollection(
-            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
             prefix="train_",
         )
 
         self.val_metrics = MetricCollection(
-            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
             prefix="val_",
         )
 
         self.test_metrics = MetricCollection(
-            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
             prefix="test_",
         )
         self.model = model
         self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
         self.loss_fn = loss_fn
         self.save_dir = save_dir
 
@@ -203,4 +217,8 @@ class BaseModel(LightningModule):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
         optimizer = self.optimizer(params=self.parameters())
-        return {"optimizer": optimizer}
+        lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_R2"},
+        }

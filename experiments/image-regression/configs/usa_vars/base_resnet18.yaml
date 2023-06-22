@@ -1,0 +1,14 @@
+# everything to configure the UQ method
+uq_method:
+  _target_: uq_method_box.uq_methods.BaseModel
+  model:
+    _target_: timm.create_model # timm.create_model for timm models
+    # all arguments to initiate the mlp for example
+    model_name: "resnet18"
+    num_classes: 1
+    in_chans: 4
+    pretrained: True
+  loss_fn:
+    _target_: torch.nn.MSELoss
+
+

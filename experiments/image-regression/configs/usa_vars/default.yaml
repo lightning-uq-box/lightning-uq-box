@@ -1,34 +1,38 @@
 experiment:
-  experiment_name: "usa_vars_reproduce"
-  exp_dir: "experiments/usa_vars_new/"
+  experiment_name: "usa_vars_repr"
+  exp_dir: "/p/project/hai_uqmethodbox/experiment_output/usa_vars_reproduce/"
 wandb:
   project: usa_vars_reproduce
   entity: uq-regression
-  mode: online
+  mode: offline
 
+uq_method:
+  optimizer:
+    _target_: torch.optim.SGD # can change optimizers here easily
+    _partial_: true
+    lr: 0.001
+    momentum: 0.9
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    _partial_: true
+    factor: 0.1
+    patience: 10
 
 # everything to configure the datamodule  
-# datamodule:
-#   _target_: uq_method_box.datamodules.USAVarsDataModuleOOD
-#   root: "/home/user/uq-method-box/experiments/data/usa_vars"
-#   batch_size: 256
-#   num_workers: 4
-
 datamodule:
   _target_: uq_method_box.datamodules.USAVarsDataModuleOur
-  # root: "/home/user/uq-method-box/experiments/data/usa_vars"
-  root: "/mnt/SSD2/nils/uq-method-box/experiments/data/usa_vars"
-  labels: ["treecover"]
+  root: "/p/project/hai_uqmethodbox/data/usa_vars"
   batch_size: 128
   num_workers: 4
+  labels: ["treecover"]
 
 # all flags for the pytorch lightning trainer
 trainer:
   _target_: lightning.pytorch.Trainer
-  detect_anomaly: True
+  profiler: simple
   accelerator: gpu
   precision: 32
-  min_epochs: 50
-  max_epochs: 100
+  min_epochs: 1
+  max_epochs: 1
   log_every_n_steps: 50
   enable_progress_bar: True
