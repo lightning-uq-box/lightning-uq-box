@@ -12,7 +12,7 @@ class RCFLinearModel(RCF):
 
     def __init__(
         self,
-        num_targets: int = 1,
+        prediction_head: nn.Module,
         in_channels: int = 4,
         features: int = 16,
         kernel_size: int = 3,
@@ -22,11 +22,7 @@ class RCFLinearModel(RCF):
         """Initialize a new instance of RCF model."""
         super().__init__(in_channels, features, kernel_size, bias, seed)
 
-        self.prediction_head = nn.Sequential(
-            nn.Linear(features, features // 2),
-            nn.LeakyReLU(),
-            nn.Linear(features // 2, num_targets),
-        )
+        self.prediction_head = prediction_head
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass."""

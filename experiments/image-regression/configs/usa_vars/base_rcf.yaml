@@ -3,7 +3,13 @@ uq_method:
   _target_: uq_method_box.uq_methods.BaseModel
   model:
     _target_: uq_method_box.models.RCFLinearModel
-    num_targets: 1
+    prediction_head:
+      _target_: uq_method_box.models.MLP
+      n_inputs: 512
+      n_hidden: [128, 64]
+      n_outputs: 1
+      activation_fn:
+        _target_: torch.nn.LeakyReLU
     in_channels: 4
     features: 512
     kernel_size: 3
