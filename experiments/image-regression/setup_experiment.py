@@ -6,7 +6,7 @@ from typing import Any, cast
 
 from hydra.utils import instantiate
 from lightning import Trainer
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 from omegaconf import DictConfig, OmegaConf
 
@@ -87,7 +87,7 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
         ),
     ]
 
-    track_metric = "train_loss"
+    track_metric = "val_loss"
     mode = "min"
 
     checkpoint_callback = ModelCheckpoint(
@@ -98,9 +98,13 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
         every_n_epochs=1,
     )
 
+    early_stopping_callback = EarlyStopping(
+        monitor=track_metric, min_delta=1e-2, patience=20, mode=mode
+    )
+
     return instantiate(
         config.trainer,
         default_root_dir=config["experiment"]["save_dir"],
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback, early_stopping_callback],
         logger=loggers,
     )
