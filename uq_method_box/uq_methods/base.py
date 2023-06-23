@@ -176,11 +176,21 @@ class BaseModel(LightningModule):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+    ) -> dict[str, np.ndarray]:
         """Test step."""
         out_dict = self.predict_step(batch["inputs"])
         out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        loss = self.loss_fn(out_dict["out"], batch["targets"])
+        self.log("test_loss", loss)  # logging to Logger
+        self.test_metrics(out_dict["out"], batch["targets"])
+        del out_dict["out"]
         return out_dict
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -193,7 +203,8 @@ class BaseModel(LightningModule):
         with torch.no_grad():
             out = self.forward(X)
         return {
-            "mean": self.extract_mean_output(out).squeeze(-1).detach().cpu().numpy()
+            "mean": self.extract_mean_output(out).squeeze(-1).detach().cpu().numpy(),
+            "out": out,
         }
 
     def on_test_batch_end(
