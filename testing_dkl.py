@@ -15,8 +15,6 @@ from lightning.pytorch.loggers import CSVLogger
 
 from uq_method_box.datamodules import ToyDUE, ToyHeteroscedasticDatamodule
 from uq_method_box.models import MLP
-
-# from uq_method_box.uq_methods import DUEModel  # noqa: F401
 from uq_method_box.uq_methods import (  # BaseModel,; DeterministicGaussianModel,
     DeepKernelLearningModel,
     DKLGPLayer,

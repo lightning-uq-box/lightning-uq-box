@@ -107,4 +107,5 @@ class MCDropoutModel(BaseModel):
                 .numpy()
             )  # shape [batch_size, num_outputs, num_samples]
 
+
         return process_model_prediction(preds, self.hparams.quantiles)
