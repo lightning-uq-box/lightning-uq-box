@@ -14,7 +14,7 @@ class ToyDUE(LightningDataModule):
     """Toy Dataset from DUE repository."""
 
     def __init__(
-        self, n_samples: int = 200, noise: float = 0.2, batch_size: int = 200
+        self, n_samples: int = 500, noise: float = 0.2, batch_size: int = 200
     ) -> None:
         """Initialize a new Toy Data Module instance.
 

@@ -1,4 +1,6 @@
 """Deterministic Uncertainty Estimation."""
+import os
+from typing import Any, Dict, List
 
 import torch
 import torch.nn as nn
@@ -29,7 +31,7 @@ class DUEModel(DeepKernelLearningModel):
         coeff: float = 0.95,
         n_power_iterations: int = 1,
         save_dir: str = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
+        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 

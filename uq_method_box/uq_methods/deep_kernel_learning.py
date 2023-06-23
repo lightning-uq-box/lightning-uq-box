@@ -297,7 +297,7 @@ class DKLGPLayer(ApproximateGP):
         n_outputs: int,
         initial_lengthscale: Tensor,
         initial_inducing_points: Tensor,
-        kernel: str = "RBF",
+        kernel: str = "Matern32",
     ):
         """Initialize a new instance of the Gaussian Process model.
 
