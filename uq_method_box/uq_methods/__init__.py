@@ -2,6 +2,7 @@
 
 from .base import BaseModel
 from .bnn_vi import BNN_VI, BNN_VI_Batched
+from .bnn_vi_elbo import BNN_VI_ELBO
 from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
@@ -35,6 +36,8 @@ __all__ = (
     "SGLDModel",
     # Deep Evidential Regression Model
     "DERModel",
+    # BNN with ELBO
+    "BNN_VI_ELBO",
     # Bayesian Neural Network trained with Variational Inference
     "BNN_VI",
     "BNN_VI_Batched",
