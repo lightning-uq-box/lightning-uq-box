@@ -6,7 +6,7 @@ from typing import Any, cast
 
 from hydra.utils import instantiate
 from lightning import Trainer
-from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor, EarlyStopping
 from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
 from omegaconf import DictConfig, OmegaConf
 
@@ -31,8 +31,8 @@ def set_up_omegaconf() -> DictConfig:
     Raises:
         FileNotFoundError: when ``config_file`` does not exist
     """
-    conf = OmegaConf.load("configs/usa_vars/default.yaml")
     command_line_conf = OmegaConf.from_cli()
+    conf = OmegaConf.load(command_line_conf.default_config)
 
     if "config_file" in command_line_conf:
         config_fn = command_line_conf.config_file
@@ -63,7 +63,7 @@ def create_experiment_dir(config: dict[str, Any]) -> str:
         f"{config['experiment']['experiment_name']}"
         f"_{config['uq_method']['_target_'].split('.')[-1]}"
         f"_{config.get('post_processing', {}).get('_target_', '0.None').split('.')[-1]}"
-        f"_{datetime.now().strftime('%m-%d-%Y_%H-%M-%S')}"
+        f"_{datetime.now().strftime('%m-%d-%Y_%H-%M-%S-%f')}"
     )
     config["experiment"]["experiment_name"] = exp_dir_name
     exp_dir_path = os.path.join(config["experiment"]["exp_dir"], exp_dir_name)
@@ -98,9 +98,15 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
         every_n_epochs=1,
     )
 
+    early_stopping_callback = EarlyStopping(
+        monitor=track_metric, min_delta=1e-2, patience=20, mode=mode
+    )
+
+    lr_monitor_callback = LearningRateMonitor(logging_interval='step')
+
     return instantiate(
         config.trainer,
         default_root_dir=config["experiment"]["save_dir"],
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback, early_stopping_callback, lr_monitor_callback],
         logger=loggers,
     )
