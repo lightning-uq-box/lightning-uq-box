@@ -87,7 +87,7 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
         ),
     ]
 
-    track_metric = "train_loss"
+    track_metric = "val_loss"
     mode = "min"
 
     checkpoint_callback = ModelCheckpoint(
