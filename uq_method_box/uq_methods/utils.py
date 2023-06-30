@@ -35,16 +35,16 @@ def process_model_prediction(
         dictionary with mean and uncertainty predictions
     """
     mean_samples = preds[:, 0, :]
+    mean = mean_samples.mean(-1)
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
         log_sigma_2_samples = preds[:, 1, :]
         eps = np.ones_like(log_sigma_2_samples) * 1e-6
         sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
-        mean = mean_samples.mean(-1)
         std = compute_predictive_uncertainty(mean_samples, sigma_samples)
         aleatoric = compute_aleatoric_uncertainty(sigma_samples)
         epistemic = compute_epistemic_uncertainty(mean_samples)
-        quantiles = compute_quantiles_from_std(mean, std, quantiles)
+        quantiles = compute_quantiles_from_std(mean.detach().cpu().numpy(), std, quantiles)
         return {
             "mean": mean,
             "pred_uct": std,
@@ -55,9 +55,8 @@ def process_model_prediction(
         }
     # assume mse prediction
     else:
-        mean = mean_samples.mean(-1)
         std = mean_samples.std(-1)
-        quantiles = compute_quantiles_from_std(mean, std, quantiles)
+        quantiles = compute_quantiles_from_std(mean.detach().cpu().numpy(), std, quantiles)
 
         return {
             "mean": mean,

@@ -6,11 +6,38 @@ import kornia.augmentation as K
 import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
-from torchgeo.datamodules import NonGeoDataModule, USAVarsDataModule
+from torchgeo.datamodules import NonGeoDataModule, USAVarsDataModule, USAVarsFeatureExtractedDataModule
 from torchgeo.transforms import AugmentationSequential
 
 from uq_method_box.datasets import USAVarsOOD
 
+
+class USAVarsFeatureExtractedDataModuleOur(USAVarsFeatureExtractedDataModule):
+    """USAVarsFeatureExtracted Data Module."""
+    def __init__(
+        self, batch_size: int = 64, num_workers: int = 0, **kwargs: Any
+    ) -> None:
+        """Version we use for now."""
+        super().__init__(batch_size, num_workers, **kwargs)
+
+
+    def on_after_batch_transfer(
+        self, batch: Dict[str, Tensor], dataloader_idx: int
+    ) -> Dict[str, Tensor]:
+        """Apply batch augmentations to the batch after it is transferred to the device.
+
+        Args:
+            batch: A batch of data that needs to be altered or augmented.
+            dataloader_idx: The index of the dataloader to which the batch belongs.
+
+        Returns:
+            A batch of data.
+        """
+
+        return {
+            "inputs": batch["image"].float(),
+            "targets": (batch["labels"].float() - 23.881872) / 31.52334,
+        }
 
 class USAVarsDataModuleOur(USAVarsDataModule):
     """USA Vars Datamodule."""

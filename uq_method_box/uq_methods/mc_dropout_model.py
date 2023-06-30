@@ -20,6 +20,7 @@ class MCDropoutModel(BaseModel):
         loss_fn: nn.Module,
         burnin_epochs: int,
         save_dir: str,
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of MCDropoutModel.
@@ -29,7 +30,7 @@ class MCDropoutModel(BaseModel):
             model_args:
             num_mc_samples: number of MC samples during prediction
         """
-        super().__init__(model, optimizer, loss_fn, save_dir)
+        super().__init__(model, optimizer, loss_fn, lr_scheduler, save_dir)
         self.save_hyperparameters(ignore=["model"])
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
@@ -95,8 +96,6 @@ class MCDropoutModel(BaseModel):
                 torch.stack(
                     [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
                 )
-                .cpu()
-                .numpy()
             )  # shape [batch_size, num_outputs, num_samples]
 
         return process_model_prediction(preds, self.hparams.quantiles)

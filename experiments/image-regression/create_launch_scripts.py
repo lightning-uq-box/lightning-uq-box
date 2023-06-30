@@ -1,18 +1,17 @@
-"""Create bash and job script to run experiment."""
 import itertools
 import os
 import stat
 
-GPUS = [2, 3]
-CONF_FILE_NAMES = ["gaussian_nll.yaml"]
+GPUS = [0, 1, 2, 3]
+CONF_FILE_NAMES = ["base.yaml", "gaussian_nll.yaml", "mc_dropout.yaml", "quantile_regression.yaml"]
 CONF_BASE_DIR = (
-    "/mnt/SSD2/nils/uq-method-box/experiments/image-regression/configs/usa_vars"
+    "/p/project/hai_uqmethodbox/nils/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted"
 )
 SEEDS = [0]
 
 if __name__ == "__main__":
-    for idx, (gpu, seed, conf_name) in enumerate(
-        itertools.product(GPUS, SEEDS, CONF_FILE_NAMES)
+    for idx, (seed, conf_name) in enumerate(
+        itertools.product(SEEDS, CONF_FILE_NAMES)
     ):
         config_file = os.path.join(CONF_BASE_DIR, conf_name)
 
@@ -22,10 +21,17 @@ if __name__ == "__main__":
             + f" experiment.seed={seed}"
             + " trainer.devices=[0]"
         )
+
+        if os.path.basename(CONF_BASE_DIR) == "usa_vars":
+            command += " datamodule.root=/dev/shm/usa_vars/"
+            command += " default_config=/p/project/hai_uqmethodbox/nils/uq-method-box/experiments/image-regression/configs/usa_vars/default.yaml"
+        else:
+            command += " default_config=/p/project/hai_uqmethodbox/nils/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted/default.yaml"
+
         command = command.strip()
 
         script = "#!/bin/bash\n"
-        script += f"CUDA_VISIBLE_DEVICES={gpu}\n"
+        script += f"CUDA_VISIBLE_DEVICES={GPUS[idx]}\n"
         script += f"{command}"
 
         script_path = f"launch_{idx}.sh"

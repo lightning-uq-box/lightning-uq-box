@@ -21,8 +21,8 @@ class BaseModel(LightningModule):
         self,
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler],
         loss_fn: nn.Module,
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
         save_dir: str = None,
     ) -> None:
         """Initialize a new Base Model.
@@ -140,7 +140,8 @@ class BaseModel(LightningModule):
         loss = self.loss_fn(out, batch["targets"])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), batch["targets"])
+        if batch["inputs"].shape[0] > 1:
+            self.train_metrics(self.extract_mean_output(out), batch["targets"])
 
         return loss
 
@@ -165,7 +166,8 @@ class BaseModel(LightningModule):
         loss = self.loss_fn(out, batch["targets"])
 
         self.log("val_loss", loss)  # logging to Logger
-        self.val_metrics(self.extract_mean_output(out), batch["targets"])
+        if batch["inputs"].shape[0] > 1:
+            self.val_metrics(self.extract_mean_output(out), batch["targets"])
 
         return loss
 
@@ -181,10 +183,13 @@ class BaseModel(LightningModule):
         out_dict = self.predict_step(batch["inputs"])
         out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
 
-        loss = self.loss_fn(out_dict["out"], batch["targets"])
+        loss = self.loss_fn(out_dict["mean"], batch["targets"])
         self.log("test_loss", loss)  # logging to Logger
-        self.test_metrics(out_dict["out"], batch["targets"])
-        del out_dict["out"]
+        if batch["inputs"].shape[0] > 1:
+            self.test_metrics(out_dict["mean"], batch["targets"])
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().numpy()
         return out_dict
 
     def on_test_epoch_end(self):
@@ -203,8 +208,7 @@ class BaseModel(LightningModule):
         with torch.no_grad():
             out = self.forward(X)
         return {
-            "mean": self.extract_mean_output(out).squeeze(-1).detach().cpu().numpy(),
-            "out": out,
+            "mean": self.extract_mean_output(out),
         }
 
     def on_test_batch_end(
@@ -228,8 +232,11 @@ class BaseModel(LightningModule):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
         optimizer = self.optimizer(params=self.parameters())
-        lr_scheduler = self.lr_scheduler(optimizer=optimizer)
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_R2"},
-        }
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}

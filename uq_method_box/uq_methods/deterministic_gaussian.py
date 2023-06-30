@@ -19,11 +19,12 @@ class DeterministicGaussianModel(BaseModel):
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
         burnin_epochs: int,
-        save_dir: str,
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        save_dir: str = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of Deterministic Gaussian Model."""
-        super().__init__(model, optimizer, None, save_dir)
+        super().__init__(model, optimizer, None, None, save_dir)
 
         self.loss_fn = NLL()
         self.save_hyperparameters(ignore=["model"])
@@ -76,13 +77,13 @@ class DeterministicGaussianModel(BaseModel):
             X: prediction batch of shape [batch_size x input_dims]
         """
         with torch.no_grad():
-            preds = self.model(X).cpu().numpy()
+            preds = self.model(X)
         mean, log_sigma_2 = preds[:, 0], preds[:, 1]
         eps = np.ones_like(log_sigma_2) * 1e-6
         std = np.sqrt(eps + np.exp(log_sigma_2))
-        quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
+        quantiles = compute_quantiles_from_std(mean.cpu().numpy(), std, self.hparams.quantiles)
         return {
-            "mean": mean,
+            "pred": mean,
             "pred_uct": std,
             "aleatoric_uct": std,
             "lower_quant": quantiles[:, 0],

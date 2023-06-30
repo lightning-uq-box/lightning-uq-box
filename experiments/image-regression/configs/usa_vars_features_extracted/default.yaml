@@ -9,12 +9,11 @@ wandb:
 uq_method:
   _target_: uq_method_box.uq_methods.BaseModel
   model:
-    _target_: timm.create_model # timm.create_model for timm models
-    # all arguments to initiate the mlp for example
-    model_name: "resnet18"
-    num_classes: 1
-    in_chans: 4
-    pretrained: True
+    _target_: uq_method_box.models.MLP
+    n_inputs: 512
+    n_hidden: [128, 64]
+    activation_fn:
+      _target_: torch.nn.ELU
   optimizer:
     _target_: torch.optim.Adam # can change optimizers here easily
     _partial_: true
@@ -23,9 +22,9 @@ uq_method:
 
 # everything to configure the datamodule  
 datamodule:
-  _target_: uq_method_box.datamodules.USAVarsDataModuleOur
-  root: "/p/project/hai_uqmethodbox/data/usa_vars"
-  batch_size: 128
+  _target_: uq_method_box.datamodules.USAVarsFeatureExtractedDataModuleOur
+  root: "/p/project/hai_uqmethodbox/data/usa_vars_feature_extracted"
+  batch_size: 256
   num_workers: 8
   labels: ["treecover"]
 
@@ -34,7 +33,7 @@ trainer:
   _target_: lightning.pytorch.Trainer
   accelerator: gpu
   precision: 32
-  min_epochs: 50
-  max_epochs: 100
+  min_epochs: 20
+  max_epochs: 50
   log_every_n_steps: 50
   enable_progress_bar: True

@@ -18,7 +18,8 @@ class QuantileRegressionModel(BaseModel):
         self,
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
-        save_dir: str,
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        save_dir: str = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
@@ -30,7 +31,7 @@ class QuantileRegressionModel(BaseModel):
         """
         assert all(i < 1 for i in quantiles), "Quantiles should be less than 1."
         assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
-        super().__init__(model, optimizer, QuantileLoss(quantiles), save_dir)
+        super().__init__(model, optimizer, QuantileLoss(quantiles), lr_scheduler, save_dir)
 
         self.save_hyperparameters(ignore=["model"])
         self.median_index = self.hparams.quantiles.index(0.5)
@@ -58,16 +59,15 @@ class QuantileRegressionModel(BaseModel):
             predicted uncertainties
         """
         with torch.no_grad():
-            out = self.model(X).cpu().numpy()  # [batch_size, len(self.quantiles)]
+            out = self.model(X)  # [batch_size, len(self.quantiles)]
         median = out[:, self.median_index]
-        mean, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
+        # mean, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
 
         # can happen due to overlapping quantiles
         std[std <= 0] = 1e-6
 
         return {
-            "mean": mean,
-            "median": median,
+            "pred": median,
             "pred_uct": std,
             "lower_quant": out[:, 0],
             "upper_quant": out[:, -1],
