@@ -5,7 +5,6 @@ from typing import Callable, Union
 import numpy as np
 import torch
 from lightning import LightningDataModule
-from scipy import stats
 from torch.utils.data import DataLoader, TensorDataset
 
 
@@ -29,13 +28,14 @@ def polynomial_f2(x):
     fx *= np.exp(-0.5 * (x**2)) / np.sqrt(2 * np.pi)
     return fx
 
-def polynomial_f3(x,noise=True):
-    out = 7 * np.sin(x) 
+
+def polynomial_f3(x, noise=True):
+    """Polynomial function."""
+    out = 7 * np.sin(x)
     if noise:
         out += 3 * np.abs(np.cos(x / 2)) * np.random.randn()
     return out
- 
-  
+
 
 class ToyHeteroscedasticDatamodule(LightningDataModule):
     """Implement Toy Dataset with heteroscedastic noise."""
@@ -78,22 +78,21 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
                     X[k] = np.random.normal(loc=4.0, scale=2.0 / 5.0)
 
             Y[k] = generate_y(X[k])
-        
+
         mean_X = np.mean(X)
         std_X = np.std(X)
         mean_Y = np.mean(Y)
         std_Y = np.std(Y)
         X_n = (X - mean_X) / std_X
         Y_n = (Y - mean_Y) / std_Y
-   
 
         self.X_train = torch.from_numpy(X_n).unsqueeze(-1).type(torch.float32)
         self.y_train = torch.from_numpy(Y_n).unsqueeze(-1).type(torch.float32)
         X_test = np.linspace(X.min(), X.max(), n_true)
-        Y_test = X_test*0.
+        Y_test = X_test * 0.0
         for k in range(len(X_test)):
-            Y_test[k] = generate_y(X_test[k],noise=False)
-      
+            Y_test[k] = generate_y(X_test[k], noise=False)
+
         X_test = (X_test - mean_X) / std_X
         Y_test = (Y_test - mean_Y) / std_Y
         self.X_test = torch.from_numpy(X_test).unsqueeze(-1).type(torch.float32)
@@ -104,7 +103,13 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         """Return train dataloader."""
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size, shuffle=True, num_workers=4, pin_memory=True, prefetch_factor=4, persistent_workers=True
+            TensorDataset(self.X_train, self.y_train),
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=4,
+            pin_memory=True,
+            prefetch_factor=4,
+            persistent_workers=True,
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -119,6 +124,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         return DataLoader(
             TensorDataset(self.X_test, self.y_test), batch_size=self.batch_size
         )
+
 
 '''
 class ToyHeteroscedasticDatamodule(LightningDataModule):
@@ -179,19 +185,25 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         """Return train dataloader."""
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size
+            TensorDataset(self.X_train, self.y_train),
+            batch_size=self.batch_size,
+            shuffle=True,
         )
 
     def val_dataloader(self) -> DataLoader:
         """Return val dataloader."""
         # TODO Validation data
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size
+            TensorDataset(self.X_train, self.y_train),
+            batch_size=self.batch_size,
+            shuffle=False,
         )
 
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""
         return DataLoader(
-            TensorDataset(self.X_test, self.y_test), batch_size=self.batch_size
+            TensorDataset(self.X_test, self.y_test),
+            batch_size=self.batch_size,
+            shuffle=False,
         )
 '''
