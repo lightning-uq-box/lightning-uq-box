@@ -33,6 +33,8 @@ UQ-Method-Box
    tutorials/mc_dropout
    tutorials/quantile_regression
    tutorials/swag
+   tutorials/deep_kernel_learning
+   tutorials/deterministic_uncertainty_estimation
 
 Indices and tables
 ==================
