@@ -47,6 +47,22 @@ class QuantileRegressionModel(BaseModel):
         """
         return out[:, self.median_index : self.median_index + 1]  # noqa: E203
 
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Test step."""
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        self.log("test_loss", self.loss_fn(out_dict["out"], batch["targets"]))  # logging to Logger
+        if batch["inputs"].shape[0] > 1:
+            self.test_metrics(out_dict["pred"], batch["targets"])
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+        del out_dict["out"]
+        return out_dict
+
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
@@ -60,8 +76,9 @@ class QuantileRegressionModel(BaseModel):
         """
         with torch.no_grad():
             out = self.model(X)  # [batch_size, len(self.quantiles)]
-        median = out[:, self.median_index]
-        # mean, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
+            np_out  = out.cpu().numpy()
+        median = self.extract_mean_output(out)
+        mean, std = compute_sample_mean_std_from_quantile(np_out, self.hparams.quantiles)
 
         # can happen due to overlapping quantiles
         std[std <= 0] = 1e-6
@@ -69,7 +86,8 @@ class QuantileRegressionModel(BaseModel):
         return {
             "pred": median,
             "pred_uct": std,
-            "lower_quant": out[:, 0],
-            "upper_quant": out[:, -1],
+            "lower_quant": np_out[:, 0],
+            "upper_quant": np_out[:, -1],
             "aleatoric_uct": std,
+            "out": out
         }

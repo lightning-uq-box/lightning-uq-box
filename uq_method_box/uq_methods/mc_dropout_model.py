@@ -31,20 +31,7 @@ class MCDropoutModel(BaseModel):
             num_mc_samples: number of MC samples during prediction
         """
         super().__init__(model, optimizer, loss_fn, lr_scheduler, save_dir)
-        self.save_hyperparameters(ignore=["model"])
-
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean output from model prediction.
-
-        This supports
-
-        Args:
-            out: output from :meth:`self.forward` [batch_size x (mu, sigma)]
-
-        Returns:
-            extracted mean used for metric computation [batch_size x 1]
-        """
-        return out[:, 0:1]
+        self.save_hyperparameters(ignore=["model", "loss_fn"])
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -70,14 +57,6 @@ class MCDropoutModel(BaseModel):
         self.train_metrics(self.extract_mean_output(out), batch["targets"])
 
         return loss
-
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Test Step."""
-        out_dict = self.predict_step(batch["inputs"])
-        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
-        return out_dict
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0

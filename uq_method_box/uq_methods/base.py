@@ -183,13 +183,13 @@ class BaseModel(LightningModule):
         out_dict = self.predict_step(batch["inputs"])
         out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
 
-        loss = self.loss_fn(out_dict["mean"], batch["targets"])
-        self.log("test_loss", loss)  # logging to Logger
+        self.log("test_loss", self.loss_fn(out_dict["pred"], batch["targets"]))  # logging to Logger
         if batch["inputs"].shape[0] > 1:
-            self.test_metrics(out_dict["mean"], batch["targets"])
+            self.test_metrics(out_dict["pred"], batch["targets"])
 
         # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].detach().cpu().numpy()
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+        print([(key, type(val)) for key, val in out_dict.items()])
         return out_dict
 
     def on_test_epoch_end(self):
@@ -208,7 +208,7 @@ class BaseModel(LightningModule):
         with torch.no_grad():
             out = self.forward(X)
         return {
-            "mean": self.extract_mean_output(out),
+            "pred": self.extract_mean_output(out),
         }
 
     def on_test_batch_end(

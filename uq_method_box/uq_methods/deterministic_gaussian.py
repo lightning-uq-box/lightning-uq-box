@@ -68,6 +68,22 @@ class DeterministicGaussianModel(BaseModel):
 
         return loss
 
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Test step."""
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        self.log("test_loss", self.loss_fn(out_dict["out"], batch["targets"]))  # logging to Logger
+        if batch["inputs"].shape[0] > 1:
+            self.test_metrics(self.extract_mean_output(out_dict["out"]), batch["targets"])
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+        del out_dict["out"]
+        return out_dict
+
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
@@ -78,7 +94,8 @@ class DeterministicGaussianModel(BaseModel):
         """
         with torch.no_grad():
             preds = self.model(X)
-        mean, log_sigma_2 = preds[:, 0], preds[:, 1]
+
+        mean, log_sigma_2 = preds[:, 0], preds[:, 1].cpu().numpy()
         eps = np.ones_like(log_sigma_2) * 1e-6
         std = np.sqrt(eps + np.exp(log_sigma_2))
         quantiles = compute_quantiles_from_std(mean.cpu().numpy(), std, self.hparams.quantiles)
@@ -88,4 +105,5 @@ class DeterministicGaussianModel(BaseModel):
             "aleatoric_uct": std,
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
+            "out": preds
         }
