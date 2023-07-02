@@ -33,7 +33,7 @@ trainer:
   _target_: lightning.pytorch.Trainer
   accelerator: gpu
   precision: 32
-  min_epochs: 20
-  max_epochs: 50
+  min_epochs: 1
+  max_epochs: 1
   log_every_n_steps: 50
   enable_progress_bar: True

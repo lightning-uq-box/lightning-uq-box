@@ -48,7 +48,8 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         train_loader: DataLoader,
         n_inducing_points: int,
         optimizer: type[torch.optim.Optimizer],
-        save_dir: str,
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        save_dir: str = None,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Deep Kernel Learning Model.
@@ -211,11 +212,19 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def test_step(self, *args: Any, **kwargs: Any) -> None:
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
         """Test step."""
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).cpu().numpy()
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        self.log("test_loss", self.loss_fn(out_dict["pred"], batch["targets"]))  # logging to Logger
+        if batch["inputs"].shape[0] > 1:
+            self.test_metrics(out_dict["pred"], batch["targets"])
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
         return out_dict
 
     def on_test_batch_end(
@@ -226,9 +235,10 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         dataloader_idx=0,
     ):
         """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
-        )
+        if self.save_dir:
+            save_predictions_to_csv(
+                outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+            )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -251,7 +261,7 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
 
         quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
         return {
-            "mean": mean,
+            "pred": mean,
             "pred_uct": std,
             "epistemic_uct": std,
             "lower_quant": quantiles[:, 0],
@@ -268,6 +278,7 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         # https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#hooks
         if not self.dkl_model_built:
             self._fit_initial_lengthscale_and_inducing_points()
+    
         optimizer = self.optimizer(
             [
                 {"params": self.feature_extractor.parameters()},
@@ -276,7 +287,14 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
                 {"params": self.likelihood.parameters()},
             ]
         )
-        return {"optimizer": optimizer}
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}
 
 
 class DKLGPLayer(ApproximateGP):
@@ -378,6 +396,8 @@ def initial_values(train_dataset, feature_extractor, n_inducing_points):
     idx = torch.randperm(len(train_dataset))[:1000].chunk(steps)
     f_X_samples = []
 
+    # import pdb
+    # pdb.set_trace()
     with torch.no_grad():
         for i in range(steps):
             X_sample = torch.stack([train_dataset[j][0] for j in idx[i]])

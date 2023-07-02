@@ -2,8 +2,8 @@ import itertools
 import os
 import stat
 
-GPUS = [0, 1, 2, 3]
-CONF_FILE_NAMES = ["base.yaml", "gaussian_nll.yaml", "mc_dropout.yaml", "quantile_regression.yaml"]
+GPUS = [0, 1, 2, 3, 0, 1, 2]
+CONF_FILE_NAMES = ["base.yaml", "gaussian_nll.yaml", "mc_dropout.yaml", "quantile_regression.yaml", "der.yaml", "dkl.yaml", "bnn_elbo.yaml"]
 CONF_BASE_DIR = (
     "/p/project/hai_uqmethodbox/nils/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted"
 )

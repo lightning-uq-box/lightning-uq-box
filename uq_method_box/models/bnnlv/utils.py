@@ -181,11 +181,9 @@ def dnn_to_bnnlv_some(
     """
     # assert len(list(m.named_modules(remove_duplicate=False)))
     # >= num_stochastic_modules,
-    #  "More stochastic modules than modules."
+    #  "More stochastic modules than modules.
 
-    replace_modules = list(m._modules.items())
-
-    for name, value in replace_modules:
+    for name, value in m._modules.items():
         if m._modules[name]._modules:
             part_stoch_module_names = [
                 module_name.removeprefix(name + ".")

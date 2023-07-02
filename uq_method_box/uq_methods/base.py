@@ -189,7 +189,6 @@ class BaseModel(LightningModule):
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
-        print([(key, type(val)) for key, val in out_dict.items()])
         return out_dict
 
     def on_test_epoch_end(self):
