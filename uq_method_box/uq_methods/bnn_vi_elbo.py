@@ -68,7 +68,7 @@ class BNN_VI_ELBO(BaseModel):
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
-        super().__init__(model, optimizer, loss_fn, save_dir)
+        super().__init__(model, optimizer, loss_fn, lr_scheduler, save_dir)
 
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
@@ -108,6 +108,8 @@ class BNN_VI_ELBO(BaseModel):
             part_stoch_module_names=self.part_stoch_module_names,
         )
 
+        # TODO we currently have self.criterion as NLL and GaussianNLL
+        # should remove one and could it just be the self.loss_fn of the base module?
         self.nll_loss = nn.GaussianNLLLoss(reduction="mean")
 
     def forward(self, X: Tensor) -> Tensor:
