@@ -69,18 +69,6 @@ def main(conf: DictConfig) -> None:
         )
         trainer.test(model=model, datamodule=datamodule)
 
-    elif "DeepKernelLearning" in conf["uq_method"]["_target_"]:
-        datamodule.setup("fit")
-        train_loader = datamodule.train_dataloader()
-        train_loader.collate_fn = collate_fn_laplace_torch
-        model: LightningModule = instantiate(
-            conf.uq_method, save_dir=conf["experiment"]["save_dir"], train_loader=train_loader
-        )
-
-        trainer.fit(model=model, datamodule=datamodule)
-        # test on IID
-        trainer.test(ckpt_path="best", datamodule=datamodule)
-
     elif "BNN_VI_ELBO" in conf["uq_method"]["_target_"]:
         datamodule.setup("fit")
         train_loader = datamodule.train_dataloader()
