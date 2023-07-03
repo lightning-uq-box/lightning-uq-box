@@ -101,7 +101,7 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
     )
 
     early_stopping_callback = EarlyStopping(
-        monitor=track_metric, min_delta=1e-2, patience=20, mode=mode
+        monitor=track_metric, min_delta=1e-5, patience=20, mode=mode
     )
 
     lr_monitor_callback = LearningRateMonitor(logging_interval='step')
