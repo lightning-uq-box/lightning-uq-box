@@ -4,18 +4,18 @@
 #SBATCH --nodes=1
 #SBATCH --output=slurm_out/usa_repr-out.%j
 #SBATCH --error=slurm_err/usa_repr-err.%j
-#SBATCH --time=00:10:00
+#SBATCH --time=00:45:00
 #SBATCH --cpus-per-task=16
 #SBATCH --partition=develbooster
 #SBATCH --gres=gpu:4
 
 
 # this line copies the dataset to RAM memory which significantly speeds up data loading
-cp /p/project/hai_uqmethodbox/data/usa_vars /dev/shm/
+cp -r /p/project/hai_uqmethodbox/data/usa_vars /dev/shm/
 
-./launch_0.sh &
-./launch_1.sh &
-./launch_2.sh &
-./launch_3.sh
+./launch_usa_vars/launch_3.sh &
+./launch_usa_vars/launch_4.sh &
+./launch_usa_vars/launch_5.sh &
+./launch_usa_vars/launch_6.sh
 
 wait

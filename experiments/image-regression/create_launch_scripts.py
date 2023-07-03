@@ -5,7 +5,7 @@ import stat
 GPUS = [0, 1, 2, 3, 0, 1, 2]
 CONF_FILE_NAMES = ["base.yaml", "gaussian_nll.yaml", "mc_dropout.yaml", "quantile_regression.yaml", "der.yaml", "dkl.yaml", "bnn_elbo.yaml"]
 CONF_BASE_DIR = (
-    "/p/project/hai_uqmethodbox/nils/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted"
+    "/p/project/hai_uqmethodbox/nils/uq-method-box/experiments/image-regression/configs/usa_vars"
 )
 SEEDS = [0]
 
@@ -22,7 +22,8 @@ if __name__ == "__main__":
             + " trainer.devices=[0]"
         )
 
-        if os.path.basename(CONF_BASE_DIR) == "usa_vars":
+        base_dir = os.path.basename(CONF_BASE_DIR)
+        if base_dir == "usa_vars":
             command += " datamodule.root=/dev/shm/usa_vars/"
             command += " default_config=/p/project/hai_uqmethodbox/nils/uq-method-box/experiments/image-regression/configs/usa_vars/default.yaml"
         else:
@@ -34,7 +35,7 @@ if __name__ == "__main__":
         script += f"CUDA_VISIBLE_DEVICES={GPUS[idx]}\n"
         script += f"{command}"
 
-        script_path = f"launch_{idx}.sh"
+        script_path = os.path.join(f"launch_{base_dir}", f"launch_{idx}.sh")
         with open(script_path, "w") as file:
             file.write(script)
 
