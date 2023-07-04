@@ -25,9 +25,9 @@ class DUEModel(DeepKernelLearningModel):
         feature_extractor: nn.Module,
         gp_layer: type[ApproximateGP],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
-        train_loader: DataLoader,
         n_inducing_points: int,
         optimizer: type[torch.optim.Optimizer],
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
         coeff: float = 0.95,
         n_power_iterations: int = 1,
         save_dir: str = None,
@@ -53,7 +53,8 @@ class DUEModel(DeepKernelLearningModel):
             gp_layer,
             elbo_fn,
             train_loader,
-            n_inducing_points,
             optimizer,
+            lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
             save_dir,
+            quantiles
         )
