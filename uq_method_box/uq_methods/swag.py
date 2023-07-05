@@ -15,7 +15,7 @@ import torch.nn as nn
 from torch import Tensor
 from torch.distributions import Normal
 from torch.utils.data import DataLoader
-from tqdm import trange
+from tqdm import trange, tqdm
 
 from .base import BaseModel
 from .utils import map_stochastic_modules, process_model_prediction
@@ -33,7 +33,6 @@ class SWAGModel(BaseModel):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        train_loader: DataLoader,
         save_dir: str,
         part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         num_datapoints_for_bn_update: Optional[int] = None,
@@ -54,7 +53,6 @@ class SWAGModel(BaseModel):
         self.hparams["part_stoch_module_names"] = map_stochastic_modules(
             self.model, part_stoch_module_names
         )
-        self.train_loader = train_loader
         self.model = model
 
         self.loss_fn = loss_fn
@@ -254,6 +252,38 @@ class SWAGModel(BaseModel):
 
     def on_test_start(self) -> None:
         """Fit the SWAG approximation."""
+        self.train_loader = self.trainer.datamodule.train_dataloader()
+
+        def collate_fn_swag_torch(batch):
+            """Collate function to for laplace torch tuple convention.
+
+            Args:
+                batch: input batch
+
+            Returns:
+                renamed batch
+            """
+            # Extract images and labels from the batch dictionary
+            try:
+                images = [item["image"] for item in batch]
+                labels = [item["labels"] for item in batch]
+            except KeyError:
+                images = [item["inputs"] for item in batch]
+                labels = [item["targets"] for item in batch]
+
+            # Stack images and labels into tensors
+            inputs = torch.stack(images)
+            targets = torch.stack(labels)
+
+            # apply datamodule augmentation
+            aug_batch = self.trainer.datamodule.on_after_batch_transfer({"image": inputs, "labels": targets}, dataloader_idx=0)
+
+            return (aug_batch["inputs"], aug_batch["targets"])
+
+        self.train_loader.collate_fn = collate_fn_swag_torch
+        # # apply augmentation
+        # batch = self.trainer.datamodule.on_after_batch_transfer(batch, dataloader_idx=0)
+        # add transform augmentation function
         if not self.swag_fitted:
             swag_params: list[nn.Parameter] = [
                 param
@@ -267,7 +297,10 @@ class SWAGModel(BaseModel):
                 bar = trange(self.hparams.num_swag_epochs)
                 # num epochs
                 for i in bar:
-                    for X, y in self.train_loader:
+                    for batch in self.train_loader:
+                        # put on device
+                        X, y = batch[0].to(self.device), batch[1].to(self.device)
+
                         if self.current_iteration % self.hparams.snapshot_freq == 0:
                             self.update_uncertainty_buffers()
 
@@ -301,10 +334,10 @@ class SWAGModel(BaseModel):
             # sample weights
             self.sample_state()
             with torch.no_grad():
-                pred = self.model(X).cpu().numpy()
+                pred = self.model(X)
             preds.append(pred)
 
-        preds = np.stack(preds, axis=-1)
+        preds = torch.stack(preds, dim=-1)
 
         return process_model_prediction(preds, self.hparams.quantiles)
 
@@ -362,11 +395,15 @@ def update_bn(
         module.num_batches_tracked *= 0
 
     datapoints_used_for_update = 0
-    for input in loader:
+    for batch in loader:
         if datapoints_used_for_update == num_datapoints:
             break
-        if isinstance(input, (list, tuple)):
-            input = input[0]
+        if isinstance(batch, (list, tuple)):
+            input = batch[0]
+        if isinstance(batch, (dict)):
+            import pdb
+            pdb.set_trace()
+            input = batch["image"]
         if device is not None:
             input = input.to(device)
         input = input[: num_datapoints - datapoints_used_for_update]

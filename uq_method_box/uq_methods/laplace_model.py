@@ -11,6 +11,7 @@ from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
 from torchgeo.trainers.utils import _get_input_layer_name_and_module
+from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 from tqdm import trange
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
@@ -27,7 +28,6 @@ class LaplaceModel(LightningModule):
     def __init__(
         self,
         model: nn.Module,
-        train_loader: DataLoader,
         save_dir: str,
         sigma_noise: float = 1.0,
         prior_precision: float = 1.0,
@@ -52,10 +52,20 @@ class LaplaceModel(LightningModule):
         self.save_hyperparameters(ignore=["model", "train_loader"])
 
         self.model = model  # pytorch model
-        self.train_loader = train_loader
         self.laplace_fitted = False
 
         self.pred_file_name = "predictions.csv"
+
+        self.test_metrics = MetricCollection(
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
+            prefix="test_",
+        )
+
+        self.loss_fn = torch.nn.MSELoss()
 
     @property
     def num_inputs(self) -> int:
@@ -101,6 +111,37 @@ class LaplaceModel(LightningModule):
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
+        self.train_loader = self.trainer.datamodule.train_dataloader()
+
+        
+        def collate_fn_laplace_torch(batch):
+            """Collate function to for laplace torch tuple convention.
+
+            Args:
+                batch: input batch
+
+            Returns:
+                renamed batch
+            """
+            # Extract images and labels from the batch dictionary
+            try:
+                images = [item["image"] for item in batch]
+                labels = [item["labels"] for item in batch]
+            except KeyError:
+                images = [item["inputs"] for item in batch]
+                labels = [item["targets"] for item in batch]
+
+            # Stack images and labels into tensors
+            inputs = torch.stack(images)
+            targets = torch.stack(labels)
+
+            # apply datamodule augmentation
+            aug_batch = self.trainer.datamodule.on_after_batch_transfer({"image": inputs, "labels": targets}, dataloader_idx=0)
+
+            return (aug_batch["inputs"], aug_batch["targets"])
+
+        self.train_loader.collate_fn = collate_fn_laplace_torch
+        
         if not self.laplace_fitted:
             # take the deterministic model we trained and fit laplace
             # laplace needs a nn.Module ant not a lightning module
@@ -148,7 +189,14 @@ class LaplaceModel(LightningModule):
     ) -> None:
         """Test step."""
         out_dict = self.predict_step(batch["inputs"])
-        out_dict["targets"] = batch["targets"].detach().cpu().squeeze(-1).numpy()
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        self.log("test_loss", self.loss_fn(out_dict["pred"], batch["targets"].squeeze(-1)))  # logging to Logger
+        if batch["inputs"].shape[0] > 1:
+            self.test_metrics(out_dict["pred"], batch["targets"].squeeze(-1))
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
         return out_dict
 
     def on_test_batch_end(
@@ -162,6 +210,11 @@ class LaplaceModel(LightningModule):
         save_predictions_to_csv(
             outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
         )
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -198,7 +251,7 @@ class LaplaceModel(LightningModule):
             )
 
         return {
-            "mean": laplace_mean,
+            "pred": torch.from_numpy(laplace_mean).to(self.device),
             "pred_uct": laplace_predictive,
             "epistemic_uct": laplace_epistemic,
             "aleatoric_uct": laplace_aleatoric,

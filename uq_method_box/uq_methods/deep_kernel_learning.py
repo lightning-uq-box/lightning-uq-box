@@ -145,9 +145,15 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         """Fit the initial lengthscale and inducing points for DKL."""
         train_dataset = self.trainer.datamodule.train_dataloader().dataset
 
+        def augmentation(batch: dict[str, torch.Tensor]):
+            """Gather augmentations from datamodule."""
+            # apply datamodule augmentation
+            aug_batch = self.trainer.datamodule.on_after_batch_transfer(batch, dataloader_idx=0)
+            return aug_batch["inputs"]
+
         self.n_train_points = len(train_dataset)
-        self.initial_inducing_points, self.initial_lengthscale = initial_values(
-            train_dataset, self.feature_extractor, self.hparams.n_inducing_points
+        self.initial_inducing_points, self.initial_lengthscale = compute_initial_values(
+            train_dataset, self.feature_extractor, self.hparams.n_inducing_points, augmentation
         )
         self.initial_inducing_points = self.initial_inducing_points.to(self.device)
         self.initial_lengthscale = self.initial_lengthscale.to(self.device)
@@ -412,7 +418,7 @@ class DKLGPLayer(ApproximateGP):
                 return
 
 
-def initial_values(train_dataset, feature_extractor, n_inducing_points):
+def compute_initial_values(train_dataset, feature_extractor, n_inducing_points, augmentation):
     """Compute the inital values."""
     steps = 10
     idx = torch.randperm(len(train_dataset))[:1000].chunk(steps)
@@ -424,6 +430,7 @@ def initial_values(train_dataset, feature_extractor, n_inducing_points):
             random_indices = idx[i].tolist()
             try:
                 X_sample = torch.stack([train_dataset[j]["image"] for j in random_indices])
+                y_sample = torch.stack([train_dataset[j]["labels"] for j in random_indices])
             except:
                 import pdb
                 pdb.set_trace()
@@ -431,7 +438,7 @@ def initial_values(train_dataset, feature_extractor, n_inducing_points):
             if torch.cuda.is_available():
                 X_sample = X_sample.cuda()
                 feature_extractor = feature_extractor.cuda()
-
+            X_sample = augmentation({"image": X_sample, "labels": y_sample})
             f_X_samples.append(feature_extractor(X_sample).cpu())
 
     f_X_samples = torch.cat(f_X_samples)

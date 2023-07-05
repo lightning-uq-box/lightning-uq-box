@@ -54,7 +54,7 @@ class DUEModel(DeepKernelLearningModel):
             elbo_fn,
             train_loader,
             optimizer,
-            lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+            lr_scheduler,
             save_dir,
             quantiles
         )
