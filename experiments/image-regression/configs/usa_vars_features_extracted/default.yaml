@@ -15,7 +15,7 @@ uq_method:
     activation_fn:
       _target_: torch.nn.ELU
   optimizer:
-    _target_: torch.optim.Adam # can change optimizers here easily
+    _target_: torch.optim.AdamW # can change optimizers here easily
     _partial_: true
     lr: 0.001
     weight_decay: 0.01
@@ -33,7 +33,7 @@ trainer:
   _target_: lightning.pytorch.Trainer
   accelerator: gpu
   precision: 32
-  min_epochs: 1
-  max_epochs: 1
+  min_epochs: 25
+  max_epochs: 60
   log_every_n_steps: 50
   enable_progress_bar: True

@@ -1,8 +1,8 @@
 experiment:
   experiment_name: "usa_vars_repr"
-  exp_dir: "/p/project/hai_uqmethodbox/experiment_output/usa_vars_reproduce/"
+  exp_dir: "/p/project/hai_uqmethodbox/experiment_output/usa_vars_resnet/"
 wandb:
-  project: usa_vars_reproduce
+  project: usa_vars_resnet
   entity: uq-regression
   mode: offline
 
@@ -16,7 +16,7 @@ uq_method:
     in_chans: 4
     pretrained: True
   optimizer:
-    _target_: torch.optim.Adam # can change optimizers here easily
+    _target_: torch.optim.AdamW # can change optimizers here easily
     _partial_: true
     lr: 0.001
     weight_decay: 0.01
@@ -38,3 +38,4 @@ trainer:
   max_epochs: 100
   log_every_n_steps: 50
   enable_progress_bar: True
+  detect_anomaly: True
