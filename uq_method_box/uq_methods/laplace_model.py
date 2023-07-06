@@ -1,9 +1,10 @@
 """Laplace Approximation model."""
 
 import os
-from typing import Any
+from typing import Any, Optional, Union
 
 import numpy as np
+import copy
 import torch
 import torch.nn as nn
 from laplace import Laplace
@@ -13,10 +14,11 @@ from torch.utils.data import DataLoader
 from torchgeo.trainers.utils import _get_input_layer_name_and_module
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 from tqdm import trange
+from laplace.utils import LargestMagnitudeSubnetMask, ModuleNameSubnetMask
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
 
-from .utils import _get_output_layer_name_and_module, save_predictions_to_csv
+from .utils import _get_output_layer_name_and_module, save_predictions_to_csv, map_stochastic_modules, change_inplace_activation
 
 
 class LaplaceModel(LightningModule):
@@ -37,6 +39,8 @@ class LaplaceModel(LightningModule):
         hessian_structure: str = "kron",
         tune_precision_lr: float = 0.1,
         n_epochs_tune_precision: int = 100,
+        n_params_subnet: int = None,
+        part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
@@ -49,6 +53,13 @@ class LaplaceModel(LightningModule):
                 train_dataloader() method for this model based on the config?
         """
         super().__init__()
+
+        if part_stoch_module_names and n_params_subnet:
+            raise ValueError("Only one of `part_stoch_module_names` or `n_params_subnet` can be defined.")
+
+        if part_stoch_module_names or n_params_subnet:
+            assert subset_of_weights=="subnetwork"
+
         self.save_hyperparameters(ignore=["model", "train_loader"])
 
         self.model = model  # pytorch model
@@ -143,6 +154,29 @@ class LaplaceModel(LightningModule):
         self.train_loader.collate_fn = collate_fn_laplace_torch
         
         if not self.laplace_fitted:
+            # select by largest params
+            if self.hparams.n_params_subnet:
+                assert self.hparams.subset_of_weights == "subnetwork"
+                subnetwork_mask = LargestMagnitudeSubnetMask(copy.deepcopy(self.model), n_params_subnet=self.hparams.n_params_subnet)
+                subnetwork_indices = subnetwork_mask.select().cpu()
+                del subnetwork_mask
+                self.model.apply(change_inplace_activation)
+            # select by module names
+            elif self.hparams.part_stoch_module_names:
+                assert self.hparams.subset_of_weights == "subnetwork"
+                self.part_stoch_module_names = map_stochastic_modules(
+                   self.model, part_stoch_module_names
+                )
+                subnetwork_mask = ModuleNameSubnetMask(copy.deepcopy(self.model), module_names=self.part_stoch_module_names)
+                subnetwork_mask.select()
+                subnetwork_indices = subnetwork_mask.indices.cpu()
+                del subnetwork_mask
+                self.model.apply(change_inplace_activation)
+            # last layer case
+            else:
+                subnetwork_indices = None
+
+
             # take the deterministic model we trained and fit laplace
             # laplace needs a nn.Module ant not a lightning module
 
@@ -154,6 +188,7 @@ class LaplaceModel(LightningModule):
                     likelihood="regression",
                     subset_of_weights=self.hparams.subset_of_weights,
                     hessian_structure=self.hparams.hessian_structure,
+                    subnetwork_indices=subnetwork_indices,
                     sigma_noise=self.hparams.sigma_noise,
                     prior_precision=self.hparams.prior_precision,
                     prior_mean=self.hparams.prior_mean,

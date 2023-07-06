@@ -3,7 +3,7 @@
 # TODO:
 # adapt to new config file scheme
 
-from typing import Any
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -27,7 +27,7 @@ class BNN_VI_ELBO(BaseModel):
         loss_fn: nn.Module,
         burnin_epochs: int,
         num_training_points: int,
-        part_stoch_module_names: int = None,
+        part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         beta: float = 100,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
@@ -108,10 +108,6 @@ class BNN_VI_ELBO(BaseModel):
             part_stoch_module_names=self.part_stoch_module_names,
         )
 
-        # TODO we currently have self.criterion as NLL and GaussianNLL
-        # should remove one and could it just be the self.loss_fn of the base module?
-        self.nll_loss = nn.GaussianNLLLoss(reduction="mean")
-
     def forward(self, X: Tensor) -> Tensor:
         """Forward pass BNN+VI.
 
@@ -160,8 +156,8 @@ class BNN_VI_ELBO(BaseModel):
             # compute prediction loss with nll and track over samples
             if mse:
                 # compute mse loss with output noise scale, is like mse
-                pred_losses[i] = self.nll_loss(
-                    self.extract_mean_output(pred), y, output_var
+                pred_losses[i] = torch.nn.functional.mse_loss(
+                    self.extract_mean_output(pred), y
                 )
             else:
                 # after burnin compute nll with log_sigma
@@ -266,6 +262,7 @@ class BNN_VI_ELBO(BaseModel):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
+        print("RUN BNN PREDICTION")
         with torch.no_grad():
             preds = (
                 torch.stack(

@@ -239,16 +239,13 @@ class SWAGModel(BaseModel):
         """Update the state with a sample."""
         sampled_state_dict = self._sample_state_dict()
         self._update_tracked_state_dict(sampled_state_dict)
-        if self.train_loader is not None:
-            # tracking_was_enabled = self.model.trajectory_tracking_enabled
-            # self.model.trajectory_tracking_enabled = False
+        if self.hparams.num_datapoints_for_bn_update > 0:
             update_bn(
                 self.train_loader,
                 self.model,
                 device=self.device,
-                num_datapoints=self.hparams.num_datapoints_for_bn_update,
+                num_datapoints=self.hparams.num_datapoints_for_bn_update
             )
-            # self.model.trajectory_tracking_enabled = tracking_was_enabled
 
     def on_test_start(self) -> None:
         """Fit the SWAG approximation."""
