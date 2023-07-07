@@ -86,6 +86,26 @@ def main(conf: DictConfig) -> None:
         # test on IID
         trainer.test(ckpt_path="best", datamodule=datamodule)
 
+    ood_splits = [
+            (40.001, 60),
+            (60, 80),
+            (80, 100),
+        ]
+
+    # test on OOD
+    for idx, ood_range in enumerate(ood_splits):
+        # set pred file name
+        model.pred_file_name = f"predictions_{ood_range[0]}_{ood_range[1]}.csv"
+
+        if "post_processing" in conf:
+            trainer.test(model, dataloaders=datamodule.ood_dataloader(ood_range))
+        else:
+            trainer.test(
+                ckpt_path="best", dataloaders=datamodule.ood_dataloader(ood_range)
+            )
+    wandb.finish()
+    print("Finish Evaluation.")
+
 
 if __name__ == "__main__":
     conf = set_up_omegaconf()

@@ -68,7 +68,12 @@ class DUEModel(DeepKernelLearningModel):
 
     def _collect_input_sizes(self, feature_extractor):
         """Spectral Normalization needs input sizes to each layer."""
-        _, module = _get_input_layer_name_and_module(feature_extractor)
+        try:
+            _, module = _get_input_layer_name_and_module(feature_extractor)
+        except UnboundLocalError:
+            input_dimensions = {}
+            return input_dimensions
+
         if isinstance(module, torch.nn.Linear):
             input_tensor = torch.zeros(1, module.in_features)
         elif isinstance(module, torch.nn.Conv2d):   

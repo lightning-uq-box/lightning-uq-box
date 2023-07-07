@@ -7,7 +7,7 @@ from .toy_image_regression import ToyImageRegressionDatamodule
 from .toy_sine import ToySineDatamodule
 from .toy_uncertainty_gaps import ToyUncertaintyGaps
 from .uci import UCIRegressionDatamodule
-from .usa_vars import USAVarsDataModuleOOD, USAVarsDataModuleOur, USAVarsFeatureExtractedDataModuleOur
+from .usa_vars import USAVarsDataModuleOOD, USAVarsDataModuleOur, USAVarsFeatureExtractedDataModuleOur, USAVarsFeatureExtractedDataModuleOOD
 
 __all__ = (
     # toy datamodules
@@ -22,5 +22,6 @@ __all__ = (
     # Image Datamodules
     "USAVarsDataModuleOOD",
     "USAVarsDataModuleOur",
-    "USAVarsFeatureExtractedDataModuleOur"
+    "USAVarsFeatureExtractedDataModuleOur",
+    "USAVarsFeatureExtractedDataModuleOOD"
 )
