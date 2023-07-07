@@ -1,17 +1,30 @@
 import itertools
 import os
 import stat
-
-GPUS = [0, 1, 2, 3, 0, 1, 2, 3]
-CONF_FILE_NAMES = ["base.yaml", "gaussian_nll.yaml", "mc_dropout.yaml", "quantile_regression.yaml", "der.yaml", "dkl.yaml", "due.yaml", "bnn_elbo.yaml"]
-CONF_BASE_DIR = (
-    "/p/project/hai_uqmethodbox/nils/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted"
-)
-SEEDS = [0]
-
-OOD = True
+import argparse
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        prog="create_launch_scripts.py",
+        description="Create bash scripts for slurm.",
+    )
+
+    parser.add_argument(
+        "--user", help="Name of user", type=str, required=True, choices=["nina", "nils"]
+    )
+
+    args = parser.parse_args()
+
+
+    GPUS = [0, 1, 2, 3, 0, 1, 2, 3]
+    CONF_FILE_NAMES = ["base.yaml", "gaussian_nll.yaml", "mc_dropout.yaml", "quantile_regression.yaml", "der.yaml", "dkl.yaml", "due.yaml", "bnn_elbo.yaml"]
+    CONF_BASE_DIR = (
+        f"/p/project/hai_uqmethodbox/{args.user}/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted"
+    )
+    SEEDS = [0]
+
+    OOD = True
+
     for idx, (seed, conf_name) in enumerate(
         itertools.product(SEEDS, CONF_FILE_NAMES)
     ):
@@ -30,21 +43,25 @@ if __name__ == "__main__":
         base_dir = os.path.basename(CONF_BASE_DIR)
         if base_dir == "usa_vars":
             command += " datamodule.root=/dev/shm/usa_vars/"
-            command += " default_config=/p/project/hai_uqmethodbox/nils/uq-method-box/experiments/image-regression/configs/usa_vars/default.yaml"
+            command += f" default_config=/p/project/hai_uqmethodbox/{args.user}/uq-method-box/experiments/image-regression/configs/usa_vars/default.yaml"
             if OOD:
                 command += " experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_resnet_ood/"
                 command += " wandb.project=usa_vars_resnet_ood"
+                command += " datamodule._target_=uq_method_box.datamodules.USAVarsDataModuleOur"
             else:
                 command += " experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_resnet/"
                 command += " wandb.project=usa_vars_resnet"
+                command += " datamodule._target_=uq_method_box.datamodules.USAVarsDataModuleOOD"
         else:
-            command += " default_config=/p/project/hai_uqmethodbox/nils/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted/default.yaml"
+            command += f" default_config=/p/project/hai_uqmethodbox/{args.user}/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted/default.yaml"
             if OOD:
                 command += " experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_reproduce_ood/"
                 command += " wandb.project=usa_vars_reproduce_ood"
+                command += " datamodule._target_=uq_method_box.datamodules.USAVarsFeatureExtractedDataModuleOOD"
             else:
                 command += " experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_reproduce/"
                 command += " wandb.project=usa_vars_reproduce"
+                command += " datamodule._target_=uq_method_box.datamodules.USAVarsFeatureExtractedDataModuleOur"
 
         command = command.strip()
 
