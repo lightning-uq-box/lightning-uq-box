@@ -47,6 +47,8 @@ def set_up_omegaconf() -> DictConfig:
     )
     if "DeepKernelLearning" in conf.uq_method["_target_"]:
         del[conf["uq_method"]["model"]]
+    if "DUEModel" in conf.uq_method["_target_"]:
+        del[conf["uq_method"]["model"]]
     conf = cast(DictConfig, conf)  # convince mypy that everything is alright
     return conf
 

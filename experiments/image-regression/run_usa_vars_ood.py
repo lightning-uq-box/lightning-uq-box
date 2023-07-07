@@ -87,7 +87,7 @@ def main(conf: DictConfig) -> None:
         trainer.test(ckpt_path="best", datamodule=datamodule)
 
     ood_splits = [
-            (40.001, 60),
+            (40, 60),
             (60, 80),
             (80, 100),
         ]
@@ -97,11 +97,31 @@ def main(conf: DictConfig) -> None:
         # set pred file name
         model.pred_file_name = f"predictions_{ood_range[0]}_{ood_range[1]}.csv"
 
+        # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        def ood_collate(batch: dict[str, torch.Tensor]):
+            """Collate fn to include augmentations."""
+            try:
+                images = [item["image"] for item in batch]
+                labels = [item["labels"] for item in batch]
+            except KeyError:
+                images = [item["inputs"] for item in batch]
+                labels = [item["targets"] for item in batch]
+
+            # Stack images and labels into tensors
+            inputs = torch.stack(images)
+            targets = torch.stack(labels)
+            batch = {"image": inputs, "labels": targets}
+            return datamodule.on_after_batch_transfer({"image": inputs, "labels": targets}, dataloader_idx=0)
+
+        ood_loader = datamodule.ood_dataloader(ood_range)
+        ood_loader.num_workers = 0
+        ood_loader.collate_fn = ood_collate
+
         if "post_processing" in conf:
-            trainer.test(model, dataloaders=datamodule.ood_dataloader(ood_range))
+            trainer.test(model, dataloaders=ood_loader)
         else:
             trainer.test(
-                ckpt_path="best", dataloaders=datamodule.ood_dataloader(ood_range)
+                ckpt_path="best", dataloaders=ood_loader
             )
     wandb.finish()
     print("Finish Evaluation.")

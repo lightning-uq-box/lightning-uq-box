@@ -43,7 +43,8 @@ class USAVarsFeatureExtractedDataModuleOur(USAVarsFeatureExtractedDataModule):
         if self.input_mean.device != batch["image"].device:
             self.input_mean = self.input_mean.to(batch["image"].device)
             self.input_std = self.input_std.to(batch["image"].device)
-        
+
+        print(batch["labels"].shape)
         return {
             "inputs": (batch["image"].float() - self.input_mean) / self.input_std,
             "targets": (batch["labels"].float() - self.target_mean) / self.target_std,
@@ -87,8 +88,12 @@ class USAVarsFeatureExtractedDataModuleOOD(NonGeoDataModule):
             A batch of data.
         """
         if self.input_mean.device != batch["image"].device:
-            self.input_mean = self.input_mean.to(batch["image"].device)
-            self.input_std = self.input_std.to(batch["image"].device)
+            if self.input_mean.device.type == "cpu":
+                self.input_mean = self.input_mean.to(batch["image"].device)
+                self.input_std = self.input_std.to(batch["image"].device)
+            elif self.input_mean.device.type == "cuda":
+                batch["image"] = batch["image"].to(self.input_mean.device)
+                batch["labels"] = batch["labels"].to(self.input_mean.device)
         return {
             "inputs": (batch["image"].float() - self.input_mean) / self.input_std,
             "targets": (batch["labels"].float() - self.target_mean) / self.target_std,

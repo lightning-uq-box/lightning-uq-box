@@ -46,6 +46,7 @@ class USAVarsFeaturesOOD(USAVarsFeatureExtracted):
         self,
         root: str = "data",
         split: str = "train",
+        labels: Sequence[str] = ["treecover"],
         ood_range: Optional[tuple[float, float]] = None,
         feature_extractor: str = "rcf",
         download: bool = False,
@@ -71,11 +72,11 @@ class USAVarsFeaturesOOD(USAVarsFeatureExtracted):
             ), "Please first specify the min and then the max range value."
             assert (ood_range[0] > self.in_target_max), "OOD min should be larger than in distribution max."
             self.ood_range = ood_range
-            self.ood_set = self.label_df[
-                (self.label_df["treecover"] > ood_range[0])
-                & (self.label_df["treecover"] <= ood_range[1])
-            ]
-            self.ood_ids = self.ood_set.index.values
+            # self.ood_set = self.full_df[
+            #     (self.full_df["treecover"] > ood_range[0])
+            #     & (self.full_df["treecover"] <= ood_range[1])
+            # ]
+            # self.ood_ids = self.ood_set.index.values
 
         self.in_dist_df = self.full_df[self.full_df["treecover"] <= self.in_target_max]
         np.random.seed(0)
@@ -109,6 +110,7 @@ class USAVarsOOD(USAVars):
         self,
         root: str = "data",
         split: str = "train",
+        labels: Sequence[str] = ["treecover"],
         ood_range: Optional[tuple[float, float]] = None,
         download: bool = False,
         checksum: bool = False,
@@ -149,7 +151,7 @@ class USAVarsOOD(USAVars):
         self.file_ids = [file.split("_")[1].split(".")[0] for file in self.files]
         self.label_df = self.label_df.loc[self.file_ids]
 
-        self.in_dist_set = self.label_df[self.label_df["treecover"] <= self.in_target_max]
+        self.in_dist_set = self.label_df[self.label_df["treecover"] < self.in_target_max]
 
         if split == "ood":
             assert (
@@ -158,7 +160,7 @@ class USAVarsOOD(USAVars):
             assert (
                 ood_range[0] < ood_range[1]
             ), "Please first specify the min and then the max range value."
-            assert (ood_range[0] > in_target_max), "OOD min should be larger than in distribution max."
+            assert (ood_range[0] >= in_target_max), "OOD min should be larger than in distribution max."
             self.ood_range = ood_range
             self.ood_set = self.label_df[
                 (self.label_df["treecover"] > ood_range[0])
