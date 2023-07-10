@@ -82,6 +82,13 @@ class DeterministicGaussianModel(BaseModel):
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
         del out_dict["out"]
+
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in ["inputs", "targets"]:
+                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                
         return out_dict
 
     def predict_step(

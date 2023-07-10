@@ -247,6 +247,12 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             self.test_metrics(out_dict["out"].mean, batch["targets"].squeeze(-1))
 
         del out_dict["out"]
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in ["inputs", "targets"]:
+                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                
         return out_dict
 
     def on_test_batch_end(

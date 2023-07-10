@@ -44,11 +44,16 @@ class USAVarsFeatureExtractedDataModuleOur(USAVarsFeatureExtractedDataModule):
             self.input_mean = self.input_mean.to(batch["image"].device)
             self.input_std = self.input_std.to(batch["image"].device)
 
-        print(batch["labels"].shape)
-        return {
+        new_batch = {
             "inputs": (batch["image"].float() - self.input_mean) / self.input_std,
-            "targets": (batch["labels"].float() - self.target_mean) / self.target_std,
+            "targets": (batch["labels"].float() - self.target_mean) / self.target_std
         }
+
+        if "centroid_lat" in batch:
+            new_batch["centroid_lat"] = batch["centroid_lat"]
+            new_batch["centroid_lon"] = batch["centroid_lon"]
+        
+        return new_batch
 
 class USAVarsFeatureExtractedDataModuleOOD(NonGeoDataModule):
     def  __init__(
@@ -94,10 +99,16 @@ class USAVarsFeatureExtractedDataModuleOOD(NonGeoDataModule):
             elif self.input_mean.device.type == "cuda":
                 batch["image"] = batch["image"].to(self.input_mean.device)
                 batch["labels"] = batch["labels"].to(self.input_mean.device)
-        return {
+        new_batch = {
             "inputs": (batch["image"].float() - self.input_mean) / self.input_std,
-            "targets": (batch["labels"].float() - self.target_mean) / self.target_std,
+            "targets": (batch["labels"].float() - self.target_mean) / self.target_std
         }
+
+        if "centroid_lat" in batch:
+            new_batch["centroid_lat"] = batch["centroid_lat"]
+            new_batch["centroid_lon"] = batch["centroid_lon"]
+        
+        return new_batch
 
 class USAVarsDataModuleOur(USAVarsDataModule):
     # min: array([0., 0., 0., 0.], dtype=float32)
@@ -167,10 +178,16 @@ class USAVarsDataModuleOur(USAVarsDataModule):
 
             aug_batch = aug({"image": batch["image"].float()})
 
-        return {
-            "inputs": aug_batch["image"].float(),
-            "targets": (batch["labels"].float() - self.target_mean) / self.target_std,
+        new_batch = {
+            "inputs": (batch["image"].float() - self.input_mean) / self.input_std,
+            "targets": (batch["labels"].float() - self.target_mean) / self.target_std
         }
+
+        if "centroid_lat" in batch:
+            new_batch["centroid_lat"] = batch["centroid_lat"]
+            new_batch["centroid_lon"] = batch["centroid_lon"]
+        
+        return new_batch
 
 
 class USAVarsDataModuleOOD(NonGeoDataModule):
@@ -255,4 +272,13 @@ class USAVarsDataModuleOOD(NonGeoDataModule):
 
             aug_batch = aug({"image": batch["inputs"]})
 
-        return {"inputs": aug_batch["image"], "targets": (batch["labels"].float() - self.target_mean) / self.target_std}
+        new_batch = {
+            "inputs": (batch["image"].float() - self.input_mean) / self.input_std,
+            "targets": (batch["labels"].float() - self.target_mean) / self.target_std
+        }
+
+        if "centroid_lat" in batch:
+            new_batch["centroid_lat"] = batch["centroid_lat"]
+            new_batch["centroid_lon"] = batch["centroid_lon"]
+        
+        return new_batch

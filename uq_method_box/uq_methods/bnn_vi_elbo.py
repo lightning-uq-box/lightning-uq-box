@@ -252,6 +252,12 @@ class BNN_VI_ELBO(BaseModel):
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in ["inputs", "targets"]:
+                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                
         return out_dict
 
     def predict_step(
@@ -262,7 +268,6 @@ class BNN_VI_ELBO(BaseModel):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        print("RUN BNN PREDICTION")
         with torch.no_grad():
             preds = (
                 torch.stack(

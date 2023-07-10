@@ -70,7 +70,7 @@ class USAVarsFeaturesOOD(USAVarsFeatureExtracted):
             assert (
                 ood_range[0] < ood_range[1]
             ), "Please first specify the min and then the max range value."
-            assert (ood_range[0] > self.in_target_max), "OOD min should be larger than in distribution max."
+            assert (ood_range[0] >= self.in_target_max), "OOD min should be larger than in distribution max."
             self.ood_range = ood_range
             # self.ood_set = self.full_df[
             #     (self.full_df["treecover"] > ood_range[0])
