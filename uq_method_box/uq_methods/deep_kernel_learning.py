@@ -96,6 +96,8 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
 
         self.dkl_model_built = False
 
+        self.pred_file_name = "predictions.csv"
+
     @property
     def num_inputs(self) -> int:
         """Retrieve input dimension to the model.
@@ -265,7 +267,7 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         """Test batch end save predictions."""
         if self.save_dir:
             save_predictions_to_csv(
-                outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
+                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
             )
 
     def on_test_epoch_end(self):
