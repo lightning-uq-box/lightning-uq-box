@@ -22,6 +22,12 @@ def collate_fn_torchgeo(batch):
 
     return {"inputs": inputs, "targets": targets}
 
+def collate_fn_tensordataset(batch):
+    """Collate function for tensor dataset to our framework."""
+    inputs = torch.stack([item[0] for item in batch])
+    targets = torch.stack([item[1] for item in batch])
+    return {"inputs": inputs, "targets": targets}
+
 
 def collate_fn_laplace_torch(batch):
     """Collate function to for laplace torch tuple convention.

@@ -289,7 +289,7 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self.gp_layer.eval()
         self.likelihood.eval()
 
-        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(64):
+        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(64), gpytorch.settings.fast_pred_var(state=False):
             output = self.likelihood(self.forward(X))
             mean = output.mean.cpu().numpy()
             std = output.stddev.cpu().numpy()

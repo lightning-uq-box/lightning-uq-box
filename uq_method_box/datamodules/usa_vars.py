@@ -9,19 +9,22 @@ from torch.utils.data import DataLoader
 from torchgeo.datamodules import NonGeoDataModule, USAVarsDataModule, USAVarsFeatureExtractedDataModule
 from torchgeo.transforms import AugmentationSequential
 
-from uq_method_box.datasets import USAVarsOOD, USAVarsFeaturesOOD
+from uq_method_box.datasets import USAVarsOOD, USAVarsFeaturesOOD, USAVarsFeaturesOur
 
 
-class USAVarsFeatureExtractedDataModuleOur(USAVarsFeatureExtractedDataModule):
+class USAVarsFeatureExtractedDataModuleOur(NonGeoDataModule):
     """USAVarsFeatureExtracted Data Module."""
 
     def __init__(
         self, batch_size: int = 64, num_workers: int = 0, **kwargs: Any
     ) -> None:
         """Version we use for now."""
-        super().__init__(batch_size, num_workers, **kwargs)
+        super().__init__(USAVarsFeaturesOur, batch_size, num_workers, **kwargs)
         ds = self.dataset_class(**kwargs, split="train")
-        feature_cols = [str(i) for i in range(512)]
+        if ds.feature_extractor == "rcf_8192":
+            feature_cols = [str(i) for i in range(8192)]
+        else:
+            feature_cols = [str(i) for i in range(512)]
         feature_df = ds.feature_df
         self.input_mean = torch.from_numpy(feature_df[feature_cols].mean().values).to(torch.float)
         self.input_std = torch.from_numpy(feature_df[feature_cols].std().values).to(torch.float)
@@ -41,8 +44,12 @@ class USAVarsFeatureExtractedDataModuleOur(USAVarsFeatureExtractedDataModule):
             A batch of data.
         """
         if self.input_mean.device != batch["image"].device:
-            self.input_mean = self.input_mean.to(batch["image"].device)
-            self.input_std = self.input_std.to(batch["image"].device)
+            if self.input_mean.device.type == "cpu":
+                self.input_mean = self.input_mean.to(batch["image"].device)
+                self.input_std = self.input_std.to(batch["image"].device)
+            elif self.input_mean.device.type == "cuda":
+                batch["image"] = batch["image"].to(self.input_mean.device)
+                batch["labels"] = batch["labels"].to(self.input_mean.device)
 
         new_batch = {
             "inputs": (batch["image"].float() - self.input_mean) / self.input_std,
@@ -62,7 +69,10 @@ class USAVarsFeatureExtractedDataModuleOOD(NonGeoDataModule):
         """Version we use for now for OOD."""
         super().__init__(USAVarsFeaturesOOD, batch_size, num_workers, **kwargs)
         ds = self.dataset_class(**kwargs, split="train")
-        feature_cols = [str(i) for i in range(512)]
+        if ds.feature_extractor == "rcf_8192":
+            feature_cols = [str(i) for i in range(8192)]
+        else:
+            feature_cols = [str(i) for i in range(512)]
         feature_df = ds.feature_df
         self.input_mean = torch.from_numpy(feature_df[feature_cols].mean().values).to(torch.float)
         self.input_std = torch.from_numpy(feature_df[feature_cols].std().values).to(torch.float)
@@ -70,7 +80,7 @@ class USAVarsFeatureExtractedDataModuleOOD(NonGeoDataModule):
         self.target_std: float = feature_df["treecover"].std()
 
     def ood_dataloader(
-        self, ood_range: tuple[float, float]
+        self, ood_range: tuple[float, float] = None
     ) -> DataLoader[dict[str, Tensor]]:
         """Implement OOD Dataloader gicen the ood_range."""
         return DataLoader(

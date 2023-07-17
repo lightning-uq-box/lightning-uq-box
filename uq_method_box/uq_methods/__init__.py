@@ -11,7 +11,7 @@ from .deep_kernel_learning import DeepKernelLearningModel, DKLGPLayer, compute_i
 from .deterministic_gaussian import DeterministicGaussianModel
 from .deterministic_uncertainty_estimation import DUEModel
 from .laplace_model import LaplaceModel
-from .loss_functions import NLL, DERLoss, QuantileLoss
+from .loss_functions import NLL, DERLoss, QuantileLoss, HuberQLoss
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
 from .sgld import SGLDModel
@@ -70,4 +70,5 @@ __all__ = (
     "NLL",
     "QuantileLoss",
     "DERLoss",
+    "HuberQLoss"
 )

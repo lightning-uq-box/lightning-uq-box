@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 from torchgeo.trainers.utils import _get_input_layer_name_and_module
 
 from uq_method_box.eval_utils import compute_sample_mean_std_from_quantile
+from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 
 from .utils import (
     _get_output_layer_name_and_module,
@@ -66,7 +67,6 @@ class CQR(LightningModule):
         self,
         model: LightningModule,
         quantiles: list[float],
-        calibration_loader: DataLoader,
         save_dir: str,
     ) -> None:
         """Initialize a new Base Model.
@@ -79,7 +79,7 @@ class CQR(LightningModule):
             save_dir: path to directory where to save predictions
         """
         super().__init__()
-        self.save_hyperparameters(ignore=["model", "calibration_loader"])
+        self.save_hyperparameters(ignore=["model"])
 
         self.error_rate = 1 - max(
             self.hparams.quantiles
@@ -89,9 +89,19 @@ class CQR(LightningModule):
         self.model = model
 
         self.cqr_fitted = False
-        self.calibration_loader = calibration_loader
+
+        self.save_dir = save_dir
 
         self.pred_file_name = "predictions.csv"
+
+        self.test_metrics = MetricCollection(
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
+            prefix="test_",
+        )
 
     @property
     def num_inputs(self) -> int:
@@ -141,7 +151,7 @@ class CQR(LightningModule):
         cqr_sets = np.stack(
             [
                 model_preds["lower_quant"] - self.q_hat,
-                model_preds["mean"],
+                model_preds["pred"].squeeze(-1).cpu().numpy(),
                 model_preds["upper_quant"] + self.q_hat,
             ],
             axis=1,
@@ -164,26 +174,46 @@ class CQR(LightningModule):
     def compute_calibration_scores(self) -> tuple[np.ndarray, np.ndarray]:
         """Compute calibration scores."""
         # model predict steps return a dictionary that contains quantiles
-        outputs = [
-            (self.model.predict_step(batch[0]), batch[1])
-            for batch in self.calibration_loader
+        calibration_loader = self.trainer.datamodule.val_dataloader()
+
+        # calibration_loader.collate_fn = collate_fn_torch
+        model_outputs = [
+            self.model.predict_step(self.trainer.datamodule.on_after_batch_transfer(batch, dataloader_idx=0)["inputs"].to(self.device))
+            for batch in calibration_loader
         ]
-
-        # collect the quantiles into a single vector
-        model_outputs = [o[0] for o in outputs]
-
+        model_outputs: list[dict[str, Tensor]] = []
+        cal_labels: list[np.ndarray] = []
+        for batch in calibration_loader:
+            aug_batch = self.trainer.datamodule.on_after_batch_transfer(batch, dataloader_idx=0)
+            model_outputs.append(self.model.predict_step(aug_batch["inputs"].to(self.device)))
+            cal_labels.append(aug_batch["targets"].numpy())
+        
+        cal_labels = np.concatenate(cal_labels)
         model_outputs = merge_list_of_dictionaries(model_outputs)
         cal_quantiles = np.stack(
             [model_outputs["lower_quant"], model_outputs["upper_quant"]], axis=-1
         )
-        cal_labels = np.concatenate([o[1] for o in outputs])
         return cal_quantiles, cal_labels
 
-    def test_step(self, *args: Any, **kwargs: Any) -> None:
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
         """Test step."""
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        if batch["inputs"].shape[0] > 1:
+            self.test_metrics(out_dict["pred"], batch["targets"].squeeze(-1))
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in ["inputs", "targets"]:
+                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+
+        del out_dict["out"]
         return out_dict
 
     def on_test_batch_end(
@@ -194,9 +224,15 @@ class CQR(LightningModule):
         dataloader_idx=0,
     ):
         """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
-        )
+        if self.save_dir:
+            save_predictions_to_csv(
+                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+            )
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -222,9 +258,10 @@ class CQR(LightningModule):
         std[std <= 0] = 1e-6
 
         return {
-            "mean": mean,
+            "pred": torch.from_numpy(mean).to(self.device),
             "pred_uct": std,
             "lower_quant": cqr_sets[:, 0],
             "upper_quant": cqr_sets[:, -1],
             "aleatoric_uct": std,
+            "out": torch.from_numpy(cqr_sets).to(self.device)
         }

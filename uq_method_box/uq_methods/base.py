@@ -194,6 +194,7 @@ class BaseModel(LightningModule):
         for key, val in batch.items():
             if key not in ["inputs", "targets"]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                
         return out_dict
 
     def on_test_epoch_end(self):

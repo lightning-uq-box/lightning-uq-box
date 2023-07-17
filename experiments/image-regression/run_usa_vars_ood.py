@@ -11,6 +11,7 @@ from lightning.pytorch import LightningDataModule, LightningModule
 from omegaconf import DictConfig, OmegaConf
 from setup_experiment import create_experiment_dir, generate_trainer, set_up_omegaconf
 from utils import ignore_args
+from uq_method_box.uq_methods import DeepEnsembleModel
 
 from uq_method_box.datamodules.utils import collate_fn_laplace_torch
 
@@ -52,21 +53,28 @@ def main(conf: DictConfig) -> None:
 
     # run training
     if "post_processing" in conf:
-        # import pdb
-        # pdb.set_trace()
-        base_model = instantiate(conf.uq_method, save_dir=conf.experiment.save_dir)
-        state_dict = torch.load(conf.ckpt_path)["state_dict"]
-        base_model.load_state_dict(state_dict)
-        datamodule.setup("fit")
-        train_loader = datamodule.train_dataloader()
-        train_loader.collate_fn = collate_fn_laplace_torch
+        if "DeepEnsemble" in conf.post_processing["_target_"]:
+            ensemble_members = [{"base_model": instantiate(conf.uq_method), "ckpt_path": path} for path in conf.post_processing.ensemble_members]
+            model = DeepEnsembleModel(
+                n_ensemble_members=conf.post_processing.n_ensemble_members,
+                ensemble_members=ensemble_members,
+                save_dir=conf.experiment.save_dir
+            )
+            trainer.test(model=model, datamodule=datamodule)
+        else:
+            # import pdb
+            # pdb.set_trace()
+            base_model = instantiate(conf.uq_method, save_dir=conf.experiment.save_dir)
+            state_dict = torch.load(conf.ckpt_path)["state_dict"]
+            base_model.load_state_dict(state_dict)
+            datamodule.setup("fit")
 
-        model = instantiate(
-            conf.post_processing,
-            model=base_model.model,
-            save_dir=conf.experiment.save_dir,
-        )
-        trainer.test(model=model, datamodule=datamodule)
+            model = instantiate(
+                conf.post_processing,
+                model=base_model,
+                save_dir=conf.experiment.save_dir,
+            )
+            trainer.test(model=model, datamodule=datamodule)
 
     elif "BNN_VI_ELBO" in conf["uq_method"]["_target_"]:
         datamodule.setup("fit")
@@ -86,34 +94,51 @@ def main(conf: DictConfig) -> None:
         # test on IID
         trainer.test(ckpt_path="best", datamodule=datamodule)
 
-    ood_splits = [
-            (40, 60),
-            (60, 80),
-            (80, 100),
-        ]
 
-    # test on OOD
-    for idx, ood_range in enumerate(ood_splits):
-        # set pred file name
-        model.pred_file_name = f"predictions_{ood_range[0]}_{ood_range[1]}.csv"
 
-        # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        def ood_collate(batch: dict[str, torch.Tensor]):
-            """Collate fn to include augmentations."""
-            try:
-                images = [item["image"] for item in batch]
-                labels = [item["labels"] for item in batch]
-            except KeyError:
-                images = [item["inputs"] for item in batch]
-                labels = [item["targets"] for item in batch]
+    def ood_collate(batch: dict[str, torch.Tensor]):
+        """Collate fn to include augmentations."""
+        try:
+            images = [item["image"] for item in batch]
+            labels = [item["labels"] for item in batch]
+        except KeyError:
+            images = [item["inputs"] for item in batch]
+            labels = [item["targets"] for item in batch]
 
-            # Stack images and labels into tensors
-            inputs = torch.stack(images)
-            targets = torch.stack(labels)
-            batch = {"image": inputs, "labels": targets}
-            return datamodule.on_after_batch_transfer({"image": inputs, "labels": targets}, dataloader_idx=0)
+        lat = torch.stack([item["centroid_lat"] for item in batch])
+        lon = torch.stack([item["centroid_lon"] for item in batch])
 
-        ood_loader = datamodule.ood_dataloader(ood_range)
+        # Stack images and labels into tensors
+        inputs = torch.stack(images)
+        targets = torch.stack(labels)
+        
+        return datamodule.on_after_batch_transfer({"image": inputs, "labels": targets, "centroid_lat": lat, "centroid_lon": lon}, dataloader_idx=0)
+
+    # test on training dataset
+    if conf.datamodule.ood_type == "tail":
+        ood_splits = [
+                (40, 60),
+                (60, 80),
+                (80, 100),
+            ]
+
+        # test on OOD
+        for idx, ood_range in enumerate(ood_splits):
+            # set pred file name
+            model.pred_file_name = f"predictions_{ood_range[0]}_{ood_range[1]}.csv"
+            ood_loader = datamodule.ood_dataloader(ood_range=ood_range)
+            ood_loader.num_workers = 0
+            ood_loader.collate_fn = ood_collate
+
+            if "post_processing" in conf:
+                trainer.test(model, dataloaders=ood_loader)
+            else:
+                trainer.test(
+                    ckpt_path="best", dataloaders=ood_loader
+                )
+    else:
+        model.pred_file_name = f"predictions_gap.csv"
+        ood_loader = datamodule.ood_dataloader(ood_range=None)
         ood_loader.num_workers = 0
         ood_loader.collate_fn = ood_collate
 
@@ -123,6 +148,9 @@ def main(conf: DictConfig) -> None:
             trainer.test(
                 ckpt_path="best", dataloaders=ood_loader
             )
+
+        
+
     wandb.finish()
     print("Finish Evaluation.")
 

@@ -15,6 +15,7 @@ from torchgeo.trainers.utils import _get_input_layer_name_and_module
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 from tqdm import trange
 from laplace.utils import LargestMagnitudeSubnetMask, ModuleNameSubnetMask
+from laplace.curvature import AsdlGGN
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
 
@@ -184,15 +185,16 @@ class LaplaceModel(LightningModule):
             # but need it for laplace so set inference mode to false with cntx manager
             with torch.inference_mode(False):
                 self.la_model = Laplace(
-                    model=self.model,
+                    model=self.model.model,
                     likelihood="regression",
                     subset_of_weights=self.hparams.subset_of_weights,
                     hessian_structure=self.hparams.hessian_structure,
-                    subnetwork_indices=subnetwork_indices,
+                    # subnetwork_indices=subnetwork_indices,
                     sigma_noise=self.hparams.sigma_noise,
                     prior_precision=self.hparams.prior_precision,
                     prior_mean=self.hparams.prior_mean,
                     temperature=self.hparams.temperature,
+                    backend=AsdlGGN
                 )
                 # fit the laplace approximation
                 self.la_model.fit(self.train_loader)

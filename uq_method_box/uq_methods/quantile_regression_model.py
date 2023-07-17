@@ -8,7 +8,7 @@ from torch import Tensor
 from uq_method_box.eval_utils import compute_sample_mean_std_from_quantile
 
 from .base import BaseModel
-from .loss_functions import QuantileLoss
+from .loss_functions import QuantileLoss, HuberQLoss
 
 
 class QuantileRegressionModel(BaseModel):
@@ -18,6 +18,7 @@ class QuantileRegressionModel(BaseModel):
         self,
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
+        loss_fn: nn.Module = QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
         lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
         save_dir: str = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
@@ -31,7 +32,7 @@ class QuantileRegressionModel(BaseModel):
         """
         assert all(i < 1 for i in quantiles), "Quantiles should be less than 1."
         assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
-        super().__init__(model, optimizer, QuantileLoss(quantiles), lr_scheduler, save_dir)
+        super().__init__(model, optimizer, loss_fn, lr_scheduler, save_dir)
 
         self.save_hyperparameters(ignore=["model"])
         self.median_index = self.hparams.quantiles.index(0.5)
@@ -82,8 +83,11 @@ class QuantileRegressionModel(BaseModel):
         """
         with torch.no_grad():
             out = self.model(X)  # [batch_size, len(self.quantiles)]
-            np_out  = out.cpu().numpy()
+            np_out  = np.fliplr(out.cpu().numpy())
+            
         median = self.extract_mean_output(out)
+        # import pdb
+        # pdb.set_trace()
         mean, std = compute_sample_mean_std_from_quantile(np_out, self.hparams.quantiles)
 
         # can happen due to overlapping quantiles

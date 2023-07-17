@@ -47,7 +47,7 @@ class SWAGModel(BaseModel):
                 also be accessed through the trainer or write a
                 train_dataloader() method for this model based on the config?
         """
-        super().__init__(model, None, loss_fn, save_dir)
+        super().__init__(model, None, loss_fn, None, save_dir)
 
         self.save_hyperparameters(ignore=["model", "train_loader", "loss_fn"])
         self.hparams["part_stoch_module_names"] = map_stochastic_modules(

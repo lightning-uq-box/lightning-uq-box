@@ -50,6 +50,26 @@ def main(conf: DictConfig) -> None:
     datamodule: LightningDataModule = instantiate(conf.datamodule)
     trainer = generate_trainer(exp_conf)
 
+
+
+    def ood_collate(batch: dict[str, torch.Tensor]):
+        """Collate fn to include augmentations."""
+        try:
+            images = [item["image"] for item in batch]
+            labels = [item["labels"] for item in batch]
+        except KeyError:
+            images = [item["inputs"] for item in batch]
+            labels = [item["targets"] for item in batch]
+
+        lat = torch.stack([item["centroid_lat"] for item in batch])
+        lon = torch.stack([item["centroid_lon"] for item in batch])
+
+        # Stack images and labels into tensors
+        inputs = torch.stack(images)
+        targets = torch.stack(labels)
+        
+        return datamodule.on_after_batch_transfer({"image": inputs, "labels": targets, "centroid_lat": lat, "centroid_lon": lon}, dataloader_idx=0)
+
     # run training
     if "post_processing" in conf:
         # import pdb
@@ -83,8 +103,33 @@ def main(conf: DictConfig) -> None:
             conf.uq_method, save_dir=conf.experiment.save_dir
         )
         trainer.fit(model=model, datamodule=datamodule)
-        # test on IID
+        # test test
         trainer.test(ckpt_path="best", datamodule=datamodule)
+
+    # save results for train and val predictions
+    model.pred_file_name = f"predictions_train.csv"
+    train_loader = datamodule.train_dataloader()
+    train_loader.num_workers
+    train_loader.collate_fn = ood_collate
+
+    if "post_processing" in conf:
+        trainer.test(model, dataloaders=train_loader)
+    else:
+        trainer.test(
+            ckpt_path="best", dataloaders=train_loader
+        )
+
+    model.pred_file_name = f"predictions_val.csv"
+    val_loader = datamodule.train_dataloader()
+    val_loader.num_workers
+    val_loader.collate_fn = ood_collate
+
+    if "post_processing" in conf:
+        trainer.test(model, dataloaders=train_loader)
+    else:
+        trainer.test(
+            ckpt_path="best", dataloaders=train_loader
+        )
 
 
 if __name__ == "__main__":
