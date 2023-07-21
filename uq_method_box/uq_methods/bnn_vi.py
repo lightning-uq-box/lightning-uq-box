@@ -136,8 +136,7 @@ class BNN_VI(BaseModel):
 
         Returns:
             energy loss and mean output for logging
-            mean_out: mean output over samples,
-                dim [batch_size, output_dim]
+            mean_out: mean output over samples, dim [batch_size, output_dim]
         """
         model_preds: list[Tensor] = []
         pred_losses: list[Tensor] = []

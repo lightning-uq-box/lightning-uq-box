@@ -23,18 +23,24 @@ UQ-Method-Box
    
 .. toctree::
    :maxdepth: 1
+   :name: tutorials
    :caption: Tutorials
    
-   tutorials/conformal_prediction
-   tutorials/deep_ensemble
-   tutorials/deep_evidential_regression
-   tutorials/deterministic_gaussian
    tutorials/laplace
    tutorials/mc_dropout
-   tutorials/quantile_regression
-   tutorials/swag
+   tutorials/bnn_vi_elbo
+   tutorials/bnn_vi
+   tutorials/bnn_vi_lv
+   tutorials/deep_evidential_regression
+   tutorials/deep_ensemble
    tutorials/deep_kernel_learning
+   tutorials/deterministic_gaussian
    tutorials/deterministic_uncertainty_estimation
+   tutorials/gp
+   tutorials/quantile_regression
+   tutorials/conformal_prediction
+   tutorials/swag
+   tutorials/evaluation_uncertainty
 
 Indices and tables
 ==================

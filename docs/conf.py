@@ -9,6 +9,8 @@
 import os
 import sys
 
+import pytorch_sphinx_theme
+
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -43,7 +45,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 source_parsers = {".rst": "restructuredtext", ".ipynb": "sphinxcontrib.jupyter"}
 
 # source file suffixes
-source_suffix = [".rst", ".ipynb"]
+source_suffix = [".rst"]
 
 # The source directory containing Sphinx source files.
 source_dirs = ["api", "tutorials"]
@@ -76,12 +78,42 @@ nbsphinx_prolog = """
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = "furo"
+# html_theme = "furo"
+html_theme = "pytorch_sphinx_theme"
+html_theme_path = [pytorch_sphinx_theme.get_html_theme_path()]
+
+# css adjustments
 html_static_path = ["_static"]
+html_css_files = ["button-width.css", "notebook-prompt.css"]
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
+html_theme_options = {
+    "collapse_navigation": False,
+    "display_version": True,
+    "logo_only": True,
+    "pytorch_project": "docs",
+    "navigation_with_keys": True,
+    "analytics_id": "UA-209075005-1",
+}
+
+# sphinx.ext.intersphinx
+intersphinx_mapping = {
+    "kornia": ("https://kornia.readthedocs.io/en/stable/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "python": ("https://docs.python.org/3", None),
+    "lightning": ("https://lightning.ai/docs/pytorch/stable/", None),
+    "pyvista": ("https://docs.pyvista.org/version/stable/", None),
+    "rasterio": ("https://rasterio.readthedocs.io/en/stable/", None),
+    "rtree": ("https://rtree.readthedocs.io/en/stable/", None),
+    "segmentation_models_pytorch": ("https://smp.readthedocs.io/en/stable/", None),
+    "sklearn": ("https://scikit-learn.org/stable/", None),
+    "timm": ("https://huggingface.co/docs/timm/main/en/", None),
+    "torch": ("https://pytorch.org/docs/stable", None),
+    "torchvision": ("https://pytorch.org/vision/stable", None),
+}
 
 # -- Extension configuration -------------------------------------------------
 
