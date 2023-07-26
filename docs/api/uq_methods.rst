@@ -5,7 +5,11 @@ uq_method_box.uq_methods
 
 .. autoclass:: BaseModel
 
-.. autoclass:: BayesByBackpropModel
+.. autoclass:: BNN_VI_ELBO
+
+.. autoclass:: BNN_VI
+
+.. autoclass:: BNN_LV_VI
 
 .. autoclass:: MCDropoutModel
 

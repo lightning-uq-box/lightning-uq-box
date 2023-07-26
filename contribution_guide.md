@@ -218,7 +218,8 @@ Make sure the dependencies are installed inside your virtual environment:
 ```
    $ pip install .[docs]
    $ cd docs
-   $ pip install -r requirements/requirements.txt
+   $ pip install -r requirements/docs.txt
+   $ pip install -e git+https://github.com/pytorch/pytorch_sphinx_theme.git#egg=pytorch_sphinx_theme # installs the sphinx theme
 ```
 
 
