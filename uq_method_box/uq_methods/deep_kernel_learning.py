@@ -254,8 +254,6 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         for key, val in batch.items():
             if key not in ["inputs", "targets"]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
-
-        del out_dict["out"]
         return out_dict
 
     def on_test_batch_end(

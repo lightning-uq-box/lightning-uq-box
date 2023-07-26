@@ -75,5 +75,4 @@ class QuantileRegressionModel(BaseModel):
             "lower_quant": np_out[:, 0],
             "upper_quant": np_out[:, -1],
             "aleatoric_uct": std,
-            "out": out
         }

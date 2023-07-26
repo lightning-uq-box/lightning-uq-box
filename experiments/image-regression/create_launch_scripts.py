@@ -18,8 +18,6 @@ if __name__ == "__main__":
 
     GPUS = [0, 1, 2, 3, 0, 1, 2, 3]
     CONF_FILE_NAMES = ["base.yaml", "gaussian_nll.yaml", "mc_dropout.yaml", "quantile_regression.yaml", "der.yaml", "dkl.yaml", "bnn_elbo.yaml"]
-    # CONF_FILE_NAMES = ["gaussian_nll.yaml"]
-    # CONF_FILE_NAMES = ["bnn_elbo_elu.yaml", "bnn_elbo_relu.yaml", "bnn_elbo_tanh.yaml"]
     CONF_BASE_DIR = (
         f"/p/project/hai_uqmethodbox/{args.user}/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted"
     )
