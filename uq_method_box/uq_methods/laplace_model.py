@@ -250,9 +250,10 @@ class LaplaceModel(LightningModule):
         dataloader_idx=0,
     ):
         """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
-        )
+        if self.hparams.save_dir:
+            save_predictions_to_csv(
+                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+            )
 
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""

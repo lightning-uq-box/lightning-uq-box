@@ -1,9 +1,0 @@
-# everything to configure the UQ method
-uq_method:
-  _target_: uq_method_box.uq_methods.MCDropoutModel
-  model:
-    drop_rate: 0.25
-  loss_fn: 
-    _target_: torch.nn.MSELoss
-  num_mc_samples: 30
-  burnin_epochs: 0

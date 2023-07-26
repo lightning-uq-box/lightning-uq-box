@@ -2,9 +2,9 @@
 uq_method:
   _target_: uq_method_box.uq_methods.MCDropoutModel
   model:
-    n_outputs: 1
-    dropout_p: 0.2
+    n_outputs: 2
+    dropout_p: 0.25
   loss_fn: 
-    _target_: torch.nn.MSELoss
+    _target_: uq_method_box.uq_methods.NLL
   num_mc_samples: 30
   burnin_epochs: 0

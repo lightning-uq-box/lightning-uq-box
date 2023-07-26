@@ -195,27 +195,6 @@ class CQR(LightningModule):
         )
         return cal_quantiles, cal_labels
 
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Test step."""
-        out_dict = self.predict_step(batch["inputs"])
-        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
-
-        if batch["inputs"].shape[0] > 1:
-            self.test_metrics(out_dict["pred"], batch["targets"].squeeze(-1))
-
-        # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
-
-        # save metadata
-        for key, val in batch.items():
-            if key not in ["inputs", "targets"]:
-                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
-
-        del out_dict["out"]
-        return out_dict
-
     def on_test_batch_end(
         self,
         outputs: dict[str, np.ndarray],

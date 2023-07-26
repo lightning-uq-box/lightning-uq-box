@@ -1,0 +1,13 @@
+uq_method:
+  _target_: uq_method_box.uq_methods.DUEModel
+  feature_extractor:
+    _target_: torch.nn.Identity
+  gp_layer:
+    _target_: uq_method_box.uq_methods.DKLGPLayer
+    _partial_: true
+    n_outputs: 1
+    kernel: "Matern32"
+  elbo_fn:
+    _target_: gpytorch.mlls.VariationalELBO
+    _partial_: true
+  n_inducing_points: 200

@@ -232,34 +232,6 @@ class BNN_VI_ELBO(BaseModel):
 
         return elbo_loss
 
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Test step."""
-        out_dict = self.predict_step(batch["inputs"])
-        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
-
-        if self.num_outputs == 1:
-            mse = True
-        else:
-            mse = False
-
-        # TODO this is inefficient, since we are doing repeated forward passes just for loss computation
-        # therefore adapt predict and test step
-        self.log("test_loss", self.compute_elbo_loss(batch["inputs"], batch["targets"], mse)[0])  # logging to Logger
-        if batch["inputs"].shape[0] > 1:
-            self.test_metrics(out_dict["pred"], batch["targets"])
-
-        # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
-
-        # save metadata
-        for key, val in batch.items():
-            if key not in ["inputs", "targets"]:
-                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
-                
-        return out_dict
-
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:

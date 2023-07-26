@@ -1,4 +1,0 @@
-# everything to configure the UQ method
-uq_method:
-  loss_fn:
-    _target_: torch.nn.MSELoss

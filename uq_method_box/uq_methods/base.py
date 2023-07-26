@@ -176,6 +176,7 @@ class BaseModel(LightningModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
+
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
@@ -183,7 +184,6 @@ class BaseModel(LightningModule):
         out_dict = self.predict_step(batch["inputs"])
         out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
 
-        self.log("test_loss", self.loss_fn(out_dict["pred"], batch["targets"]))  # logging to Logger
         if batch["inputs"].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch["targets"])
 
@@ -194,7 +194,7 @@ class BaseModel(LightningModule):
         for key, val in batch.items():
             if key not in ["inputs", "targets"]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
-                
+
         return out_dict
 
     def on_test_epoch_end(self):

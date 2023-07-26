@@ -1,6 +1,0 @@
-# everything to configure the UQ method
-uq_method:
-  _target_: uq_method_box.uq_methods.DeterministicGaussianModel
-  model:
-    num_classes: 2
-  burnin_epochs: 20

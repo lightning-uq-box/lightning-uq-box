@@ -1,0 +1,13 @@
+uq_method:
+  _target_: uq_method_box.uq_methods.QuantileRegressionModel
+  model:
+    n_outputs: 3
+
+post_processing:
+  _target_: uq_method_box.uq_methods.CQR
+  quantiles:
+  - 0.1
+  - 0.5
+  - 0.9
+
+ckpt_path: /p/project/hai_uqmethodbox/experiment_output/usa_vars_ood_small_gap/usa_vars_repr_QuantileRegressionModel_None_07-18-2023_14-55-17-000010/epoch=65-step=6072.ckpt

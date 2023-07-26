@@ -93,22 +93,6 @@ class DERModel(BaseModel):
 
         self.hparams["quantiles"] = quantiles
 
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Test step."""
-        out_dict = self.predict_step(batch["inputs"])
-        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
-
-        self.log("test_loss", self.loss_fn(out_dict["out"], batch["targets"]))  # logging to Logger
-        if batch["inputs"].shape[0] > 1:
-            self.test_metrics(out_dict["pred"], batch["targets"])
-
-        # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
-        del out_dict["out"]
-        return out_dict
-
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, Any]:

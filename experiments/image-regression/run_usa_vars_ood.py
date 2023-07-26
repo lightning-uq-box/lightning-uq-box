@@ -114,6 +114,9 @@ def main(conf: DictConfig) -> None:
         
         return datamodule.on_after_batch_transfer({"image": inputs, "labels": targets, "centroid_lat": lat, "centroid_lon": lon}, dataloader_idx=0)
 
+    # optimize prior precision for bnn
+    
+
     # test on training dataset
     if conf.datamodule.ood_type == "tail":
         ood_splits = [

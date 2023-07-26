@@ -17,13 +17,17 @@ if __name__ == "__main__":
 
 
     GPUS = [0, 1, 2, 3, 0, 1, 2, 3]
-    CONF_FILE_NAMES = ["base.yaml", "gaussian_nll.yaml", "mc_dropout.yaml", "quantile_regression.yaml", "der.yaml", "dkl.yaml", "due.yaml", "bnn_elbo.yaml"]
+    CONF_FILE_NAMES = ["base.yaml", "gaussian_nll.yaml", "mc_dropout.yaml", "quantile_regression.yaml", "der.yaml", "dkl.yaml", "bnn_elbo.yaml"]
+    # CONF_FILE_NAMES = ["gaussian_nll.yaml"]
+    # CONF_FILE_NAMES = ["bnn_elbo_elu.yaml", "bnn_elbo_relu.yaml", "bnn_elbo_tanh.yaml"]
     CONF_BASE_DIR = (
         f"/p/project/hai_uqmethodbox/{args.user}/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted"
     )
     SEEDS = [0]
 
     OOD = True
+
+    ood_type = "gap"
 
     for idx, (seed, conf_name) in enumerate(
         itertools.product(SEEDS, CONF_FILE_NAMES)
@@ -55,8 +59,9 @@ if __name__ == "__main__":
         else:
             command += f" default_config=/p/project/hai_uqmethodbox/{args.user}/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted/default.yaml"
             if OOD:
-                command += " experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_reproduce_ood/"
+                command += f" experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_reproduce_ood_{ood_type}/"
                 command += " wandb.project=usa_vars_reproduce_ood"
+                command += f" datamodule.ood_type={ood_type}"
                 command += " datamodule._target_=uq_method_box.datamodules.USAVarsFeatureExtractedDataModuleOOD"
             else:
                 command += " experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_reproduce/"
