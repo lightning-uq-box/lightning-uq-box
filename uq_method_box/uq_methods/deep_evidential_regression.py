@@ -62,7 +62,8 @@ class DERModel(BaseModel):
         self,
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
-        save_dir: str,
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        save_dir: str = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Base Model.
@@ -75,7 +76,7 @@ class DERModel(BaseModel):
             loss_fn: string name of loss function to use
             save_dir: directory path to save predictions
         """
-        super().__init__(model, optimizer, None, save_dir)
+        super().__init__(model, optimizer, None, lr_scheduler, save_dir)
 
         # check that output is 4 dimensional
         # _, output_module = list(self.model.named_children())[-1]
@@ -92,21 +93,6 @@ class DERModel(BaseModel):
 
         self.hparams["quantiles"] = quantiles
 
-    def test_step(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Test step with Laplace Approximation.
-
-        Args:
-            batch:
-
-        Returns:
-            dictionary of uncertainty outputs
-        """
-        batch = args[0]
-        target = batch[1]
-        out_dict = self.predict_step(batch[0])
-        out_dict["targets"] = target.detach().squeeze(-1).numpy()
-        return out_dict
-
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, Any]:
@@ -118,23 +104,25 @@ class DERModel(BaseModel):
             dictionary with predictions and uncertainty measures
         """
         with torch.no_grad():
-            pred = self.model(X).cpu().numpy()  # [batch_size x 4]
+            pred = self.model(X)  # [batch_size x 4]
+            pred_np = pred.cpu().numpy()
 
-        gamma, nu, alpha, beta = pred[:, 0], pred[:, 1], pred[:, 2], pred[:, 3]
+        gamma, nu, alpha, beta = pred[:, 0:1], pred_np[:, 1], pred_np[:, 2], pred_np[:, 3]
 
         epistemic_uct = self.compute_epistemic_uct(nu)
         aleatoric_uct = self.compute_aleatoric_uct(beta, alpha, nu)
         pred_uct = epistemic_uct + aleatoric_uct
 
-        quantiles = compute_quantiles_from_std(gamma, pred_uct, self.hparams.quantiles)
+        quantiles = compute_quantiles_from_std(gamma.squeeze(-1).cpu().numpy(), pred_uct, self.hparams.quantiles)
 
         return {
-            "mean": gamma,
+            "pred": gamma,
             "pred_uct": pred_uct,
             "aleatoric_uct": aleatoric_uct,
             "epistemic_uct": epistemic_uct,
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, 1],
+            "out": pred
         }
 
     def extract_mean_output(self, out: Tensor) -> Tensor:

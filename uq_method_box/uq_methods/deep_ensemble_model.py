@@ -10,6 +10,8 @@ from torch import Tensor
 
 from .utils import process_model_prediction, save_predictions_to_csv
 
+from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
+
 
 class DeepEnsembleModel(LightningModule):
     """Base Class for different Ensemble Models."""
@@ -36,6 +38,18 @@ class DeepEnsembleModel(LightningModule):
         self.save_hyperparameters(ignore=["ensemble_members"])
         self.ensemble_members = ensemble_members
 
+
+        self.test_metrics = MetricCollection(
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
+            prefix="test_",
+        )
+
+        self.pred_file_name = "predictions.csv"
+
     def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
         """Forward step of Deep Ensemble.
 
@@ -52,10 +66,14 @@ class DeepEnsembleModel(LightningModule):
             model_config["base_model"].load_state_dict(
                 torch.load(model_config["ckpt_path"])["state_dict"]
             )
+            model_config["base_model"].to(X.device)
             out.append(model_config["base_model"](X))
         return torch.stack(out, dim=-1)
 
-    def test_step(self, batch: Any, batch_idx: int = 0, dataloader_idx: int = 0) -> Any:
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test step."""
         """Compute test step for deep ensemble and log test metrics.
 
         Args:
@@ -64,9 +82,21 @@ class DeepEnsembleModel(LightningModule):
         Returns:
             dictionary of uncertainty outputs
         """
-        X, y = batch
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        # self.log("test_loss", self.loss_fn(out_dict["pred"], batch["targets"].squeeze(-1)))  # logging to Logger
+        if batch["inputs"].shape[0] > 1:
+            self.test_metrics(out_dict["pred"], batch["targets"])
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in ["inputs", "targets"]:
+                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+
         return out_dict
 
     def on_test_batch_end(
@@ -77,9 +107,10 @@ class DeepEnsembleModel(LightningModule):
         dataloader_idx=0,
     ):
         """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
-        )
+        if self.hparams.save_dir:
+            save_predictions_to_csv(
+                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+            )
 
     def generate_ensemble_predictions(self, X: Tensor) -> Tensor:
         """Generate DeepEnsemble Predictions.
@@ -104,6 +135,6 @@ class DeepEnsembleModel(LightningModule):
             mean and standard deviation of MC predictions
         """
         with torch.no_grad():
-            preds = self.generate_ensemble_predictions(X).cpu().numpy()
+            preds = self.generate_ensemble_predictions(X)
 
         return process_model_prediction(preds, self.hparams.quantiles)

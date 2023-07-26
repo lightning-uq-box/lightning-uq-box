@@ -1,0 +1,42 @@
+experiment:
+  experiment_name: "usa_vars_repr"
+  exp_dir: "/p/project/hai_uqmethodbox/experiment_output/usa_vars_active_0.1/"
+wandb:
+  project: usa_vars_reproduce
+  entity: uq-regression
+  mode: offline
+
+uq_method:
+  _target_: uq_method_box.uq_methods.BaseModel
+  model:
+    _target_: uq_method_box.models.MLP
+    n_inputs: 512
+    n_hidden: [128]
+    activation_fn:
+      _target_: torch.nn.ELU
+  optimizer:
+    _target_: torch.optim.Adam # can change optimizers here easily
+    _partial_: true
+    lr: 0.01
+    # momentum: 0.9
+    # weight_decay: 0.01
+
+# everything to configure the datamodule  
+datamodule:
+  _target_: uq_method_box.datamodules.USAVarsFeatureExtractedDataModuleOOD
+  root: "/p/project/hai_uqmethodbox/data/usa_vars_feature_extracted"
+  # ood_type: "gap"
+  batch_size: 256
+  num_workers: 8
+  feature_extractor: "rcf"
+  labels: ["treecover"]
+
+# all flags for the pytorch lightning trainer
+trainer:
+  _target_: lightning.pytorch.Trainer
+  accelerator: gpu
+  precision: 32
+  min_epochs: 25
+  max_epochs: 35
+  log_every_n_steps: 50
+  enable_progress_bar: True

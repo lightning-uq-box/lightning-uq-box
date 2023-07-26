@@ -7,11 +7,11 @@ from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
 from .deep_evidential_regression import DERModel
-from .deep_kernel_learning import DeepKernelLearningModel, DKLGPLayer, initial_values
+from .deep_kernel_learning import DeepKernelLearningModel, DKLGPLayer, compute_initial_values
 from .deterministic_gaussian import DeterministicGaussianModel
 from .deterministic_uncertainty_estimation import DUEModel
 from .laplace_model import LaplaceModel
-from .loss_functions import NLL, DERLoss, QuantileLoss
+from .loss_functions import NLL, DERLoss, QuantileLoss, HuberQLoss
 from .mc_dropout_model import MCDropoutModel
 from .quantile_regression_model import QuantileRegressionModel
 from .sgld import SGLDModel
@@ -45,7 +45,7 @@ __all__ = (
     "DeepKernelLearningModel",
     # Approximate GP model for DKL
     "DKLGPLayer",
-    "initial_values",
+    "compute_initial_values",
     # SWAG Model
     "SWAGModel",
     # SGLD Model.
@@ -70,4 +70,5 @@ __all__ = (
     "NLL",
     "QuantileLoss",
     "DERLoss",
+    "HuberQLoss"
 )

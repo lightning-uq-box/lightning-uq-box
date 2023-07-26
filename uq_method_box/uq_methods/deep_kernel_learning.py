@@ -24,7 +24,7 @@ from sklearn import cluster
 from torch import Tensor
 from torch.utils.data import DataLoader
 from torchgeo.trainers.utils import _get_input_layer_name_and_module
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
+from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
 
@@ -45,10 +45,10 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         feature_extractor: nn.Module,
         gp_layer: type[ApproximateGP],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
-        train_loader: DataLoader,
         n_inducing_points: int,
         optimizer: type[torch.optim.Optimizer],
-        save_dir: str,
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        save_dir: str = None,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Deep Kernel Learning Model.
@@ -67,33 +67,36 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             quantiles:
         """
         super().__init__()
-        self.save_hyperparameters(ignore=["feature_extractor", "train_loader"])
+        self.save_hyperparameters(ignore=["feature_extractor", "lr_scheduler"])
         self.optimizer = optimizer
         self.feature_extractor = feature_extractor
         self.gp_layer = gp_layer
         self.elbo_fn = elbo_fn
 
         self.train_metrics = MetricCollection(
-            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError(), "R2": R2Score()},
             prefix="train_",
         )
 
         self.val_metrics = MetricCollection(
-            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError(), "R2": R2Score()},
             prefix="val_",
         )
 
         self.test_metrics = MetricCollection(
-            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError(), "R2": R2Score()},
             prefix="test_",
         )
 
-        self.train_loader = train_loader
+        self.lr_scheduler = lr_scheduler
+        self.save_dir = save_dir
 
         # partially initialized gp layer
         self.gp_layer = gp_layer
 
         self.dkl_model_built = False
+
+        self.pred_file_name = "predictions.csv"
 
     @property
     def num_inputs(self) -> int:
@@ -142,11 +145,17 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
 
     def _fit_initial_lengthscale_and_inducing_points(self) -> None:
         """Fit the initial lengthscale and inducing points for DKL."""
-        train_dataset = self.train_loader.dataset
+        train_dataset = self.trainer.datamodule.train_dataloader().dataset
+
+        def augmentation(batch: dict[str, torch.Tensor]):
+            """Gather augmentations from datamodule."""
+            # apply datamodule augmentation
+            aug_batch = self.trainer.datamodule.on_after_batch_transfer(batch, dataloader_idx=0)
+            return aug_batch["inputs"]
 
         self.n_train_points = len(train_dataset)
-        self.initial_inducing_points, self.initial_lengthscale = initial_values(
-            train_dataset, self.feature_extractor, self.hparams.n_inducing_points
+        self.initial_inducing_points, self.initial_lengthscale = compute_initial_values(
+            train_dataset, self.feature_extractor, self.hparams.n_inducing_points, augmentation
         )
         self.initial_inducing_points = self.initial_inducing_points.to(self.device)
         self.initial_lengthscale = self.initial_lengthscale.to(self.device)
@@ -165,16 +174,23 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Returns:
             output from GP
         """
-        if not self.dkl_model_built:
-            self._fit_initial_lengthscale_and_inducing_points()
         features = self.feature_extractor(X)
         scaled_features = self.scale_to_bounds(features)
         output = self.gp_layer(scaled_features)
         return output
 
-    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
-        """Training step for DKL model."""
-        X, y = args[0]
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute and return the training loss.
+
+        Args:
+            batch: the output of your DataLoader
+
+        Returns:
+            training loss
+        """
+        X, y = batch["inputs"], batch["targets"]
 
         y_pred = self.forward(X)
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
@@ -188,7 +204,9 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self.log_dict(self.train_metrics.compute())
         self.train_metrics.reset()
 
-    def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute validation loss and log example predictions.
 
         Args:
@@ -198,8 +216,16 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         Returns:
             validation loss
         """
-        X, y = args[0]
-        y_pred = self.forward(X)
+        X, y =  batch["inputs"], batch["targets"]
+
+        # in sanity checking GPPYtorch is not in eval
+        # and we get a device error
+        if self.trainer.sanity_checking:
+            self.scale_to_bounds.train()
+            y_pred = self.forward(X)
+            self.scale_to_bounds.eval()
+        else:
+            y_pred = self.forward(X)
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
         self.log("val_loss", loss)  # logging to Logger
@@ -211,11 +237,23 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def test_step(self, *args: Any, **kwargs: Any) -> None:
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
         """Test step."""
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).cpu().numpy()
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        self.log("test_loss", -self.elbo_fn(out_dict["out"], batch["targets"].squeeze(-1)))  # logging to Logger
+        if batch["inputs"].shape[0] > 1:
+            self.test_metrics(out_dict["out"].mean, batch["targets"].squeeze(-1))
+
+        del out_dict["out"]
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in ["inputs", "targets"]:
+                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
         return out_dict
 
     def on_test_batch_end(
@@ -226,9 +264,15 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         dataloader_idx=0,
     ):
         """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
-        )
+        if self.save_dir:
+            save_predictions_to_csv(
+                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+            )
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -244,18 +288,19 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         self.gp_layer.eval()
         self.likelihood.eval()
 
-        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(64):
+        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(64), gpytorch.settings.fast_pred_var(state=False):
             output = self.likelihood(self.forward(X))
             mean = output.mean.cpu().numpy()
             std = output.stddev.cpu().numpy()
 
         quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
         return {
-            "mean": mean,
+            "pred": mean,
             "pred_uct": std,
             "epistemic_uct": std,
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
+            "out": output
         }
 
     def configure_optimizers(self) -> Dict[str, Any]:
@@ -268,6 +313,7 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
         # https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#hooks
         if not self.dkl_model_built:
             self._fit_initial_lengthscale_and_inducing_points()
+    
         optimizer = self.optimizer(
             [
                 {"params": self.feature_extractor.parameters()},
@@ -276,7 +322,14 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
                 {"params": self.likelihood.parameters()},
             ]
         )
-        return {"optimizer": optimizer}
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}
 
 
 class DKLGPLayer(ApproximateGP):
@@ -372,20 +425,27 @@ class DKLGPLayer(ApproximateGP):
                 return
 
 
-def initial_values(train_dataset, feature_extractor, n_inducing_points):
+def compute_initial_values(train_dataset, feature_extractor, n_inducing_points, augmentation):
     """Compute the inital values."""
     steps = 10
     idx = torch.randperm(len(train_dataset))[:1000].chunk(steps)
     f_X_samples = []
 
+    # TODO find a universal solution for the dataset key
     with torch.no_grad():
         for i in range(steps):
-            X_sample = torch.stack([train_dataset[j][0] for j in idx[i]])
+            random_indices = idx[i].tolist()
+            try:
+                X_sample = torch.stack([train_dataset[j]["image"] for j in random_indices])
+                y_sample = torch.stack([train_dataset[j]["labels"] for j in random_indices])
+            except:
+                import pdb
+                pdb.set_trace()
 
             if torch.cuda.is_available():
                 X_sample = X_sample.cuda()
                 feature_extractor = feature_extractor.cuda()
-
+            X_sample = augmentation({"image": X_sample, "labels": y_sample})
             f_X_samples.append(feature_extractor(X_sample).cpu())
 
     f_X_samples = torch.cat(f_X_samples)
@@ -394,8 +454,7 @@ def initial_values(train_dataset, feature_extractor, n_inducing_points):
         f_X_samples.numpy(), n_inducing_points
     )
     initial_lengthscale = _get_initial_lengthscale(f_X_samples)
-
-    return initial_inducing_points, initial_lengthscale
+    return initial_inducing_points.to(torch.float), initial_lengthscale.to(torch.float)
 
 
 def _get_initial_inducing_points(f_X_sample, n_inducing_points):

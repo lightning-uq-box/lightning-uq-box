@@ -6,6 +6,7 @@ from typing import Any, Union
 
 import numpy as np
 import pandas as pd
+import torch
 import torch.nn as nn
 from bayesian_torch.models.dnn_to_bnn import (
     bnn_conv_layer,
@@ -34,19 +35,19 @@ def process_model_prediction(
     Returns:
         dictionary with mean and uncertainty predictions
     """
-    mean_samples = preds[:, 0, :]
+    mean_samples = preds[:, 0, :].cpu().numpy()
+    mean = preds[:, 0:1, :].mean(-1)
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
-        log_sigma_2_samples = preds[:, 1, :]
+        log_sigma_2_samples = preds[:, 1, :].cpu().numpy()
         eps = np.ones_like(log_sigma_2_samples) * 1e-6
         sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
-        mean = mean_samples.mean(-1)
         std = compute_predictive_uncertainty(mean_samples, sigma_samples)
         aleatoric = compute_aleatoric_uncertainty(sigma_samples)
         epistemic = compute_epistemic_uncertainty(mean_samples)
-        quantiles = compute_quantiles_from_std(mean, std, quantiles)
+        quantiles = compute_quantiles_from_std(mean.detach().cpu().numpy(), std, quantiles)
         return {
-            "mean": mean,
+            "pred": mean,
             "pred_uct": std,
             "epistemic_uct": epistemic,
             "aleatoric_uct": aleatoric,
@@ -55,18 +56,21 @@ def process_model_prediction(
         }
     # assume mse prediction
     else:
-        mean = mean_samples.mean(-1)
         std = mean_samples.std(-1)
-        quantiles = compute_quantiles_from_std(mean, std, quantiles)
+        quantiles = compute_quantiles_from_std(mean.detach().cpu().numpy(), std, quantiles)
 
         return {
-            "mean": mean,
+            "pred": mean,
             "pred_uct": std,
             "epistemic_uct": std,
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
         }
 
+
+def change_inplace_activation(module):
+    if hasattr(module, 'inplace'):
+        module.inplace = False
 
 def merge_list_of_dictionaries(list_of_dicts: list[dict[str, Any]]):
     """Merge list of dictionaries."""
@@ -143,7 +147,7 @@ def map_stochastic_modules(
     return part_stoch_names
 
 
-def dnn_to_bnn_some(m, bnn_prior_parameters, num_stochastic_modules: int):
+def dnn_to_bnn_some(m, bnn_prior_parameters, part_stoch_module_names: int):
     """Replace linear and conv. layers with stochastic layers.
 
     Args:
@@ -158,16 +162,14 @@ def dnn_to_bnn_some(m, bnn_prior_parameters, num_stochastic_modules: int):
         num_stochastic_modules: number of modules that should be stochastic,
             max value all modules.
     """
-    # assert len(list(m.named_modules(remove_duplicate=False)))
-    # >= num_stochastic_modules,
-    #  "More stochastic modules than modules."
-
-    replace_modules = list(m._modules.items())[-num_stochastic_modules:]
-
-    for name, value in replace_modules:
+    for name, value in m._modules.items():
         if m._modules[name]._modules:
+            part_stoch_module_names = [
+                module_name.removeprefix(name + ".")
+                for module_name in part_stoch_module_names
+            ]
             dnn_to_bnn_some(
-                m._modules[name], bnn_prior_parameters, num_stochastic_modules
+                m._modules[name], bnn_prior_parameters, part_stoch_module_names
             )
         if "Conv" in m._modules[name].__class__.__name__:
             setattr(m, name, bnn_conv_layer(bnn_prior_parameters, m._modules[name]))

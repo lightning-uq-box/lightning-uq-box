@@ -1,9 +1,10 @@
 """Laplace Approximation model."""
 
 import os
-from typing import Any
+from typing import Any, Optional, Union
 
 import numpy as np
+import copy
 import torch
 import torch.nn as nn
 from laplace import Laplace
@@ -11,11 +12,14 @@ from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader
 from torchgeo.trainers.utils import _get_input_layer_name_and_module
+from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 from tqdm import trange
+from laplace.utils import LargestMagnitudeSubnetMask, ModuleNameSubnetMask
+from laplace.curvature import AsdlGGN
 
 from uq_method_box.eval_utils import compute_quantiles_from_std
 
-from .utils import _get_output_layer_name_and_module, save_predictions_to_csv
+from .utils import _get_output_layer_name_and_module, save_predictions_to_csv, map_stochastic_modules, change_inplace_activation
 
 
 class LaplaceModel(LightningModule):
@@ -27,7 +31,6 @@ class LaplaceModel(LightningModule):
     def __init__(
         self,
         model: nn.Module,
-        train_loader: DataLoader,
         save_dir: str,
         sigma_noise: float = 1.0,
         prior_precision: float = 1.0,
@@ -37,6 +40,8 @@ class LaplaceModel(LightningModule):
         hessian_structure: str = "kron",
         tune_precision_lr: float = 0.1,
         n_epochs_tune_precision: int = 100,
+        n_params_subnet: int = None,
+        part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
@@ -49,11 +54,30 @@ class LaplaceModel(LightningModule):
                 train_dataloader() method for this model based on the config?
         """
         super().__init__()
+
+        if part_stoch_module_names and n_params_subnet:
+            raise ValueError("Only one of `part_stoch_module_names` or `n_params_subnet` can be defined.")
+
+        if part_stoch_module_names or n_params_subnet:
+            assert subset_of_weights=="subnetwork"
+
         self.save_hyperparameters(ignore=["model", "train_loader"])
 
         self.model = model  # pytorch model
-        self.train_loader = train_loader
         self.laplace_fitted = False
+
+        self.pred_file_name = "predictions.csv"
+
+        self.test_metrics = MetricCollection(
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
+            prefix="test_",
+        )
+
+        self.loss_fn = torch.nn.MSELoss()
 
     @property
     def num_inputs(self) -> int:
@@ -99,7 +123,61 @@ class LaplaceModel(LightningModule):
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
+        self.train_loader = self.trainer.datamodule.train_dataloader()
+
+        
+        def collate_fn_laplace_torch(batch):
+            """Collate function to for laplace torch tuple convention.
+
+            Args:
+                batch: input batch
+
+            Returns:
+                renamed batch
+            """
+            # Extract images and labels from the batch dictionary
+            try:
+                images = [item["image"] for item in batch]
+                labels = [item["labels"] for item in batch]
+            except KeyError:
+                images = [item["inputs"] for item in batch]
+                labels = [item["targets"] for item in batch]
+
+            # Stack images and labels into tensors
+            inputs = torch.stack(images)
+            targets = torch.stack(labels)
+
+            # apply datamodule augmentation
+            aug_batch = self.trainer.datamodule.on_after_batch_transfer({"image": inputs, "labels": targets}, dataloader_idx=0)
+
+            return (aug_batch["inputs"], aug_batch["targets"])
+
+        self.train_loader.collate_fn = collate_fn_laplace_torch
+        
         if not self.laplace_fitted:
+            # select by largest params
+            if self.hparams.n_params_subnet:
+                assert self.hparams.subset_of_weights == "subnetwork"
+                subnetwork_mask = LargestMagnitudeSubnetMask(copy.deepcopy(self.model), n_params_subnet=self.hparams.n_params_subnet)
+                subnetwork_indices = subnetwork_mask.select().cpu()
+                del subnetwork_mask
+                self.model.apply(change_inplace_activation)
+            # select by module names
+            elif self.hparams.part_stoch_module_names:
+                assert self.hparams.subset_of_weights == "subnetwork"
+                self.part_stoch_module_names = map_stochastic_modules(
+                   self.model, part_stoch_module_names
+                )
+                subnetwork_mask = ModuleNameSubnetMask(copy.deepcopy(self.model), module_names=self.part_stoch_module_names)
+                subnetwork_mask.select()
+                subnetwork_indices = subnetwork_mask.indices.cpu()
+                del subnetwork_mask
+                self.model.apply(change_inplace_activation)
+            # last layer case
+            else:
+                subnetwork_indices = None
+
+
             # take the deterministic model we trained and fit laplace
             # laplace needs a nn.Module ant not a lightning module
 
@@ -107,14 +185,16 @@ class LaplaceModel(LightningModule):
             # but need it for laplace so set inference mode to false with cntx manager
             with torch.inference_mode(False):
                 self.la_model = Laplace(
-                    model=self.model,
+                    model=self.model.model,
                     likelihood="regression",
                     subset_of_weights=self.hparams.subset_of_weights,
                     hessian_structure=self.hparams.hessian_structure,
+                    # subnetwork_indices=subnetwork_indices,
                     sigma_noise=self.hparams.sigma_noise,
                     prior_precision=self.hparams.prior_precision,
                     prior_mean=self.hparams.prior_mean,
                     temperature=self.hparams.temperature,
+                    backend=AsdlGGN
                 )
                 # fit the laplace approximation
                 self.la_model.fit(self.train_loader)
@@ -141,11 +221,25 @@ class LaplaceModel(LightningModule):
 
         # save this laplace fitted model as a checkpoint?!
 
-    def test_step(self, *args: Any, **kwargs: Any) -> None:
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
         """Test step."""
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).numpy()
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        self.log("test_loss", self.loss_fn(out_dict["pred"], batch["targets"].squeeze(-1)))  # logging to Logger
+        if batch["inputs"].shape[0] > 1:
+            self.test_metrics(out_dict["pred"], batch["targets"].squeeze(-1))
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in ["inputs", "targets"]:
+                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                
         return out_dict
 
     def on_test_batch_end(
@@ -156,9 +250,15 @@ class LaplaceModel(LightningModule):
         dataloader_idx=0,
     ):
         """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
-        )
+        if self.hparams.save_dir:
+            save_predictions_to_csv(
+                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+            )
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -195,7 +295,7 @@ class LaplaceModel(LightningModule):
             )
 
         return {
-            "mean": laplace_mean,
+            "pred": torch.from_numpy(laplace_mean).to(self.device),
             "pred_uct": laplace_predictive,
             "epistemic_uct": laplace_epistemic,
             "aleatoric_uct": laplace_aleatoric,

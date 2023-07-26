@@ -9,7 +9,7 @@ import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
 from torchgeo.trainers.utils import _get_input_layer_name_and_module
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection
+from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 
 from .utils import _get_output_layer_name_and_module, save_predictions_to_csv
 
@@ -22,6 +22,7 @@ class BaseModel(LightningModule):
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
         loss_fn: nn.Module,
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
         save_dir: str = None,
     ) -> None:
         """Initialize a new Base Model.
@@ -36,22 +37,38 @@ class BaseModel(LightningModule):
         super().__init__()
 
         self.train_metrics = MetricCollection(
-            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
             prefix="train_",
         )
 
         self.val_metrics = MetricCollection(
-            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
             prefix="val_",
         )
 
         self.test_metrics = MetricCollection(
-            {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
             prefix="test_",
         )
         self.model = model
         self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
         self.loss_fn = loss_fn
+        self.save_dir = save_dir
+
+        self.pred_file_name = "predictions.csv"
 
     @property
     def num_inputs(self) -> int:
@@ -108,7 +125,9 @@ class BaseModel(LightningModule):
         assert out.shape[-1] <= 2, "Ony support single mean or Gaussian output."
         return out[:, 0:1]
 
-    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the training loss.
 
         Args:
@@ -117,12 +136,12 @@ class BaseModel(LightningModule):
         Returns:
             training loss
         """
-        X, y = args[0]
-        out = self.forward(X)
-        loss = self.loss_fn(out, y)
+        out = self.forward(batch["inputs"])
+        loss = self.loss_fn(out, batch["targets"])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), y)
+        if batch["inputs"].shape[0] > 1:
+            self.train_metrics(self.extract_mean_output(out), batch["targets"])
 
         return loss
 
@@ -131,7 +150,9 @@ class BaseModel(LightningModule):
         self.log_dict(self.train_metrics.compute())
         self.train_metrics.reset()
 
-    def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute validation loss and log example predictions.
 
         Args:
@@ -141,12 +162,12 @@ class BaseModel(LightningModule):
         Returns:
             validation loss
         """
-        X, y = args[0]
-        out = self.forward(X)
-        loss = self.loss_fn(out, y)
+        out = self.forward(batch["inputs"])
+        loss = self.loss_fn(out, batch["targets"])
 
         self.log("val_loss", loss)  # logging to Logger
-        self.val_metrics(self.extract_mean_output(out), y)
+        if batch["inputs"].shape[0] > 1:
+            self.val_metrics(self.extract_mean_output(out), batch["targets"])
 
         return loss
 
@@ -155,24 +176,33 @@ class BaseModel(LightningModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def test_step(self, *args: Any, **kwargs: Any) -> None:
+
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
         """Test step."""
-        X, y = args[0]
-        out_dict = self.predict_step(X)
-        out_dict["targets"] = y.detach().squeeze(-1).cpu().numpy()
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        if batch["inputs"].shape[0] > 1:
+            self.test_metrics(out_dict["pred"].squeeze(-1), batch["targets"].squeeze(-1))
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in ["inputs", "targets"]:
+                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+
+        if "out" in out_dict:
+            del out_dict["out"]
         return out_dict
 
-    def on_test_batch_end(
-        self,
-        outputs: dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        save_predictions_to_csv(
-            outputs, os.path.join(self.hparams.save_dir, "predictions.csv")
-        )
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -185,8 +215,21 @@ class BaseModel(LightningModule):
         with torch.no_grad():
             out = self.forward(X)
         return {
-            "mean": self.extract_mean_output(out).squeeze(-1).detach().cpu().numpy()
+            "pred": self.extract_mean_output(out),
         }
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, np.ndarray],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx=0,
+    ):
+        """Test batch end save predictions."""
+        if self.save_dir:
+            save_predictions_to_csv(
+                outputs, os.path.join(self.save_dir, self.pred_file_name)
+            )
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -196,4 +239,11 @@ class BaseModel(LightningModule):
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
         optimizer = self.optimizer(params=self.parameters())
-        return {"optimizer": optimizer}
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}

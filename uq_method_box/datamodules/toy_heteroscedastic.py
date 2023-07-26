@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader, TensorDataset
+from .utils import collate_fn_tensordataset
 
 
 def polynomial_f(x):
@@ -106,23 +107,24 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             TensorDataset(self.X_train, self.y_train),
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=4,
-            pin_memory=True,
-            prefetch_factor=4,
-            persistent_workers=True,
+            collate_fn=collate_fn_tensordataset
+            # num_workers=4,
+            # pin_memory=True,
+            # prefetch_factor=4,
+            # persistent_workers=True,
         )
 
     def val_dataloader(self) -> DataLoader:
         """Return val dataloader."""
         # TODO Validation data
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size
+            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size, collate_fn=collate_fn_tensordataset
         )
 
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""
         return DataLoader(
-            TensorDataset(self.X_test, self.y_test), batch_size=self.batch_size
+            TensorDataset(self.X_test, self.y_test), batch_size=self.batch_size, collate_fn=collate_fn_tensordataset
         )
 
 
