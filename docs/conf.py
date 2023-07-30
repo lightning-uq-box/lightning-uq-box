@@ -9,8 +9,6 @@
 import os
 import sys
 
-import pytorch_sphinx_theme
-
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
@@ -79,8 +77,7 @@ nbsphinx_prolog = """
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 # html_theme = "furo"
-html_theme = "pytorch_sphinx_theme"
-html_theme_path = [pytorch_sphinx_theme.get_html_theme_path()]
+html_theme = "trojanzoo_sphinx_theme"
 
 # css adjustments
 html_static_path = ["_static"]
