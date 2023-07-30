@@ -1,0 +1,4 @@
+uq_method:
+  _target_: uq_method_box.uq_methods.QuantileRegressionModel
+  model:
+    n_outputs: 3

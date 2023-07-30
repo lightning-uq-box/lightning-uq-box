@@ -1,0 +1,20 @@
+uq_method:
+  _target_: uq_method_box.uq_methods.DeterministicGaussianModel
+  model:
+    n_outputs: 2
+  # loss_fn:
+  #   _target_: torch.nn.MSELoss
+  burnin_epochs: 0
+
+post_processing:
+  _target_: uq_method_box.uq_methods.SWAGModel
+  num_swag_epochs: 2
+  max_swag_snapshots: 50
+  snapshot_freq: 1
+  num_mc_samples: 30
+  swag_lr: 0.001
+  loss_fn:
+    _target_: uq_method_box.uq_methods.NLL
+  num_datapoints_for_bn_update: 0
+
+ckpt_path: /p/project/hai_uqmethodbox/experiment_output/usa_vars_ood_small_gap/usa_vars_repr_DeterministicGaussianModel_None_07-18-2023_13-37-27-551140/epoch=98-step=9108.ckpt

@@ -4,6 +4,7 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 
 
@@ -152,16 +153,19 @@ class QuantileLoss(nn.Module):
         Returns:
             computed loss for a single quantile
         """
-        delta = y - y_hat  # (shape: (batch_size))
-        abs_delta = torch.abs(delta)  # (shape: (batch_size))
+        # delta = y - y_hat  # (shape: (batch_size))
+        # abs_delta = torch.abs(delta)  # (shape: (batch_size))
 
-        loss = torch.zeros_like(y)  # (shape: (batch_size))
-        loss[delta > 0] = alpha * abs_delta[delta > 0]  # (shape: (batch_size))
-        loss[delta <= 0] = (1.0 - alpha) * abs_delta[
-            delta <= 0
-        ]  # (shape: (batch_size))
-        loss = torch.mean(loss)
-        return loss
+        # loss = torch.zeros_like(y)  # (shape: (batch_size))
+        # loss[delta > 0] = alpha * abs_delta[delta > 0]  # (shape: (batch_size))
+        # loss[delta <= 0] = (1.0 - alpha) * abs_delta[
+        #     delta <= 0
+        # ]  # (shape: (batch_size))
+        # loss = torch.mean(loss)
+
+        delta_y = y - y_hat
+        loss = torch.max(torch.mul(alpha, delta_y), torch.mul((alpha - 1), delta_y))
+        return torch.mean(loss)
 
     def forward(self, preds: Tensor, target: Tensor):
         """Compute Quantile Loss.
@@ -173,9 +177,44 @@ class QuantileLoss(nn.Module):
         Returns:
             computed loss for all quantiles over the entire batch
         """
+        # import pdb
+        # pdb.set_trace()
         loss = torch.stack(
             [
                 self.pinball_loss(preds[:, idx], target.squeeze(), alpha)
+                for idx, alpha in enumerate(self.quantiles)
+            ]
+        )
+        return loss.mean()
+
+
+class HuberQLoss(nn.Module):
+
+    def __init__(self, quantiles: list[float], delta: float = 1.0) -> None:
+        """Initialize a new instance of Huberized Quantile Loss."""
+        super().__init__()
+        self.quantiles = quantiles
+        self.delta = delta
+
+    def compute_loss(self, y: Tensor, y_hat: Tensor, alpha: float):
+        """Compute the loss for one quantile."""
+        error = y_hat - y
+        zero_error = torch.zeros_like(error)
+        sq = torch.maximum(-error, zero_error)
+        s1_q = torch.maximum(error, zero_error)
+        hqloss = alpha * F.huber_loss(
+            sq, zero_error, reduction="mean", delta=self.delta
+        ) + (1 - alpha) * F.huber_loss(
+            s1_q, zero_error, reduction="mean", delta=self.delta
+        )
+        return hqloss
+
+
+    def forward(self, preds: Tensor, target: Tensor):
+        """Compute Huberized Quantile Loss."""
+        loss = torch.stack(
+            [
+                self.compute_loss(preds[:, idx], target.squeeze(), alpha)
                 for idx, alpha in enumerate(self.quantiles)
             ]
         )

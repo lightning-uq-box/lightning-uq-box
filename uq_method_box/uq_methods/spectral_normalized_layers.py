@@ -15,7 +15,7 @@ from torch.nn.utils.spectral_norm import (
 
 
 def spectral_normalize_model_layers(
-    model: nn.Module, n_power_iterations: int, coeff=0.95
+    model: nn.Module, n_power_iterations: int, input_dimensions: dict[str, torch.Size], coeff=0.95
 ) -> nn.Module:
     """Convert layers of a standard model into spectral normalized layers.
 
@@ -24,12 +24,14 @@ def spectral_normalize_model_layers(
     Args:
         model: model to spectral normalize layers for
         n_power_iterations: number of power iterations in spectral norm layers
+        input_dimensions: dictionary holding layer module name and input dimension to that
+            layer, which is necessary for spectral normalized conv layers
         coeff: soft normalization only when sigma larger than coeff
     """
     for name, _ in list(model._modules.items()):
         if model._modules[name]._modules:
             spectral_normalize_model_layers(
-                model._modules[name], n_power_iterations, coeff
+                model._modules[name], n_power_iterations, input_dimensions, coeff
             )
         elif "Linear" in model._modules[name].__class__.__name__:
             setattr(
@@ -48,8 +50,8 @@ def spectral_normalize_model_layers(
                 name,
                 spectral_norm_conv(
                     model._modules[name],
-                    coeff=0.1,
-                    input_dim=model._modules[name].in_channels,
+                    coeff=coeff,
+                    input_dim=input_dimensions[str(id(model._modules[name]))],
                     n_power_iterations=n_power_iterations,
                 ),
             )
@@ -312,7 +314,7 @@ class SpectralNormConv(SpectralNorm):
 
 
 def spectral_norm_conv(
-    module, coeff, input_dim, n_power_iterations=1, name="weight", eps=1e-12
+    module, coeff, input_dim: torch.Size, n_power_iterations=1, name="weight", eps=1e-12
 ):
     """Apply spectral normalization to Convolutions with flexible max norm.
 

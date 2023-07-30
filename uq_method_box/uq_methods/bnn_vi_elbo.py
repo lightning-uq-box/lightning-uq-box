@@ -3,17 +3,18 @@
 # TODO:
 # adapt to new config file scheme
 
-from typing import Any
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
 from bayesian_torch.models.dnn_to_bnn import get_kl_loss
 from torch import Tensor
+from omegaconf import OmegaConf, ListConfig
 
 from .base import BaseModel
 from .loss_functions import NLL
-from .utils import dnn_to_bnn_some, process_model_prediction
+from .utils import dnn_to_bnn_some, process_model_prediction, map_stochastic_modules
 
 
 class BNN_VI_ELBO(BaseModel):
@@ -24,11 +25,9 @@ class BNN_VI_ELBO(BaseModel):
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
         loss_fn: nn.Module,
-        save_dir: str,
         burnin_epochs: int,
-        max_epochs: int,
         num_training_points: int,
-        num_stochastic_modules: int = 1,
+        part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         beta: float = 100,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
@@ -38,6 +37,8 @@ class BNN_VI_ELBO(BaseModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         bayesian_layer_type: str = "Reparameterization",
+        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        save_dir: str = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Model instance.
@@ -67,13 +68,16 @@ class BNN_VI_ELBO(BaseModel):
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
-        super().__init__(model, optimizer, loss_fn, save_dir)
+        super().__init__(model, optimizer, loss_fn, lr_scheduler, save_dir)
 
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
 
-        self.save_hyperparameters(ignore=["model", "loss_fn"])
+        self.part_stoch_module_names = map_stochastic_modules(
+            self.model, part_stoch_module_names
+        )
 
+        self.save_hyperparameters(ignore=["model", "loss_fn"])
         self._setup_bnn_with_vi()
 
         # update hyperparameters
@@ -83,12 +87,9 @@ class BNN_VI_ELBO(BaseModel):
         self.beta = beta
 
         self.burnin_epochs = burnin_epochs
-        self.max_epochs = max_epochs
         self.criterion = NLL()
+        self.lr_scheduler = lr_scheduler
 
-        assert (
-            self.burnin_epochs <= self.max_epochs
-        ), "The max_epochs needs to be larger than the burnin phase."
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
@@ -104,10 +105,8 @@ class BNN_VI_ELBO(BaseModel):
         dnn_to_bnn_some(
             self.model,
             self.bnn_args,
-            num_stochastic_modules=self.hparams.num_stochastic_modules,
+            part_stoch_module_names=self.part_stoch_module_names,
         )
-
-        self.nll_loss = nn.GaussianNLLLoss(reduction="mean")
 
     def forward(self, X: Tensor) -> Tensor:
         """Forward pass BNN+VI.
@@ -157,8 +156,8 @@ class BNN_VI_ELBO(BaseModel):
             # compute prediction loss with nll and track over samples
             if mse:
                 # compute mse loss with output noise scale, is like mse
-                pred_losses[i] = self.nll_loss(
-                    self.extract_mean_output(pred), y, output_var
+                pred_losses[i] = torch.nn.functional.mse_loss(
+                    self.extract_mean_output(pred), y
                 )
             else:
                 # after burnin compute nll with log_sigma
@@ -179,7 +178,9 @@ class BNN_VI_ELBO(BaseModel):
 
         return negative_beta_elbo, mean_pred
 
-    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the training loss.
 
         Args:
@@ -188,7 +189,7 @@ class BNN_VI_ELBO(BaseModel):
         Returns:
             training loss
         """
-        X, y = args[0]
+        X, y = batch["inputs"], batch["targets"]
 
         if self.current_epoch < self.burnin_epochs:
             mse = True
@@ -200,11 +201,14 @@ class BNN_VI_ELBO(BaseModel):
         elbo_loss, mean_output = self.compute_elbo_loss(X, y, mse)
 
         self.log("train_loss", elbo_loss)  # logging to Logger
-        self.train_metrics(mean_output, y)
+        if batch["inputs"].shape[0] > 1:
+            self.train_metrics(mean_output, y)
 
         return elbo_loss
 
-    def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute validation loss and log example predictions.
 
         Args:
@@ -214,8 +218,7 @@ class BNN_VI_ELBO(BaseModel):
         Returns:
             validation loss
         """
-        X, y = args[0]
-
+        X, y = batch["inputs"], batch["targets"]
         if self.num_outputs == 1:
             mse = True
         else:
@@ -224,7 +227,8 @@ class BNN_VI_ELBO(BaseModel):
         elbo_loss, mean_output = self.compute_elbo_loss(X, y, mse)
 
         self.log("val_loss", elbo_loss)  # logging to Logger
-        self.train_metrics(mean_output, y)
+        if batch["inputs"].shape[0] > 1:
+            self.val_metrics(mean_output, y)
 
         return elbo_loss
 
@@ -236,14 +240,12 @@ class BNN_VI_ELBO(BaseModel):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        preds = (
-            torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
-            )
-            .detach()
-            .cpu()
-            .numpy()
-        )  # shape [batch_size, num_outputs, num_samples]
+        with torch.no_grad():
+            preds = (
+                torch.stack(
+                    [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+                )
+            )  # shape [batch_size, num_outputs, num_samples]
 
         return process_model_prediction(preds, self.hparams.quantiles)
 
@@ -289,4 +291,11 @@ class BNN_VI_ELBO(BaseModel):
         )
 
         optimizer = self.optimizer(params=params)
-        return optimizer
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}
