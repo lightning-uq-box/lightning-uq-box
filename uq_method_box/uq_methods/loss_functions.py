@@ -89,6 +89,44 @@ class EnergyAlphaDivergence(nn.Module):
 class NLL(nn.Module):
     """Negative Log Likelihood loss."""
 
+    def __init__(self, rank=10, eps=1e-8):
+        """Initialize a new instance of NLL.
+        
+        Args:
+          rank: rank (=number of columns) of covariance matrix factor matrix.
+          eps: eps-value for strictly positive diagonal Psi
+          
+        """
+        super().__init__()
+        self.rank = rank
+
+    def forward(self, preds: Tensor, target: Tensor):
+        """Compute NLL Loss.
+
+        Args:
+          preds: batch_size x (rank + 2) x tager_shape, consisting of mu and Gamma and Psi
+          target: batch_size x target_shape, regression targets
+
+        Returns:
+          computed loss for the entire batch
+        """
+
+        mu, gamma, psi = preds[:, 0:1], preds[:, 1:self.rank+1], preds[:, self.tran+1].exp() + self.eps
+
+        [b, w, h] = target.shape
+
+        gamma = gamma.reshape([b, w*h, self.rank])
+        psi = torch.diag(psi, diagonal=-1)
+        
+        lowrank_norm = torch.distributions.LowRankMultivariateNormal(loc=mu, cov_factor=gamma, cov_diag=psi)
+
+        loss = -lowrank_norm.log_prob(target)
+        loss = torch.mean(loss, dim=0)
+        return loss
+
+class NLL(nn.Module):
+    """Negative Log Likelihood loss."""
+
     def __init__(self):
         """Initialize a new instance of NLL."""
         super().__init__()
@@ -108,7 +146,7 @@ class NLL(nn.Module):
             0.5 * torch.exp(-log_sigma_2) * torch.pow((target - mu), 2)
         )
         loss = torch.mean(loss, dim=0)
-        return loss
+        return loss        
 
 
 class TheirNLL(nn.Module):
