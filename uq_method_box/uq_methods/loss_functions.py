@@ -86,11 +86,11 @@ class EnergyAlphaDivergence(nn.Module):
         return loss * one_over_N
 
 
-class NLL(nn.Module):
+class LowRankMultivariateNormal_NLL(nn.Module):
     """Negative Log Likelihood loss."""
 
     def __init__(self, rank=10, eps=1e-8):
-        """Initialize a new instance of NLL.
+        """Initialize a new instance of LowRankMultivariateNormal_NLL.
         
         Args:
           rank: rank (=number of columns) of covariance matrix factor matrix.
@@ -99,9 +99,10 @@ class NLL(nn.Module):
         """
         super().__init__()
         self.rank = rank
+        self.eps = eps
 
     def forward(self, preds: Tensor, target: Tensor):
-        """Compute NLL Loss.
+        """Compute LowRankMultivariateNormal_NLL Loss.
 
         Args:
           preds: batch_size x (rank + 2) x tager_shape, consisting of mu and Gamma and Psi
