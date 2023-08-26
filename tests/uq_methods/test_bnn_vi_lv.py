@@ -15,11 +15,11 @@ from lightning import Trainer
 from omegaconf import OmegaConf
 from torch import Tensor
 
-from uq_method_box.datamodules import (
+from lightning_uq_box.datamodules import (
     ToyHeteroscedasticDatamodule,
     ToyImageRegressionDatamodule,
 )
-from uq_method_box.uq_methods import BNN_LV_VI, BNN_LV_VI_Batched
+from lightning_uq_box.uq_methods import BNN_LV_VI, BNN_LV_VI_Batched
 
 
 class TestBNN_LV_VI_Model:

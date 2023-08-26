@@ -6,9 +6,13 @@ from typing import Any, cast
 
 from hydra.utils import instantiate
 from lightning import Trainer
-from lightning.pytorch.callbacks import ModelCheckpoint, LearningRateMonitor, EarlyStopping
+from lightning.pytorch.callbacks import (
+    EarlyStopping,
+    LearningRateMonitor,
+    ModelCheckpoint,
+)
 from lightning.pytorch.loggers import CSVLogger, WandbLogger  # noqa: F401
-from omegaconf import DictConfig, OmegaConf, ListConfig
+from omegaconf import DictConfig, ListConfig, OmegaConf
 
 
 def set_up_omegaconf() -> DictConfig:
@@ -46,9 +50,9 @@ def set_up_omegaconf() -> DictConfig:
         conf, command_line_conf
     )
     if "DeepKernelLearning" in conf.uq_method["_target_"]:
-        del[conf["uq_method"]["model"]]
+        del [conf["uq_method"]["model"]]
     if "DUEModel" in conf.uq_method["_target_"]:
-        del[conf["uq_method"]["model"]]
+        del [conf["uq_method"]["model"]]
     conf = cast(DictConfig, conf)  # convince mypy that everything is alright
     return conf
 
@@ -106,7 +110,7 @@ def generate_trainer(config: dict[str, Any]) -> Trainer:
         monitor=track_metric, min_delta=1e-5, patience=20, mode=mode
     )
 
-    lr_monitor_callback = LearningRateMonitor(logging_interval='step')
+    lr_monitor_callback = LearningRateMonitor(logging_interval="step")
 
     return instantiate(
         config.trainer,

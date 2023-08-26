@@ -4,7 +4,7 @@ import pytest
 import torch
 from _pytest.fixtures import SubRequest
 
-from uq_method_box.models.bnn_layers import LinearVariational
+from lightning_uq_box.models.bnn_layers import LinearVariational
 
 
 class TestLineaerVariational:

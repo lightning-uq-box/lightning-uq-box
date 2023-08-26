@@ -10,8 +10,8 @@ from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
 
-from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
-from uq_method_box.uq_methods import BNN_VI_ELBO
+from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
+from lightning_uq_box.uq_methods import BNN_VI_ELBO
 
 
 class TestBNN_VI_ELBO:

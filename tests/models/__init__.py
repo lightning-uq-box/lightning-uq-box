@@ -2,7 +2,7 @@
 
 import torch
 
-from uq_method_box.models import MLP
+from lightning_uq_box.models import MLP
 
 
 def test_mlp_model() -> None:

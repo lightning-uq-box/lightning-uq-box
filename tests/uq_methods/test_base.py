@@ -10,11 +10,11 @@ from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
 
-from uq_method_box.datamodules import (
+from lightning_uq_box.datamodules import (
     ToyHeteroscedasticDatamodule,
     ToyImageRegressionDatamodule,
 )
-from uq_method_box.uq_methods import BaseModel
+from lightning_uq_box.uq_methods import BaseModel
 
 
 class TestBaseModel:

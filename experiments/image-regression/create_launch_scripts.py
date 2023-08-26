@@ -1,12 +1,11 @@
+import argparse
 import itertools
 import os
 import stat
-import argparse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        prog="create_launch_scripts.py",
-        description="Create bash scripts for slurm.",
+        prog="create_launch_scripts.py", description="Create bash scripts for slurm."
     )
 
     parser.add_argument(
@@ -15,21 +14,24 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-
     GPUS = [0, 1, 2, 3, 0, 1, 2, 3]
-    CONF_FILE_NAMES = ["base.yaml", "gaussian_nll.yaml", "mc_dropout.yaml", "quantile_regression.yaml", "der.yaml", "dkl.yaml", "bnn_elbo.yaml"]
-    CONF_BASE_DIR = (
-        f"/p/project/hai_uqmethodbox/{args.user}/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted"
-    )
+    CONF_FILE_NAMES = [
+        "base.yaml",
+        "gaussian_nll.yaml",
+        "mc_dropout.yaml",
+        "quantile_regression.yaml",
+        "der.yaml",
+        "dkl.yaml",
+        "bnn_elbo.yaml",
+    ]
+    CONF_BASE_DIR = f"/p/project/hai_uqmethodbox/{args.user}/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted"
     SEEDS = [0]
 
     OOD = True
 
     ood_type = "gap"
 
-    for idx, (seed, conf_name) in enumerate(
-        itertools.product(SEEDS, CONF_FILE_NAMES)
-    ):
+    for idx, (seed, conf_name) in enumerate(itertools.product(SEEDS, CONF_FILE_NAMES)):
         config_file = os.path.join(CONF_BASE_DIR, conf_name)
         if OOD:
             run_command = "python run_usa_vars_ood.py"

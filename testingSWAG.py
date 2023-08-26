@@ -7,11 +7,11 @@ import torch.nn as nn
 from lightning import Trainer
 from lightning.pytorch import seed_everything
 
-from uq_method_box.datamodules import ToyHeteroscedasticDatamodule, ToySineDatamodule
-from uq_method_box.eval_utils import compute_aleatoric_uncertainty
-from uq_method_box.models import MLP
-from uq_method_box.uq_methods import BaseModel, DeterministicGaussianModel
-from uq_method_box.viz_utils import plot_predictions
+from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule, ToySineDatamodule
+from lightning_uq_box.eval_utils import compute_aleatoric_uncertainty
+from lightning_uq_box.models import MLP
+from lightning_uq_box.uq_methods import BaseModel, DeterministicGaussianModel
+from lightning_uq_box.viz_utils import plot_predictions
 
 seed_everything(4)
 
@@ -57,7 +57,7 @@ trainer.fit(base_model, dm)
 trainer.test(base_model, dm.test_dataloader())
 csv_path = os.path.join(my_dir, "predictions.csv")
 
-from uq_method_box.uq_methods import SWAGModel
+from lightning_uq_box.uq_methods import SWAGModel
 
 # fit laplace
 swag_model = SWAGModel(

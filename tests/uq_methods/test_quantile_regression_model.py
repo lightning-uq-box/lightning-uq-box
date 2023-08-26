@@ -10,8 +10,8 @@ from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
 
-from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
-from uq_method_box.uq_methods import QuantileRegressionModel
+from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
+from lightning_uq_box.uq_methods import QuantileRegressionModel
 
 # TODO test different quantiles and wrong quantiles
 

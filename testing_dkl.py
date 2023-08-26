@@ -13,14 +13,14 @@ from lightning import Trainer
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import CSVLogger
 
-from uq_method_box.datamodules import ToyDUE, ToyHeteroscedasticDatamodule
-from uq_method_box.models import MLP
-from uq_method_box.uq_methods import (  # BaseModel,; DeterministicGaussianModel,
+from lightning_uq_box.datamodules import ToyDUE, ToyHeteroscedasticDatamodule
+from lightning_uq_box.models import MLP
+from lightning_uq_box.uq_methods import (  # BaseModel,; DeterministicGaussianModel,
     DeepKernelLearningModel,
     DKLGPLayer,
     DUEModel,
 )
-from uq_method_box.viz_utils import plot_predictions
+from lightning_uq_box.viz_utils import plot_predictions
 
 seed_everything(2)
 

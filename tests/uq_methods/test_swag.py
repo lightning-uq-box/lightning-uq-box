@@ -13,11 +13,11 @@ from lightning import Trainer
 from omegaconf import OmegaConf
 from torch import Tensor
 
-from uq_method_box.datamodules import (
+from lightning_uq_box.datamodules import (
     ToyHeteroscedasticDatamodule,
     ToyImageRegressionDatamodule,
 )
-from uq_method_box.uq_methods import DeterministicGaussianModel, SWAGModel
+from lightning_uq_box.uq_methods import DeterministicGaussianModel, SWAGModel
 
 # TODO
 # Tests for unused train and validation step
