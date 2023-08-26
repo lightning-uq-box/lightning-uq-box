@@ -386,7 +386,7 @@ class BNN_LV_VI(BNN_VI):
         std_full = model_preds_hy.std(axis=0).squeeze()
 
         return {
-            "mean": mean_out,
+            "pred": torch.from_numpy(mean_out),
             "pred_uct": std_full,
             "epistemic_uct": epistemic_uncertainty,
             "aleatoric_uct": aleatoric_uncertainty,
@@ -686,7 +686,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         std_full = model_preds_hy.std(axis=0).squeeze()
 
         return {
-            "mean": mean_out,
+            "pred": torch.from_numpy(mean_out),
             "pred_uct": std_full,
             "epistemic_uct": epistemic_uncertainty,
             "aleatoric_uct": aleatoric_uncertainty,

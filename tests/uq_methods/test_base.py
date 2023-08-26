@@ -40,7 +40,7 @@ class TestBaseModel:
         trainer = Trainer(
             log_every_n_steps=1,
             max_epochs=1,
-            default_root_dir=base_model_tabular.hparams.save_dir,
+            default_root_dir=base_model_tabular.save_dir,
         )
         trainer.fit(model=base_model_tabular, datamodule=datamodule)
         trainer.test(model=base_model_tabular, datamodule=datamodule)
@@ -67,9 +67,7 @@ class TestBaseModel:
         # instantiate datamodule
         datamodule = ToyImageRegressionDatamodule()
         trainer = Trainer(
-            log_every_n_steps=1,
-            max_epochs=1,
-            default_root_dir=base_model_timm.hparams.save_dir,
+            log_every_n_steps=1, max_epochs=1, default_root_dir=base_model_timm.save_dir
         )
         trainer.fit(model=base_model_timm, datamodule=datamodule)
         trainer.test(model=base_model_timm, datamodule=datamodule)

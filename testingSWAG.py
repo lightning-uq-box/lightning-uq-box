@@ -79,7 +79,7 @@ swag_fig = plot_predictions(
     y_train,
     X_test,
     y_test,
-    pred["mean"],
+    pred["pred"],
     pred["pred_uct"],
     epistemic=pred["epistemic_uct"],
     aleatoric=pred.get("aleatoric_uct", None),

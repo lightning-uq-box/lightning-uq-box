@@ -50,14 +50,14 @@ def compute_statistics_on_dl(dl: DataLoader) -> None:
         min, max, mean, std, px_count = compute_statistics_on_batch(batch["image"])
         out_dict["min"].append(min)
         out_dict["max"].append(max)
-        out_dict["mean"].append(mean)
+        out_dict["pred"].append(mean)
         out_dict["std"].append(std)
         out_dict["px_count"].append(px_count)
         out_dict["target"].append(batch["labels"].numpy() / 100)
 
     minimum = np.concatenate(out_dict["min"], axis=0).min(axis=0)
     maximum = np.concatenate(out_dict["max"], axis=0).max(axis=0)
-    mean_vals = np.concatenate(out_dict["mean"], axis=0)
+    mean_vals = np.concatenate(out_dict["pred"], axis=0)
     std_vals = np.concatenate(out_dict["std"], axis=0)
     px_counts = np.concatenate(out_dict["px_count"], axis=0)
 

@@ -6,14 +6,34 @@ import kornia.augmentation as K
 import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
-from torchgeo.datamodules import (
-    NonGeoDataModule,
-    USAVarsDataModule,
-    USAVarsFeatureExtractedDataModule,
-)
+from torchgeo.datamodules import NonGeoDataModule, USAVarsDataModule
 from torchgeo.transforms import AugmentationSequential
 
-from lightning_uq_box.datasets import USAVarsFeaturesOOD, USAVarsFeaturesOur, USAVarsOOD
+from lightning_uq_box.datasets import (
+    USAVarsFeatureExtracted,
+    USAVarsFeaturesOOD,
+    USAVarsFeaturesOur,
+    USAVarsOOD,
+)
+
+
+class USAVarsFeatureExtractedDataModule(NonGeoDataModule):
+    """LightningDataModule implementation for the USAVarsFeaturesExtracted dataset.
+    Uses random train/val/test splits.
+    .. versionadded:: 0.5
+    """
+
+    def __init__(
+        self, batch_size: int = 64, num_workers: int = 0, **kwargs: Any
+    ) -> None:
+        """Initialize a new USAVarsFeatureExtractedDataModule instance.
+        Args:
+            batch_size: Size of each mini-batch.
+            num_workers: Number of workers for parallel data loading.
+            **kwargs: Additional keyword arguments passed to
+                :class:`~torchgeo.datasets.USAVarsFeatureExtracted`.
+        """
+        super().__init__(USAVarsFeatureExtracted, batch_size, num_workers, **kwargs)
 
 
 class USAVarsFeatureExtractedDataModuleOur(NonGeoDataModule):

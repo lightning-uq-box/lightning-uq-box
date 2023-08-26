@@ -9,6 +9,7 @@ import torch
 from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
+from torch import Tensor
 
 from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
 from lightning_uq_box.uq_methods import CQR, QuantileRegressionModel
@@ -36,13 +37,18 @@ class TestCQR:
     def conformalized_model(self, qr_model) -> CQR:
         """Conformalize an underlying model."""
         datamodule = ToyHeteroscedasticDatamodule()
-        calib_loader = datamodule.val_dataloader()
-        return CQR(
-            qr_model,
-            qr_model.quantiles,
-            calib_loader,
-            save_dir=qr_model.hparams.save_dir,
+
+        cqr_model = CQR(
+            qr_model, qr_model.hparams.quantiles, save_dir=qr_model.hparams.save_dir
         )
+        trainer = Trainer(
+            log_every_n_steps=1,
+            max_epochs=1,
+            default_root_dir=cqr_model.hparams.save_dir,
+        )
+        trainer.test(cqr_model, datamodule)
+
+        return cqr_model
 
     def test_forward(self, conformalized_model: CQR) -> None:
         """Test forward pass of conformalized model."""
@@ -58,8 +64,8 @@ class TestCQR:
         X = torch.randn(5, n_inputs)
         out = conformalized_model.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 5
+        assert isinstance(out["pred"], Tensor)
+        assert out["pred"].shape[0] == 5
 
     def test_trainer(self, conformalized_model: CQR) -> None:
         """Test QR Model with a Lightning Trainer."""

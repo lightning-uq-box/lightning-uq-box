@@ -10,6 +10,7 @@ from gpytorch.distributions import MultivariateNormal
 from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
+from torch import Tensor
 
 from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
 from lightning_uq_box.uq_methods import DUEModel
@@ -23,9 +24,16 @@ class TestDUEModel:
             os.path.join("tests", "configs", "deep_kernel_learning.yaml")
         )
         conf.uq_method["save_dir"] = str(tmp_path)
-        datamodule = ToyHeteroscedasticDatamodule()
-        train_loader = datamodule.train_dataloader()
-        return instantiate(conf.uq_method, train_loader=train_loader)
+
+        due_model = instantiate(conf.uq_method)
+        trainer = Trainer(
+            log_every_n_steps=1,
+            max_epochs=1,
+            default_root_dir=due_model.hparams.save_dir,
+        )
+        trainer.fit(due_model, datamodule=ToyHeteroscedasticDatamodule())
+
+        return due_model
 
     def test_forward(self, dkl_model: DUEModel) -> None:
         """Test forward pass of conformalized model."""
@@ -41,8 +49,8 @@ class TestDUEModel:
         # backpack expects a torch.nn.sequential but also works otherwise
         out = dkl_model.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 5
+        assert isinstance(out["pred"], Tensor)
+        assert out["pred"].shape[0] == 5
 
     def test_trainer(self, dkl_model: DUEModel) -> None:
         """Test QR Model with a Lightning Trainer."""

@@ -142,12 +142,16 @@ class LaplaceModel(LightningModule):
                 renamed batch
             """
             # Extract images and labels from the batch dictionary
-            try:
-                images = [item["image"] for item in batch]
-                labels = [item["labels"] for item in batch]
-            except KeyError:
-                images = [item["inputs"] for item in batch]
-                labels = [item["targets"] for item in batch]
+            if isinstance(batch[0], dict):
+                try:
+                    images = [item["image"] for item in batch]
+                    labels = [item["labels"] for item in batch]
+                except KeyError:
+                    images = [item["inputs"] for item in batch]
+                    labels = [item["targets"] for item in batch]
+            else:
+                images = [item[0] for item in batch]
+                labels = [item[1] for item in batch]
 
             # Stack images and labels into tensors
             inputs = torch.stack(images)
@@ -155,7 +159,7 @@ class LaplaceModel(LightningModule):
 
             # apply datamodule augmentation
             aug_batch = self.trainer.datamodule.on_after_batch_transfer(
-                {"image": inputs, "labels": targets}, dataloader_idx=0
+                {"inputs": inputs, "targets": targets}, dataloader_idx=0
             )
 
             return (aug_batch["inputs"], aug_batch["targets"])

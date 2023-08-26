@@ -1,7 +1,7 @@
-uq_method_box.uq_methods
+lightning_uq_box.uq_methods
 ========================
 
-.. module:: uq_method_box.uq_methods
+.. module:: lightning_uq_box.uq_methods
 
 .. autoclass:: BaseModel
 

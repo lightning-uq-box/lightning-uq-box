@@ -10,6 +10,7 @@ from .uci import UCIRegressionDatamodule
 from .usa_vars import (
     USAVarsDataModuleOOD,
     USAVarsDataModuleOur,
+    USAVarsFeatureExtractedDataModule,
     USAVarsFeatureExtractedDataModuleOOD,
     USAVarsFeatureExtractedDataModuleOur,
 )
@@ -29,4 +30,5 @@ __all__ = (
     "USAVarsDataModuleOur",
     "USAVarsFeatureExtractedDataModuleOur",
     "USAVarsFeatureExtractedDataModuleOOD",
+    "USAVarsFeatureExtractedDataModule",
 )

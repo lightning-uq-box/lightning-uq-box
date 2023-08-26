@@ -165,6 +165,7 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             aug_batch = self.trainer.datamodule.on_after_batch_transfer(
                 batch, dataloader_idx=0
             )
+            print(aug_batch.keys())
             return aug_batch["inputs"]
 
         self.n_train_points = len(train_dataset)
@@ -311,8 +312,8 @@ class DeepKernelLearningModel(gpytorch.Module, LightningModule):
             64
         ), gpytorch.settings.fast_pred_var(state=False):
             output = self.likelihood(self.forward(X))
-            mean = output.mean.cpu().numpy()
-            std = output.stddev.cpu().numpy()
+            mean = output.mean.cpu()
+            std = output.stddev.cpu()
 
         quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
         return {
@@ -459,12 +460,8 @@ def compute_initial_values(
         for i in range(steps):
             random_indices = idx[i].tolist()
             try:
-                X_sample = torch.stack(
-                    [train_dataset[j]["image"] for j in random_indices]
-                )
-                y_sample = torch.stack(
-                    [train_dataset[j]["labels"] for j in random_indices]
-                )
+                X_sample = torch.stack([train_dataset[j][0] for j in random_indices])
+                y_sample = torch.stack([train_dataset[j][1] for j in random_indices])
             except:
                 import pdb
 
@@ -473,7 +470,7 @@ def compute_initial_values(
             if torch.cuda.is_available():
                 X_sample = X_sample.cuda()
                 feature_extractor = feature_extractor.cuda()
-            X_sample = augmentation({"image": X_sample, "labels": y_sample})
+            X_sample = augmentation({"inputs": X_sample, "targets": y_sample})
             f_X_samples.append(feature_extractor(X_sample).cpu())
 
     f_X_samples = torch.cat(f_X_samples)

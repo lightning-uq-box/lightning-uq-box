@@ -7,9 +7,9 @@ wandb:
   mode: offline
 
 uq_method:
-  _target_: uq_method_box.uq_methods.BaseModel
+  _target_: lightning_uq_box.uq_methods.BaseModel
   model:
-    _target_: uq_method_box.models.MLP
+    _target_: lightning_uq_box.models.MLP
     n_inputs: 512
     n_hidden: [128]
     activation_fn:
@@ -23,7 +23,7 @@ uq_method:
 
 # everything to configure the datamodule  
 datamodule:
-  _target_: uq_method_box.datamodules.USAVarsFeatureExtractedDataModuleOOD
+  _target_: lightning_uq_box.datamodules.USAVarsFeatureExtractedDataModuleOOD
   root: "/p/project/hai_uqmethodbox/data/usa_vars_feature_extracted"
   # ood_type: "gap"
   batch_size: 256

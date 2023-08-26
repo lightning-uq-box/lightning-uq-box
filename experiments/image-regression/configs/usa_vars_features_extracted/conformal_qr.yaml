@@ -1,10 +1,10 @@
 uq_method:
-  _target_: uq_method_box.uq_methods.QuantileRegressionModel
+  _target_: lightning_uq_box.uq_methods.QuantileRegressionModel
   model:
     n_outputs: 3
 
 post_processing:
-  _target_: uq_method_box.uq_methods.CQR
+  _target_: lightning_uq_box.uq_methods.CQR
   quantiles:
   - 0.1
   - 0.5

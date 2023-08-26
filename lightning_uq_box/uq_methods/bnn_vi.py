@@ -237,21 +237,20 @@ class BNN_VI(BaseModel):
                 self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
             ]
         # model_preds [batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=0).detach().cpu().numpy()
-        mean_out = model_preds.mean(axis=0).squeeze()
+        model_preds = torch.stack(model_preds, dim=0).detach().cpu()
+        mean_out = model_preds.mean(dim=0).squeeze()
 
-        std_epistemic = model_preds.std(axis=0).squeeze()
+        std_epistemic = model_preds.std(dim=0).squeeze()
         std_epistemic[std_epistemic <= 0] = 1e-6
         std_aleatoric = (
-            std_epistemic * 0.0
-            + torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
+            std_epistemic * 0.0 + torch.exp(self.log_aleatoric_std).detach().cpu()
         )
 
         std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
         # currently only single output, might want to support NLL output as well
         quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
         return {
-            "mean": mean_out,
+            "pred": mean_out,
             "pred_uct": std,
             "epistemic_uct": std_epistemic,
             "aleatoric_uct": std_aleatoric,
@@ -450,23 +449,22 @@ class BNN_VI_Batched(BNN_VI):
             for _ in range(
                 int(self.hparams.n_mc_samples_test / self.hparams.n_mc_samples_train)
             ):
-                preds.append(self.forward(X).cpu().numpy())
+                preds.append(self.forward(X).cpu())
 
-        model_preds = np.concatenate(preds, axis=0)
-        mean_out = model_preds.mean(axis=0).squeeze()
+        model_preds = torch.cat(preds, dim=0)
+        mean_out = model_preds.mean(dim=0).squeeze()
 
-        std_epistemic = model_preds.std(axis=0).squeeze()
+        std_epistemic = model_preds.std(dim=0).squeeze()
         std_epistemic[std_epistemic <= 0] = 1e-6
         std_aleatoric = (
-            std_epistemic * 0.0
-            + torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
+            std_epistemic * 0.0 + torch.exp(self.log_aleatoric_std).detach().cpu()
         )
         std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
 
         # currently only single output, might want to support NLL output as well
         quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
         return {
-            "mean": mean_out,
+            "pred": mean_out,
             "pred_uct": std,
             "epistemic_uct": std_epistemic,
             "aleatoric_uct": std_aleatoric,

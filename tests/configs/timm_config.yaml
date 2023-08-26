@@ -1,5 +1,5 @@
 uq_method:
-  _target_: uq_method_box.uq_methods.BaseModel
+  _target_: lightning_uq_box.uq_methods.BaseModel
   model:
     _target_: timm.create_model # timm.create_model for timm models
     # all arguments to initiate the mlp for example

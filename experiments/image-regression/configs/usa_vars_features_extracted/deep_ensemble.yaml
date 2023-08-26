@@ -1,11 +1,11 @@
 uq_method:
-  _target_: uq_method_box.uq_methods.DeterministicGaussianModel
+  _target_: lightning_uq_box.uq_methods.DeterministicGaussianModel
   model:
     n_outputs: 2
   burnin_epochs: 20
 
 post_processing:
-  _target_: uq_method_box.uq_methods.DeepEnsembleModel
+  _target_: lightning_uq_box.uq_methods.DeepEnsembleModel
   n_ensemble_members: 5
   ensemble_members:
   - /p/project/hai_uqmethodbox/experiment_output/usa_vars_reproduce_ood_gap/usa_vars_repr_DeterministicGaussianModel_None_07-18-2023_11-30-59-566175/epoch=55-step=5152.ckpt

@@ -35,7 +35,7 @@ class SWAGModel(BaseModel):
         loss_fn: nn.Module,
         save_dir: str,
         part_stoch_module_names: Optional[list[Union[int, str]]] = None,
-        num_datapoints_for_bn_update: Optional[int] = None,
+        num_datapoints_for_bn_update: int = 0,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
@@ -261,12 +261,16 @@ class SWAGModel(BaseModel):
                 renamed batch
             """
             # Extract images and labels from the batch dictionary
-            try:
-                images = [item["image"] for item in batch]
-                labels = [item["labels"] for item in batch]
-            except KeyError:
-                images = [item["inputs"] for item in batch]
-                labels = [item["targets"] for item in batch]
+            if isinstance(batch[0], dict):
+                try:
+                    images = [item["image"] for item in batch]
+                    labels = [item["labels"] for item in batch]
+                except KeyError:
+                    images = [item["inputs"] for item in batch]
+                    labels = [item["targets"] for item in batch]
+            else:
+                images = [item[0] for item in batch]
+                labels = [item[1] for item in batch]
 
             # Stack images and labels into tensors
             inputs = torch.stack(images)
@@ -274,9 +278,8 @@ class SWAGModel(BaseModel):
 
             # apply datamodule augmentation
             aug_batch = self.trainer.datamodule.on_after_batch_transfer(
-                {"image": inputs, "labels": targets}, dataloader_idx=0
+                {"inputs": inputs, "targets": targets}, dataloader_idx=0
             )
-
             return (aug_batch["inputs"], aug_batch["targets"])
 
         self.train_loader.collate_fn = collate_fn_swag_torch

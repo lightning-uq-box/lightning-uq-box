@@ -107,21 +107,9 @@ class SGLDModel(BaseModel):
         """
         super().__init__(model, None, loss_fn, save_dir)
 
+        self.save_hyperparameters(ignore=["model", "loss_fn"])
         self.snapshot_dir = os.path.join(self.hparams.save_dir, "model_snapshots")
         os.makedirs(self.snapshot_dir)
-
-        self.hparams["burnin_epochs"] = burnin_epochs
-        self.hparams["n_sgld_samples"] = n_sgld_samples
-        self.hparams["models"]: list[nn.Module] = []
-        self.hparams["quantiles"] = quantiles
-        self.hparams["weight_decay"] = weight_decay
-        self.hparams["noise_factor"] = noise_factor
-        self.hparams["burnin_epochs"] = burnin_epochs
-        self.hparams["n_sgld_samples"] = n_sgld_samples
-        self.hparams["quantiles"] = quantiles
-        self.hparams["lr"] = lr
-        self.hparams["weight_decay"] = weight_decay
-        self.hparams["noise_factor"] = noise_factor
 
         self.models: list[nn.Module] = []
         self.dir_list = []
@@ -151,7 +139,9 @@ class SGLDModel(BaseModel):
             # },
         }
 
-    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the training loss.
 
         Args:
@@ -163,7 +153,7 @@ class SGLDModel(BaseModel):
         sgld_opt = self.optimizers()
         sgld_opt.zero_grad()
 
-        X, y = args[0]
+        X, y = batch["inputs"], batch["targets"]
         out = self.forward(X)
 
         def closure():
@@ -239,7 +229,7 @@ class SGLDModel(BaseModel):
             self.model.load_state_dict(torch.load(ckpt_path))
             preds.append(self.model(X))
 
-        preds = torch.stack(preds, dim=-1).detach().numpy()
+        preds = torch.stack(preds, dim=-1).detach()
         # shape [batch_size, num_outputs, n_sgld_samples]
 
         return process_model_prediction(preds, self.hparams.quantiles)

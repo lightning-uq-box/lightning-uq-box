@@ -34,7 +34,7 @@ class QuantileRegressionModel(BaseModel):
         assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
         super().__init__(model, optimizer, loss_fn, lr_scheduler, save_dir)
 
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["model", "loss_fn"])
         self.median_index = self.hparams.quantiles.index(0.5)
 
     def extract_mean_output(self, out: Tensor) -> Tensor:

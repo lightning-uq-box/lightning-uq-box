@@ -184,9 +184,7 @@ class BaseModel(LightningModule):
         out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
 
         if batch["inputs"].shape[0] > 1:
-            self.test_metrics(
-                out_dict["pred"].squeeze(-1), batch["targets"].squeeze(-1)
-            )
+            self.test_metrics(out_dict["pred"].squeeze(), batch["targets"].squeeze(-1))
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()

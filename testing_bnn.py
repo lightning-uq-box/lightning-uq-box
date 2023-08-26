@@ -88,7 +88,7 @@ my_fig = plot_predictions(
     y_train,
     X_test,
     y_test,
-    pred["mean"],
+    pred["pred"],
     pred["pred_uct"],
     epistemic=pred.get("epistemic_uct", None),
     aleatoric=pred.get("aleatoric_uct", None),

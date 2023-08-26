@@ -35,8 +35,8 @@ class TestBNN_VI_ELBO:
         X = torch.randn(5, n_inputs)
         out = bnn_vi_elbo_model.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 5
+        assert isinstance(out["pred"], torch.Tensor)
+        assert out["pred"].shape[0] == 5
 
     def test_trainer(self, bnn_vi_elbo_model: BNN_VI_ELBO) -> None:
         """Test Base Model with a Lightning Trainer."""

@@ -78,6 +78,8 @@ class DERModel(BaseModel):
         """
         super().__init__(model, optimizer, None, lr_scheduler, save_dir)
 
+        self.save_hyperparameters(ignore=["model"])
+
         # check that output is 4 dimensional
         # _, output_module = list(self.model.named_children())[-1]
         # assert output_module.out == 4,
