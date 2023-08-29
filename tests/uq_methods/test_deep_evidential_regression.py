@@ -3,15 +3,15 @@
 import os
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
+from torch import Tensor
 
-from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
-from uq_method_box.uq_methods import DERModel
+from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
+from lightning_uq_box.uq_methods import DERModel
 
 
 class TestDERModel:
@@ -36,8 +36,8 @@ class TestDERModel:
         X = torch.randn(5, n_inputs)
         out = der_model.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 5
+        assert isinstance(out["pred"], Tensor)
+        assert out["pred"].shape[0] == 5
 
     def test_trainer(self, der_model: DERModel) -> None:
         """Test Base Model with a Lightning Trainer."""

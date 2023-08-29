@@ -1,6 +1,6 @@
-uq_method_box.models
-====================
+lightning_uq_box.models
+=======================
 
-.. module:: uq_method_box.models
+.. module:: lightning_uq_box.models
 
 .. autoclass:: MLP

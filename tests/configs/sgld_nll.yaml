@@ -1,11 +1,11 @@
 uq_method:
-  _target_: uq_method_box.uq_methods.SGLDModel
+  _target_: lightning_uq_box.uq_methods.SGLDModel
   model:
-    _target_: uq_method_box.models.MLP
+    _target_: lightning_uq_box.models.MLP
     n_outputs: 2
     n_hidden: [50]
   loss_fn:
-    _target_: uq_method_box.uq_methods.NLL
+    _target_: lightning_uq_box.uq_methods.NLL
   lr: 0.0001
   n_sgld_samples: 5
   weight_decay: 0.1

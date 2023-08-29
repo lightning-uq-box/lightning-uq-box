@@ -1,7 +1,7 @@
 uq_method:
-  _target_: uq_method_box.uq_methods.BaseModel
+  _target_: lightning_uq_box.uq_methods.BaseModel
   model:
-    _target_: uq_method_box.models.MLP
+    _target_: lightning_uq_box.models.MLP
     n_outputs: 1
     n_hidden: [50]
   optimizer:

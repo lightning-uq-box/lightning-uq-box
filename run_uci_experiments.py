@@ -5,12 +5,12 @@ import copy
 import glob
 import os
 
+from experiments.setup_experiment import generate_trainer
+from experiments.utils import create_experiment_dir
 from hydra.utils import instantiate
 from omegaconf import OmegaConf
 
-from experiments.setup_experiment import generate_trainer
-from experiments.utils import create_experiment_dir
-from uq_method_box.uq_methods import CQR
+from lightning_uq_box.uq_methods import CQR
 
 
 def run(config_path: str) -> None:

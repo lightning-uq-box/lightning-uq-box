@@ -3,15 +3,15 @@
 import os
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
+from torch import Tensor
 
-from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
-from uq_method_box.uq_methods import QuantileRegressionModel
+from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
+from lightning_uq_box.uq_methods import QuantileRegressionModel
 
 # TODO test different quantiles and wrong quantiles
 
@@ -38,8 +38,8 @@ class TestQuantileRegressionModel:
         X = torch.randn(5, n_inputs)
         out = qr_model.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 5
+        assert isinstance(out["pred"], Tensor)
+        assert out["pred"].shape[0] == 5
 
     def test_trainer(self, qr_model: QuantileRegressionModel) -> None:
         """Test QR Model with a Lightning Trainer."""

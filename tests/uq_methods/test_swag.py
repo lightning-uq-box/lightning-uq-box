@@ -3,7 +3,6 @@
 import os
 from pathlib import Path
 
-import numpy as np
 import pytest
 import timm
 import torch
@@ -13,11 +12,11 @@ from lightning import Trainer
 from omegaconf import OmegaConf
 from torch import Tensor
 
-from uq_method_box.datamodules import (
+from lightning_uq_box.datamodules import (
     ToyHeteroscedasticDatamodule,
     ToyImageRegressionDatamodule,
 )
-from uq_method_box.uq_methods import DeterministicGaussianModel, SWAGModel
+from lightning_uq_box.uq_methods import DeterministicGaussianModel, SWAGModel
 
 # TODO
 # Tests for unused train and validation step
@@ -52,13 +51,17 @@ class TestSWAGModel:
         conf = OmegaConf.load(os.path.join("tests", "configs", "swag.yaml"))
         conf.post_processing["save_dir"] = str(tmp_path)
         conf.post_processing["part_stoch_module_names"] = request.param
-        datamodule = ToyHeteroscedasticDatamodule(n_train=64, n_true=64, batch_size=64)
-        train_loader = datamodule.train_dataloader()
-        return instantiate(
-            conf.post_processing,
-            model=base_model_tabular.model,
-            train_loader=train_loader,
+
+        datamodule = ToyHeteroscedasticDatamodule()
+
+        swag_model = instantiate(conf.post_processing, model=base_model_tabular.model)
+
+        trainer = Trainer(
+            logger=False, max_epochs=1, default_root_dir=swag_model.hparams.save_dir
         )
+        trainer.test(model=swag_model, datamodule=datamodule)
+
+        return swag_model
 
     def test_tabular_predict_step(self, swag_model_tabular: SWAGModel) -> None:
         """Test predict step outside of Lightning Trainer."""
@@ -66,8 +69,8 @@ class TestSWAGModel:
         X = torch.randn(5, n_inputs)
         out = swag_model_tabular.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 5
+        assert isinstance(out["pred"], Tensor)
+        assert out["pred"].shape[0] == 5
 
     def test_tabular_trainer(self, swag_model_tabular: SWAGModel) -> None:
         """Test SWAG Model with a Lightning Trainer."""
@@ -111,12 +114,15 @@ class TestSWAGModel:
         conf.post_processing["save_dir"] = str(tmp_path)
         conf.post_processing["part_stoch_module_names"] = request.param
         datamodule = ToyImageRegressionDatamodule()
-        train_loader = datamodule.train_dataloader()
-        return instantiate(
-            conf.post_processing,
-            model=base_model_image.model,
-            train_loader=train_loader,
+
+        swag_model = instantiate(conf.post_processing, model=base_model_image.model)
+
+        trainer = Trainer(
+            logger=False, max_epochs=1, default_root_dir=swag_model.hparams.save_dir
         )
+        trainer.test(model=swag_model, datamodule=datamodule)
+
+        return swag_model
 
     # tests for image data
     def test_forward_image(self, swag_model_image: SWAGModel) -> None:
@@ -132,8 +138,8 @@ class TestSWAGModel:
         X = torch.randn(2, 3, 32, 32)
         out = swag_model_image.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 2
+        assert isinstance(out["pred"], Tensor)
+        assert out["pred"].shape[0] == 2
 
     def test_trainer_image(self, swag_model_image: SWAGModel) -> None:
         """Test Model with a Lightning Trainer."""

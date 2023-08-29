@@ -5,7 +5,6 @@ from itertools import product
 from pathlib import Path
 from typing import Union
 
-import numpy as np
 import pytest
 import timm
 import torch
@@ -15,11 +14,11 @@ from lightning import Trainer
 from omegaconf import OmegaConf
 from torch import Tensor
 
-from uq_method_box.datamodules import (
+from lightning_uq_box.datamodules import (
     ToyHeteroscedasticDatamodule,
     ToyImageRegressionDatamodule,
 )
-from uq_method_box.uq_methods import BNN_LV_VI, BNN_LV_VI_Batched
+from lightning_uq_box.uq_methods import BNN_LV_VI, BNN_LV_VI_Batched
 
 
 class TestBNN_LV_VI_Model:
@@ -27,8 +26,8 @@ class TestBNN_LV_VI_Model:
     @pytest.fixture(
         params=product(
             [
-                "uq_method_box.uq_methods.BNN_LV_VI",
-                "uq_method_box.uq_methods.BNN_LV_VI_Batched",
+                "lightning_uq_box.uq_methods.BNN_LV_VI",
+                "lightning_uq_box.uq_methods.BNN_LV_VI_Batched",
             ],
             ["reparameterization", "flipout"],  # layer types
             ["first", "last"],  # LV intro options
@@ -68,8 +67,8 @@ class TestBNN_LV_VI_Model:
         X = torch.randn(3, 1)
         out = bnn_vi_lv_model_tabular.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 3
+        assert isinstance(out["pred"], Tensor)
+        assert out["pred"].shape[0] == 3
 
     def test_trainer(
         self, bnn_vi_lv_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
@@ -121,8 +120,8 @@ class TestBNN_LV_VI_Model:
         X = torch.randn(2, 3, 32, 32)
         out = bnn_vi_lv_model_image.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 2
+        assert isinstance(out["pred"], Tensor)
+        assert out["pred"].shape[0] == 2
 
     def test_trainer_image(self, bnn_vi_lv_model_image: BNN_LV_VI) -> None:
         """Test Model with a Lightning Trainer."""

@@ -11,10 +11,10 @@ import torch
 from lightning import Trainer
 from lightning.pytorch.loggers import CSVLogger
 
-from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
-from uq_method_box.models import MLP
-from uq_method_box.uq_methods import BNN_VI
-from uq_method_box.viz_utils import plot_predictions
+from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
+from lightning_uq_box.models import MLP
+from lightning_uq_box.uq_methods import BNN_VI
+from lightning_uq_box.viz_utils import plot_predictions
 
 # seed_everything(4)
 torch.set_float32_matmul_precision("medium")
@@ -88,7 +88,7 @@ my_fig = plot_predictions(
     y_train,
     X_test,
     y_test,
-    pred["mean"],
+    pred["pred"],
     pred["pred_uct"],
     epistemic=pred.get("epistemic_uct", None),
     aleatoric=pred.get("aleatoric_uct", None),

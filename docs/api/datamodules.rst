@@ -1,7 +1,7 @@
-uq_method_box.datamodules
-=========================
+lightning_uq_box.datamodules
+============================
 
-.. module:: uq_method_box.datamodules
+.. module:: lightning_uq_box.datamodules
 
 Toy Datamodules
 ---------------

@@ -1,6 +1,6 @@
 # everything to configure the UQ method
 uq_method:
-  _target_: uq_method_box.uq_methods.DeterministicGaussianModel
+  _target_: lightning_uq_box.uq_methods.DeterministicGaussianModel
   model:
     n_outputs: 2
   burnin_epochs: 20

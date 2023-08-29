@@ -10,11 +10,11 @@ from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
 
-from uq_method_box.datamodules import (
+from lightning_uq_box.datamodules import (
     ToyHeteroscedasticDatamodule,
     ToyImageRegressionDatamodule,
 )
-from uq_method_box.uq_methods import BaseModel
+from lightning_uq_box.uq_methods import BaseModel
 
 
 class TestBaseModel:
@@ -40,7 +40,7 @@ class TestBaseModel:
         trainer = Trainer(
             log_every_n_steps=1,
             max_epochs=1,
-            default_root_dir=base_model_tabular.hparams.save_dir,
+            default_root_dir=base_model_tabular.save_dir,
         )
         trainer.fit(model=base_model_tabular, datamodule=datamodule)
         trainer.test(model=base_model_tabular, datamodule=datamodule)
@@ -67,9 +67,7 @@ class TestBaseModel:
         # instantiate datamodule
         datamodule = ToyImageRegressionDatamodule()
         trainer = Trainer(
-            log_every_n_steps=1,
-            max_epochs=1,
-            default_root_dir=base_model_timm.hparams.save_dir,
+            log_every_n_steps=1, max_epochs=1, default_root_dir=base_model_timm.save_dir
         )
         trainer.fit(model=base_model_timm, datamodule=datamodule)
         trainer.test(model=base_model_timm, datamodule=datamodule)

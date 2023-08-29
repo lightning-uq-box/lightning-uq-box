@@ -1,16 +1,15 @@
 uq_method:
-  _target_: uq_method_box.uq_methods.BaseModel
+  _target_: lightning_uq_box.uq_methods.DeterministicGaussianModel
   model:
-    _target_: uq_method_box.models.MLP
+    _target_: lightning_uq_box.models.MLP
     n_outputs: 2
     n_hidden: [50]
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true
     lr: 0.003
-  loss_fn:
-    _target_: uq_method_box.uq_methods.NLL
+  burnin_epochs: 1
 
 post_processing:
-  _target_: uq_method_box.uq_methods.DeepEnsembleModel
+  _target_: lightning_uq_box.uq_methods.DeepEnsembleModel
   n_ensemble_members: 3

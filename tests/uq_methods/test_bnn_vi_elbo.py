@@ -3,15 +3,14 @@
 import os
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
 
-from uq_method_box.datamodules import ToyHeteroscedasticDatamodule
-from uq_method_box.uq_methods import BNN_VI_ELBO
+from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
+from lightning_uq_box.uq_methods import BNN_VI_ELBO
 
 
 class TestBNN_VI_ELBO:
@@ -35,8 +34,8 @@ class TestBNN_VI_ELBO:
         X = torch.randn(5, n_inputs)
         out = bnn_vi_elbo_model.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["mean"], np.ndarray)
-        assert out["mean"].shape[0] == 5
+        assert isinstance(out["pred"], torch.Tensor)
+        assert out["pred"].shape[0] == 5
 
     def test_trainer(self, bnn_vi_elbo_model: BNN_VI_ELBO) -> None:
         """Test Base Model with a Lightning Trainer."""

@@ -5,14 +5,12 @@ import os
 
 import lightning.pytorch as pl
 import torch
-import wandb
 from hydra.utils import instantiate
 from lightning.pytorch import LightningDataModule, LightningModule
 from omegaconf import DictConfig, OmegaConf
 from setup_experiment import create_experiment_dir, generate_trainer, set_up_omegaconf
-from utils import ignore_args
 
-from uq_method_box.datamodules.utils import collate_fn_laplace_torch
+from lightning_uq_box.datamodules.utils import collate_fn_laplace_torch
 
 
 def train_from_scratch():
@@ -50,8 +48,6 @@ def main(conf: DictConfig) -> None:
     datamodule: LightningDataModule = instantiate(conf.datamodule)
     trainer = generate_trainer(exp_conf)
 
-
-
     def ood_collate(batch: dict[str, torch.Tensor]):
         """Collate fn to include augmentations."""
         try:
@@ -67,8 +63,16 @@ def main(conf: DictConfig) -> None:
         # Stack images and labels into tensors
         inputs = torch.stack(images)
         targets = torch.stack(labels)
-        
-        return datamodule.on_after_batch_transfer({"image": inputs, "labels": targets, "centroid_lat": lat, "centroid_lon": lon}, dataloader_idx=0)
+
+        return datamodule.on_after_batch_transfer(
+            {
+                "image": inputs,
+                "labels": targets,
+                "centroid_lat": lat,
+                "centroid_lon": lon,
+            },
+            dataloader_idx=0,
+        )
 
     # run training
     if "post_processing" in conf:
@@ -92,7 +96,9 @@ def main(conf: DictConfig) -> None:
         datamodule.setup("fit")
         train_loader = datamodule.train_dataloader()
         model: LightningModule = instantiate(
-            conf.uq_method, save_dir=conf["experiment"]["save_dir"], num_training_points=len(train_loader.dataset)
+            conf.uq_method,
+            save_dir=conf["experiment"]["save_dir"],
+            num_training_points=len(train_loader.dataset),
         )
         trainer.fit(model=model, datamodule=datamodule)
         # test on IID
@@ -115,9 +121,7 @@ def main(conf: DictConfig) -> None:
     if "post_processing" in conf:
         trainer.test(model, dataloaders=train_loader)
     else:
-        trainer.test(
-            ckpt_path="best", dataloaders=train_loader
-        )
+        trainer.test(ckpt_path="best", dataloaders=train_loader)
 
     model.pred_file_name = f"predictions_val.csv"
     val_loader = datamodule.train_dataloader()
@@ -127,9 +131,7 @@ def main(conf: DictConfig) -> None:
     if "post_processing" in conf:
         trainer.test(model, dataloaders=train_loader)
     else:
-        trainer.test(
-            ckpt_path="best", dataloaders=train_loader
-        )
+        trainer.test(ckpt_path="best", dataloaders=train_loader)
 
 
 if __name__ == "__main__":

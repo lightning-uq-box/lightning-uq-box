@@ -6,7 +6,7 @@
 UQ-Method-Box
 =============
 
-.. automodule:: uq_method_box
+.. automodule:: lightning_uq_box
 
 .. toctree::
    :maxdepth: 2

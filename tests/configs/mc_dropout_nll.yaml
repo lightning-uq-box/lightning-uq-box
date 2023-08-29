@@ -1,7 +1,7 @@
 uq_method:
-  _target_: uq_method_box.uq_methods.MCDropoutModel
+  _target_: lightning_uq_box.uq_methods.MCDropoutModel
   model:
-    _target_: uq_method_box.models.MLP
+    _target_: lightning_uq_box.models.MLP
     n_outputs: 2
     n_hidden: [50]
     dropout_p: 0.1
@@ -10,7 +10,6 @@ uq_method:
     _partial_: true
     lr: 0.003
   loss_fn:
-    _target_: uq_method_box.uq_methods.NLL
+    _target_: lightning_uq_box.uq_methods.NLL
   num_mc_samples: 10
   burnin_epochs: 5
-  max_epochs: 10

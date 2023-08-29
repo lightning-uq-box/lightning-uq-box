@@ -14,12 +14,12 @@ import sys
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 sys.path.insert(0, os.path.abspath(".."))
 
-import uq_method_box  # noqa: E402
+import lightning_uq_box  # noqa: E402
 
-project = "uq-regression-box"
+project = "lightning-uq-box"
 copyright = "2023, Nils Lehmann"
-author = uq_method_box.__author__
-release = uq_method_box.__version__
+author = lightning_uq_box.__author__
+release = lightning_uq_box.__version__
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -58,7 +58,6 @@ nbsphinx_kernel_name = "python"
 
 nbsphinx_prolog = """
 {% set host = "https://colab.research.google.com" %}
-{% set repo = "microsoft/torchgeo" %}
 {% set urlpath = "docs/" ~ env.docname ~ ".ipynb" %}
 {% if "dev" in env.config.release %}
     {% set branch = "main" %}
@@ -81,7 +80,7 @@ html_theme = "trojanzoo_sphinx_theme"
 
 # css adjustments
 html_static_path = ["_static"]
-html_css_files = ["button-width.css", "notebook-prompt.css"]
+html_css_files = ["button-width.css", "notebook-prompt.css", "my_theme.css"]
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

@@ -12,16 +12,22 @@ import torch
 from lightning import Trainer
 from lightning.pytorch.loggers import CSVLogger
 
-from uq_method_box.datamodules import (
-    ToyHeteroscedasticDatamodule,  ToyBimodalDatamodule
+from lightning_uq_box.datamodules import (
+    ToyBimodalDatamodule,
+    ToyHeteroscedasticDatamodule,
 )
-from uq_method_box.models import MLP
-from uq_method_box.uq_methods import BNN_LV_VI,BNN_LV_VI_Batched, BNN_VI_Batched, BNN_VI
-from uq_method_box.viz_utils import plot_predictions
+from lightning_uq_box.models import MLP
+from lightning_uq_box.uq_methods import (
+    BNN_LV_VI,
+    BNN_VI,
+    BNN_LV_VI_Batched,
+    BNN_VI_Batched,
+)
+from lightning_uq_box.viz_utils import plot_predictions
 
 # seed_everything(4)
 torch.set_float32_matmul_precision("medium")
-dm = ToyBimodalDatamodule(batch_size=64,n_train=750)
+dm = ToyBimodalDatamodule(batch_size=64, n_train=750)
 
 X_train, y_train, train_loader, X_test, y_test, test_loader = (
     dm.X_train,
@@ -43,7 +49,7 @@ my_config = {
     "latent_net": {
         "n_inputs": 2,  # num_input_features + num_target_dim
         "n_outputs": 2,  # 2 * lv_latent_dimx
-        "n_hidden": [20,20],
+        "n_hidden": [20, 20],
         "activation_fn": torch.nn.ReLU(),
     },
 }
@@ -78,7 +84,7 @@ pl_args = {
     "logger": logger,
     "log_every_n_steps": 1,
     "accelerator": "cpu",
-    #"devices": [0],
+    # "devices": [0],
     "limit_val_batches": 0.0,
 }
 trainer = Trainer(**pl_args)
@@ -86,7 +92,7 @@ trainer = Trainer(**pl_args)
 # fit model
 start = time.time()
 trainer.fit(base_model, dm)
-#base_model.load_state_dict(torch.load('bnnlv.pt'))
+# base_model.load_state_dict(torch.load('bnnlv.pt'))
 print(f"Fit took {time.time() - start} seconds.")
 
 
@@ -98,7 +104,7 @@ my_fig = plot_predictions(
     y_train,
     X_test,
     y_test,
-    pred["mean"],
+    pred["pred"],
     pred["pred_uct"],
     epistemic=pred.get("epistemic_uct", None),
     aleatoric=pred.get("aleatoric_uct", None),

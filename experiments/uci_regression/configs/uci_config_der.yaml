@@ -8,9 +8,9 @@ wandb:
 
 # everything to configure the UQ method
 uq_method:
-  _target_: uq_method_box.uq_methods.DERModel
+  _target_: lightning_uq_box.uq_methods.DERModel
   model:
-    _target_: uq_method_box.models.MLP # timm.create_model for timm models
+    _target_: lightning_uq_box.models.MLP # timm.create_model for timm models
     # all arguments to initiate the mlp for example
     n_outputs: 4
     n_hidden: [50]
@@ -21,7 +21,7 @@ uq_method:
 
 # everything to configure the datamodule  
 datamodule:
-  _target_: uq_method_box.datamodules.UCIRegressionDatamodule
+  _target_: lightning_uq_box.datamodules.UCIRegressionDatamodule
   dataset_name: boston
   root: "/home/nils/projects/uq-method-box/experiments/data/uci"
   train_size: 0.9
@@ -29,7 +29,7 @@ datamodule:
   num_workers: 4
 
 post_processing:
-  _target_: uq_method_box.uq_methods.DeepEnsembleModel
+  _target_: lightning_uq_box.uq_methods.DeepEnsembleModel
   n_ensemble_members: 3
 
 # all flags for the pytorch lightning trainer

@@ -65,7 +65,7 @@ def compute_metrics_for_single_seed(
 
     try:
         uq_metrics = uct.metrics.get_all_metrics(
-            pred_df["mean"].values.squeeze(),
+            pred_df["pred"].values.squeeze(),
             pred_df["pred_uct"].values.squeeze(),
             pred_df["targets"].values.squeeze(),
             verbose=False,
