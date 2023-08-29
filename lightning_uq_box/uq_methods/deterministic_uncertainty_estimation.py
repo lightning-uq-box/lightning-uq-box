@@ -1,12 +1,9 @@
 """Deterministic Uncertainty Estimation."""
-import os
-from typing import Any, Dict, List, Union
 
 import torch
 import torch.nn as nn
 from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
 from gpytorch.models import ApproximateGP
-from torch.utils.data import DataLoader
 from torchgeo.trainers.utils import _get_input_layer_name_and_module
 
 from .deep_kernel_learning import DeepKernelLearningModel
@@ -33,7 +30,7 @@ class DUEModel(DeepKernelLearningModel):
         coeff: float = 0.95,
         n_power_iterations: int = 1,
         save_dir: str = None,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 

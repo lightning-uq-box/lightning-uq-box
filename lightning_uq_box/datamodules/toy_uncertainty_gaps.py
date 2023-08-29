@@ -17,7 +17,7 @@ class ToyUncertaintyGaps(LightningDataModule):
             return np.hstack([x[:, None] / 2.0, (x[:, None] / 2.0) ** 2])
 
         data = np.load(
-            "/home/nils/projects/uq-method-box/uq_method_box/datamodules/data.npy"
+            "/home/nils/projects/uq-method-box/lightning_uq_box/datamodules/data.npy"
         )
         x, y = data[:, 0], data[:, 1]
         y = y[:, None]

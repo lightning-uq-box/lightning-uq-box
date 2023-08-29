@@ -1,7 +1,6 @@
 """Script to create feature extracted version of USA Vars."""
 
 import argparse
-import os
 
 import kornia.augmentation as K
 import numpy as np

@@ -5,12 +5,10 @@ import os
 
 import lightning.pytorch as pl
 import torch
-import wandb
 from hydra.utils import instantiate
 from lightning.pytorch import LightningDataModule, LightningModule
 from omegaconf import DictConfig, OmegaConf
 from setup_experiment import create_experiment_dir, generate_trainer, set_up_omegaconf
-from utils import ignore_args
 
 from lightning_uq_box.datamodules.utils import collate_fn_laplace_torch
 

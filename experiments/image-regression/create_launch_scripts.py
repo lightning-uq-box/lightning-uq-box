@@ -51,22 +51,22 @@ if __name__ == "__main__":
             if OOD:
                 command += " experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_resnet_ood/"
                 command += " wandb.project=usa_vars_resnet_ood"
-                command += " datamodule._target_=uq_method_box.datamodules.USAVarsDataModuleOur"
+                command += " datamodule._target_=lightning_uq_box.datamodules.USAVarsDataModuleOur"
             else:
                 command += " experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_resnet/"
                 command += " wandb.project=usa_vars_resnet"
-                command += " datamodule._target_=uq_method_box.datamodules.USAVarsDataModuleOOD"
+                command += " datamodule._target_=lightning_uq_box.datamodules.USAVarsDataModuleOOD"
         else:
             command += f" default_config=/p/project/hai_uqmethodbox/{args.user}/uq-method-box/experiments/image-regression/configs/usa_vars_features_extracted/default.yaml"
             if OOD:
                 command += f" experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_reproduce_ood_{ood_type}/"
                 command += " wandb.project=usa_vars_reproduce_ood"
                 command += f" datamodule.ood_type={ood_type}"
-                command += " datamodule._target_=uq_method_box.datamodules.USAVarsFeatureExtractedDataModuleOOD"
+                command += " datamodule._target_=lightning_uq_box.datamodules.USAVarsFeatureExtractedDataModuleOOD"
             else:
                 command += " experiment.exp_dir=/p/project/hai_uqmethodbox/experiment_output/usa_vars_reproduce/"
                 command += " wandb.project=usa_vars_reproduce"
-                command += " datamodule._target_=uq_method_box.datamodules.USAVarsFeatureExtractedDataModuleOur"
+                command += " datamodule._target_=lightning_uq_box.datamodules.USAVarsFeatureExtractedDataModuleOur"
 
         command = command.strip()
 

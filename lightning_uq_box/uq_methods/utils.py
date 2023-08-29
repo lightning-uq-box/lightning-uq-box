@@ -6,7 +6,6 @@ from typing import Any, Union
 
 import numpy as np
 import pandas as pd
-import torch
 import torch.nn as nn
 from bayesian_torch.models.dnn_to_bnn import (
     bnn_conv_layer,
@@ -73,6 +72,7 @@ def process_model_prediction(
 
 
 def change_inplace_activation(module):
+    """Change inplace activation."""
     if hasattr(module, "inplace"):
         module.inplace = False
 

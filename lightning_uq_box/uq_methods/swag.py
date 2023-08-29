@@ -9,13 +9,11 @@ from collections import OrderedDict
 from copy import deepcopy
 from typing import Any, Optional, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.distributions import Normal
-from torch.utils.data import DataLoader
-from tqdm import tqdm, trange
+from tqdm import trange
 
 from .base import BaseModel
 from .utils import map_stochastic_modules, process_model_prediction

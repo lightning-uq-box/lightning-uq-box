@@ -1,5 +1,5 @@
 lightning_uq_box.uq_methods
-========================
+===========================
 
 .. module:: lightning_uq_box.uq_methods
 

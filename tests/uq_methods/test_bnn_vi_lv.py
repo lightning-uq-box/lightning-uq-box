@@ -5,7 +5,6 @@ from itertools import product
 from pathlib import Path
 from typing import Union
 
-import numpy as np
 import pytest
 import timm
 import torch

@@ -1,7 +1,7 @@
-uq_method_box.train_utils
-=============================
+lightning_uq_box.train_utils
+============================
 
-.. module:: uq_method_box.train_utils
+.. module:: lightning_uq_box.train_utils
 
 Train Utilities
 ---------------

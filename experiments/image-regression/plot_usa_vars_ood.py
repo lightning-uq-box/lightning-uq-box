@@ -2,7 +2,6 @@ import glob
 import os
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import uncertainty_toolbox as uct
 from tqdm import tqdm

@@ -3,12 +3,12 @@
 import os
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
 from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
+from torch import Tensor
 
 from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
 from lightning_uq_box.uq_methods import BaseModel, LaplaceModel
@@ -65,7 +65,7 @@ class TestLaplaceModel:
         # backpack expects a torch.nn.sequential but also works otherwise
         out = laplace_model.predict_step(X)
         assert isinstance(out, dict)
-        assert isinstance(out["pred"], np.ndarray)
+        assert isinstance(out["pred"], Tensor)
         assert out["pred"].shape[0] == 5
 
     def test_trainer(self, laplace_model: LaplaceModel) -> None:

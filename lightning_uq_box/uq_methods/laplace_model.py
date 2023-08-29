@@ -12,7 +12,6 @@ from laplace.curvature import AsdlGGN
 from laplace.utils import LargestMagnitudeSubnetMask, ModuleNameSubnetMask
 from lightning import LightningModule
 from torch import Tensor
-from torch.utils.data import DataLoader
 from torchgeo.trainers.utils import _get_input_layer_name_and_module
 from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 from tqdm import trange
@@ -181,7 +180,7 @@ class LaplaceModel(LightningModule):
             elif self.hparams.part_stoch_module_names:
                 assert self.hparams.subset_of_weights == "subnetwork"
                 self.part_stoch_module_names = map_stochastic_modules(
-                    self.model, part_stoch_module_names
+                    self.model, self.part_stoch_module_names
                 )
                 subnetwork_mask = ModuleNameSubnetMask(
                     copy.deepcopy(self.model), module_names=self.part_stoch_module_names

@@ -1,6 +1,6 @@
 """USA Vars datamodule adaption for OOD experiments."""
 
-from typing import Any, Callable, Dict
+from typing import Any, Dict
 
 import kornia.augmentation as K
 import torch
@@ -19,14 +19,15 @@ from lightning_uq_box.datasets import (
 
 class USAVarsFeatureExtractedDataModule(NonGeoDataModule):
     """LightningDataModule implementation for the USAVarsFeaturesExtracted dataset.
+
     Uses random train/val/test splits.
-    .. versionadded:: 0.5
     """
 
     def __init__(
         self, batch_size: int = 64, num_workers: int = 0, **kwargs: Any
     ) -> None:
         """Initialize a new USAVarsFeatureExtractedDataModule instance.
+
         Args:
             batch_size: Size of each mini-batch.
             num_workers: Number of workers for parallel data loading.
@@ -92,6 +93,8 @@ class USAVarsFeatureExtractedDataModuleOur(NonGeoDataModule):
 
 
 class USAVarsFeatureExtractedDataModuleOOD(NonGeoDataModule):
+    """Feature Extracted Datamodule for OOD."""
+
     def __init__(
         self, batch_size: int = 64, num_workers: int = 0, **kwargs: Any
     ) -> None:
@@ -235,12 +238,12 @@ class USAVarsDataModuleOOD(NonGeoDataModule):
     # std: array([ ], dtype=float32)
     # target_mean: array([6.022064], dtype=float32)
     # target_std: array([10.314759], dtype=float32)
-
     """Adaptation for Data Module for OOD Experiments.
 
     Wrapper around TorchGeo Datamodule.
 
     """
+
     input_mean = torch.Tensor([0.45211497, 0.45899174, 0.3701368, 0.5534093])
     input_std = torch.Tensor([0.16486272, 0.13277882, 0.11872848, 0.1632025])
     target_mean = 6.022064
