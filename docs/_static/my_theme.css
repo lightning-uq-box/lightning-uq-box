@@ -1,0 +1,26 @@
+@import url("theme.css");
+
+.rst-content {
+    max-width: 95%;
+}
+
+/* body {
+    font-family: "Arial", sans-serif;
+    font-size: 16px;
+    max-width: 50%;
+}
+
+
+.sphinx-template-content-left-menu {
+    max-width: 20%;
+}
+
+.sphinx-template-content-left {
+    max-width: 50%;
+    font-family: "Arial", sans-serif;
+    font-size: 16px;
+}
+
+.sphinx-template-content-right {
+    max-width: 20%
+} */
