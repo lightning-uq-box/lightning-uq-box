@@ -4,6 +4,7 @@ from .base import BaseModel
 from .bnn_vi import BNN_VI, BNN_VI_Batched
 from .bnn_vi_elbo import BNN_VI_ELBO
 from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
+from .cards import CARDModel
 from .cqr_model import CQR
 from .deep_ensemble_model import DeepEnsembleModel
 from .deep_evidential_regression import DERModel
@@ -31,6 +32,8 @@ from .swag import SWAGModel
 __all__ = (
     # base model
     "BaseModel",
+    # CARD Model
+    "CARDModel",
     # conformalized Quantile Regression
     "CQR",
     # MC-Dropout
