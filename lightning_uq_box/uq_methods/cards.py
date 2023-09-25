@@ -1,7 +1,7 @@
 """CARD Regression Diffusion Model."""
 
 import os
-from typing import Any
+from typing import Any, Optional
 import torch
 import numpy as np
 from .utils import save_predictions_to_csv
@@ -28,8 +28,9 @@ class CARDModel(LightningModule):
         self,
         cond_mean_model: nn.Module,
         guidance_model: nn.Module,
+        guidance_optim: type[torch.optim.Optimizer],
         n_steps: int = 1000,
-        beta_schedule: str = "cosine",
+        beta_schedule: str = "linear",
         beta_start: float = 1e-5,
         beta_end: float = 1e-2,
         n_z_samples: int = 100
@@ -40,6 +41,7 @@ class CARDModel(LightningModule):
             cond_mean_model: conditional mean model, should be
                 pretrained model that estimates $E[y|x]$
             guidance_model: guidance diffusion model
+            guidance_optim: optimizer for the guidance model
             n_steps: number of diffusion steps
             beta_schedule: what type of noise scheduling to conduct
             beta_start: start value of beta scheduling
@@ -56,6 +58,8 @@ class CARDModel(LightningModule):
         self.noise_scheduler = NoiseScheduler(
             beta_schedule, n_steps, beta_start, beta_end
         )
+
+        self.guidance_optim = guidance_optim
 
         self.train_metrics = MetricCollection(
             {
@@ -144,13 +148,13 @@ class CARDModel(LightningModule):
             training loss
         """
         train_loss = self.diffusion_process(batch)
-
+        self.log("train_loss", train_loss)
         return train_loss
         
-    def on_train_epoch_end(self):
-        """Log epoch-level training metrics."""
-        self.log_dict(self.train_metrics.compute())
-        self.train_metrics.reset()
+    # def on_train_epoch_end(self):
+    #     """Log epoch-level training metrics."""
+    #     self.log_dict(self.train_metrics.compute())
+    #     self.train_metrics.reset()
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -164,12 +168,13 @@ class CARDModel(LightningModule):
             validation loss
         """
         val_loss = self.diffusion_process(batch)
+        self.log("val_loss", val_loss)
         return val_loss
 
-    def on_validation_epoch_end(self) -> None:
-        """Log epoch level validation metrics."""
-        self.log_dict(self.val_metrics.compute())
-        self.val_metrics.reset()
+    # def on_validation_epoch_end(self) -> None:
+    #     """Log epoch level validation metrics."""
+    #     self.log_dict(self.val_metrics.compute())
+    #     self.val_metrics.reset()
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -184,10 +189,10 @@ class CARDModel(LightningModule):
         """
         pass
 
-    def on_test_epoch_end(self):
-        """Log epoch-level test metrics."""
-        self.log_dict(self.test_metrics.compute())
-        self.test_metrics.reset()
+    # def on_test_epoch_end(self):
+    #     """Log epoch-level test metrics."""
+    #     self.log_dict(self.test_metrics.compute())
+    #     self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -224,7 +229,16 @@ class CARDModel(LightningModule):
         # put in shape [n_z_samples, batch_size, 1]
         y_tile_seq = [arr.reshape(self.n_z_samples, X.shape[0], 1) for arr in y_tile_seq]
 
-        return y_tile_seq
+        final_recoverd = y_tile_seq[-1]
+        mean_pred = final_recoverd.mean(dim=0).detach().cpu().squeeze()
+        std_pred = final_recoverd.std(dim=0).detach().cpu().squeeze()
+
+        return {
+            "pred": mean_pred,
+            "pred_uct": std_pred,
+            "aleatoric_uct": std_pred,
+            "out": y_tile_seq,
+        }
 
 
     def on_test_batch_end(
@@ -295,6 +309,7 @@ class CARDModel(LightningModule):
         )
         # posterior mean
         y_t_m_1_hat = gamma_0 * y_0_reparam + gamma_1 * y + gamma_2 * y_T_mean
+        
         # posterior variance
         beta_t_hat = (
             (sqrt_one_minus_alpha_bar_t_m_1.square())
@@ -401,7 +416,7 @@ class CARDModel(LightningModule):
         alphas_bar_sqrt,
         one_minus_alphas_bar_sqrt,
         t,
-        noise: bool = False,
+        noise: Optional[Tensor] = None,
     ) -> Tensor:
         """Q sampling process
 
@@ -411,11 +426,11 @@ class CARDModel(LightningModule):
             alphas_bar_sqrt:
             one_minus_alphas_bar_sqrt:
             t:
-            noise: whether or not to apply noise
+            noise: optional noise tensor
 
         """
-        if noise:
-            noise = torch.randn_like(y).to(y.self.device)
+        if noise is None:
+            noise = torch.randn_like(y)
         sqrt_alpha_bar_t = self.extract(alphas_bar_sqrt, t, y)
         sqrt_one_minus_alpha_bar_t = self.extract(one_minus_alphas_bar_sqrt, t, y)
         # q(y_t | y_0, x)
@@ -438,6 +453,11 @@ class CARDModel(LightningModule):
             tensor
         """
         shape = x.shape
-        out = torch.gather(input, 0, t.to(input.self.device))
+        out = torch.gather(input, 0, t)
         reshape = [t.shape[0]] + [1] * (len(shape) - 1)
         return out.reshape(*reshape)
+    
+    def configure_optimizers(self) -> Any:
+        """Configure optimizers."""
+        optimizer = self.guidance_optim(params=self.guidance_model.parameters())
+        return optimizer

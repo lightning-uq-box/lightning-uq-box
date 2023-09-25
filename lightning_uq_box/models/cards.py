@@ -57,13 +57,13 @@ class NoiseScheduler:
     def sigmoid_schedule(self) -> Tensor:
         """Sigmoid Schedule."""
         betas = torch.sigmoid(torch.linspace(-6, 6, self.n_steps)) * (self.beta_end - self.beta_start) + self.beta_start
-        betas = torch.sigmoid(betas) 
+        return torch.sigmoid(betas) 
 
     def cosine_schedule(self) -> Tensor:
         """Cosine Schedule."""
         max_beta = 0.999
         cosine_s = 0.008
-        betas = torch.tensor(
+        return torch.tensor(
             [min(1 - (math.cos(((i + 1) / self.n_steps + cosine_s) / (1 + cosine_s) * math.pi / 2) ** 2) / (
                     math.cos((i / self.n_steps + cosine_s) / (1 + cosine_s) * math.pi / 2) ** 2), max_beta) for i in
              range(self.n_steps)])
