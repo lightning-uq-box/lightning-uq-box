@@ -4,6 +4,7 @@ import torch
 from torch import Tensor
 import torch.nn as nn
 import math
+from lightning_uq_box.uq_methods.utils import _get_output_layer_name_and_module
 
 
 class NoiseScheduler:
@@ -152,22 +153,27 @@ class DiffusionSequential(nn.Sequential):
 
 class ConditionalGuidedLinearModel(nn.Module):
     """Conditional Guided Model."""
-    def __init__(self, n_steps: int, x_dim: int, y_dim: int, z_dim: int, n_hidden: list[int] = [64, 64], n_outputs: int = 1, cat_x: bool = False, cat_y_pred: bool = False, activation_fn: nn.Module=nn.Softplus()) -> None:
+    def __init__(self, n_steps: int, x_dim: int, y_dim: int, n_hidden: list[int] = [64, 64], n_outputs: int = 1, cat_x: bool = False, cat_y_pred: bool = False, activation_fn: nn.Module=nn.Softplus()) -> None:
         """Initialize a new instance of Conditional Guided Model.
         
         Args:
             n_steps:
-            x_dim:
-            y_dim:
-            z_dim
+            x_dim: feature dimension of the x input data
+            y_dim: output dimension of conditional mean model
             n_hidden: number of Conditional Linear Layers with dimension
-            n_outputs: 
-            cat_x:
-            cat_y_pred:
+            n_outputs: number of desired outputs from conditional guided model
+            cat_x: whether to condition on the input x throught concatenation
+                p_sample_loop would pass x to each diffusion step through concatenation
+                and that improves sample quality
+            cat_y_pred: whether to condition on the y_0_hat prediction
+                of the conditional mean model by concatenation
             activation_fn: activation function between conditional linear layers
         """
         super(ConditionalGuidedLinearModel, self).__init__()
-       
+        self.n_steps = n_steps
+        self.x_dim = x_dim
+        self.y_dim = y_dim
+
         self.cat_x = cat_x
         self.cat_y_pred = cat_y_pred
         data_dim = y_dim
@@ -186,12 +192,12 @@ class ConditionalGuidedLinearModel(nn.Module):
         layers += [nn.Linear(layer_sizes[-1], n_outputs)]
         self.model = DiffusionSequential(*layers)
 
-    def forward(self, x: Tensor, y_t: Tensor, y_0_hat: Tensor, t: int) -> Tensor:
+    def forward(self, x: Tensor, y_t: Tensor, y_0_hat: Tensor, t: Tensor) -> Tensor:
         """Forward pass of the Conditional Guided Model.
         
         Args:
-            x: 
-            y:
+            x: input data
+            y: target data 
             y_0_hat:
             t: time step
         """
@@ -205,5 +211,69 @@ class ConditionalGuidedLinearModel(nn.Module):
                 eps_pred = torch.cat((y_t, y_0_hat), dim=1)
             else:
                 eps_pred = y_t
-        
         return self.model(eps_pred, t)
+    
+
+class ConditionalGuidedConvModel(nn.Module):
+    """Conditional Guidance Model for Image tasks."""
+
+    def __init__(self, encoder: nn.Module, cond_guide_model: ConditionalGuidedLinearModel) -> None:
+        """Initialize a new instance of Conditional Guided Conv Model.
+        
+        Args:
+            encoder: encoder model acting like a feature extractor before
+                a conditional linear guidance model
+            cond_guide_model: conditional
+            n_steps: number of diffusion steps
+
+        Raises:
+            Assertionerror for misconfigurations between encoder
+                and cond_guide_model
+        """
+        super(ConditionalGuidedConvModel, self).__init__()
+
+        # TODO assertion checks between the configs of the encoder and cond guidance model
+        # TODO assert that cat_x and cat_y_pred are false, but maybe you can as well?
+        # no I think cat_x has to be false because cannot input the image and y_0_hat would be the feature extraction
+        assert cond_guide_model.cat_x is False, "Cannot concatenate x"
+        assert cond_guide_model.cat_y_pred is False, "Cannot concatenate y"
+
+        self.encoder = encoder
+        self.cond_guide_model = cond_guide_model
+        self.n_steps = cond_guide_model.n_steps
+
+        
+        _, module = _get_output_layer_name_and_module(self.encoder)
+        encoder_out_features = module.out_features
+
+        assert encoder_out_features * 2 == cond_guide_model.y_dim, "Encoder output features * 2 has to match the y_dim of the guide model because of conditional concatenation"
+        self.norm = nn.BatchNorm1d(encoder_out_features)
+
+        # "connection" modules
+        self.connect_module = DiffusionSequential(
+            ConditionalLinear(encoder_out_features, encoder_out_features, self.n_steps),
+            nn.BatchNorm1d(encoder_out_features, encoder_out_features),
+            nn.Softplus()
+        )
+
+
+    def forward(self, x: Tensor, y_t: Tensor, y_0_hat: Tensor, t: Tensor) -> Tensor:
+        """Forward pass of the Conditional Guided Conv Model.
+        
+        Args:
+            x: input data
+            y: target data 
+            y_0_hat:
+            t: time step
+        """
+        # encoding
+        x = self.encoder(x)
+        x = self.norm(x)
+
+        x = self.connect_module(x, t)
+
+        y = torch.cat([y_t, y_0_hat], dim=-1)
+
+        y = x * y
+
+        return self.cond_guide_model(x=None, y_t=y, y_0_hat=None, t=t)

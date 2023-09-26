@@ -1,6 +1,7 @@
 """UQ-Regression-Box Datasets."""
 
 # from .reforesTree import ReforesTreeRegression
+from .card_regression import SinusoidDatasetWithOneX, LogLinearDatasetWithOneX, CircleDatasetWithOneX
 from .toy_image_regression import ToyImageRegressionDataset
 from .uci import UCIRegressionDataset
 from .uci_boston import UCIBoston
@@ -16,6 +17,9 @@ from .usa_vars import (
 )
 
 __all__ = (
+    "SinusoidDatasetWithOneX",
+    "LogLinearDatasetWithOneX",
+    "CircleDatasetWithOneX",
     # Toy Image dataset
     "ToyImageRegressionDataset",
     # UCI Datasets

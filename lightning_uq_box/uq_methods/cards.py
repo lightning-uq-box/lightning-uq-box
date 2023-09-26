@@ -163,6 +163,7 @@ class CARDModel(LightningModule):
 
         Args:
             batch: the output of your DataLoader
+q
 
         Returns:
             validation loss
@@ -205,31 +206,50 @@ class CARDModel(LightningModule):
         Returns:
             diffusion samples for each time step
         """
+        # compute y_0_hat only once as the initial prediction
         y_0_hat = self.cond_mean_model(X)
 
-        # obtain y samples through reverse diffusion -- some pytorch version might not have torch.tile, run through the entire chain
-        # y_0_tile = torch.tile(y, (n_z_samples, 1))
-        y_0_hat_tile = torch.tile(y_0_hat, (self.n_z_samples, 1)).to(self.device)
-        test_x_tile = torch.tile(X, (self.n_z_samples, 1)).to(self.device)
+        if X.dim() == 2:
+            # TODO: This works for Vector 1D Regression with the tiling
+            # obtain y samples through reverse diffusion -- some pytorch version might not have torch.tile, run through the entire chain
+            # y_0_tile = torch.tile(y, (n_z_samples, 1))
+            y_0_hat_tile = torch.tile(y_0_hat, (self.n_z_samples, 1)).to(self.device)
+            test_x_tile = torch.tile(X, (self.n_z_samples, 1)).to(self.device)
 
-        z = torch.randn_like(y_0_hat_tile).to(self.device)
+            z = torch.randn_like(y_0_hat_tile).to(self.device)
 
-        y_t = y_0_hat_tile + z
+            # TODO check what happens, here and why y_0_hat_tile is passed twice
+            y_t = y_0_hat_tile + z
 
-        # generate samples from all time steps for the mini-batch
-        y_tile_seq = self.p_sample_loop(
-            test_x_tile,
-            y_0_hat_tile,
-            y_0_hat_tile,
-            self.n_steps,
-            self.noise_scheduler.alphas.to(self.device),
-            self.noise_scheduler.one_minus_alphas_bar_sqrt.to(self.device),
-        )
+            # generate samples from all time steps for the mini-batch
+            y_tile_seq : list[Tensor] = self.p_sample_loop(
+                test_x_tile,
+                y_0_hat_tile,
+                y_0_hat_tile,
+                self.n_steps,
+                self.noise_scheduler.alphas.to(self.device),
+                self.noise_scheduler.one_minus_alphas_bar_sqrt.to(self.device),
+            )
 
-        # put in shape [n_z_samples, batch_size, 1]
-        y_tile_seq = [arr.reshape(self.n_z_samples, X.shape[0], 1) for arr in y_tile_seq]
+            # put in shape [n_z_samples, batch_size, 1]
+            y_tile_seq = [arr.reshape(self.n_z_samples, X.shape[0], 1) for arr in y_tile_seq]
 
-        final_recoverd = y_tile_seq[-1]
+            final_recoverd = y_tile_seq[-1]
+        
+        else:
+            # TODO make this more efficient
+            y_tile_seq: list[Tensor] = [self.p_sample_loop(
+                X,
+                y_0_hat,
+                y_0_hat,
+                self.n_steps,
+                self.noise_scheduler.alphas.to(self.device),
+                self.noise_scheduler.one_minus_alphas_bar_sqrt.to(self.device),
+            )[-1] for i in range(self.n_z_samples)]
+
+            final_recoverd = torch.stack(y_tile_seq, dim=0)
+
+        
         mean_pred = final_recoverd.mean(dim=0).detach().cpu().squeeze()
         std_pred = final_recoverd.std(dim=0).detach().cpu().squeeze()
 
