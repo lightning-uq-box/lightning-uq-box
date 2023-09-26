@@ -1,0 +1,22 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.CARDModel
+  cond_mean_model:
+    _target_: lightning_uq_box.models.MLP
+    n_inputs: 1
+    n_outputs: 1
+    n_hidden: [20]
+  guidance_model:
+    _target_: lightning_uq_box.models.ConditionalGuidedLinearModel
+    n_steps: 5
+    x_dim: 1
+    y_dim: 1
+    n_hidden: [20, 20]
+    cat_x: true
+    cat_y_pred: true
+  guidance_optim:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  beta_schedule: "linear"
+  n_steps: 5
+  n_z_samples: 10
