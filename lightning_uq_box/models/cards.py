@@ -109,8 +109,16 @@ class ConditionalLinear(nn.Module):
         self.embed = nn.Embedding(n_steps, n_outputs)
         self.embed.weight.data.uniform_()
 
-    def forward(self, x, t):
-        """Forward pass of conditional linear layer."""
+    def forward(self, x: Tensor, t: Tensor) -> Tensor:
+        """Forward pass of conditional linear layer.
+        
+        Args:
+            x: input of shape [N, n_inputs]
+            t: input of shape [1]
+
+        Returns:
+            output from condtitional linear model of shape [N, n_outputs]
+        """
         out = self.lin(x)
         gamma = self.embed(t)
         out = gamma.view(-1, self.n_outputs) * out
@@ -129,11 +137,11 @@ class DiffusionSequential(nn.Sequential):
         """Forward pass.
         
         Args:
-            input: input tensor to model
-            t: time steps
+            input: input tensor to model shape [n, feature_dim]
+            t: time steps shape [1]
 
         Returns:
-            output of diffusion model
+            output of diffusion model [n, output_dim]
         """
         for module in self._modules.values():
             if isinstance(module, ConditionalLinear):
@@ -197,4 +205,5 @@ class ConditionalGuidedLinearModel(nn.Module):
                 eps_pred = torch.cat((y_t, y_0_hat), dim=1)
             else:
                 eps_pred = y_t
+        
         return self.model(eps_pred, t)
