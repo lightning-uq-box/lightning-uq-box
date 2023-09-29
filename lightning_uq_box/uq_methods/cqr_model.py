@@ -12,10 +12,10 @@ from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 
 from .base import BaseModule
 from .utils import (
+    _get_num_inputs,
+    _get_num_outputs,
     merge_list_of_dictionaries,
     save_predictions_to_csv,
-    _get_num_inputs,
-    _get_num_outputs
 )
 
 # TODO add quantile outputs to all models so they can be conformalized
@@ -183,10 +183,14 @@ class CQR(BaseModule):
     ) -> dict[str, np.ndarray]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        out_dict[self.target_key] = (
+            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        )
 
         if batch[self.input_key].shape[0] > 1:
-            self.test_metrics(out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1))
+            self.test_metrics(
+                out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1)
+            )
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()

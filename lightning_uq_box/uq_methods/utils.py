@@ -13,6 +13,7 @@ from bayesian_torch.models.dnn_to_bnn import (
     bnn_lstm_layer,
 )
 from torch import Tensor
+from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 
 from lightning_uq_box.eval_utils import (
     compute_aleatoric_uncertainty,
@@ -21,18 +22,18 @@ from lightning_uq_box.eval_utils import (
     compute_quantiles_from_std,
 )
 
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 
 def default_regression_metrics(prefix: str):
     """Return a set of default regression metrics."""
     return MetricCollection(
-            {
-                "RMSE": MeanSquaredError(squared=False),
-                "MAE": MeanAbsoluteError(),
-                "R2": R2Score(),
-            },
-            prefix=prefix,
-        )
+        {
+            "RMSE": MeanSquaredError(squared=False),
+            "MAE": MeanAbsoluteError(),
+            "R2": R2Score(),
+        },
+        prefix=prefix,
+    )
+
 
 def process_model_prediction(
     preds: Tensor, quantiles: list[float]
@@ -239,6 +240,7 @@ def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]
 
     return key, module
 
+
 def _get_num_inputs(module):
     """Get the number of inputs for a module."""
     _, module = _get_input_layer_name_and_module(module)
@@ -248,6 +250,7 @@ def _get_num_inputs(module):
         num_inputs = module.in_channels
     return num_inputs
 
+
 def _get_num_outputs(module: nn.Module) -> int:
     """Get the number of outputs for a module."""
     _, module = _get_output_layer_name_and_module(module)
@@ -256,4 +259,3 @@ def _get_num_outputs(module: nn.Module) -> int:
     elif hasattr(module, "out_channels"):  # Conv Layer
         num_outputs = module.out_channels
     return num_outputs
-        

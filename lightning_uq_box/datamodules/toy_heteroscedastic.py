@@ -108,7 +108,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             TensorDataset(self.X_train, self.y_train),
             batch_size=self.batch_size,
             shuffle=True,
-            collate_fn=collate_fn_tensordataset
+            collate_fn=collate_fn_tensordataset,
         )
 
     def val_dataloader(self) -> DataLoader:

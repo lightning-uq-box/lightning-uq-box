@@ -25,7 +25,7 @@ from torch import Tensor
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
 
 from .base import BaseModule
-from .utils import save_predictions_to_csv, _get_num_inputs, _get_num_outputs
+from .utils import _get_num_inputs, _get_num_outputs, save_predictions_to_csv
 
 
 class DeepKernelLearningModel(gpytorch.Module, BaseModule):
@@ -78,7 +78,6 @@ class DeepKernelLearningModel(gpytorch.Module, BaseModule):
 
         self.dkl_model_built = False
 
-    
     @property
     def num_inputs(self) -> int:
         """Retrieve input dimension to the model.
@@ -134,7 +133,7 @@ class DeepKernelLearningModel(gpytorch.Module, BaseModule):
             self.hparams.n_inducing_points,
             augmentation,
             self.input_key,
-            self.target_key
+            self.target_key,
         )
         self.initial_inducing_points = self.initial_inducing_points.to(self.device)
         self.initial_lengthscale = self.initial_lengthscale.to(self.device)
@@ -221,10 +220,13 @@ class DeepKernelLearningModel(gpytorch.Module, BaseModule):
     ) -> dict[str, np.ndarray]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        out_dict[self.target_key] = (
+            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        )
 
         self.log(
-            "test_loss", -self.elbo_fn(out_dict["out"], batch[self.target_key].squeeze(-1))
+            "test_loss",
+            -self.elbo_fn(out_dict["out"], batch[self.target_key].squeeze(-1)),
         )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["out"].mean, batch[self.target_key].squeeze(-1))
@@ -409,10 +411,15 @@ class DKLGPLayer(ApproximateGP):
 
 
 def compute_initial_values(
-    train_dataset, feature_extractor, n_inducing_points, augmentation, input_key, target_key
-) -> Tensor:
+    train_dataset,
+    feature_extractor,
+    n_inducing_points,
+    augmentation,
+    input_key,
+    target_key,
+) -> tuple[Tensor]:
     """Compute the inital values.
-    
+
     Args:
         train_dataset: training dataset to compute the initial values on
         feature_extractor:
@@ -422,7 +429,7 @@ def compute_initial_values(
         target_key:
 
     Returns:
-
+        initial inducing points and initial lengthscale
     """
     steps = 10
     idx = torch.randperm(len(train_dataset))[:1000].chunk(steps)
@@ -432,14 +439,17 @@ def compute_initial_values(
     with torch.no_grad():
         for i in range(steps):
             random_indices = idx[i].tolist()
-            
+
             if isinstance(train_dataset[0], dict):
-                X_sample = torch.stack([train_dataset[j][input_key] for j in random_indices])
-                y_sample = torch.stack([train_dataset[j][target_key] for j in random_indices])
+                X_sample = torch.stack(
+                    [train_dataset[j][input_key] for j in random_indices]
+                )
+                y_sample = torch.stack(
+                    [train_dataset[j][target_key] for j in random_indices]
+                )
             else:
                 X_sample = torch.stack([train_dataset[j][0] for j in random_indices])
                 y_sample = torch.stack([train_dataset[j][1] for j in random_indices])
-            
 
             if torch.cuda.is_available():
                 X_sample = X_sample.cuda()
@@ -458,12 +468,13 @@ def compute_initial_values(
 
 def _get_initial_inducing_points(f_X_sample, n_inducing_points) -> Tensor:
     """Compute the initial number of inducing points.
-    
+
     Args:
         f_X_sample:
         n_inducing_points:
 
     Returns:
+        initial inducing points
     """
     kmeans = cluster.MiniBatchKMeans(
         n_clusters=n_inducing_points, batch_size=n_inducing_points * 10, n_init=3
@@ -476,12 +487,12 @@ def _get_initial_inducing_points(f_X_sample, n_inducing_points) -> Tensor:
 
 def _get_initial_lengthscale(f_X_samples) -> Tensor:
     """Compute the initial lengthscale.
-    
+
     Args:
         f_X_samples:
 
     Returns:
-
+        length scale tensor
     """
     if torch.cuda.is_available():
         f_X_samples = f_X_samples.cuda()

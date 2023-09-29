@@ -10,12 +10,11 @@ import torch.nn as nn
 from laplace import Laplace
 from laplace.curvature import AsdlGGN
 from laplace.utils import LargestMagnitudeSubnetMask, ModuleNameSubnetMask
-
 from torch import Tensor
 from tqdm import trange
 
-from lightning_uq_box.uq_methods import BaseModule
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
+from lightning_uq_box.uq_methods import BaseModule
 
 from .utils import (
     change_inplace_activation,
@@ -196,10 +195,13 @@ class LaplaceModel(BaseModule):
     ) -> None:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        out_dict[self.target_key] = (
+            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        )
 
         self.log(
-            "test_loss", self.loss_fn(out_dict["pred"], batch[self.target_key].squeeze(-1))
+            "test_loss",
+            self.loss_fn(out_dict["pred"], batch[self.target_key].squeeze(-1)),
         )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))

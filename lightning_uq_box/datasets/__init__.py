@@ -1,7 +1,11 @@
 """UQ-Regression-Box Datasets."""
 
 # from .reforesTree import ReforesTreeRegression
-from .card_regression import SinusoidDatasetWithOneX, LogLinearDatasetWithOneX, CircleDatasetWithOneX
+from .card_regression import (
+    CircleDatasetWithOneX,
+    LogLinearDatasetWithOneX,
+    SinusoidDatasetWithOneX,
+)
 from .toy_image_regression import ToyImageRegressionDataset
 from .uci import UCIRegressionDataset
 from .uci_boston import UCIBoston

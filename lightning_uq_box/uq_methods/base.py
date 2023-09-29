@@ -8,14 +8,18 @@ import torch
 import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
-from torchgeo.trainers.utils import _get_input_layer_name_and_module
 
-from .utils import _get_output_layer_name_and_module, save_predictions_to_csv, default_regression_metrics, _get_num_inputs, _get_num_outputs
+from .utils import (
+    _get_num_inputs,
+    _get_num_outputs,
+    default_regression_metrics,
+    save_predictions_to_csv,
+)
 
 
 class BaseModule(LightningModule):
     """Define a base module.
-    
+
     The base module has some basic utilities and attributes
     but is otherwise just an extension of a LightningModule.
     """
@@ -30,8 +34,8 @@ class BaseModule(LightningModule):
     pred_file_name = "predictions.csv"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Initialize a new instance of the Base Module."""
         super().__init__(*args, **kwargs)
-
 
     @property
     def num_inputs(self) -> int:
@@ -54,6 +58,7 @@ class BaseModule(LightningModule):
 
 class BaseModel(BaseModule):
     """Deterministic Base Trainer as LightningModule."""
+
     input_key = "input"
     target_key = "target"
 
@@ -165,10 +170,14 @@ class BaseModel(BaseModule):
     ) -> dict[str, np.ndarray]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        out_dict[self.target_key] = (
+            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        )
 
         if batch[self.input_key].shape[0] > 1:
-            self.test_metrics(out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1))
+            self.test_metrics(
+                out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1)
+            )
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()

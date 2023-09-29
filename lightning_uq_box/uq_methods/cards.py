@@ -2,13 +2,16 @@
 
 import os
 from typing import Any, Optional
-import torch
+
 import numpy as np
-from .utils import save_predictions_to_csv
-from torch import Tensor
+import torch
 import torch.nn as nn
-from .base import BaseModule
+from torch import Tensor
+
 from lightning_uq_box.models.cards import NoiseScheduler
+
+from .base import BaseModule
+from .utils import save_predictions_to_csv
 
 
 class CARDModel(BaseModule):
@@ -21,7 +24,7 @@ class CARDModel(BaseModule):
     * https://arxiv.org/abs/2206.07275
 
     """
-    
+
     def __init__(
         self,
         cond_mean_model: nn.Module,
@@ -31,7 +34,7 @@ class CARDModel(BaseModule):
         beta_schedule: str = "linear",
         beta_start: float = 1e-5,
         beta_end: float = 1e-2,
-        n_z_samples: int = 100
+        n_z_samples: int = 100,
     ) -> None:
         """Initialize a new instance of the CARD Model.
 
@@ -69,9 +72,9 @@ class CARDModel(BaseModule):
         ant_samples_t = torch.randint(
             low=0, high=self.n_steps, size=(batch_size // 2 + 1,)
         ).to(x.device)
-        ant_samples_t = torch.cat([ant_samples_t, self.n_steps - 1 - ant_samples_t], dim=0)[
-            :batch_size
-        ]
+        ant_samples_t = torch.cat(
+            [ant_samples_t, self.n_steps - 1 - ant_samples_t], dim=0
+        )[:batch_size]
 
         # noise estimation loss
         y_0_hat = self.cond_mean_model(x)
@@ -106,7 +109,6 @@ class CARDModel(BaseModule):
         # aux_cost.backward()
         # aux_optimizer.step()
 
-
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -121,7 +123,7 @@ class CARDModel(BaseModule):
         train_loss = self.diffusion_process(batch)
         self.log("train_loss", train_loss)
         return train_loss
-        
+
     # def on_train_epoch_end(self):
     #     """Log epoch-level training metrics."""
     #     self.log_dict(self.train_metrics.compute())
@@ -132,12 +134,12 @@ class CARDModel(BaseModule):
     ) -> Tensor:
         """Compute and return the validation loss.
 
-        Args:
-            batch: the output of your DataLoader
-q
+                Args:
+                    batch: the output of your DataLoader
+        q
 
-        Returns:
-            validation loss
+                Returns:
+                    validation loss
         """
         val_loss = self.diffusion_process(batch)
         self.log("val_loss", val_loss)
@@ -193,7 +195,7 @@ q
             y_t = y_0_hat_tile + z
 
             # generate samples from all time steps for the mini-batch
-            y_tile_seq : list[Tensor] = self.p_sample_loop(
+            y_tile_seq: list[Tensor] = self.p_sample_loop(
                 test_x_tile,
                 y_0_hat_tile,
                 y_0_hat_tile,
@@ -203,24 +205,28 @@ q
             )
 
             # put in shape [n_z_samples, batch_size, 1]
-            y_tile_seq = [arr.reshape(self.n_z_samples, X.shape[0], 1) for arr in y_tile_seq]
+            y_tile_seq = [
+                arr.reshape(self.n_z_samples, X.shape[0], 1) for arr in y_tile_seq
+            ]
 
             final_recoverd = y_tile_seq[-1]
-        
+
         else:
             # TODO make this more efficient
-            y_tile_seq: list[Tensor] = [self.p_sample_loop(
-                X,
-                y_0_hat,
-                y_0_hat,
-                self.n_steps,
-                self.noise_scheduler.alphas.to(self.device),
-                self.noise_scheduler.one_minus_alphas_bar_sqrt.to(self.device),
-            )[-1] for i in range(self.n_z_samples)]
+            y_tile_seq: list[Tensor] = [
+                self.p_sample_loop(
+                    X,
+                    y_0_hat,
+                    y_0_hat,
+                    self.n_steps,
+                    self.noise_scheduler.alphas.to(self.device),
+                    self.noise_scheduler.one_minus_alphas_bar_sqrt.to(self.device),
+                )[-1]
+                for i in range(self.n_z_samples)
+            ]
 
             final_recoverd = torch.stack(y_tile_seq, dim=0)
 
-        
         mean_pred = final_recoverd.mean(dim=0).detach().cpu().squeeze()
         std_pred = final_recoverd.std(dim=0).detach().cpu().squeeze()
 
@@ -230,7 +236,6 @@ q
             "aleatoric_uct": std_pred,
             "out": y_tile_seq,
         }
-
 
     def on_test_batch_end(
         self,
@@ -245,9 +250,7 @@ q
                 outputs, os.path.join(self.save_dir, self.pred_file_name)
             )
 
-    def p_sample(
-        self, x, y, y_0_hat, y_T_mean, t, alphas, one_minus_alphas_bar_sqrt
-    ):
+    def p_sample(self, x, y, y_0_hat, y_T_mean, t, alphas, one_minus_alphas_bar_sqrt):
         """Reverse diffusion process sampling -- one time step.
 
         We replace y_0_hat with y_T_mean in the forward process posterior mean computation, emphasizing that
@@ -300,7 +303,7 @@ q
         )
         # posterior mean
         y_t_m_1_hat = gamma_0 * y_0_reparam + gamma_1 * y + gamma_2 * y_T_mean
-        
+
         # posterior variance
         beta_t_hat = (
             (sqrt_one_minus_alpha_bar_t_m_1.square())
@@ -409,7 +412,7 @@ q
         t,
         noise: Optional[Tensor] = None,
     ) -> Tensor:
-        """Q sampling process
+        """Q sampling process.
 
         Args:
             y: sampled y at time step t, y_t.
@@ -447,7 +450,7 @@ q
         out = torch.gather(input, 0, t)
         reshape = [t.shape[0]] + [1] * (len(shape) - 1)
         return out.reshape(*reshape)
-    
+
     def configure_optimizers(self) -> Any:
         """Configure optimizers."""
         optimizer = self.guidance_optim(params=self.guidance_model.parameters())
