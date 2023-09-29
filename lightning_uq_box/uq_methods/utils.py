@@ -21,6 +21,18 @@ from lightning_uq_box.eval_utils import (
     compute_quantiles_from_std,
 )
 
+from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
+
+def default_regression_metrics(prefix: str):
+    """Return a set of default regression metrics."""
+    return MetricCollection(
+            {
+                "RMSE": MeanSquaredError(squared=False),
+                "MAE": MeanAbsoluteError(),
+                "R2": R2Score(),
+            },
+            prefix=prefix,
+        )
 
 def process_model_prediction(
     preds: Tensor, quantiles: list[float]
@@ -187,6 +199,26 @@ def dnn_to_bnn_some(m, bnn_prior_parameters, part_stoch_module_names: int):
     return
 
 
+def _get_input_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:
+    """Retrieve the input layer name and module from a timm model.
+
+    Args:
+        model: pytorch model
+
+    Returns:
+        input key and module
+    """
+    keys = []
+    children = list(model.named_children())
+    while children != []:
+        name, module = children[0]
+        keys.append(name)
+        children = list(module.named_children())
+
+    key = ".".join(keys)
+    return key, module
+
+
 def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:
     """Retrieve the output layer name and module from a pytorch model.
 
@@ -206,3 +238,22 @@ def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]
     key = ".".join(keys)
 
     return key, module
+
+def _get_num_inputs(module):
+    """Get the number of inputs for a module."""
+    _, module = _get_input_layer_name_and_module(module)
+    if hasattr(module, "in_features"):  # Linear Layer
+        num_inputs = module.in_features
+    elif hasattr(module, "in_channels"):  # Conv Layer
+        num_inputs = module.in_channels
+    return num_inputs
+
+def _get_num_outputs(module: nn.Module) -> int:
+    """Get the number of outputs for a module."""
+    _, module = _get_output_layer_name_and_module(module)
+    if hasattr(module, "out_features"):  # Linear Layer
+        num_outputs = module.out_features
+    elif hasattr(module, "out_channels"):  # Conv Layer
+        num_outputs = module.out_channels
+    return num_outputs
+        

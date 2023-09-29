@@ -153,7 +153,7 @@ class SGLDModel(BaseModel):
         sgld_opt = self.optimizers()
         sgld_opt.zero_grad()
 
-        X, y = batch["inputs"], batch["targets"]
+        X, y = batch[self.input_key], batch[self.target_key]
         out = self.forward(X)
 
         def closure():

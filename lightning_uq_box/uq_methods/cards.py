@@ -7,13 +7,11 @@ import numpy as np
 from .utils import save_predictions_to_csv
 from torch import Tensor
 import torch.nn as nn
-from lightning import LightningModule
+from .base import BaseModule
 from lightning_uq_box.models.cards import NoiseScheduler
 
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 
-
-class CARDModel(LightningModule):
+class CARDModel(BaseModule):
     """CARD Model.
 
     Regression Diffusion Model based on CARD paper.
@@ -23,7 +21,7 @@ class CARDModel(LightningModule):
     * https://arxiv.org/abs/2206.07275
 
     """
-
+    
     def __init__(
         self,
         cond_mean_model: nn.Module,
@@ -61,36 +59,9 @@ class CARDModel(LightningModule):
 
         self.guidance_optim = guidance_optim
 
-        self.train_metrics = MetricCollection(
-            {
-                "RMSE": MeanSquaredError(squared=False),
-                "MAE": MeanAbsoluteError(),
-                "R2": R2Score(),
-            },
-            prefix="train_",
-        )
-
-        self.val_metrics = MetricCollection(
-            {
-                "RMSE": MeanSquaredError(squared=False),
-                "MAE": MeanAbsoluteError(),
-                "R2": R2Score(),
-            },
-            prefix="val_",
-        )
-
-        self.test_metrics = MetricCollection(
-            {
-                "RMSE": MeanSquaredError(squared=False),
-                "MAE": MeanAbsoluteError(),
-                "R2": R2Score(),
-            },
-            prefix="test_",
-        )
-
     def diffusion_process(self, batch: dict[str, Tensor]):
         """Diffusion process during training."""
-        x, y = batch["inputs"], batch["targets"]
+        x, y = batch[self.input_key], batch[self.target_key]
 
         batch_size = x.shape[0]
 

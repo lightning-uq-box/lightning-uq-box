@@ -7,16 +7,15 @@ import numpy as np
 import torch
 from lightning import LightningModule
 from torch import Tensor
-from torch.utils.data import DataLoader
-from torchgeo.trainers.utils import _get_input_layer_name_and_module
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 
 from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 
+from .base import BaseModule
 from .utils import (
-    _get_output_layer_name_and_module,
     merge_list_of_dictionaries,
     save_predictions_to_csv,
+    _get_num_inputs,
+    _get_num_outputs
 )
 
 # TODO add quantile outputs to all models so they can be conformalized
@@ -56,7 +55,7 @@ def compute_q_hat_with_cqr(
     return q_hat
 
 
-class CQR(LightningModule):
+class CQR(BaseModule):
     """Implements conformalized Quantile Regression.
 
     This should be a wrapper around any pytorch lightning model
@@ -89,17 +88,6 @@ class CQR(LightningModule):
 
         self.save_dir = save_dir
 
-        self.pred_file_name = "predictions.csv"
-
-        self.test_metrics = MetricCollection(
-            {
-                "RMSE": MeanSquaredError(squared=False),
-                "MAE": MeanAbsoluteError(),
-                "R2": R2Score(),
-            },
-            prefix="test_",
-        )
-
     @property
     def num_inputs(self) -> int:
         """Retrieve input dimension to the model.
@@ -107,12 +95,7 @@ class CQR(LightningModule):
         Returns:
             number of input dimension to the model
         """
-        _, module = _get_input_layer_name_and_module(self.model.model)
-        if hasattr(module, "in_features"):  # Linear Layer
-            num_inputs = module.in_features
-        elif hasattr(module, "in_channels"):  # Conv Layer
-            num_inputs = module.in_channels
-        return num_inputs
+        return _get_num_inputs(self.model.model)
 
     @property
     def num_outputs(self) -> int:
@@ -121,12 +104,7 @@ class CQR(LightningModule):
         Returns:
             number of input dimension to the model
         """
-        _, module = _get_output_layer_name_and_module(self.model.model)
-        if hasattr(module, "out_features"):  # Linear Layer
-            num_outputs = module.out_features
-        elif hasattr(module, "out_channels"):  # Conv Layer
-            num_outputs = module.out_channels
-        return num_outputs
+        return _get_num_outputs(self.model.model)
 
     def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
         """Conformalized Forward Pass.
@@ -178,7 +156,7 @@ class CQR(LightningModule):
             self.model.predict_step(
                 self.trainer.datamodule.on_after_batch_transfer(
                     batch, dataloader_idx=0
-                )["inputs"].to(self.device)
+                )[self.input_key].to(self.device)
             )
             for batch in calibration_loader
         ]
@@ -189,9 +167,9 @@ class CQR(LightningModule):
                 batch, dataloader_idx=0
             )
             model_outputs.append(
-                self.model.predict_step(aug_batch["inputs"].to(self.device))
+                self.model.predict_step(aug_batch[self.input_key].to(self.device))
             )
-            cal_labels.append(aug_batch["targets"].numpy())
+            cal_labels.append(aug_batch[self.target_key].numpy())
 
         cal_labels = np.concatenate(cal_labels)
         model_outputs = merge_list_of_dictionaries(model_outputs)
@@ -204,18 +182,18 @@ class CQR(LightningModule):
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
         """Test step."""
-        out_dict = self.predict_step(batch["inputs"])
-        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+        out_dict = self.predict_step(batch[self.input_key])
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu().numpy()
 
-        if batch["inputs"].shape[0] > 1:
-            self.test_metrics(out_dict["pred"].squeeze(), batch["targets"].squeeze(-1))
+        if batch[self.input_key].shape[0] > 1:
+            self.test_metrics(out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1))
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
 
         # save metadata
         for key, val in batch.items():
-            if key not in ["inputs", "targets"]:
+            if key not in [self.input_key, self.target_key]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
 
         if "out" in out_dict:
