@@ -1,6 +1,7 @@
 """Command-line interface to Lightning-UQ-Box."""
 
 from lightning.pytorch.cli import ArgsType, LightningCLI
+import lightning as L
 
 # Allows classes to be referenced using only the class name
 import lightning_uq_box.datamodules  # noqa: F401
@@ -19,10 +20,11 @@ def main(args: ArgsType = None) -> None:
     """Command-line interface to Lightning-UQ-Box."""
 
     LightningCLI(
-        model_class=BaseModule,
-        datamodule_class=ToyHeteroscedasticDatamodule,
+        model_class=L.LightningModule,
+        datamodule_class=L.LightningDataModule,
         seed_everything_default=0,
         subclass_mode_model=True,
         subclass_mode_data=True,
+        auto_configure_optimizers=False,
         args=args,
     )
