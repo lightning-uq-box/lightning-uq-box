@@ -1,3 +1,5 @@
+(regression1D)=
+
 # Regression 1D Tutorials
 
 ```{toctree}
