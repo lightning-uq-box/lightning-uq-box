@@ -1,7 +1,12 @@
 """UQ-Regression-Box Models."""
 
+from .cards import (
+    ConditionalGuidedConvModel,
+    ConditionalGuidedLinearModel,
+    ConditionalLinear,
+    NoiseScheduler,
+)
 from .mlp import MLP
-from .cards import ConditionalLinear, ConditionalGuidedLinearModel, NoiseScheduler, ConditionalGuidedConvModel
 
 __all__ = (
     # custom models

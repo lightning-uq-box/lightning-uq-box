@@ -1,6 +1,6 @@
 """UQ-Methods as Lightning Modules."""
 
-from .base import BaseModel
+from .base import BaseModel, BaseModule
 from .bnn_vi import BNN_VI, BNN_VI_Batched
 from .bnn_vi_elbo import BNN_VI_ELBO
 from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
@@ -30,6 +30,8 @@ from .spectral_normalized_layers import (
 from .swag import SWAGModel
 
 __all__ = (
+    # Base Module
+    "BaseModule",
     # base model
     "BaseModel",
     # CARD Model

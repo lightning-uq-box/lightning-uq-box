@@ -44,17 +44,17 @@ class MCDropoutModel(BaseModel):
         Returns:
             training loss
         """
-        out = self.forward(batch["inputs"])
+        out = self.forward(batch[self.input_key])
 
         if self.current_epoch < self.hparams.burnin_epochs:
             loss = nn.functional.mse_loss(
-                self.extract_mean_output(out), batch["targets"]
+                self.extract_mean_output(out), batch[self.target_key]
             )
         else:
-            loss = self.loss_fn(out, batch["targets"])
+            loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), batch["targets"])
+        self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
 
         return loss
 

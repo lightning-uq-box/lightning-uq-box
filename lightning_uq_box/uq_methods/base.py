@@ -8,14 +8,59 @@ import torch
 import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
-from torchgeo.trainers.utils import _get_input_layer_name_and_module
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 
-from .utils import _get_output_layer_name_and_module, save_predictions_to_csv
+from .utils import (
+    _get_num_inputs,
+    _get_num_outputs,
+    default_regression_metrics,
+    save_predictions_to_csv,
+)
 
 
-class BaseModel(LightningModule):
+class BaseModule(LightningModule):
+    """Define a base module.
+
+    The base module has some basic utilities and attributes
+    but is otherwise just an extension of a LightningModule.
+    """
+
+    input_key = "input"
+    target_key = "target"
+
+    train_metrics = default_regression_metrics("train_")
+    val_metrics = default_regression_metrics("val_")
+    test_metrics = default_regression_metrics("test_")
+
+    pred_file_name = "predictions.csv"
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Initialize a new instance of the Base Module."""
+        super().__init__(*args, **kwargs)
+
+    @property
+    def num_inputs(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        return _get_num_inputs(self.model)
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        return _get_num_outputs(self.model)
+
+
+class BaseModel(BaseModule):
     """Deterministic Base Trainer as LightningModule."""
+
+    input_key = "input"
+    target_key = "target"
 
     def __init__(
         self,
@@ -36,67 +81,11 @@ class BaseModel(LightningModule):
         """
         super().__init__()
 
-        self.train_metrics = MetricCollection(
-            {
-                "RMSE": MeanSquaredError(squared=False),
-                "MAE": MeanAbsoluteError(),
-                "R2": R2Score(),
-            },
-            prefix="train_",
-        )
-
-        self.val_metrics = MetricCollection(
-            {
-                "RMSE": MeanSquaredError(squared=False),
-                "MAE": MeanAbsoluteError(),
-                "R2": R2Score(),
-            },
-            prefix="val_",
-        )
-
-        self.test_metrics = MetricCollection(
-            {
-                "RMSE": MeanSquaredError(squared=False),
-                "MAE": MeanAbsoluteError(),
-                "R2": R2Score(),
-            },
-            prefix="test_",
-        )
         self.model = model
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.loss_fn = loss_fn
         self.save_dir = save_dir
-
-        self.pred_file_name = "predictions.csv"
-
-    @property
-    def num_inputs(self) -> int:
-        """Retrieve input dimension to the model.
-
-        Returns:
-            number of input dimension to the model
-        """
-        _, module = _get_input_layer_name_and_module(self.model)
-        if hasattr(module, "in_features"):  # Linear Layer
-            num_inputs = module.in_features
-        elif hasattr(module, "in_channels"):  # Conv Layer
-            num_inputs = module.in_channels
-        return num_inputs
-
-    @property
-    def num_outputs(self) -> int:
-        """Retrieve output dimension to the model.
-
-        Returns:
-            number of input dimension to the model
-        """
-        _, module = _get_output_layer_name_and_module(self.model)
-        if hasattr(module, "out_features"):  # Linear Layer
-            num_outputs = module.out_features
-        elif hasattr(module, "out_channels"):  # Conv Layer
-            num_outputs = module.out_channels
-        return num_outputs
 
     def forward(self, X: Tensor, **kwargs: Any) -> Any:
         """Forward pass of the model.
@@ -136,12 +125,12 @@ class BaseModel(LightningModule):
         Returns:
             training loss
         """
-        out = self.forward(batch["inputs"])
-        loss = self.loss_fn(out, batch["targets"])
+        out = self.forward(batch[self.input_key])
+        loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("train_loss", loss)  # logging to Logger
-        if batch["inputs"].shape[0] > 1:
-            self.train_metrics(self.extract_mean_output(out), batch["targets"])
+        if batch[self.input_key].shape[0] > 1:
+            self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
 
         return loss
 
@@ -162,12 +151,12 @@ class BaseModel(LightningModule):
         Returns:
             validation loss
         """
-        out = self.forward(batch["inputs"])
-        loss = self.loss_fn(out, batch["targets"])
+        out = self.forward(batch[self.input_key])
+        loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("val_loss", loss)  # logging to Logger
-        if batch["inputs"].shape[0] > 1:
-            self.val_metrics(self.extract_mean_output(out), batch["targets"])
+        if batch[self.input_key].shape[0] > 1:
+            self.val_metrics(self.extract_mean_output(out), batch[self.target_key])
 
         return loss
 
@@ -180,18 +169,22 @@ class BaseModel(LightningModule):
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
         """Test step."""
-        out_dict = self.predict_step(batch["inputs"])
-        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+        out_dict = self.predict_step(batch[self.input_key])
+        out_dict[self.target_key] = (
+            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        )
 
-        if batch["inputs"].shape[0] > 1:
-            self.test_metrics(out_dict["pred"].squeeze(), batch["targets"].squeeze(-1))
+        if batch[self.input_key].shape[0] > 1:
+            self.test_metrics(
+                out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1)
+            )
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
 
         # save metadata
         for key, val in batch.items():
-            if key not in ["inputs", "targets"]:
+            if key not in [self.input_key, self.target_key]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
 
         if "out" in out_dict:

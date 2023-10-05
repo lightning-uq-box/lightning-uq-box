@@ -9,10 +9,11 @@ from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
 
-from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule, ToyImageRegressionDatamodule
+from lightning_uq_box.datamodules import (
+    ToyHeteroscedasticDatamodule,
+    ToyImageRegressionDatamodule,
+)
 from lightning_uq_box.uq_methods import CARDModel
-
-
 
 
 class TestCARDS:
@@ -40,9 +41,6 @@ class TestCARDS:
     #     trainer.fit(model=card_linear_model, datamodule=datamodule)
     #     trainer.test(model=card_linear_model, datamodule=datamodule)
 
-
-
-
     # image test
     @pytest.fixture
     def card_conv_model(self, tmp_path: Path) -> CARDModel:
@@ -68,8 +66,3 @@ class TestCARDS:
     #     )
     #     trainer.fit(model=card_conv_model, datamodule=datamodule)
     #     trainer.test(model=card_conv_model, datamodule=datamodule)
-
-    
-
-
-
