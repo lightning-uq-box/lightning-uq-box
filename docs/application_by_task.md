@@ -13,6 +13,12 @@ While some UQ-Methods like MC-Dropout or Deep Ensembles can be applied across ta
 
 ## Regression 1D targets
 
+```{toctree}
+:maxdepth: 1
+
+tutorials/regression1D
+```
+
 ## Pixelwise Regression
 
 ## Classification with single labels
