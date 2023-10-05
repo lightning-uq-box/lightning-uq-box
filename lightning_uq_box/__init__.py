@@ -1,6 +1,6 @@
 # Licensed under the MIT License.
 
-"""UQ-Regression-Box.
+"""Lightning-UQ-Box.
 
 Datasets, UQ-methods, and evaluation utils for Uncertainty in
 Image Regression tasks.

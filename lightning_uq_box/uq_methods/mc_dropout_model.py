@@ -69,7 +69,20 @@ class MCDropoutModel(BaseModel):
         Returns:
             mean and standard deviation of MC predictions
         """
-        self.model.train()  # activate dropout during prediction
+
+        def activate_dropout(model) -> None:
+            """Activate only the droput layers, model could also have batch norm layers.
+
+            Args:
+                model: nn.Module to activate dropout layers
+            """
+            for layer in model.children():
+                if isinstance(layer, nn.Dropout):
+                    layer.train()
+                elif isinstance(layer, nn.Module):
+                    activate_dropout(layer)
+
+        activate_dropout(self.model)  # activate dropout layers
         with torch.no_grad():
             preds = torch.stack(
                 [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1

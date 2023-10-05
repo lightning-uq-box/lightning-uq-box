@@ -1,12 +1,13 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
 from .utils import (
@@ -65,10 +66,10 @@ class BaseModel(BaseModule):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
+        optimizer: OptimizerCallable,
         loss_fn: nn.Module,
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
-        save_dir: str = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        save_dir: Optional[str] = None,
     ) -> None:
         """Initialize a new Base Model.
 
