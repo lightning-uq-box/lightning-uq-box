@@ -29,11 +29,7 @@ extensions = [
 
 myst_enable_extensions = ["dollarmath", "colon_fence"]
 master_doc = "index"
-source_suffix = {
-    ".rst": "restructuredtext",
-    ".md": "markdown",
-    # ".ipynb": "sphinxcontrib.jupyter"
-}
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 templates_path = ["_templates"]
 
 source_dirs = ["api", "tutorials"]
@@ -45,7 +41,7 @@ version = lightning_uq_box.__version__
 release = lightning_uq_box.__version__
 
 exclude_patterns = ["_build"]
-html_theme = "sphinx_book_theme"
+html_theme = "sphinx_book_theme"  # "sphinx_book_theme"
 html_title = "Lightning-UQ-Box"
 # html_logo = "_static/zap.svg"
 # html_favicon = "_static/favicon.png"
