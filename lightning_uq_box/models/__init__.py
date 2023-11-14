@@ -4,7 +4,6 @@ from .cards import (
     ConditionalGuidedConvModel,
     ConditionalGuidedLinearModel,
     ConditionalLinear,
-    NoiseScheduler,
 )
 from .mlp import MLP
 

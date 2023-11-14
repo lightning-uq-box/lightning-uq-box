@@ -6,10 +6,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
 
-from .base import BaseModel
+from .base import DeterministicModel
 from .loss_functions import DERLoss
 
 
@@ -46,7 +48,7 @@ class DERLayer(nn.Module):
         return torch.stack((gamma, nu, alpha, beta), dim=1)
 
 
-class DERModel(BaseModel):
+class DER(DeterministicModel):
     """Deep Evidential Regression Model.
 
     Following the suggested implementation of:
@@ -63,20 +65,11 @@ class DERModel(BaseModel):
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
         lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
-        save_dir: str = None,
+        coeff: float = 0.01,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new Base Model.
-
-        Args:
-            model_class: Model Class that can be initialized with arguments from dict,
-                or timm backbone name
-            model_args: arguments to initialize model_class
-            lr: learning rate for adam otimizer
-            loss_fn: string name of loss function to use
-            save_dir: directory path to save predictions
-        """
-        super().__init__(model, optimizer, None, lr_scheduler, save_dir)
+        """Initialize a new Base Model."""
+        super().__init__(model, optimizer, None, lr_scheduler)
 
         self.save_hyperparameters(ignore=["model"])
 
@@ -89,9 +82,8 @@ class DERModel(BaseModel):
         self.model = nn.Sequential(self.model, DERLayer())
 
         # set DER Loss
-        self.loss_fn = (
-            DERLoss()
-        )  # need to give control over the coeff through config or argument
+        # TODO need to give control over the coeff through config or argument
+        self.loss_fn = DERLoss(coeff)
 
         self.hparams["quantiles"] = quantiles
 

@@ -8,6 +8,8 @@ import torch
 import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 from .utils import (
     _get_num_inputs,
@@ -22,14 +24,12 @@ class BaseModule(LightningModule):
 
     The base module has some basic utilities and attributes
     but is otherwise just an extension of a LightningModule.
+
+    This is for things useful across all tasks and methods
     """
 
     input_key = "input"
     target_key = "target"
-
-    train_metrics = default_regression_metrics("train_")
-    val_metrics = default_regression_metrics("val_")
-    test_metrics = default_regression_metrics("test_")
 
     pred_file_name = "predictions.csv"
 
@@ -38,7 +38,7 @@ class BaseModule(LightningModule):
         super().__init__(*args, **kwargs)
 
     @property
-    def num_inputs(self) -> int:
+    def num_input_dims(self) -> int:
         """Retrieve input dimension to the model.
 
         Returns:
@@ -47,7 +47,7 @@ class BaseModule(LightningModule):
         return _get_num_inputs(self.model)
 
     @property
-    def num_outputs(self) -> int:
+    def num_output_dims(self) -> int:
         """Retrieve output dimension to the model.
 
         Returns:
@@ -56,7 +56,7 @@ class BaseModule(LightningModule):
         return _get_num_outputs(self.model)
 
 
-class BaseModel(BaseModule):
+class DeterministicModel(BaseModule):
     """Deterministic Base Trainer as LightningModule."""
 
     input_key = "input"
@@ -65,10 +65,9 @@ class BaseModel(BaseModule):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
+        optimizer: type[Optimizer],
         loss_fn: nn.Module,
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
-        save_dir: str = None,
+        lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new Base Model.
 
@@ -77,7 +76,6 @@ class BaseModel(BaseModule):
                 or timm backbone name
             lr: learning rate for adam otimizer
             loss_fn: loss function module
-            save_dir: directory path to save predictions
         """
         super().__init__()
 
@@ -85,7 +83,6 @@ class BaseModel(BaseModule):
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.loss_fn = loss_fn
-        self.save_dir = save_dir
 
     def forward(self, X: Tensor, **kwargs: Any) -> Any:
         """Forward pass of the model.
@@ -97,22 +94,6 @@ class BaseModel(BaseModule):
             output from the model
         """
         return self.model(X, **kwargs)
-
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean output from model prediction.
-
-        Different models have different number of outputs, i.e. Gaussian NLL 2
-        or quantile regression but for the torchmetrics only
-        the mean/median is considered.
-
-        Args:
-            out: output from :meth:`self.forward` [batch_size x num_outputs]
-
-        Returns:
-            extracted mean used for metric computation [batch_size x 1]
-        """
-        assert out.shape[-1] <= 2, "Ony support single mean or Gaussian output."
-        return out[:, 0:1]
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -183,6 +164,7 @@ class BaseModel(BaseModule):
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
 
         # save metadata
+        # UNIQUE to method
         for key, val in batch.items():
             if key not in [self.input_key, self.target_key]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
@@ -208,18 +190,18 @@ class BaseModel(BaseModule):
             out = self.forward(X)
         return {"pred": self.extract_mean_output(out)}
 
-    def on_test_batch_end(
-        self,
-        outputs: dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        if self.save_dir:
-            save_predictions_to_csv(
-                outputs, os.path.join(self.save_dir, self.pred_file_name)
-            )
+    # def on_test_batch_end(
+    #     self,
+    #     outputs: dict[str, np.ndarray],
+    #     batch: Any,
+    #     batch_idx: int,
+    #     dataloader_idx=0,
+    # ):
+    #     """Test batch end save predictions."""
+    #     if self.save_dir:
+    #         save_predictions_to_csv(
+    #             outputs, os.path.join(self.save_dir, self.pred_file_name)
+    # )
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.

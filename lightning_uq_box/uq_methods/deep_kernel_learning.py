@@ -21,21 +21,22 @@ from gpytorch.variational import (
 )
 from sklearn import cluster
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
 
 from .base import BaseModule
-from .utils import _get_num_inputs, _get_num_outputs, save_predictions_to_csv
+from .utils import (
+    _get_num_inputs,
+    _get_num_outputs,
+    default_regression_metrics,
+    save_predictions_to_csv,
+)
 
 
-class DeepKernelLearningModel(gpytorch.Module, BaseModule):
-    """Deep Kernel Learning Model.
-
-    If you use this model in your research, please cite the following papers:
-
-    * https://arxiv.org/abs/1511.02222
-    * https://arxiv.org/abs/2102.11409
-    """
+class DKLBase(gpytorch.Module, BaseModule):
+    """Deep Kernel Learning Base Module."""
 
     def __init__(
         self,
@@ -45,7 +46,6 @@ class DeepKernelLearningModel(gpytorch.Module, BaseModule):
         n_inducing_points: int,
         optimizer: type[torch.optim.Optimizer],
         lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
-        save_dir: str = None,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Deep Kernel Learning Model.
@@ -71,48 +71,11 @@ class DeepKernelLearningModel(gpytorch.Module, BaseModule):
         self.elbo_fn = elbo_fn
 
         self.lr_scheduler = lr_scheduler
-        self.save_dir = save_dir
 
         # partially initialized gp layer
         self.gp_layer = gp_layer
 
         self.dkl_model_built = False
-
-    @property
-    def num_inputs(self) -> int:
-        """Retrieve input dimension to the model.
-
-        Returns:
-            number of input dimension to the model
-        """
-        return _get_num_inputs(self.feature_extractor)
-
-    @property
-    def num_outputs(self) -> int:
-        """Retrieve output dimension to the model.
-
-        Returns:
-            number of input dimension to the model
-        """
-        return _get_num_outputs(self.gp_layer)
-
-    def _build_model(self) -> None:
-        """Build the model ready for training."""
-        self.gp_layer = self.gp_layer(
-            initial_lengthscale=self.initial_lengthscale,
-            initial_inducing_points=self.initial_inducing_points,
-        )
-        self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
-        self.likelihood = GaussianLikelihood()
-        self.elbo_fn = self.elbo_fn(
-            self.likelihood, self.gp_layer, num_data=self.n_train_points
-        )
-
-        # put gpytorch modules on cuda
-        # This should happen in the configure_optimizers step
-        # if self.device.type == "cuda":
-        #     self.gp_layer = self.gp_layer.cuda()
-        #     self.likelihood = self.likelihood.cuda()
 
     def _fit_initial_lengthscale_and_inducing_points(self) -> None:
         """Fit the initial lengthscale and inducing points for DKL."""
@@ -215,6 +178,98 @@ class DeepKernelLearningModel(gpytorch.Module, BaseModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
+    @property
+    def num_input_dims(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        return _get_num_inputs(self.feature_extractor)
+
+    @property
+    def num_output_dims(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        return _get_num_outputs(self.gp_layer)
+
+    def _build_model(self) -> None:
+        """Build the model ready for training."""
+        self.gp_layer = self.gp_layer(
+            initial_lengthscale=self.initial_lengthscale,
+            initial_inducing_points=self.initial_inducing_points,
+        )
+        self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
+        self.likelihood = GaussianLikelihood()
+        self.elbo_fn = self.elbo_fn(
+            self.likelihood, self.gp_layer, num_data=self.n_train_points
+        )
+
+    def configure_optimizers(self) -> Dict[str, Any]:
+        """Initialize the optimizer and learning rate scheduler.
+
+        Returns:
+            a "lr dict" according to the pytorch lightning documentation --
+        """
+        # need to create models here given the order of hooks
+        # https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#hooks
+        if not self.dkl_model_built:
+            self._fit_initial_lengthscale_and_inducing_points()
+
+        optimizer = self.optimizer(
+            [
+                {"params": self.feature_extractor.parameters()},
+                {"params": self.gp_layer.hyperparameters()},
+                {"params": self.gp_layer.variational_parameters()},
+                {"params": self.likelihood.parameters()},
+            ]
+        )
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}
+
+
+class DKLRegression(DKLBase):
+    """Deep Kernel Learning Model.
+
+    If you use this model in your research, please cite the following papers:
+
+    * https://arxiv.org/abs/1511.02222
+    * https://arxiv.org/abs/2102.11409
+    """
+
+    def __init__(
+        self,
+        feature_extractor: nn.Module,
+        gp_layer: type[ApproximateGP],
+        elbo_fn: type[_ApproximateMarginalLogLikelihood],
+        n_inducing_points: int,
+        optimizer: type[Optimizer],
+        lr_scheduler: type[LRScheduler] = None,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
+    ) -> None:
+        super().__init__(
+            feature_extractor,
+            gp_layer,
+            elbo_fn,
+            n_inducing_points,
+            optimizer,
+            lr_scheduler,
+            quantiles,
+        )
+
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("val")
+
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
@@ -238,19 +293,6 @@ class DeepKernelLearningModel(gpytorch.Module, BaseModule):
             if key not in [self.input_key, self.target_key]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
         return out_dict
-
-    def on_test_batch_end(
-        self,
-        outputs: Dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        if self.save_dir:
-            save_predictions_to_csv(
-                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
-            )
 
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""
@@ -288,33 +330,29 @@ class DeepKernelLearningModel(gpytorch.Module, BaseModule):
             "out": output,
         }
 
-    def configure_optimizers(self) -> Dict[str, Any]:
-        """Initialize the optimizer and learning rate scheduler.
 
-        Returns:
-            a "lr dict" according to the pytorch lightning documentation --
-        """
-        # need to create models here given the order of hooks
-        # https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#hooks
-        if not self.dkl_model_built:
-            self._fit_initial_lengthscale_and_inducing_points()
+class DKLClassification(DKLBase):
+    """Deep Kernel Learning for Classification."""
 
-        optimizer = self.optimizer(
-            [
-                {"params": self.feature_extractor.parameters()},
-                {"params": self.gp_layer.hyperparameters()},
-                {"params": self.gp_layer.variational_parameters()},
-                {"params": self.likelihood.parameters()},
-            ]
+    def __init__(
+        self,
+        feature_extractor: nn.Module,
+        gp_layer: type[ApproximateGP],
+        elbo_fn: type[_ApproximateMarginalLogLikelihood],
+        n_inducing_points: int,
+        optimizer: type[Optimizer],
+        lr_scheduler: type[LRScheduler] = None,
+        quantiles: List[float] = [0.1, 0.5, 0.9],
+    ) -> None:
+        super().__init__(
+            feature_extractor,
+            gp_layer,
+            elbo_fn,
+            n_inducing_points,
+            optimizer,
+            lr_scheduler,
+            quantiles,
         )
-        if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
-            return {
-                "optimizer": optimizer,
-                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
-            }
-        else:
-            return {"optimizer": optimizer}
 
 
 class DKLGPLayer(ApproximateGP):
@@ -332,7 +370,7 @@ class DKLGPLayer(ApproximateGP):
         initial_inducing_points: Tensor,
         kernel: str = "Matern32",
     ):
-        """Initialize a new instance of the Gaussian Process model.
+        """Initialize a new instance of the Gaussian Process Layer.
 
         Args:
             num_outpus: number of target outputs

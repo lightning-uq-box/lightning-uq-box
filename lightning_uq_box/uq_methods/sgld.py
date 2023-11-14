@@ -13,9 +13,9 @@ import torch.nn as nn
 from torch import Tensor
 from torch.optim.optimizer import Optimizer
 
-from lightning_uq_box.uq_methods import BaseModel
+from lightning_uq_box.uq_methods import DeterministicModel
 
-from .utils import process_model_prediction
+from .utils import process_regression_prediction
 
 
 # SGLD Optimizer from Izmailov, currently in __init__.py
@@ -75,7 +75,7 @@ class SGLD(Optimizer):
         return loss
 
 
-class SGLDModel(BaseModel):
+class SGLDModel(DeterministicModel):
     """Storchastic Gradient Langevian Dynamics method for regression."""
 
     def __init__(
@@ -232,4 +232,4 @@ class SGLDModel(BaseModel):
         preds = torch.stack(preds, dim=-1).detach()
         # shape [batch_size, num_outputs, n_sgld_samples]
 
-        return process_model_prediction(preds, self.hparams.quantiles)
+        return process_regression_prediction(preds, self.hparams.quantiles)

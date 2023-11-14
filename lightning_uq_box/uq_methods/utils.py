@@ -6,6 +6,7 @@ from typing import Any, Union
 
 import numpy as np
 import pandas as pd
+import torch
 import torch.nn as nn
 from bayesian_torch.models.dnn_to_bnn import (
     bnn_conv_layer,
@@ -13,7 +14,15 @@ from bayesian_torch.models.dnn_to_bnn import (
     bnn_lstm_layer,
 )
 from torch import Tensor
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
+from torchmetrics import (
+    Accuracy,
+    CalibrationError,
+    F1Score,
+    MeanAbsoluteError,
+    MeanSquaredError,
+    MetricCollection,
+    R2Score,
+)
 
 from lightning_uq_box.eval_utils import (
     compute_aleatoric_uncertainty,
@@ -35,17 +44,29 @@ def default_regression_metrics(prefix: str):
     )
 
 
-def process_model_prediction(
+def default_classification_metrics(prefix: str, task: str, num_classes: int):
+    """Return a set of default classification metrics."""
+    return MetricCollection(
+        {
+            "Acc": Accuracy(task=task, num_classes=num_classes),
+            # "CalibErr": CalibrationError(task),
+            "F1Score": F1Score(task, num_classes=num_classes),
+        },
+        prefix=prefix,
+    )
+
+
+def process_regression_prediction(
     preds: Tensor, quantiles: list[float]
 ) -> dict[str, np.ndarray]:
-    """Process model predictions that could be mse or nll predictions.
+    """Process regression predictions that could be mse or nll predictions.
 
     Args:
         preds: prediction tensor of shape [batch_size, num_outputs, num_samples]
         quantiles: quantiles to compute
 
     Returns:
-        dictionary with mean and uncertainty predictions
+        dictionary with mean prediction and predictive uncertainty
     """
     mean_samples = preds[:, 0, :].cpu().numpy()
     mean = preds[:, 0:1, :].mean(-1)
@@ -82,6 +103,21 @@ def process_model_prediction(
             "lower_quant": quantiles[:, 0],
             "upper_quant": quantiles[:, -1],
         }
+
+
+def process_classification_prediction(preds: Tensor) -> dict[str, np.ndarray]:
+    """Process classification predictions.
+
+    Args:
+        preds: prediction tensor of shape [batch_size, num_classes, num_samples]
+
+    Returns:
+        dictionary with mean and predictive uncertainty
+    """
+    mean = preds.mean(-1)
+    entropy = -(mean * mean.log()).sum(dim=-1)
+
+    return {"pred": mean, "pred_uct": entropy}
 
 
 def change_inplace_activation(module):

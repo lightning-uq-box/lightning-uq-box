@@ -8,6 +8,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
 from lightning_uq_box.models.bnnlv.utils import (
@@ -17,12 +19,12 @@ from lightning_uq_box.models.bnnlv.utils import (
     get_log_Z_prior,
 )
 
-from .base import BaseModel
+from .base import DeterministicModel
 from .loss_functions import EnergyAlphaDivergence
 from .utils import map_stochastic_modules, save_predictions_to_csv
 
 
-class BNN_VI(BaseModel):
+class BNN_VIBase(DeterministicModel):
     """Bayesian Neural Network (BNN) with VI.
 
     Trained with (VI) Variational Inferece and energy loss.
@@ -44,7 +46,6 @@ class BNN_VI(BaseModel):
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
         layer_type: str = "reparameterization",
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of BNN VI.
 
@@ -129,50 +130,6 @@ class BNN_VI(BaseModel):
         """
         return self.model(X)
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
-        """Compute the loss for BNN with alpha divergence.
-
-        Args:
-            X: input tensor
-            y: target tensor
-
-        Returns:
-            energy loss and mean output for logging
-            mean_out: mean output over samples, dim [batch_size, output_dim]
-        """
-        model_preds: list[Tensor] = []
-        pred_losses: list[Tensor] = []
-        log_f_hat: list[Tensor] = []
-
-        # assume homoscedastic noise with std output_noise_scale
-        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
-
-        # draw samples for all stochastic functions
-        for i in range(self.hparams.n_mc_samples_train):
-            # mean prediction
-            pred = self.forward(X)
-            model_preds.append(pred)
-            # compute prediction loss with nll and track over samples
-            # note reduction = "None"
-            pred_losses.append(self.nll_loss(pred, y, output_var))
-            # dim=1
-            log_f_hat.append(get_log_f_hat([self.model]))
-
-        # model_preds [batch_size, output_dim, n_mc_samples_train, ]
-        mean_out = torch.stack(model_preds, dim=-1).mean(dim=-1)
-
-        # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
-        energy_loss = self.energy_loss_module(
-            torch.stack(pred_losses, dim=0),
-            torch.concat(log_f_hat, dim=0),
-            get_log_Z_prior([self.model]),
-            get_log_normalizer([self.model]),
-            log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
-            log_f_hat_z=torch.zeros(1).to(self.device),  # log_f_hat_z
-        )
-
-        return energy_loss, mean_out.detach()
-
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Compute and return the training loss.
 
@@ -208,56 +165,6 @@ class BNN_VI(BaseModel):
         self.train_metrics(mean_output, y)
 
         return energy_loss
-
-    def on_test_batch_end(
-        self,
-        outputs: dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        if self.hparams.save_dir:
-            outputs = {key: val for key, val in outputs.items() if key != "samples"}
-            save_predictions_to_csv(
-                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
-            )
-
-    def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Prediction step.
-
-        Args:
-            X: prediction batch of shape [batch_size x input_dims]
-        """
-        # output from forward: [n_samples, batch_size, outputs]
-        with torch.no_grad():
-            model_preds = [
-                self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
-            ]
-        # model_preds [batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=0).detach().cpu()
-        mean_out = model_preds.mean(dim=0).squeeze()
-
-        std_epistemic = model_preds.std(dim=0).squeeze()
-        std_epistemic[std_epistemic <= 0] = 1e-6
-        std_aleatoric = (
-            std_epistemic * 0.0 + torch.exp(self.log_aleatoric_std).detach().cpu()
-        )
-
-        std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
-        # currently only single output, might want to support NLL output as well
-        quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
-        return {
-            "pred": mean_out,
-            "pred_uct": std,
-            "epistemic_uct": std_epistemic,
-            "aleatoric_uct": std_aleatoric,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
-            "samples": model_preds,
-        }
 
     def freeze_layers(self) -> None:
         """Freeze BNN Layers to fix the stochasticity over forward passes."""
@@ -316,7 +223,144 @@ class BNN_VI(BaseModel):
         return optimizer
 
 
-class BNN_VI_Batched(BNN_VI):
+class BNN_VIREgression(BNN_VIBase):
+    """Bayesian Neural Network (BNN) with VI.
+
+    Trained with (VI) Variational Inferece and energy loss.
+    """
+
+    def __init__(
+        self,
+        model: nn.Module,
+        optimizer: type[Optimizer],
+        save_dir: str,
+        num_training_points: int,
+        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        n_mc_samples_train: int = 25,
+        n_mc_samples_test: int = 50,
+        output_noise_scale: float = 1.3,
+        prior_mu: float = 0,
+        prior_sigma: float = 1,
+        posterior_mu_init: float = 0,
+        posterior_rho_init: float = -5,
+        alpha: float = 1,
+        layer_type: str = "reparameterization",
+    ) -> None:
+        super().__init__(
+            model,
+            optimizer,
+            save_dir,
+            num_training_points,
+            part_stoch_module_names,
+            n_mc_samples_train,
+            n_mc_samples_test,
+            output_noise_scale,
+            prior_mu,
+            prior_sigma,
+            posterior_mu_init,
+            posterior_rho_init,
+            alpha,
+            layer_type,
+        )
+
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
+        """Compute the loss for BNN with alpha divergence.
+
+        Args:
+            X: input tensor
+            y: target tensor
+
+        Returns:
+            energy loss and mean output for logging
+            mean_out: mean output over samples, dim [batch_size, output_dim]
+        """
+        model_preds: list[Tensor] = []
+        pred_losses: list[Tensor] = []
+        log_f_hat: list[Tensor] = []
+
+        # assume homoscedastic noise with std output_noise_scale
+        output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
+
+        # draw samples for all stochastic functions
+        for i in range(self.hparams.n_mc_samples_train):
+            # mean prediction
+            pred = self.forward(X)
+            model_preds.append(pred)
+            # compute prediction loss with nll and track over samples
+            # note reduction = "None"
+            pred_losses.append(self.nll_loss(pred, y, output_var))
+            # dim=1
+            log_f_hat.append(get_log_f_hat([self.model]))
+
+        # model_preds [batch_size, output_dim, n_mc_samples_train, ]
+        mean_out = torch.stack(model_preds, dim=-1).mean(dim=-1)
+
+        # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
+        energy_loss = self.energy_loss_module(
+            torch.stack(pred_losses, dim=0),
+            torch.concat(log_f_hat, dim=0),
+            get_log_Z_prior([self.model]),
+            get_log_normalizer([self.model]),
+            log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
+            log_f_hat_z=torch.zeros(1).to(self.device),  # log_f_hat_z
+        )
+
+        return energy_loss, mean_out.detach()
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, np.ndarray],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx=0,
+    ):
+        """Test batch end save predictions for regression."""
+        if self.hparams.save_dir:
+            outputs = {key: val for key, val in outputs.items() if key != "samples"}
+            save_predictions_to_csv(
+                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+            )
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+        """
+        # output from forward: [n_samples, batch_size, outputs]
+        with torch.no_grad():
+            model_preds = [
+                self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
+            ]
+        # model_preds [batch_size, output_dim]
+        model_preds = torch.stack(model_preds, dim=0).detach().cpu()
+        mean_out = model_preds.mean(dim=0).squeeze()
+
+        # how can this happen that there is so little sample diversity
+        # there should be at least a little numerical difference?
+        std_epistemic = model_preds.std(dim=0).squeeze()
+        std_epistemic[std_epistemic <= 0] = 1e-6
+        std_aleatoric = (
+            std_epistemic * 0.0 + torch.exp(self.log_aleatoric_std).detach().cpu()
+        )
+
+        std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
+        # currently only single output, might want to support NLL output as well
+        quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
+        return {
+            "pred": mean_out,
+            "pred_uct": std,
+            "epistemic_uct": std_epistemic,
+            "aleatoric_uct": std_aleatoric,
+            "lower_quant": quantiles[:, 0],
+            "upper_quant": quantiles[:, -1],
+            "samples": model_preds,
+        }
+
+
+class BNN_VI_BatchedRegression(BNN_VIREgression):
     """Batched sampling version of BNN_VI."""
 
     def __init__(

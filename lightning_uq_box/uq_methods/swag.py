@@ -15,11 +15,11 @@ from torch import Tensor
 from torch.distributions import Normal
 from tqdm import trange
 
-from .base import BaseModel
-from .utils import map_stochastic_modules, process_model_prediction
+from .base import DeterministicModel
+from .utils import map_stochastic_modules, process_regression_prediction
 
 
-class SWAGModel(BaseModel):
+class SWAGBase(DeterministicModel):
     """Stochastic Weight Averaging - Gaussian (SWAG)."""
 
     def __init__(
@@ -31,24 +31,17 @@ class SWAGModel(BaseModel):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        save_dir: str,
         part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         num_datapoints_for_bn_update: int = 0,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
             model: lightning module to use as underlying model
             swag_args: laplace arguments to initialize a Laplace Model
-            train_loader: train loader to be used but maybe this can
-                also be accessed through the trainer or write a
-                train_dataloader() method for this model based on the config?
         """
-        super().__init__(model, None, loss_fn, None, save_dir)
-
-        self.save_hyperparameters(ignore=["model", "train_loader", "loss_fn"])
-        self.hparams["part_stoch_module_names"] = map_stochastic_modules(
+        super().__init__(model, None, loss_fn, None)
+        self.part_stoch_module_names = map_stochastic_modules(
             self.model, part_stoch_module_names
         )
         self.model = model
@@ -312,20 +305,8 @@ class SWAGModel(BaseModel):
 
             self.swag_fitted = True
 
-    def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Any:
-        """Prediction step that produces conformalized prediction sets.
-
-        Args:
-            X: prediction batch of shape [batch_size x input_dims]
-
-        Returns:
-            prediction dictionary
-        """
-        if not self.swag_fitted:
-            self.on_test_start()
-
+    def sample_predictions(self, X: Tensor) -> Tensor:
+        """Sample predictions."""
         preds = []
         for i in range(self.hparams.num_mc_samples):
             # sample weights
@@ -336,11 +317,87 @@ class SWAGModel(BaseModel):
 
         preds = torch.stack(preds, dim=-1)
 
-        return process_model_prediction(preds, self.hparams.quantiles)
-
     def configure_optimizers(self) -> dict[str, Any]:
         """Manually implemented."""
         pass
+
+
+class SWAGRegression(SWAGBase):
+    """SWAG Model for Regression."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        num_swag_epochs: int,
+        max_swag_snapshots: int,
+        snapshot_freq: int,
+        num_mc_samples: int,
+        swag_lr: float,
+        loss_fn: nn.Module,
+        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        num_datapoints_for_bn_update: int = 0,
+    ) -> None:
+        super().__init__(
+            model,
+            num_swag_epochs,
+            max_swag_snapshots,
+            snapshot_freq,
+            num_mc_samples,
+            swag_lr,
+            loss_fn,
+            part_stoch_module_names,
+            num_datapoints_for_bn_update,
+        )
+        self.save_hyperparameters(ignore=["model", "loss_fn"])
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
+        """Prediction step that produces conformalized prediction sets.b
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            prediction dictionary
+        """
+        if not self.swag_fitted:
+            self.on_test_start()
+
+        preds = self.sample_predictions(X)
+
+        # TODO: this function is specific to regression
+        # maybe the name of this should be in the base class and be foreced to be overwritten by the subclasses?
+        return process_regression_prediction(preds, self.hparams.quantiles)
+
+
+class SWAGClassification(SWAGBase):
+    """SWAG Model for Classification."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        num_swag_epochs: int,
+        max_swag_snapshots: int,
+        snapshot_freq: int,
+        num_mc_samples: int,
+        swag_lr: float,
+        loss_fn: nn.Module,
+        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        num_datapoints_for_bn_update: int = 0,
+    ) -> None:
+        super().__init__(
+            model,
+            num_swag_epochs,
+            max_swag_snapshots,
+            snapshot_freq,
+            num_mc_samples,
+            swag_lr,
+            loss_fn,
+            part_stoch_module_names,
+            num_datapoints_for_bn_update,
+        )
+        self.save_hyperparameters(ignore=["model", "loss_fn"])
 
 
 # Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501

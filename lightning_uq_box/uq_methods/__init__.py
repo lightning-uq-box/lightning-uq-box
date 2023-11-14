@@ -1,24 +1,34 @@
 """UQ-Methods as Lightning Modules."""
 
-from .base import BaseModel, BaseModule
-from .bnn_vi import BNN_VI, BNN_VI_Batched
-from .bnn_vi_elbo import BNN_VI_ELBO
+from .base import BaseModule, DeterministicModel
+from .bnn_vi import BNN_VI_BatchedRegression, BNN_VIBase, BNN_VIREgression
+from .bnn_vi_elbo import (
+    BNN_VI_ELBO_Base,
+    BNN_VI_ELBOClassification,
+    BNN_VI_ELBORegression,
+)
 from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
-from .cards import CARDModel
+from .cards import CARDModel, NoiseScheduler
 from .cqr_model import CQR
-from .deep_ensemble_model import DeepEnsembleModel
-from .deep_evidential_regression import DERModel
+from .deep_ensemble import DeepEnsembleModel
+from .deep_evidential_regression import DER
 from .deep_kernel_learning import (
-    DeepKernelLearningModel,
+    DKLBase,
+    DKLClassification,
     DKLGPLayer,
+    DKLRegression,
     compute_initial_values,
 )
-from .deterministic_gaussian import DeterministicGaussianModel
-from .deterministic_uncertainty_estimation import DUEModel
+from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .laplace_model import LaplaceModel
 from .loss_functions import NLL, DERLoss, HuberQLoss, QuantileLoss
-from .mc_dropout_model import MCDropoutModel
-from .quantile_regression_model import QuantileRegressionModel
+from .mc_dropout import MCDropoutBase, MCDropoutClassification, MCDropoutRegression
+from .mean_variance_estimation import MVEBase, MVERegression
+from .quantile_regression import (
+    QuantilePxRegression,
+    QuantileRegression,
+    QuantileRegressionBase,
+)
 from .sgld import SGLDModel
 from .spectral_normalized_layers import (
     SpectralBatchNorm1d,
@@ -27,40 +37,51 @@ from .spectral_normalized_layers import (
     SpectralNormFC,
     spectral_normalize_model_layers,
 )
-from .swag import SWAGModel
+from .swag import SWAGBase, SWAGClassification, SWAGRegression
 
 __all__ = (
     # Base Module
     "BaseModule",
     # base model
-    "BaseModel",
+    "DeterministicModel",
     # CARD Model
     "CARDModel",
+    "NoiseScheduler",
     # conformalized Quantile Regression
     "CQR",
     # MC-Dropout
-    "MCDropoutModel",
+    "MCDropoutBase",
+    "MCDropoutRegression",
+    "MCDropoutClassification",
     # Laplace Approximation
     "LaplaceModel",
     # Quantile Regression
-    "QuantileRegressionModel",
+    "QuantileRegressionBase",
+    "QuantileRegression",
+    "QuantilePxRegression",
     # Deep Ensemble Wrapper
     "DeepEnsembleModel",
-    # Deterministic Gaussian Model
-    "DeterministicGaussianModel",
+    # Mean Variance Estimation Network
+    "MVEBase",
+    "MVERegression",
     # Deep Uncertainty Estimation Model
-    "DUEModel",
+    "DUERegression",
+    "DUEClassification",
     # Deep Kernel Learning Model
-    "DeepKernelLearningModel",
+    "DKLBase",
+    "DKLRegression",
+    "DKLClassification",
     # Approximate GP model for DKL
     "DKLGPLayer",
     "compute_initial_values",
     # SWAG Model
-    "SWAGModel",
+    "SWAGBase",
+    "SWAGRegression",
+    "SWAGClassification",
     # SGLD Model.
     "SGLDModel",
     # Deep Evidential Regression Model
-    "DERModel",
+    "DER",
     # Spectral Normalization Layers
     "SpectralBatchNorm1d",
     "SpectralBatchNorm2d",
@@ -68,10 +89,13 @@ __all__ = (
     "SpectralNormFC",
     "spectral_normalize_model_layers",
     # BNN with ELBO
-    "BNN_VI_ELBO",
+    "BNN_VI_ELBO_Base",
+    "BNN_VI_ELBORegression",
+    "BNN_VI_ELBOClassification",
     # Bayesian Neural Network trained with Variational Inference
-    "BNN_VI",
-    "BNN_VI_Batched",
+    "BNN_VIBase",
+    "BNN_VIREgression",
+    "BNN_VI_BatchedRegression",
     # BNN with Latent Variables
     "BNN_LV_VI",
     "BNN_LV_VI_Batched",

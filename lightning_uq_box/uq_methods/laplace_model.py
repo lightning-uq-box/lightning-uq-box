@@ -22,6 +22,9 @@ from .utils import (
     save_predictions_to_csv,
 )
 
+# TODO check whether Laplace fitting procedure can be implemented as working
+# over training_step in lightning
+
 
 class LaplaceModel(BaseModule):
     """Laplace Approximation method for regression."""

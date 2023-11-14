@@ -20,10 +20,10 @@ from lightning_uq_box.models.bnnlv.utils import (
 )
 from lightning_uq_box.uq_methods.utils import _get_output_layer_name_and_module
 
-from .bnn_vi import BNN_VI
+from .bnn_vi import BNN_VIBase
 
 
-class BNN_LV_VI(BNN_VI):
+class BNN_LV_VI(BNN_VIBase):
     """Bayesian Neural Network (BNN) with Latent Variables (LV) trained with Variational Inferece."""  # noqa: E501
 
     lv_intro_options = ["first", "last"]

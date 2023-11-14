@@ -11,14 +11,20 @@ import torch.nn as nn
 from bayesian_torch.models.dnn_to_bnn import get_kl_loss
 from omegaconf import ListConfig, OmegaConf
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
-from .base import BaseModel
+from .base import DeterministicModel
 from .loss_functions import NLL
-from .utils import dnn_to_bnn_some, map_stochastic_modules, process_model_prediction
+from .utils import (
+    dnn_to_bnn_some,
+    map_stochastic_modules,
+    process_regression_prediction,
+)
 
 
-class BNN_VI_ELBO(BaseModel):
-    """Bayes By Backprop Model with Variational Inference (VI)."""
+class BNN_VI_ELBO_Base(DeterministicModel):
+    """Bayes By Backprop Base with Variational Inference (VI)."""
 
     def __init__(
         self,
@@ -38,8 +44,6 @@ class BNN_VI_ELBO(BaseModel):
         posterior_rho_init: float = -5.0,
         bayesian_layer_type: str = "Reparameterization",
         lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
-        save_dir: str = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Model instance.
 
@@ -68,7 +72,7 @@ class BNN_VI_ELBO(BaseModel):
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
-        super().__init__(model, optimizer, loss_fn, lr_scheduler, save_dir)
+        super().__init__(model, optimizer, loss_fn, lr_scheduler)
 
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
@@ -118,65 +122,6 @@ class BNN_VI_ELBO(BaseModel):
         """
         return self.model(X)
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean output from model prediction.
-
-        This supports
-
-        Args:
-            out: output from :meth:`self.forward` [batch_size x (mu, sigma)]
-
-        Returns:
-            extracted mean used for metric computation [batch_size x 1]
-        """
-        return out[:, 0:1]
-
-    def compute_elbo_loss(self, X: Tensor, y: Tensor, mse=True) -> tuple[Tensor]:
-        """Compute the ELBO loss with mse/nll.
-
-        Args:
-            X: input data
-            y: target
-
-        Returns:
-            negative elbo loss and mean model output [batch_size]
-            for logging
-        """
-        model_preds = []
-        pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
-
-        # assume homoscedastic noise with std output_noise_scale
-        output_var = torch.ones_like(y) * (self.hparams.output_noise_scale**2)
-
-        for i in range(self.hparams.num_mc_samples_train):
-            # mean prediction
-            pred = self.forward(X)
-            model_preds.append(self.extract_mean_output(pred).detach())
-            # compute prediction loss with nll and track over samples
-            if mse:
-                # compute mse loss with output noise scale, is like mse
-                pred_losses[i] = torch.nn.functional.mse_loss(
-                    self.extract_mean_output(pred), y
-                )
-            else:
-                # after burnin compute nll with log_sigma
-                pred_losses[i] = self.criterion(pred, y)
-
-        mean_pred = torch.cat(model_preds, dim=-1).mean(-1, keepdim=True)
-        # dimension [batch_size]
-
-        mean_pred_nll_loss = torch.mean(pred_losses)
-        # shape 0, mean over batch_size, this is "the S factor":)
-        # need to potentially multiply by full training set size
-
-        mean_kl = get_kl_loss(self.model)
-
-        negative_beta_elbo = (
-            self.hparams.num_training_points * mean_pred_nll_loss + self.beta * mean_kl
-        )
-
-        return negative_beta_elbo, mean_pred
-
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -190,14 +135,7 @@ class BNN_VI_ELBO(BaseModel):
         """
         X, y = batch[self.input_key], batch[self.target_key]
 
-        if self.current_epoch < self.burnin_epochs:
-            mse = True
-        elif self.current_epoch >= self.burnin_epochs and self.num_outputs == 1:
-            mse = True
-        else:
-            mse = False
-
-        elbo_loss, mean_output = self.compute_elbo_loss(X, y, mse)
+        elbo_loss, mean_output = self.compute_elbo_loss(X, y)
 
         self.log("train_loss", elbo_loss)  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
@@ -218,12 +156,8 @@ class BNN_VI_ELBO(BaseModel):
             validation loss
         """
         X, y = batch[self.input_key], batch[self.target_key]
-        if self.num_outputs == 1:
-            mse = True
-        else:
-            mse = False
 
-        elbo_loss, mean_output = self.compute_elbo_loss(X, y, mse)
+        elbo_loss, mean_output = self.compute_elbo_loss(X, y)
 
         self.log("val_loss", elbo_loss)  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
@@ -231,20 +165,55 @@ class BNN_VI_ELBO(BaseModel):
 
         return elbo_loss
 
-    def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Prediction step.
+    def compute_elbo_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+        """Compute the ELBO loss with mse/nll.
 
         Args:
-            X: prediction batch of shape [batch_size x input_dims]
-        """
-        with torch.no_grad():
-            preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
-            )  # shape [batch_size, num_outputs, num_samples]
+            X: input data
+            y: target
 
-        return process_model_prediction(preds, self.hparams.quantiles)
+        Returns:
+            negative elbo loss and mean model output [batch_size]
+            for logging
+        """
+        model_preds = []
+        pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
+
+        # assume homoscedastic noise with std output_noise_scale
+        output_var = torch.ones_like(y) * (self.hparams.output_noise_scale**2)
+
+        for i in range(self.hparams.num_mc_samples_train):
+            # mean prediction
+            pred = self.forward(X)
+            pred_losses.append(self.compute_task_loss(pred, y))
+            model_preds.append(self.extract_mean_output(pred).detach())
+
+        mean_pred = torch.cat(model_preds, dim=-1).mean(-1, keepdim=True)
+        # dimension [batch_size]
+
+        mean_pred_nll_loss = torch.mean(pred_losses)
+        # shape 0, mean over batch_size, this is "the S factor":)
+        # need to potentially multiply by full training set size
+
+        mean_kl = get_kl_loss(self.model)
+
+        negative_beta_elbo = (
+            self.hparams.num_training_points * mean_pred_nll_loss + self.beta * mean_kl
+        )
+
+        return negative_beta_elbo, mean_pred
+
+    def compute_task_loss(self, X: Tensor, y: Tensor) -> Tensor:
+        """Compute the loss for the respective task for a single sampling iteration.
+
+        Args:
+            X: input data
+            y: target
+
+        Returns:
+            nll loss for the task
+        """
+        raise NotImplementedError
 
     def exclude_from_wt_decay(
         self, named_params, weight_decay, skip_list=("mu", "rho")
@@ -296,3 +265,203 @@ class BNN_VI_ELBO(BaseModel):
             }
         else:
             return {"optimizer": optimizer}
+
+
+class BNN_VI_ELBORegression(BNN_VI_ELBO_Base):
+    """Bayes By Backprop Model with Variational Inference (VI) for Regression."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        optimizer: type[Optimizer],
+        loss_fn: nn.Module,
+        burnin_epochs: int,
+        num_training_points: int,
+        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        beta: float = 100,
+        num_mc_samples_train: int = 10,
+        num_mc_samples_test: int = 50,
+        output_noise_scale: float = 1.3,
+        prior_mu: float = 0,
+        prior_sigma: float = 1,
+        posterior_mu_init: float = 0,
+        posterior_rho_init: float = -5,
+        bayesian_layer_type: str = "Reparameterization",
+        lr_scheduler: type[LRScheduler] = None,
+    ) -> None:
+        """Initialize a new Model instance.
+
+        Args:
+            model_class: Model Class that can be initialized with arguments from dict,
+                or timm backbone name
+            model_args: arguments to initialize model_class
+            lr: learning rate for adam otimizer
+            save_dir: directory path to save
+            num_training_points: number of data points contained in the training dataset
+            beta: beta factor for negative elbo loss computation,
+                should be number of weights and biases
+            num_mc_samples_train: number of MC samples during training when computing
+                the negative ELBO loss. When setting num_mc_samples_train=1, this
+                is just Bayes by Backprop.
+            num_mc_samples_test: number of MC samples during test and prediction
+            output_noise_scale: scale of predicted sigmas
+            prior_mu: prior mean value for bayesian layer
+            prior_sigma: prior variance value for bayesian layer
+            posterior_mu_init: mean initialization value for approximate posterior
+            posterior_rho_init: variance initialization value for approximate posterior
+                through softplus σ = log(1 + exp(ρ))
+            bayesian_layer_type: `Flipout` or `Reparameterization`
+
+        Raises:
+            AssertionError: if ``num_mc_samples_train`` is not positive.
+            AssertionError: if ``num_mc_samples_test`` is not positive.
+        """
+        super().__init__(
+            model,
+            optimizer,
+            loss_fn,
+            burnin_epochs,
+            num_training_points,
+            part_stoch_module_names,
+            beta,
+            num_mc_samples_train,
+            num_mc_samples_test,
+            output_noise_scale,
+            prior_mu,
+            prior_sigma,
+            posterior_mu_init,
+            posterior_rho_init,
+            bayesian_layer_type,
+            lr_scheduler,
+        )
+
+    def compute_task_loss(self, pred: Tensor, y: Tensor) -> Tensor:
+        """Compute the loss for the respective task for a single sampling iteration.
+
+        Args:
+            X: model_prediction
+            y: target
+
+        Returns:
+            nll loss for the task
+        """
+        if self.current_epoch < self.burnin_epochs:
+            # compute mse loss with output noise scale, is like mse
+            loss = torch.nn.functional.mse_loss(self.extract_mean_output(pred), y)
+        else:
+            # after burnin compute nll with log_sigma
+            loss = self.criterion(pred, y)
+        return loss
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+        """
+        with torch.no_grad():
+            preds = torch.stack(
+                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+            )  # shape [batch_size, num_outputs, num_samples]
+
+        # TODO more specific name
+        return process_regression_prediction(preds, self.hparams.quantiles)
+
+
+class BNN_VI_ELBOClassification(BNN_VI_ELBO_Base):
+    """Bayes By Backprop Model with Variational Inference (VI) for Classification."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        optimizer: type[Optimizer],
+        loss_fn: nn.Module,
+        burnin_epochs: int,
+        num_training_points: int,
+        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        beta: float = 100,
+        num_mc_samples_train: int = 10,
+        num_mc_samples_test: int = 50,
+        output_noise_scale: float = 1.3,
+        prior_mu: float = 0,
+        prior_sigma: float = 1,
+        posterior_mu_init: float = 0,
+        posterior_rho_init: float = -5,
+        bayesian_layer_type: str = "Reparameterization",
+        lr_scheduler: type[LRScheduler] = None,
+    ) -> None:
+        """Initialize a new Model instance.
+
+        Args:
+            model_class: Model Class that can be initialized with arguments from dict,
+                or timm backbone name
+            model_args: arguments to initialize model_class
+            lr: learning rate for adam otimizer
+            save_dir: directory path to save
+            num_training_points: number of data points contained in the training dataset
+            beta: beta factor for negative elbo loss computation,
+                should be number of weights and biases
+            num_mc_samples_train: number of MC samples during training when computing
+                the negative ELBO loss. When setting num_mc_samples_train=1, this
+                is just Bayes by Backprop.
+            num_mc_samples_test: number of MC samples during test and prediction
+            output_noise_scale: scale of predicted sigmas
+            prior_mu: prior mean value for bayesian layer
+            prior_sigma: prior variance value for bayesian layer
+            posterior_mu_init: mean initialization value for approximate posterior
+            posterior_rho_init: variance initialization value for approximate posterior
+                through softplus σ = log(1 + exp(ρ))
+            bayesian_layer_type: `Flipout` or `Reparameterization`
+
+        Raises:
+            AssertionError: if ``num_mc_samples_train`` is not positive.
+            AssertionError: if ``num_mc_samples_test`` is not positive.
+        """
+        super().__init__(
+            model,
+            optimizer,
+            loss_fn,
+            burnin_epochs,
+            num_training_points,
+            part_stoch_module_names,
+            beta,
+            num_mc_samples_train,
+            num_mc_samples_test,
+            output_noise_scale,
+            prior_mu,
+            prior_sigma,
+            posterior_mu_init,
+            posterior_rho_init,
+            bayesian_layer_type,
+            lr_scheduler,
+        )
+
+    def compute_task_loss(self, pred: Tensor, y: Tensor) -> Tensor:
+        """Compute the loss for the respective task for a single sampling iteration.
+
+        Args:
+            X: model_prediction
+            y: target
+
+        Returns:
+            nll loss for the task
+        """
+        return self.criterion(pred, y)
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+        """
+        with torch.no_grad():
+            preds = torch.stack(
+                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+            )  # shape [batch_size, num_outputs, num_samples]
+
+        # TODO more specific name
+        return process_regression_prediction(preds, self.hparams.quantiles)
