@@ -31,9 +31,11 @@ class MVEBase(DeterministicModel):
         self.loss_fn = NLL()
         # self.save_hyperparameters(ignore=["model"])
 
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
-        self.test_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -105,9 +107,3 @@ class MVERegression(MVEBase):
             "upper_quant": quantiles[:, -1],
             "out": preds,
         }
-
-
-class MVEPxRegression(MVEBase):
-    """Mean Variance Estimation Model for Pixel Wise Regression that is trained with NLL."""
-
-    pass

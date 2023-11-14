@@ -37,6 +37,10 @@ class MCDropoutBase(DeterministicModel):
         """
         super().__init__(model, optimizer, loss_fn, lr_scheduler)
 
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        pass
+
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -97,9 +101,11 @@ class MCDropoutRegression(MCDropoutBase):
         super().__init__(model, optimizer, num_mc_samples, loss_fn, lr_scheduler)
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
-        self.test_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract mean output from model."""
@@ -177,7 +183,7 @@ class MCDropoutClassification(MCDropoutBase):
         )
         self.val_metrics = default_classification_metrics("val", task, self.num_classes)
         self.test_metrics = default_classification_metrics(
-            "val", task, self.num_classes
+            "test", task, self.num_classes
         )
 
     def extract_mean_output(self, out: Tensor) -> Tensor:

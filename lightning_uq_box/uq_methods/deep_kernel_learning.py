@@ -77,6 +77,12 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         self.dkl_model_built = False
 
+        self.setup_task()
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        raise NotImplementedError
+
     def _fit_initial_lengthscale_and_inducing_points(self) -> None:
         """Fit the initial lengthscale and inducing points for DKL."""
         train_dataset = self.trainer.datamodule.train_dataloader().dataset
@@ -256,9 +262,11 @@ class DKLRegression(DKLBase):
 
         self.save_hyperparameters(ignore=["feature_extractor"])
 
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
-        self.test_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
 
     def _build_model(self) -> None:
         """Build the model ready for training."""
@@ -349,6 +357,12 @@ class DKLClassification(DKLBase):
         task: str = "multiclass",
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
+        assert task in self.valid_tasks
+        self.task = task
+
+        self.num_classes = gp_layer.keywords["n_outputs"]
+        self.num_features = _get_num_inputs(feature_extractor)
+
         super().__init__(
             feature_extractor,
             gp_layer,
@@ -360,16 +374,16 @@ class DKLClassification(DKLBase):
 
         self.save_hyperparameters(ignore=["feature_extractor"])
 
-        assert task in self.valid_tasks
-
-        self.num_classes = gp_layer.keywords["n_outputs"]
-        self.num_features = _get_num_inputs(feature_extractor)
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
         self.train_metrics = default_classification_metrics(
-            "train", task, self.num_classes
+            "train", self.task, self.num_classes
         )
-        self.val_metrics = default_classification_metrics("val", task, self.num_classes)
+        self.val_metrics = default_classification_metrics(
+            "val", self.task, self.num_classes
+        )
         self.test_metrics = default_classification_metrics(
-            "val", task, self.num_classes
+            "test", self.task, self.num_classes
         )
 
     def _extract_mean_output(self, output: MultivariateNormal) -> Tensor:

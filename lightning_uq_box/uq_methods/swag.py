@@ -16,7 +16,14 @@ from torch.distributions import Normal
 from tqdm import trange
 
 from .base import DeterministicModel
-from .utils import map_stochastic_modules, process_regression_prediction
+from .utils import (
+    _get_num_outputs,
+    default_classification_metrics,
+    default_regression_metrics,
+    map_stochastic_modules,
+    process_classification_prediction,
+    process_regression_prediction,
+)
 
 
 class SWAGBase(DeterministicModel):
@@ -54,7 +61,12 @@ class SWAGBase(DeterministicModel):
         self.model_w_and_b_module_names = self._find_weights_and_bias_modules(
             self.model
         )
+        self.max_swag_snapshots = max_swag_snapshots
         self._create_swag_buffers(self.model)
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        pass
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Not intended to be used."""
@@ -70,7 +82,7 @@ class SWAGBase(DeterministicModel):
         for name, _ in instance.named_parameters():
             if (
                 name.removesuffix(".weight").removesuffix(".bias")
-                in self.hparams.part_stoch_module_names
+                in self.part_stoch_module_names
             ):  # noqa: E501
                 model_w_and_b_module_names.append(name)
         return model_w_and_b_module_names
@@ -92,7 +104,7 @@ class SWAGBase(DeterministicModel):
                 instance.register_buffer(
                     f"{name}_D_block",
                     torch.zeros(
-                        (self.hparams.max_swag_snapshots, *parameter.shape),
+                        (self.max_swag_snapshots, *parameter.shape),
                         device=parameter.device,
                     ),
                 )
@@ -317,6 +329,8 @@ class SWAGBase(DeterministicModel):
 
         preds = torch.stack(preds, dim=-1)
 
+        return preds
+
     def configure_optimizers(self) -> dict[str, Any]:
         """Manually implemented."""
         pass
@@ -336,6 +350,7 @@ class SWAGRegression(SWAGBase):
         loss_fn: nn.Module,
         part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
         num_datapoints_for_bn_update: int = 0,
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         super().__init__(
             model,
@@ -349,6 +364,12 @@ class SWAGRegression(SWAGBase):
             num_datapoints_for_bn_update,
         )
         self.save_hyperparameters(ignore=["model", "loss_fn"])
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -366,13 +387,13 @@ class SWAGRegression(SWAGBase):
 
         preds = self.sample_predictions(X)
 
-        # TODO: this function is specific to regression
-        # maybe the name of this should be in the base class and be foreced to be overwritten by the subclasses?
         return process_regression_prediction(preds, self.hparams.quantiles)
 
 
 class SWAGClassification(SWAGBase):
     """SWAG Model for Classification."""
+
+    valid_tasks = ["binary", "multiclass", "multilable"]
 
     def __init__(
         self,
@@ -383,9 +404,14 @@ class SWAGClassification(SWAGBase):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
+        task: str = "multiclass",
         part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
         num_datapoints_for_bn_update: int = 0,
     ) -> None:
+        assert task in self.valid_tasks
+        self.task = task
+        self.num_classes = _get_num_outputs(model)
+
         super().__init__(
             model,
             num_swag_epochs,
@@ -398,6 +424,36 @@ class SWAGClassification(SWAGBase):
             num_datapoints_for_bn_update,
         )
         self.save_hyperparameters(ignore=["model", "loss_fn"])
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_classification_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_classification_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, self.num_classes
+        )
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
+        """Prediction step that produces conformalized prediction sets.b
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            prediction dictionary
+        """
+        if not self.swag_fitted:
+            self.on_test_start()
+
+        preds = self.sample_predictions(X)
+
+        return process_classification_prediction(preds)
 
 
 # Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501

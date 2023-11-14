@@ -84,6 +84,12 @@ class DeterministicModel(BaseModule):
         self.lr_scheduler = lr_scheduler
         self.loss_fn = loss_fn
 
+        self.setup_task()
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        raise NotImplementedError
+
     def forward(self, X: Tensor, **kwargs: Any) -> Any:
         """Forward pass of the model.
 
