@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import MaternKernel, RBFKernel, RQKernel, ScaleKernel
-from gpytorch.likelihoods import GaussianLikelihood
+from gpytorch.likelihoods import GaussianLikelihood, SoftmaxLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
 from gpytorch.models import ApproximateGP
@@ -30,8 +30,8 @@ from .base import BaseModule
 from .utils import (
     _get_num_inputs,
     _get_num_outputs,
+    default_classification_metrics,
     default_regression_metrics,
-    save_predictions_to_csv,
 )
 
 
@@ -137,7 +137,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(y_pred.loc, y.squeeze(-1))
+        self.train_metrics(y_pred.mean, y.squeeze(-1))
         return loss
 
     def on_train_epoch_end(self):
@@ -167,10 +167,11 @@ class DKLBase(gpytorch.Module, BaseModule):
             self.scale_to_bounds.eval()
         else:
             y_pred = self.forward(X)
+
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
         self.log("val_loss", loss)  # logging to Logger
-        self.val_metrics(y_pred.loc, y.squeeze(-1))
+        self.val_metrics(y_pred.mean, y.squeeze(-1))
         return loss
 
     def on_validation_epoch_end(self) -> None:
@@ -192,21 +193,9 @@ class DKLBase(gpytorch.Module, BaseModule):
         """Retrieve output dimension to the model.
 
         Returns:
-            number of input dimension to the model
+            number of output dimension from model
         """
-        return _get_num_outputs(self.gp_layer)
-
-    def _build_model(self) -> None:
-        """Build the model ready for training."""
-        self.gp_layer = self.gp_layer(
-            initial_lengthscale=self.initial_lengthscale,
-            initial_inducing_points=self.initial_inducing_points,
-        )
-        self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
-        self.likelihood = GaussianLikelihood()
-        self.elbo_fn = self.elbo_fn(
-            self.likelihood, self.gp_layer, num_data=self.n_train_points
-        )
+        return self.gp_layer.n_outputs
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -263,12 +252,25 @@ class DKLRegression(DKLBase):
             n_inducing_points,
             optimizer,
             lr_scheduler,
-            quantiles,
         )
+
+        self.save_hyperparameters(ignore=["feature_extractor"])
 
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("val")
+
+    def _build_model(self) -> None:
+        """Build the model ready for training."""
+        self.gp_layer = self.gp_layer(
+            initial_lengthscale=self.initial_lengthscale,
+            initial_inducing_points=self.initial_inducing_points,
+        )
+        self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
+        self.likelihood = GaussianLikelihood()
+        self.elbo_fn = self.elbo_fn(
+            self.likelihood, self.gp_layer, num_data=self.n_train_points
+        )
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -313,6 +315,7 @@ class DKLRegression(DKLBase):
         self.gp_layer.eval()
         self.likelihood.eval()
 
+        # TODO make num samples an argument
         with torch.no_grad(), gpytorch.settings.num_likelihood_samples(
             64
         ), gpytorch.settings.fast_pred_var(state=False):
@@ -334,6 +337,8 @@ class DKLRegression(DKLBase):
 class DKLClassification(DKLBase):
     """Deep Kernel Learning for Classification."""
 
+    valid_tasks = ["binary", "multiclass", "multilable"]
+
     def __init__(
         self,
         feature_extractor: nn.Module,
@@ -341,8 +346,8 @@ class DKLClassification(DKLBase):
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
         optimizer: type[Optimizer],
+        task: str = "multiclass",
         lr_scheduler: type[LRScheduler] = None,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         super().__init__(
             feature_extractor,
@@ -351,8 +356,92 @@ class DKLClassification(DKLBase):
             n_inducing_points,
             optimizer,
             lr_scheduler,
-            quantiles,
         )
+
+        self.save_hyperparameters(ignore=["feature_extractor"])
+
+        assert task in self.valid_tasks
+
+        self.num_classes = gp_layer.keywords["n_outputs"]
+        self.num_features = _get_num_inputs(feature_extractor)
+        self.train_metrics = default_classification_metrics(
+            "train", task, self.num_classes
+        )
+        self.val_metrics = default_classification_metrics("val", task, self.num_classes)
+        self.test_metrics = default_classification_metrics(
+            "val", task, self.num_classes
+        )
+
+    def _extract_mean_output(self, output: MultivariateNormal) -> Tensor:
+        """Extract the mean output from the GP."""
+        return output.mean
+
+    def _build_model(self) -> None:
+        """Build the model ready for training."""
+        self.gp_layer = self.gp_layer(
+            initial_lengthscale=self.initial_lengthscale,
+            initial_inducing_points=self.initial_inducing_points,
+        )
+        self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
+        self.likelihood = SoftmaxLikelihood(
+            num_classes=self.num_classes, num_features=self.num_features
+        )
+        self.elbo_fn = self.elbo_fn(
+            self.likelihood, self.gp_layer, num_data=self.n_train_points
+        )
+
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Test step."""
+        out_dict = self.predict_step(batch[self.input_key])
+        out_dict[self.target_key] = (
+            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        )
+
+        self.log(
+            "test_loss",
+            -self.elbo_fn(out_dict["out"], batch[self.target_key].squeeze(-1)),
+        )  # logging to Logger
+        if batch[self.input_key].shape[0] > 1:
+            self.test_metrics(out_dict["out"].mean, batch[self.target_key].squeeze(-1))
+
+        del out_dict["out"]
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in [self.input_key, self.target_key]:
+                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+        return out_dict
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Dict[str, np.ndarray]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+        """
+        if not self.dkl_model_built:
+            self._fit_initial_lengthscale_and_inducing_points()
+        self.feature_extractor.eval()
+        self.gp_layer.eval()
+        self.likelihood.eval()
+
+        # TODO make num samples an argument
+        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(
+            64
+        ), gpytorch.settings.fast_pred_var(state=False):
+            gp_dist = self.forward(X)
+            output = self.likelihood(gp_dist)
+            mean = output.logits.mean(0).cpu()  # take mean over sampling dimension
+            entropy = output.entropy().mean(0).cpu()
+        return {"pred": mean, "pred_uct": entropy, "out": gp_dist}
 
 
 class DKLGPLayer(ApproximateGP):
@@ -383,6 +472,8 @@ class DKLGPLayer(ApproximateGP):
             ValueError if kernel is not supported
         """
         n_inducing_points = initial_inducing_points.shape[0]
+
+        self.n_outputs = n_outputs
 
         if n_outputs > 1:
             batch_shape = torch.Size([n_outputs])

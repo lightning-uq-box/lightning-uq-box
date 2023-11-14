@@ -171,10 +171,14 @@ class MCDropoutClassification(MCDropoutBase):
 
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
-        num_classes = self.num_output_dims
-        self.train_metrics = default_classification_metrics("train", task, num_classes)
-        self.val_metrics = default_classification_metrics("val", task, num_classes)
-        self.test_metrics = default_classification_metrics("val", task, num_classes)
+        self.num_classes = self.num_output_dims
+        self.train_metrics = default_classification_metrics(
+            "train", task, self.num_classes
+        )
+        self.val_metrics = default_classification_metrics("val", task, self.num_classes)
+        self.test_metrics = default_classification_metrics(
+            "val", task, self.num_classes
+        )
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract mean output from model."""

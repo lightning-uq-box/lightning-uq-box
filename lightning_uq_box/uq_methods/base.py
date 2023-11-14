@@ -51,7 +51,7 @@ class BaseModule(LightningModule):
         """Retrieve output dimension to the model.
 
         Returns:
-            number of input dimension to the model
+            number of output dimension to model
         """
         return _get_num_outputs(self.model)
 

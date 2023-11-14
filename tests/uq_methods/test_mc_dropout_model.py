@@ -19,7 +19,6 @@ from lightning_uq_box.datamodules import (
 from lightning_uq_box.uq_methods import MCDropoutClassification, MCDropoutRegression
 
 
-# TODO test different both mse and nll
 class TestMCDropout:
     @pytest.fixture(params=["mc_dropout_nll.yaml", "mc_dropout_mse.yaml"])
     def model_regression(self, request: SubRequest) -> MCDropoutRegression:

@@ -124,7 +124,7 @@ def plot_predictions_classification(
     plt.show()
 
 
-def plot_predictions(
+def plot_predictions_regression(
     X_train: np.ndarray,
     y_train: np.ndarray,
     X_test: np.ndarray,

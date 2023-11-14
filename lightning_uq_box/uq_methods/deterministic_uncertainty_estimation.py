@@ -75,10 +75,10 @@ class DUEClassification(DKLClassification):
         n_inducing_points: int,
         optimizer: type[Optimizer],
         input_size: int = None,
-        lr_scheduler: type[LRScheduler] = None,
+        task: str = "multiclass",
         coeff: float = 0.95,
         n_power_iterations: int = 1,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
+        lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 
@@ -94,7 +94,7 @@ class DUEClassification(DKLClassification):
         """
         self.input_size = input_size
 
-        self.input_dimensions = collect_input_sizes(feature_extractor)
+        self.input_dimensions = collect_input_sizes(feature_extractor, input_size)
         # spectral normalize the feature extractor layers
         feature_extractor = spectral_normalize_model_layers(
             feature_extractor, n_power_iterations, self.input_dimensions, coeff
@@ -106,8 +106,8 @@ class DUEClassification(DKLClassification):
             elbo_fn,
             n_inducing_points,
             optimizer,
+            task,
             lr_scheduler,
-            quantiles,
         )
 
 

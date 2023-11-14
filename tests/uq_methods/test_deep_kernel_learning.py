@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Union
 
 import pytest
 import torch
@@ -12,8 +13,11 @@ from omegaconf import OmegaConf
 from pytest_lazyfixture import lazy_fixture
 from torch import Tensor
 
-from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
-from lightning_uq_box.uq_methods import DKLRegression
+from lightning_uq_box.datamodules import (
+    ToyHeteroscedasticDatamodule,
+    TwoMoonsDataModule,
+)
+from lightning_uq_box.uq_methods import DKLClassification, DKLRegression
 
 
 class TestDeepKernelLearningModel:
@@ -33,16 +37,39 @@ class TestDeepKernelLearningModel:
 
         return dkl_model
 
-    @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
-    def test_forward(self, model: DKLRegression) -> None:
-        """Test forward pass."""
+    @pytest.fixture
+    def model_classification(self, tmp_path: Path) -> DKLRegression:
+        """Create DKL model from an underlying model."""
+        conf = OmegaConf.load(
+            os.path.join(
+                "tests", "configs", "deep_kernel_learning", "dkl_classification.yaml"
+            )
+        )
+        dkl_model = instantiate(conf.uq_method)
+        trainer = Trainer(
+            log_every_n_steps=1, max_epochs=1, default_root_dir=str(tmp_path)
+        )
+        trainer.fit(dkl_model, datamodule=TwoMoonsDataModule())
+
+        return dkl_model
+
+    @pytest.mark.parametrize(
+        "model",
+        [lazy_fixture("model_regression"), lazy_fixture("model_classification")],
+    )
+    def test_forward(self, model: Union[DKLRegression, DKLClassification]) -> None:
+        """Test forward pass of MC dropout model."""
         n_inputs = model.num_input_dims
+        n_outputs = model.num_output_dims
         X = torch.randn(5, n_inputs)
         out = model(X)
-        assert isinstance(out, MultivariateNormal)
+        assert out.shape()[0] == 5
 
-    @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
-    def test_predict_step(self, model: DKLRegression) -> None:
+    @pytest.mark.parametrize(
+        "model",
+        [lazy_fixture("model_regression"), lazy_fixture("model_classification")],
+    )
+    def test_predict_step(self, model: Union[DKLRegression, DKLClassification]) -> None:
         """Test predict step outside of Lightning Trainer."""
         n_inputs = model.num_input_dims
         X = torch.randn(5, n_inputs)

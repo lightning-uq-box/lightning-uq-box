@@ -25,6 +25,8 @@ class TwoMoonsDataModule(LightningDataModule):
         super().__init__()
         self.batch_size = batch_size
 
+        self.setup()
+
     def setup(self, stage: Optional[str] = None):
         """
         Setup the DataModule (generate the half-moon dataset and split it into training, validation, and test sets).
@@ -51,7 +53,7 @@ class TwoMoonsDataModule(LightningDataModule):
         x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
         y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
         xx, yy = np.meshgrid(
-            np.linspace(x_min, x_max, 100), np.linspace(y_min, y_max, 100)
+            np.linspace(x_min, x_max, 50), np.linspace(y_min, y_max, 50)
         )
         self.test_grid_points = torch.from_numpy(np.c_[xx.ravel(), yy.ravel()]).to(
             torch.float32
