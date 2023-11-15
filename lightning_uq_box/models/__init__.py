@@ -4,7 +4,6 @@ from .cards import (
     ConditionalGuidedConvModel,
     ConditionalGuidedLinearModel,
     ConditionalLinear,
-    NoiseScheduler,
 )
 from .mlp import MLP
 
@@ -14,7 +13,6 @@ __all__ = (
     "ConditionalLinear",
     "ConditionalGuidedLinearModel",
     "ConditionalGuidedConvModel",
-    "NoiseScheduler",
     # Toy Example architecture
     "MLP",
 )
