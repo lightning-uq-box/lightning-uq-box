@@ -330,4 +330,4 @@ class LaplaceClassification(LaplaceBase):
 
             entropy = -torch.sum(probs * torch.log(probs), dim=1)
 
-        return {"pred": probs, "entropy": entropy}
+        return {"pred": probs, "pred_uct": entropy}

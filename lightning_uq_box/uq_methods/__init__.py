@@ -1,6 +1,11 @@
 """UQ-Methods as Lightning Modules."""
 
-from .base import BaseModule, DeterministicClassification, DeterministicModel
+from .base import (
+    BaseModule,
+    DeterministicClassification,
+    DeterministicModel,
+    DeterministicRegression,
+)
 from .bnn_vi import BNN_VI_BatchedRegression, BNN_VIBase, BNN_VIREgression
 from .bnn_vi_elbo import (
     BNN_VI_ELBO_Base,
@@ -41,6 +46,7 @@ __all__ = (
     # base model
     "DeterministicModel",
     "DeterministicClassification",
+    "DeterministicRegression",
     # CARD Model
     "CARDBase",
     "NoiseScheduler",

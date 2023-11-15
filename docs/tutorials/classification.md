@@ -9,4 +9,5 @@ classification/due
 classification/dkl
 classification/swag
 classification/mc_dropout
+classification/laplace
 ```
