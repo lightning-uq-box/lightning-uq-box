@@ -14,7 +14,7 @@ from lightning.pytorch.loggers import CSVLogger
 from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
 from lightning_uq_box.models import MLP
 from lightning_uq_box.uq_methods import BNN_VI
-from lightning_uq_box.viz_utils import plot_predictions
+from lightning_uq_box.viz_utils import plot_predictions_regression
 
 # seed_everything(4)
 torch.set_float32_matmul_precision("medium")
@@ -83,7 +83,7 @@ csv_path = os.path.join(my_dir, "predictions.csv")
 
 pred = base_model.predict_step(X_test)
 
-my_fig = plot_predictions(
+my_fig = plot_predictions_regression(
     X_train,
     y_train,
     X_test,

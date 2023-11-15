@@ -85,7 +85,8 @@ class QuantileRegression(QuantileRegressionBase):
             np_out, self.hparams.quantiles
         )
 
-        # can happen due to overlapping quantiles
+        # TODO can happen due to overlapping quantiles
+        # how to handle this properly ?
         std[std <= 0] = 1e-2
 
         return {
@@ -97,16 +98,16 @@ class QuantileRegression(QuantileRegressionBase):
         }
 
 
-class QuantilePxRegression(QuantileRegressionBase):
-    """Quantile Regression for Pixelwise Regression."""
+# class QuantilePxRegression(QuantileRegressionBase):
+#     """Quantile Regression for Pixelwise Regression."""
 
-    def __init__(
-        self,
-        model: nn.Module,
-        optimizer: type[Optimizer],
-        loss_fn: nn.Module = QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
-        lr_scheduler: type[LRScheduler] = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
-    ) -> None:
-        super().__init__(model, optimizer, loss_fn, lr_scheduler, quantiles)
-        self.save_hyperparameters(ignore=["model", "loss_fn"])
+#     def __init__(
+#         self,
+#         model: nn.Module,
+#         optimizer: type[Optimizer],
+#         loss_fn: nn.Module = QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
+#         lr_scheduler: type[LRScheduler] = None,
+#         quantiles: list[float] = [0.1, 0.5, 0.9],
+#     ) -> None:
+#         super().__init__(model, optimizer, loss_fn, lr_scheduler, quantiles)
+#         self.save_hyperparameters(ignore=["model", "loss_fn"])

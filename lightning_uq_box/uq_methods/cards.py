@@ -15,7 +15,7 @@ from .utils import save_predictions_to_csv
 
 # TODO check EMA support
 # Support classification
-class CARDModel(BaseModule):
+class CARDBase(BaseModule):
     """CARD Model.
 
     Regression Diffusion Model based on CARD paper.
@@ -125,10 +125,10 @@ class CARDModel(BaseModule):
         self.log("train_loss", train_loss)
         return train_loss
 
-    # def on_train_epoch_end(self):
-    #     """Log epoch-level training metrics."""
-    #     self.log_dict(self.train_metrics.compute())
-    #     self.train_metrics.reset()
+    def on_train_epoch_end(self):
+        """Log epoch-level training metrics."""
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -146,10 +146,10 @@ class CARDModel(BaseModule):
         self.log("val_loss", val_loss)
         return val_loss
 
-    # def on_validation_epoch_end(self) -> None:
-    #     """Log epoch level validation metrics."""
-    #     self.log_dict(self.val_metrics.compute())
-    #     self.val_metrics.reset()
+    def on_validation_epoch_end(self) -> None:
+        """Log epoch level validation metrics."""
+        self.log_dict(self.val_metrics.compute())
+        self.val_metrics.reset()
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -164,10 +164,10 @@ class CARDModel(BaseModule):
         """
         pass
 
-    # def on_test_epoch_end(self):
-    #     """Log epoch-level test metrics."""
-    #     self.log_dict(self.test_metrics.compute())
-    #     self.test_metrics.reset()
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
