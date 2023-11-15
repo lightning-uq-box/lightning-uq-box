@@ -1,0 +1,8 @@
+num_swag_epochs: 30
+max_swag_snapshots: 30
+snapshot_freq: 1
+num_mc_samples: 50
+swag_lr: 0.0001
+task: multiclass
+part_stoch_module_names: null
+num_datapoints_for_bn_update: 0

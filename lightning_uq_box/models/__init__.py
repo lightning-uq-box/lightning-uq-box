@@ -13,7 +13,6 @@ __all__ = (
     "ConditionalLinear",
     "ConditionalGuidedLinearModel",
     "ConditionalGuidedConvModel",
-    "NoiseScheduler",
     # Toy Example architecture
     "MLP",
 )
