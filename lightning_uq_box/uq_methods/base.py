@@ -100,7 +100,7 @@ class DeterministicModel(BaseModule):
         Returns:
             mean output
         """
-        return out
+        return out[:, 0:1]
 
     def forward(self, X: Tensor, **kwargs: Any) -> Any:
         """Forward pass of the model.

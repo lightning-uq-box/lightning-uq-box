@@ -17,8 +17,12 @@ from torch.optim.lr_scheduler import LRScheduler
 from .base import DeterministicModel
 from .loss_functions import NLL
 from .utils import (
+    _get_num_outputs,
+    default_classification_metrics,
+    default_regression_metrics,
     dnn_to_bnn_some,
     map_stochastic_modules,
+    process_classification_prediction,
     process_regression_prediction,
 )
 
@@ -30,8 +34,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         self,
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
-        loss_fn: nn.Module,
-        burnin_epochs: int,
+        criterion: nn.Module,
         num_training_points: int,
         part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         beta: float = 100,
@@ -72,7 +75,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
-        super().__init__(model, optimizer, loss_fn, lr_scheduler)
+        super().__init__(model, optimizer, criterion, lr_scheduler)
 
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
@@ -90,9 +93,11 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         # hyperparameter depending on network size
         self.beta = beta
 
-        self.burnin_epochs = burnin_epochs
-        self.criterion = NLL()
+        self.criterion = criterion
         self.lr_scheduler = lr_scheduler
+
+    def setup_task(self) -> None:
+        pass
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
@@ -176,19 +181,16 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             negative elbo loss and mean model output [batch_size]
             for logging
         """
-        model_preds = []
+        model_preds: list[Tensor] = []
         pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
-
-        # assume homoscedastic noise with std output_noise_scale
-        output_var = torch.ones_like(y) * (self.hparams.output_noise_scale**2)
 
         for i in range(self.hparams.num_mc_samples_train):
             # mean prediction
             pred = self.forward(X)
-            pred_losses.append(self.compute_task_loss(pred, y))
+            pred_losses[i] = self.compute_task_loss(pred, y)
             model_preds.append(self.extract_mean_output(pred).detach())
 
-        mean_pred = torch.cat(model_preds, dim=-1).mean(-1, keepdim=True)
+        mean_pred = torch.stack(model_preds, dim=-1).mean(-1)
         # dimension [batch_size]
 
         mean_pred_nll_loss = torch.mean(pred_losses)
@@ -267,14 +269,14 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             return {"optimizer": optimizer}
 
 
-class BNN_VI_ELBORegression(BNN_VI_ELBO_Base):
+class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
     """Bayes By Backprop Model with Variational Inference (VI) for Regression."""
 
     def __init__(
         self,
         model: nn.Module,
         optimizer: type[Optimizer],
-        loss_fn: nn.Module,
+        criterion: nn.Module,
         burnin_epochs: int,
         num_training_points: int,
         part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
@@ -288,6 +290,7 @@ class BNN_VI_ELBORegression(BNN_VI_ELBO_Base):
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "Reparameterization",
         lr_scheduler: type[LRScheduler] = None,
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Model instance.
 
@@ -319,8 +322,7 @@ class BNN_VI_ELBORegression(BNN_VI_ELBO_Base):
         super().__init__(
             model,
             optimizer,
-            loss_fn,
-            burnin_epochs,
+            criterion,
             num_training_points,
             part_stoch_module_names,
             beta,
@@ -335,6 +337,14 @@ class BNN_VI_ELBORegression(BNN_VI_ELBO_Base):
             lr_scheduler,
         )
 
+        self.save_hyperparameters(ignore=["model"])
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
+
     def compute_task_loss(self, pred: Tensor, y: Tensor) -> Tensor:
         """Compute the loss for the respective task for a single sampling iteration.
 
@@ -345,7 +355,7 @@ class BNN_VI_ELBORegression(BNN_VI_ELBO_Base):
         Returns:
             nll loss for the task
         """
-        if self.current_epoch < self.burnin_epochs:
+        if self.current_epoch < self.hparams.burnin_epochs:
             # compute mse loss with output noise scale, is like mse
             loss = torch.nn.functional.mse_loss(self.extract_mean_output(pred), y)
         else:
@@ -366,20 +376,21 @@ class BNN_VI_ELBORegression(BNN_VI_ELBO_Base):
                 [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
-        # TODO more specific name
         return process_regression_prediction(preds, self.hparams.quantiles)
 
 
-class BNN_VI_ELBOClassification(BNN_VI_ELBO_Base):
+class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
     """Bayes By Backprop Model with Variational Inference (VI) for Classification."""
+
+    valid_tasks = ["binary", "multiclass", "multilable"]
 
     def __init__(
         self,
         model: nn.Module,
         optimizer: type[Optimizer],
-        loss_fn: nn.Module,
-        burnin_epochs: int,
+        criterion: nn.Module,
         num_training_points: int,
+        task: str = "multiclass",
         part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
         beta: float = 100,
         num_mc_samples_train: int = 10,
@@ -395,11 +406,6 @@ class BNN_VI_ELBOClassification(BNN_VI_ELBO_Base):
         """Initialize a new Model instance.
 
         Args:
-            model_class: Model Class that can be initialized with arguments from dict,
-                or timm backbone name
-            model_args: arguments to initialize model_class
-            lr: learning rate for adam otimizer
-            save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
             beta: beta factor for negative elbo loss computation,
                 should be number of weights and biases
@@ -419,11 +425,15 @@ class BNN_VI_ELBOClassification(BNN_VI_ELBO_Base):
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
+        assert task in self.valid_tasks
+        self.task = task
+
+        self.num_classes = _get_num_outputs(model)
+
         super().__init__(
             model,
             optimizer,
-            loss_fn,
-            burnin_epochs,
+            criterion,
             num_training_points,
             part_stoch_module_names,
             beta,
@@ -438,6 +448,20 @@ class BNN_VI_ELBOClassification(BNN_VI_ELBO_Base):
             lr_scheduler,
         )
 
+        self.save_hyperparameters(ignore=["model"])
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_classification_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_classification_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, self.num_classes
+        )
+
     def compute_task_loss(self, pred: Tensor, y: Tensor) -> Tensor:
         """Compute the loss for the respective task for a single sampling iteration.
 
@@ -449,6 +473,10 @@ class BNN_VI_ELBOClassification(BNN_VI_ELBO_Base):
             nll loss for the task
         """
         return self.criterion(pred, y)
+
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract mean output from model output."""
+        return out
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -463,5 +491,4 @@ class BNN_VI_ELBOClassification(BNN_VI_ELBO_Base):
                 [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
-        # TODO more specific name
-        return process_regression_prediction(preds, self.hparams.quantiles)
+        return process_classification_prediction(preds)

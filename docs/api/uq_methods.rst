@@ -53,7 +53,8 @@ Bayesian Neural Networks ELBO
 .. currentmodule:: lightning_uq_box.uq_methods.bnn_vi_elbo
 
 .. autoclass:: BNN_VI_ELBO_Base
-.. autoclass:: BNN_VI_ELBORegression
+.. autoclass:: BNN_VI_ELBO_Regression
+.. autoclass:: BNN_VI_ELBO_Classification
 
 Stochastic Gradient Langevin Dynamics
 -------------------------------------

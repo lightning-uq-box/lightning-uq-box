@@ -13,19 +13,22 @@ from omegaconf import OmegaConf
 from pytest_lazyfixture import lazy_fixture
 
 from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
-from lightning_uq_box.uq_methods import BNN_VI_ELBOClassification, BNN_VI_ELBORegression
+from lightning_uq_box.uq_methods import (
+    BNN_VI_ELBO_Regression,
+    BNN_VI_ELBOClassification,
+)
 
 
 class TestBNN_VI_ELBO:
     @pytest.fixture(params=["bnn_vi_elbo_regression.yaml"])
-    def model_regression(self, request: SubRequest) -> BNN_VI_ELBORegression:
+    def model_regression(self, request: SubRequest) -> BNN_VI_ELBO_Regression:
         conf = OmegaConf.load(
             os.path.join("tests", "configs", "bnn_vi_elbo", request.param)
         )
         return instantiate(conf.uq_method)
 
     @pytest.fixture(params=["bnn_vi_elbo_classification.yaml"])
-    def model_regression(self, request: SubRequest) -> BNN_VI_ELBORegression:
+    def model_regression(self, request: SubRequest) -> BNN_VI_ELBO_Regression:
         conf = OmegaConf.load(
             os.path.join("tests", "configs", "bnn_vi_elbo", request.param)
         )
@@ -33,7 +36,7 @@ class TestBNN_VI_ELBO:
 
     @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
     def test_forward(
-        self, model: Union[BNN_VI_ELBORegression, BNN_VI_ELBOClassification]
+        self, model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBOClassification]
     ) -> None:
         """Test forward pass of base model."""
         n_inputs = model.num_input_dims
@@ -44,7 +47,7 @@ class TestBNN_VI_ELBO:
 
     @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
     def test_predict_step(
-        self, model: Union[BNN_VI_ELBORegression, BNN_VI_ELBOClassification]
+        self, model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBOClassification]
     ) -> None:
         """Test predict step outside of Lightning Trainer."""
         n_inputs = model.num_input_dims
@@ -57,7 +60,7 @@ class TestBNN_VI_ELBO:
     @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
     def test_trainer(
         self,
-        model: Union[BNN_VI_ELBORegression, BNN_VI_ELBOClassification],
+        model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBOClassification],
         tmp_path: Path,
     ) -> None:
         """Test Base Model with a Lightning Trainer."""

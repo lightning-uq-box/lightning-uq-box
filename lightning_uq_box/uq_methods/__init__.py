@@ -9,8 +9,8 @@ from .base import (
 from .bnn_vi import BNN_VI_BatchedRegression, BNN_VIBase, BNN_VIREgression
 from .bnn_vi_elbo import (
     BNN_VI_ELBO_Base,
-    BNN_VI_ELBOClassification,
-    BNN_VI_ELBORegression,
+    BNN_VI_ELBO_Classification,
+    BNN_VI_ELBO_Regression,
 )
 from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
 from .cards import CARDBase, NoiseScheduler
@@ -93,8 +93,8 @@ __all__ = (
     "spectral_normalize_model_layers",
     # BNN with ELBO
     "BNN_VI_ELBO_Base",
-    "BNN_VI_ELBORegression",
-    "BNN_VI_ELBOClassification",
+    "BNN_VI_ELBO_Regression",
+    "BNN_VI_ELBO_Classification",
     # Bayesian Neural Network trained with Variational Inference
     "BNN_VIBase",
     "BNN_VIREgression",
