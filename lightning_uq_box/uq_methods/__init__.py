@@ -8,7 +8,7 @@ from .bnn_vi_elbo import (
     BNN_VI_ELBORegression,
 )
 from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
-from .cards import CARDModel, NoiseScheduler
+from .cards import CARDBase, NoiseScheduler
 from .cqr_model import CQR
 from .deep_ensemble import DeepEnsembleModel
 from .deep_evidential_regression import DER
@@ -24,11 +24,7 @@ from .laplace_model import LaplaceModel
 from .loss_functions import NLL, DERLoss, HuberQLoss, QuantileLoss
 from .mc_dropout import MCDropoutBase, MCDropoutClassification, MCDropoutRegression
 from .mean_variance_estimation import MVEBase, MVERegression
-from .quantile_regression import (
-    QuantilePxRegression,
-    QuantileRegression,
-    QuantileRegressionBase,
-)
+from .quantile_regression import QuantileRegression, QuantileRegressionBase
 from .sgld import SGLDModel
 from .spectral_normalized_layers import (
     SpectralBatchNorm1d,
@@ -46,7 +42,7 @@ __all__ = (
     "DeterministicModel",
     "DeterministicClassification",
     # CARD Model
-    "CARDModel",
+    "CARDBase",
     "NoiseScheduler",
     # conformalized Quantile Regression
     "CQR",
