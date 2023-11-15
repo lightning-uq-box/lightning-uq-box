@@ -108,13 +108,15 @@ def process_regression_prediction(
 def process_classification_prediction(preds: Tensor) -> dict[str, np.ndarray]:
     """Process classification predictions.
 
+    Applies softmax to logit and computes mean over the samples and entropy.
+
     Args:
-        preds: prediction tensor of shape [batch_size, num_classes, num_samples]
+        preds: prediction logits tensor of shape [batch_size, num_classes, num_samples]
 
     Returns:
         dictionary with mean and predictive uncertainty
     """
-    mean = preds.mean(-1)
+    mean = nn.functional.softmax(preds.mean(-1), dim=-1)
     entropy = -(mean * mean.log()).sum(dim=-1)
 
     return {"pred": mean, "pred_uct": entropy}

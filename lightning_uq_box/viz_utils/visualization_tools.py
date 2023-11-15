@@ -84,8 +84,8 @@ def plot_predictions_classification(
     X_test: np.ndarray,
     y_test: np.ndarray,
     y_pred: np.ndarray,
-    pred_uct: np.ndarray,
     test_grid_points,
+    pred_uct: np.ndarray = None,
 ) -> None:
     """
     Plot the classification results and the associated uncertainty.
@@ -97,14 +97,17 @@ def plot_predictions_classification(
         pred_uct: The uncertainty of the predictions.
         test_grid_points: The grid of test points.
     """
-    fig, axs = plt.subplots(1, 3, figsize=(18, 6))
+    if pred_uct is None:
+        num_cols = 2
+    else:
+        num_cols = 3
+
+    fig, axs = plt.subplots(1, num_cols, figsize=(num_cols * 6, 6))
     cm = plt.cm.viridis
 
     grid_size = int(np.sqrt(test_grid_points.shape[0]))
     xx = test_grid_points[:, 0].reshape(grid_size, grid_size)
     yy = test_grid_points[:, 1].reshape(grid_size, grid_size)
-    print(pred_uct.reshape(grid_size, grid_size).shape)
-    print(y_pred.reshape(grid_size, grid_size).shape)
 
     # Create a scatter plot of the input features, colored by the true labels
     # axs[0].contour(xx, yy, y_pred.reshape(xx.shape), alpha=0.5)
@@ -116,10 +119,13 @@ def plot_predictions_classification(
     axs[1].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm)
     axs[1].set_title("Predicted Labels")
 
-    # Create a scatter plot of the input features, colored by the uncertainty
-    axs[2].contourf(xx, yy, pred_uct.reshape(grid_size, grid_size), alpha=0.8, cmap=cm)
-    axs[2].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm)
-    axs[2].set_title("Uncertainty")
+    if pred_uct is not None:
+        # Create a scatter plot of the input features, colored by the uncertainty
+        axs[2].contourf(
+            xx, yy, pred_uct.reshape(grid_size, grid_size), alpha=0.8, cmap=cm
+        )
+        axs[2].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm)
+        axs[2].set_title("Uncertainty")
 
     plt.show()
 

@@ -14,6 +14,7 @@ from torch.optim.lr_scheduler import LRScheduler
 from .utils import (
     _get_num_inputs,
     _get_num_outputs,
+    default_classification_metrics,
     default_regression_metrics,
     save_predictions_to_csv,
 )
@@ -89,6 +90,17 @@ class DeterministicModel(BaseModule):
     def setup_task(self) -> None:
         """Setup task specific attributes."""
         raise NotImplementedError
+
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract mean output from model output.
+
+        Args:
+            out: output from the model
+
+        Returns:
+            mean output
+        """
+        return out
 
     def forward(self, X: Tensor, **kwargs: Any) -> Any:
         """Forward pass of the model.
@@ -225,3 +237,52 @@ class DeterministicModel(BaseModule):
             }
         else:
             return {"optimizer": optimizer}
+
+
+class DeterministicRegression(DeterministicModel):
+    """Deterministic Base Trainer for regression as LightningModule."""
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
+
+
+class DeterministicClassification(DeterministicModel):
+    """Deterministic Base Trainer for classification as LightningModule."""
+
+    valid_tasks = ["binary", "multiclass", "multilable"]
+
+    def __init__(
+        self,
+        model: nn.Module,
+        optimizer: type[Optimizer],
+        loss_fn: nn.Module,
+        task: str = "multiclass",
+        lr_scheduler: type[LRScheduler] = None,
+    ) -> None:
+        """Initialize a new Base Model.
+
+        Args:
+            model: Model Class that can be initialized with arguments from dict,
+                or timm backbone name
+            lr: learning rate for adam otimizer
+            loss_fn: loss function module
+        """
+        self.num_classes = _get_num_outputs(model)
+        assert task in self.valid_tasks
+        self.task = task
+        super().__init__(model, optimizer, loss_fn, lr_scheduler)
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_classification_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_classification_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, self.num_classes
+        )
