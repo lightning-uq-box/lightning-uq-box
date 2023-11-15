@@ -13,6 +13,7 @@ from lightning_uq_box.eval_utils import compute_quantiles_from_std
 
 from .base import DeterministicModel
 from .loss_functions import DERLoss
+from .utils import _get_num_outputs
 
 
 class DERLayer(nn.Module):
@@ -52,8 +53,7 @@ class DER(DeterministicModel):
     """Deep Evidential Regression Model.
 
     Following the suggested implementation of:
-    https://github.com/pasteurlabs/unreasonable_effective_der/
-    blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22
+    `https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22`_.
 
     If you use this model in your work, please cite:
 
@@ -63,8 +63,8 @@ class DER(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        optimizer: type[Optimizer],
+        lr_scheduler: type[LRScheduler] = None,
         coeff: float = 0.01,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -74,9 +74,7 @@ class DER(DeterministicModel):
         self.save_hyperparameters(ignore=["model"])
 
         # check that output is 4 dimensional
-        # _, output_module = list(self.model.named_children())[-1]
-        # assert output_module.out == 4,
-        # "DER Model requires 4-dimensional output for 1D regression task."
+        assert _get_num_outputs(model) == 4, "DER model expects 4 outputs."
 
         # add DER Layer
         self.model = nn.Sequential(self.model, DERLayer())

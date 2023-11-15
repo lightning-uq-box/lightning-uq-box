@@ -11,7 +11,7 @@ from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 
 from .base import DeterministicModel
 from .loss_functions import HuberQLoss, QuantileLoss
-from .utils import default_regression_metrics
+from .utils import _get_num_outputs, default_regression_metrics
 
 
 class QuantileRegressionBase(DeterministicModel):
@@ -53,6 +53,10 @@ class QuantileRegression(QuantileRegressionBase):
     ) -> None:
         super().__init__(model, optimizer, loss_fn, lr_scheduler, quantiles)
         self.save_hyperparameters(ignore=["model", "loss_fn"])
+
+        assert _get_num_outputs(model) == len(
+            quantiles
+        ), "The number of desired quantiles should match the number of outputs of the model."
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean/median prediction from quantile regression model.
