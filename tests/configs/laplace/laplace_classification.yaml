@@ -1,0 +1,20 @@
+model:
+  _target_: lightning_uq_box.models.MLP
+  n_outputs: 2
+  n_inputs: 2
+  n_hidden: [50]
+
+laplace:
+  _target_: laplace.Laplace
+  likelihood: "classification"
+  sigma_noise: 1.0
+  prior_precision: 1.0
+  prior_mean: 0.0
+  temperature: 1.0
+  subset_of_weights: "last_layer"
+  hessian_structure: "kron"
+
+uq_method:
+  _target_: lightning_uq_box.uq_methods.LaplaceClassification
+  tune_precision_lr: 0.1
+  n_epochs_tune_precision: 1

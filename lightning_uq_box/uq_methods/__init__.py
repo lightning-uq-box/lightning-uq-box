@@ -20,7 +20,7 @@ from .deep_kernel_learning import (
     compute_initial_values,
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
-from .laplace_model import LaplaceModel
+from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
 from .loss_functions import NLL, DERLoss, HuberQLoss, QuantileLoss
 from .mc_dropout import MCDropoutBase, MCDropoutClassification, MCDropoutRegression
 from .mean_variance_estimation import MVEBase, MVERegression
