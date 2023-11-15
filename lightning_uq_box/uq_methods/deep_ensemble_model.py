@@ -7,12 +7,12 @@ import numpy as np
 import torch
 from lightning import LightningModule
 from torch import Tensor
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 
+from .base import BaseModule
 from .utils import process_model_prediction, save_predictions_to_csv
 
 
-class DeepEnsembleModel(LightningModule):
+class DeepEnsembleModel(BaseModule):
     """Base Class for different Ensemble Models."""
 
     def __init__(
@@ -36,17 +36,6 @@ class DeepEnsembleModel(LightningModule):
         # make hparams accessible
         self.save_hyperparameters(ignore=["ensemble_members"])
         self.ensemble_members = ensemble_members
-
-        self.test_metrics = MetricCollection(
-            {
-                "RMSE": MeanSquaredError(squared=False),
-                "MAE": MeanAbsoluteError(),
-                "R2": R2Score(),
-            },
-            prefix="test_",
-        )
-
-        self.pred_file_name = "predictions.csv"
 
     def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
         """Forward step of Deep Ensemble.
@@ -80,19 +69,19 @@ class DeepEnsembleModel(LightningModule):
         Returns:
             dictionary of uncertainty outputs
         """
-        out_dict = self.predict_step(batch["inputs"])
-        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+        out_dict = self.predict_step(batch[self.input_key])
+        out_dict["targets"] = batch[self.target_key].detach().squeeze(-1).cpu().numpy()
 
-        # self.log("test_loss", self.loss_fn(out_dict["pred"], batch["targets"].squeeze(-1)))  # logging to Logger
-        if batch["inputs"].shape[0] > 1:
-            self.test_metrics(out_dict["pred"], batch["targets"])
+        # self.log("test_loss", self.loss_fn(out_dict["pred"], batch[self.target_key].squeeze(-1)))  # logging to Logger
+        if batch[self.input_key].shape[0] > 1:
+            self.test_metrics(out_dict["pred"], batch[self.target_key])
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
 
         # save metadata
         for key, val in batch.items():
-            if key not in ["inputs", "targets"]:
+            if key not in [self.input_key, self.target_key]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
 
         return out_dict

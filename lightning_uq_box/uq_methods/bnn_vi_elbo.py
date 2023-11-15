@@ -188,7 +188,7 @@ class BNN_VI_ELBO(BaseModel):
         Returns:
             training loss
         """
-        X, y = batch["inputs"], batch["targets"]
+        X, y = batch[self.input_key], batch[self.target_key]
 
         if self.current_epoch < self.burnin_epochs:
             mse = True
@@ -200,7 +200,7 @@ class BNN_VI_ELBO(BaseModel):
         elbo_loss, mean_output = self.compute_elbo_loss(X, y, mse)
 
         self.log("train_loss", elbo_loss)  # logging to Logger
-        if batch["inputs"].shape[0] > 1:
+        if batch[self.input_key].shape[0] > 1:
             self.train_metrics(mean_output, y)
 
         return elbo_loss
@@ -217,7 +217,7 @@ class BNN_VI_ELBO(BaseModel):
         Returns:
             validation loss
         """
-        X, y = batch["inputs"], batch["targets"]
+        X, y = batch[self.input_key], batch[self.target_key]
         if self.num_outputs == 1:
             mse = True
         else:
@@ -226,7 +226,7 @@ class BNN_VI_ELBO(BaseModel):
         elbo_loss, mean_output = self.compute_elbo_loss(X, y, mse)
 
         self.log("val_loss", elbo_loss)  # logging to Logger
-        if batch["inputs"].shape[0] > 1:
+        if batch[self.input_key].shape[0] > 1:
             self.val_metrics(mean_output, y)
 
         return elbo_loss

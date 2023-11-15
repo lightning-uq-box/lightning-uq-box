@@ -10,23 +10,20 @@ import torch.nn as nn
 from laplace import Laplace
 from laplace.curvature import AsdlGGN
 from laplace.utils import LargestMagnitudeSubnetMask, ModuleNameSubnetMask
-from lightning import LightningModule
 from torch import Tensor
-from torchgeo.trainers.utils import _get_input_layer_name_and_module
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
 from tqdm import trange
 
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
+from lightning_uq_box.uq_methods import BaseModule
 
 from .utils import (
-    _get_output_layer_name_and_module,
     change_inplace_activation,
     map_stochastic_modules,
     save_predictions_to_csv,
 )
 
 
-class LaplaceModel(LightningModule):
+class LaplaceModel(BaseModule):
     """Laplace Approximation method for regression."""
 
     subset_of_weights_options = ["last_layer", "subnetwork", "all"]
@@ -72,46 +69,7 @@ class LaplaceModel(LightningModule):
         self.model = model  # pytorch model
         self.laplace_fitted = False
 
-        self.pred_file_name = "predictions.csv"
-
-        self.test_metrics = MetricCollection(
-            {
-                "RMSE": MeanSquaredError(squared=False),
-                "MAE": MeanAbsoluteError(),
-                "R2": R2Score(),
-            },
-            prefix="test_",
-        )
-
         self.loss_fn = torch.nn.MSELoss()
-
-    @property
-    def num_inputs(self) -> int:
-        """Retrieve input dimension to the model.
-
-        Returns:
-            number of input dimension to the model
-        """
-        _, module = _get_input_layer_name_and_module(self.model)
-        if hasattr(module, "in_features"):  # Linear Layer
-            num_inputs = module.in_features
-        elif hasattr(module, "in_channels"):  # Conv Layer
-            num_inputs = module.in_channels
-        return num_inputs
-
-    @property
-    def num_outputs(self) -> int:
-        """Retrieve output dimension to the model.
-
-        Returns:
-            number of input dimension to the model
-        """
-        _, module = _get_output_layer_name_and_module(self.model)
-        if hasattr(module, "out_features"):  # Linear Layer
-            num_outputs = module.out_features
-        elif hasattr(module, "out_channels"):  # Conv Layer
-            num_outputs = module.out_channels
-        return num_outputs
 
     def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
         """Fitted Laplace Model Forward Pass.
@@ -142,12 +100,8 @@ class LaplaceModel(LightningModule):
             """
             # Extract images and labels from the batch dictionary
             if isinstance(batch[0], dict):
-                try:
-                    images = [item["image"] for item in batch]
-                    labels = [item["labels"] for item in batch]
-                except KeyError:
-                    images = [item["inputs"] for item in batch]
-                    labels = [item["targets"] for item in batch]
+                images = [item[self.input_key] for item in batch]
+                labels = [item[self.target_key] for item in batch]
             else:
                 images = [item[0] for item in batch]
                 labels = [item[1] for item in batch]
@@ -158,10 +112,10 @@ class LaplaceModel(LightningModule):
 
             # apply datamodule augmentation
             aug_batch = self.trainer.datamodule.on_after_batch_transfer(
-                {"inputs": inputs, "targets": targets}, dataloader_idx=0
+                {self.input_key: inputs, self.target_key: targets}, dataloader_idx=0
             )
 
-            return (aug_batch["inputs"], aug_batch["targets"])
+            return (aug_batch[self.input_key], aug_batch[self.target_key])
 
         self.train_loader.collate_fn = collate_fn_laplace_torch
 
@@ -240,21 +194,24 @@ class LaplaceModel(LightningModule):
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test step."""
-        out_dict = self.predict_step(batch["inputs"])
-        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+        out_dict = self.predict_step(batch[self.input_key])
+        out_dict[self.target_key] = (
+            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        )
 
         self.log(
-            "test_loss", self.loss_fn(out_dict["pred"], batch["targets"].squeeze(-1))
+            "test_loss",
+            self.loss_fn(out_dict["pred"], batch[self.target_key].squeeze(-1)),
         )  # logging to Logger
-        if batch["inputs"].shape[0] > 1:
-            self.test_metrics(out_dict["pred"], batch["targets"].squeeze(-1))
+        if batch[self.input_key].shape[0] > 1:
+            self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
 
         # save metadata
         for key, val in batch.items():
-            if key not in ["inputs", "targets"]:
+            if key not in [self.input_key, self.target_key]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
 
         return out_dict

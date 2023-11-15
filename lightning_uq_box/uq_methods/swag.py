@@ -249,6 +249,7 @@ class SWAGModel(BaseModel):
         """Fit the SWAG approximation."""
         self.train_loader = self.trainer.datamodule.train_dataloader()
 
+        # TODO can this all be removed and made simpler?
         def collate_fn_swag_torch(batch):
             """Collate function to for laplace torch tuple convention.
 
@@ -260,12 +261,8 @@ class SWAGModel(BaseModel):
             """
             # Extract images and labels from the batch dictionary
             if isinstance(batch[0], dict):
-                try:
-                    images = [item["image"] for item in batch]
-                    labels = [item["labels"] for item in batch]
-                except KeyError:
-                    images = [item["inputs"] for item in batch]
-                    labels = [item["targets"] for item in batch]
+                images = [item[self.input_key] for item in batch]
+                labels = [item[self.target_key] for item in batch]
             else:
                 images = [item[0] for item in batch]
                 labels = [item[1] for item in batch]
@@ -276,9 +273,9 @@ class SWAGModel(BaseModel):
 
             # apply datamodule augmentation
             aug_batch = self.trainer.datamodule.on_after_batch_transfer(
-                {"inputs": inputs, "targets": targets}, dataloader_idx=0
+                {self.input_key: inputs, self.target_key: targets}, dataloader_idx=0
             )
-            return (aug_batch["inputs"], aug_batch["targets"])
+            return (aug_batch[self.input_key], aug_batch[self.target_key])
 
         self.train_loader.collate_fn = collate_fn_swag_torch
         # # apply augmentation

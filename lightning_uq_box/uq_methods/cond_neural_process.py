@@ -144,7 +144,7 @@ class ConvCondNeuralProcess(BaseModel):
         loss = self.loss_fn(out, batch["y_target"])
 
         self.log("train_loss", loss)  # logging to Logger
-        if batch["inputs"].shape[0] > 1:
+        if batch[self.input_key].shape[0] > 1:
             self.train_metrics(self.extract_mean_output(out), batch["y_target"])
 
         return loss
@@ -162,7 +162,7 @@ class ConvCondNeuralProcess(BaseModel):
         loss = self.loss_fn(out, batch["y_target"])
 
         self.log("val_loss", loss)  # logging to Logger
-        if batch["inputs"].shape[0] > 1:
+        if batch[self.input_key].shape[0] > 1:
             self.val_metrics(self.extract_mean_output(out), batch["y_target"])
 
         return loss
@@ -181,7 +181,7 @@ class ConvCondNeuralProcess(BaseModel):
         )
         out_dict["targets"] = batch["y_target"].detach().squeeze(-1).cpu().numpy()
 
-        if batch["inputs"].shape[0] > 1:
+        if batch[self.input_key].shape[0] > 1:
             self.test_metrics(
                 out_dict["pred"].squeeze(-1), batch["y_target"].squeeze(-1)
             )
