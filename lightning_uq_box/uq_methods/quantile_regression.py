@@ -11,6 +11,7 @@ from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 
 from .base import DeterministicModel
 from .loss_functions import HuberQLoss, QuantileLoss
+from .utils import default_regression_metrics
 
 
 class QuantileRegressionBase(DeterministicModel):
@@ -31,6 +32,12 @@ class QuantileRegressionBase(DeterministicModel):
 
         self.save_hyperparameters(ignore=["model", "loss_fn"])
         self.median_index = self.hparams.quantiles.index(0.5)
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
 
 
 class QuantileRegression(QuantileRegressionBase):
