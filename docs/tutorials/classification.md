@@ -9,6 +9,6 @@ classification/due
 classification/dkl
 classification/swag
 classification/mc_dropout
-classification/laplace
+classification/laplace_model
 classification/bnn_vi_elbo
 ```

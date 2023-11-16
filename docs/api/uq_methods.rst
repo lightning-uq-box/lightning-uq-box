@@ -45,7 +45,9 @@ Laplace Approximation
 
 .. currentmodule:: lightning_uq_box.uq_methods.laplace_model
 
-.. autoclass:: LaplaceModel
+.. autoclass:: LaplaceBase
+.. autoclass:: LaplaceClassification
+.. autoclass:: LaplaceRegression
 
 Bayesian Neural Networks ELBO
 -----------------------------

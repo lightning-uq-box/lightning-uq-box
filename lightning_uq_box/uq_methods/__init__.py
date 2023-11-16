@@ -57,7 +57,9 @@ __all__ = (
     "MCDropoutRegression",
     "MCDropoutClassification",
     # Laplace Approximation
-    "LaplaceModel",
+    "LaplaceBase",
+    "LaplaceRegression",
+    "LaplaceClassification",
     # Quantile Regression
     "QuantileRegressionBase",
     "QuantileRegression",
