@@ -1,6 +1,6 @@
 # Lightning-UQ-Box
 
-Welcome to the lightning-uq-box documentation page. Finding your way around.
+Welcome to the lightning-uq-box documentation page. Our goal is to give you both intuition of how different UQ-Methods work and demonstrate how you can apply these methods in your research or projects.
 
 ## Table of contents
 
