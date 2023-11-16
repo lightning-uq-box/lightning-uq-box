@@ -13,7 +13,12 @@ from .utils import process_regression_prediction, save_predictions_to_csv
 
 
 class DeepEnsembleModel(BaseModule):
-    """Base Class for different Ensemble Models."""
+    """Base Class for different Ensemble Models.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """
 
     def __init__(
         self,

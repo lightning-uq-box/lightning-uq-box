@@ -26,7 +26,12 @@ from .utils import (
 
 
 class BNN_VI_ELBO_Base(DeterministicModel):
-    """Bayes By Backprop Base with Variational Inference (VI)."""
+    """Bayes By Backprop Base with Variational Inference (VI).
+
+    If you use this model in your work, please cite:
+
+    * https://arxiv.org/abs/1505.05424
+    """
 
     def __init__(
         self,
@@ -267,7 +272,12 @@ class BNN_VI_ELBO_Base(DeterministicModel):
 
 
 class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
-    """Bayes By Backprop Model with Variational Inference (VI) for Regression."""
+    """Bayes By Backprop Model with Variational Inference (VI) for Regression.
+
+    If you use this model in your work, please cite:
+
+    * https://arxiv.org/abs/1505.05424
+    """
 
     def __init__(
         self,
@@ -377,7 +387,12 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
 
 
 class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
-    """Bayes By Backprop Model with Variational Inference (VI) for Classification."""
+    """Bayes By Backprop Model with Variational Inference (VI) for Classification.
+
+    If you use this model in your work, please cite:
+
+    * https://arxiv.org/abs/1505.05424
+    """
 
     valid_tasks = ["binary", "multiclass", "multilable"]
 

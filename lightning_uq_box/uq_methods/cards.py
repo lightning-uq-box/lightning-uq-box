@@ -23,7 +23,6 @@ class CARDBase(BaseModule):
     If you use this in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2206.07275
-
     """
 
     def __init__(

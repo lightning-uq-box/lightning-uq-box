@@ -1,5 +1,7 @@
 """Spectral Normalization Layers and conversion tools."""
 
+"""Adapted from https://github.com/y0ast/DUE/tree/main/due/layers"""
+
 from typing import Tuple
 
 import torch

@@ -18,7 +18,12 @@ from .utils import (
 
 
 class MCDropoutBase(DeterministicModel):
-    """MC-Dropout Base class."""
+    """MC-Dropout Base class.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://proceedings.mlr.press/v48/gal16.html
+    """
 
     def __init__(
         self,
@@ -74,7 +79,12 @@ class MCDropoutBase(DeterministicModel):
 
 
 class MCDropoutRegression(MCDropoutBase):
-    """MC-Dropout Model for Regression."""
+    """MC-Dropout Model for Regression.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://proceedings.mlr.press/v48/gal16.html
+    """
 
     def __init__(
         self,
@@ -160,6 +170,13 @@ class MCDropoutRegression(MCDropoutBase):
 
 
 class MCDropoutClassification(MCDropoutBase):
+    """MC-Dropout Model for Classification.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://proceedings.mlr.press/v48/gal16.html
+    """
+
     valid_tasks = ["binary", "multiclass", "multilable"]
 
     def __init__(

@@ -15,7 +15,12 @@ from .utils import default_regression_metrics
 
 
 class MVEBase(DeterministicModel):
-    """Mean Variance Estimation Network Base Class."""
+    """Mean Variance Estimation Network Base Class.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://ieeexplore.ieee.org/document/374138
+    """
 
     def __init__(
         self,
@@ -64,7 +69,12 @@ class MVEBase(DeterministicModel):
 
 
 class MVERegression(MVEBase):
-    """Mean Variance Estimation Model for Regression that is trained with NLL."""
+    """Mean Variance Estimation Model for Regression that is trained with NLL.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://ieeexplore.ieee.org/document/374138
+    """
 
     def __init__(
         self,

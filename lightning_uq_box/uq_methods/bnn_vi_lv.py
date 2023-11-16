@@ -24,7 +24,13 @@ from .bnn_vi import BNN_VI_Base
 
 
 class BNN_LV_VI(BNN_VI_Base):
-    """Bayesian Neural Network (BNN) with Latent Variables (LV) trained with Variational Inferece."""  # noqa: E501
+    """Bayesian Neural Network (BNN) with Latent Variables (LV) trained with Variational Inferece.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.mlr.press/v80/depeweg18a
+
+    """  # noqa: E501
 
     lv_intro_options = ["first", "last"]
 
@@ -422,7 +428,12 @@ class BNN_LV_VI(BNN_VI_Base):
 
 
 class BNN_LV_VI_Batched(BNN_LV_VI):
-    """Batched sampling version of BNN_LV_VI."""
+    """Batched sampling version of BNN_LV_VI.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.mlr.press/v80/depeweg18a
+    """
 
     def __init__(
         self,

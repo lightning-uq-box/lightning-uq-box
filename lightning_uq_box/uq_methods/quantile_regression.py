@@ -15,7 +15,12 @@ from .utils import _get_num_outputs, default_regression_metrics
 
 
 class QuantileRegressionBase(DeterministicModel):
-    """Quantile Regression Base Module."""
+    """Quantile Regression Base Module.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://www.jstor.org/stable/1913643
+    """
 
     def __init__(
         self,
@@ -41,7 +46,12 @@ class QuantileRegressionBase(DeterministicModel):
 
 
 class QuantileRegression(QuantileRegressionBase):
-    """Quantile Regression Module for Regression."""
+    """Quantile Regression Module for Regression.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://www.jstor.org/stable/1913643
+    """
 
     def __init__(
         self,

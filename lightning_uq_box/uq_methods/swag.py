@@ -27,7 +27,12 @@ from .utils import (
 
 
 class SWAGBase(DeterministicModel):
-    """Stochastic Weight Averaging - Gaussian (SWAG)."""
+    """Stochastic Weight Averaging - Gaussian (SWAG).
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    """
 
     def __init__(
         self,
@@ -337,7 +342,12 @@ class SWAGBase(DeterministicModel):
 
 
 class SWAGRegression(SWAGBase):
-    """SWAG Model for Regression."""
+    """SWAG Model for Regression.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    """
 
     def __init__(
         self,
@@ -391,7 +401,12 @@ class SWAGRegression(SWAGBase):
 
 
 class SWAGClassification(SWAGBase):
-    """SWAG Model for Classification."""
+    """SWAG Model for Classification.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    """
 
     valid_tasks = ["binary", "multiclass", "multilable"]
 

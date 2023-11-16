@@ -32,6 +32,10 @@ class BNN_VI_Base(DeterministicModel):
     """Bayesian Neural Network (BNN) with VI.
 
     Trained with (VI) Variational Inferece and energy loss.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.mlr.press/v80/depeweg18a
     """
 
     def __init__(
@@ -239,6 +243,10 @@ class BNN_VI_Regression(BNN_VI_Base):
     """Bayesian Neural Network (BNN) with VI.
 
     Trained with (VI) Variational Inferece and energy loss.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.mlr.press/v80/depeweg18a
     """
 
     def __init__(
@@ -381,7 +389,12 @@ class BNN_VI_Regression(BNN_VI_Base):
 
 
 class BNN_VI_BatchedRegression(BNN_VI_Regression):
-    """Batched sampling version of BNN_VI."""
+    """Batched sampling version of BNN_VI.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.mlr.press/v80/depeweg18a
+    """
 
     def __init__(
         self,

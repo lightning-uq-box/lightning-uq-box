@@ -20,7 +20,13 @@ from .utils import process_regression_prediction
 
 # SGLD Optimizer from Izmailov, currently in __init__.py
 class SGLD(Optimizer):
-    """Stochastic Gradient Langevian Dynamics Optimzer."""
+    """Stochastic Gradient Langevian Dynamics Optimzer.
+
+
+    If you use this optimizer in your research, please cite the following paper:
+
+    * https://www.stats.ox.ac.uk/~teh/research/compstats/WelTeh2011a.pdf
+    """
 
     def __init__(
         self,
@@ -76,7 +82,12 @@ class SGLD(Optimizer):
 
 
 class SGLDModel(DeterministicModel):
-    """Storchastic Gradient Langevian Dynamics method for regression."""
+    """Storchastic Gradient Langevian Dynamics method for regression.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://www.stats.ox.ac.uk/~teh/research/compstats/WelTeh2011a.pdf
+    """
 
     def __init__(
         self,

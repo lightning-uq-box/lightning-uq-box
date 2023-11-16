@@ -13,7 +13,12 @@ from .spectral_normalized_layers import spectral_normalize_model_layers
 
 
 class DUERegression(DKLRegression):
-    """Deterministic Uncertainty Estimation (DUE) for Regression."""
+    """Deterministic Uncertainty Estimation (DUE) for Regression.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://arxiv.org/abs/2102.11409
+    """
 
     def __init__(
         self,
@@ -62,7 +67,7 @@ class DUERegression(DKLRegression):
 class DUEClassification(DKLClassification):
     """Deterministic Uncertainty Estimation (DUE) Model.
 
-    If you use this model in your research, please cite the following paper:x
+    If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2102.11409
     """

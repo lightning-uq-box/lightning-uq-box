@@ -36,7 +36,12 @@ from .utils import (
 
 
 class DKLBase(gpytorch.Module, BaseModule):
-    """Deep Kernel Learning Base Module."""
+    """Deep Kernel Learning Base Module.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.mlr.press/v51/wilson16.html
+    """
 
     def __init__(
         self,
@@ -237,7 +242,7 @@ class DKLRegression(DKLBase):
 
     If you use this model in your research, please cite the following papers:
 
-    * https://arxiv.org/abs/1511.02222
+    * https://proceedings.mlr.press/v51/wilson16.html
     * https://arxiv.org/abs/2102.11409
     """
 
@@ -343,7 +348,13 @@ class DKLRegression(DKLBase):
 
 
 class DKLClassification(DKLBase):
-    """Deep Kernel Learning for Classification."""
+    """Deep Kernel Learning for Classification.
+
+    If you use this model in your research, please cite the following papers:
+
+    * https://proceedings.mlr.press/v51/wilson16.html
+    * https://arxiv.org/abs/2102.11409
+    """
 
     valid_tasks = ["binary", "multiclass", "multilable"]
 
