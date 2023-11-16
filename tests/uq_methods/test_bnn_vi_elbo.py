@@ -12,7 +12,10 @@ from lightning import Trainer
 from omegaconf import OmegaConf
 from pytest_lazyfixture import lazy_fixture
 
-from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
+from lightning_uq_box.datamodules import (
+    ToyHeteroscedasticDatamodule,
+    TwoMoonsDataModule,
+)
 from lightning_uq_box.uq_methods import (
     BNN_VI_ELBO_Classification,
     BNN_VI_ELBO_Regression,
@@ -28,13 +31,16 @@ class TestBNN_VI_ELBO:
         return instantiate(conf.uq_method)
 
     @pytest.fixture(params=["bnn_vi_elbo_classification.yaml"])
-    def model_regression(self, request: SubRequest) -> BNN_VI_ELBO_Regression:
+    def model_classification(self, request: SubRequest) -> BNN_VI_ELBO_Regression:
         conf = OmegaConf.load(
             os.path.join("tests", "configs", "bnn_vi_elbo", request.param)
         )
         return instantiate(conf.uq_method)
 
-    @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
+    @pytest.mark.parametrize(
+        "model",
+        [lazy_fixture("model_regression"), lazy_fixture("model_classification")],
+    )
     def test_forward(
         self, model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBO_Classification]
     ) -> None:
@@ -45,7 +51,10 @@ class TestBNN_VI_ELBO:
         out = model(X)
         assert out.shape[-1] == n_outputs
 
-    @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
+    @pytest.mark.parametrize(
+        "model",
+        [lazy_fixture("model_regression"), lazy_fixture("model_classification")],
+    )
     def test_predict_step(
         self, model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBO_Classification]
     ) -> None:
@@ -57,15 +66,16 @@ class TestBNN_VI_ELBO:
         assert isinstance(out["pred"], torch.Tensor)
         assert out["pred"].shape[0] == 5
 
-    @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
-    def test_trainer(
-        self,
-        model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBO_Classification],
-        tmp_path: Path,
-    ) -> None:
+    @pytest.mark.parametrize(
+        "model, datamodule",
+        [
+            (lazy_fixture("model_regression"), ToyHeteroscedasticDatamodule()),
+            (lazy_fixture("model_classification"), TwoMoonsDataModule()),
+        ],
+    )
+    def test_trainer(self, model, datamodule, tmp_path: Path) -> None:
         """Test Base Model with a Lightning Trainer."""
         # instantiate datamodule
-        datamodule = ToyHeteroscedasticDatamodule()
         trainer = Trainer(
             log_every_n_steps=1, max_epochs=1, default_root_dir=str(tmp_path)
         )

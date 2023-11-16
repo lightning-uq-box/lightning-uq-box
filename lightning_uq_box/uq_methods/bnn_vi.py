@@ -12,8 +12,8 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
+from lightning_uq_box.models.bnn_layers.utils import dnn_to_bnn_some
 from lightning_uq_box.models.bnnlv.utils import (
-    dnn_to_bnnlv_some,
     get_log_f_hat,
     get_log_normalizer,
     get_log_Z_prior,
@@ -37,7 +37,7 @@ class BNN_VI_Base(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
+        optimizer: type[Optimizer],
         num_training_points: int,
         part_stoch_module_names: Optional[list[Union[str, int]]] = None,
         n_mc_samples_train: int = 25,
@@ -49,6 +49,7 @@ class BNN_VI_Base(DeterministicModel):
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
         layer_type: str = "reparameterization",
+        lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new instace of BNN VI.
 
@@ -74,7 +75,7 @@ class BNN_VI_Base(DeterministicModel):
             AssertionError: if ``n_mc_samples_train`` is not positive.
             AssertionError: if ``n_mc_samples_test`` is not positive.
         """
-        super().__init__(model, optimizer, None)
+        super().__init__(model, optimizer, None, lr_scheduler)
 
         assert n_mc_samples_train > 0, "Need to sample at least once during training."
         assert n_mc_samples_test > 0, "Need to sample at least once during testing."
@@ -107,7 +108,7 @@ class BNN_VI_Base(DeterministicModel):
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
-        dnn_to_bnnlv_some(
+        dnn_to_bnn_some(
             self.model, self._define_bnn_args(), self.part_stoch_module_names
         )
 
@@ -137,7 +138,9 @@ class BNN_VI_Base(DeterministicModel):
         """
         return self.model(X)
 
-    def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the training loss.
 
         Args:
@@ -146,7 +149,7 @@ class BNN_VI_Base(DeterministicModel):
         Returns:
             training loss
         """
-        X, y = args[0]
+        X, y = batch[self.input_key], batch[self.target_key]
 
         energy_loss, mean_output = self.compute_energy_loss(X, y)
 
@@ -155,7 +158,9 @@ class BNN_VI_Base(DeterministicModel):
 
         return energy_loss
 
-    def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute validation loss and log example predictions.
 
         Args:
@@ -165,7 +170,7 @@ class BNN_VI_Base(DeterministicModel):
         Returns:
             validation loss
         """
-        X, y = args[0]
+        X, y = batch[self.input_key], batch[self.target_key]
         energy_loss, mean_output = self.compute_energy_loss(X, y)
 
         self.log("val_loss", energy_loss)  # logging to Logger
@@ -252,6 +257,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         alpha: float = 1,
         layer_type: str = "reparameterization",
         quantiles: list[float] = [0.1, 0.5, 0.9],
+        lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         super().__init__(
             model,
@@ -267,6 +273,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             posterior_rho_init,
             alpha,
             layer_type,
+            lr_scheduler,
         )
         self.save_hyperparameters(ignore=["model"])
 
@@ -392,6 +399,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         alpha: float = 1,
         layer_type: str = "reparameterization",
         quantiles: list[float] = [0.1, 0.5, 0.9],
+        lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new instace of BNN VI Batched.
 
@@ -432,7 +440,10 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             alpha,
             layer_type,
             quantiles,
+            lr_scheduler,
         )
+
+        self.save_hyperparameters(ignore=["model"])
 
     def _define_bnn_args(self):
         """Define BNN Args."""

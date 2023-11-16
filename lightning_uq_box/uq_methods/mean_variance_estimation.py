@@ -93,9 +93,9 @@ class MVERegression(MVEBase):
         with torch.no_grad():
             preds = self.model(X)
 
-        mean, log_sigma_2 = preds[:, 0], preds[:, 1].cpu().numpy()
-        eps = np.ones_like(log_sigma_2) * 1e-6
-        std = np.sqrt(eps + np.exp(log_sigma_2))
+        mean, log_sigma_2 = preds[:, 0], preds[:, 1].cpu()
+        eps = torch.ones_like(log_sigma_2) * 1e-6
+        std = torch.sqrt(eps + np.exp(log_sigma_2))
         quantiles = compute_quantiles_from_std(
             mean.cpu().numpy(), std, self.hparams.quantiles
         )

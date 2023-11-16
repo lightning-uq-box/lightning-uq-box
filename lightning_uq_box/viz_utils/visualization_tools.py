@@ -158,6 +158,7 @@ def plot_predictions_regression(
       epistemic: epistemic uncertainy
       aleatoric: aleatoric uncertainty
     """
+    y_pred = y_pred.squeeze(-1)
     # fig, ax = plt.subplots(ncols=2)
     fig = plt.figure(figsize=(10, 7))
     ax0 = fig.add_subplot(1, 2, 1)

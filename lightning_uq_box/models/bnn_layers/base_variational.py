@@ -156,6 +156,41 @@ class BaseVariationalLayer_(nn.Module):
         """Unfreeze Variational Layers."""
         self.is_frozen = False
 
+    def kl_div(
+        self, mu_q: Tensor, sigma_q: Tensor, mu_p: Tensor, sigma_p: Tensor
+    ) -> Tensor:
+        """Calculates kl divergence between two gaussians (Q || P)
+
+        Args:
+            mu_q: mu parameter of distribution Q
+            sigma_q: sigma parameter of distribution Q
+            mu_p: mu parameter of distribution P
+            sigma_p: sigma parameter of distribution P
+
+        Returns:
+            kl divergence
+        """
+        kl = (
+            torch.log(sigma_p)
+            - torch.log(sigma_q)
+            + (sigma_q**2 + (mu_q - mu_p) ** 2) / (2 * (sigma_p**2))
+            - 0.5
+        )
+        return kl.mean()
+
+    def kl_loss(self) -> Tensor:
+        """Compute the KL Loss of the layer."""
+        sigma_weight = torch.log1p(torch.exp(self.rho_weight))
+        kl = self.kl_div(
+            self.mu_weight, sigma_weight, self.prior_weight_mu, self.prior_weight_sigma
+        )
+        if self.bias:
+            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            kl += self.kl_div(
+                self.mu_bias, sigma_bias, self.prior_bias_mu, self.prior_bias_sigma
+            )
+        return kl
+
 
 class BaseConvLayer_(BaseVariationalLayer_):
     """Base Convolutional Layer."""

@@ -8,11 +8,6 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
-from bayesian_torch.models.dnn_to_bnn import (
-    bnn_conv_layer,
-    bnn_linear_layer,
-    bnn_lstm_layer,
-)
 from torch import Tensor
 from torchmetrics import (
     Accuracy,
@@ -68,13 +63,13 @@ def process_regression_prediction(
     Returns:
         dictionary with mean prediction and predictive uncertainty
     """
-    mean_samples = preds[:, 0, :].cpu().numpy()
+    mean_samples = preds[:, 0, :].cpu()
     mean = preds[:, 0:1, :].mean(-1)
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
-        log_sigma_2_samples = preds[:, 1, :].cpu().numpy()
-        eps = np.ones_like(log_sigma_2_samples) * 1e-6
-        sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
+        log_sigma_2_samples = preds[:, 1, :].cpu()
+        eps = torch.ones_like(log_sigma_2_samples) * 1e-6
+        sigma_samples = torch.sqrt(eps + torch.exp(log_sigma_2_samples))
         std = compute_predictive_uncertainty(mean_samples, sigma_samples)
         aleatoric = compute_aleatoric_uncertainty(sigma_samples)
         epistemic = compute_epistemic_uncertainty(mean_samples)
@@ -201,52 +196,6 @@ def map_stochastic_modules(
     else:
         raise ValueError
     return part_stoch_names
-
-
-def dnn_to_bnn_some(m, bnn_prior_parameters, part_stoch_module_names: int) -> None:
-    """Replace linear and conv. layers with stochastic layers.
-
-    Args:
-        m: nn.module
-        bnn_prior_parameter: dictionary,
-            prior_mu: prior mean value for bayesian layer
-            prior_sigma: prior variance value for bayesian layer
-            posterior_mu_init: mean initialization value for approximate posterior
-            posterior_rho_init: variance initialization value for approximate posterior
-                through softplus σ = log(1 + exp(ρ))
-            bayesian_layer_type: `Flipout` or `Reparameterization
-        num_stochastic_modules: number of modules that should be stochastic,
-            max value all modules.
-    """
-    for name in part_stoch_module_names:
-        layer_names = name.split(".")
-        current_module = m
-        for l_name in layer_names[:-1]:
-            current_module = dict(current_module.named_children())[l_name]
-
-        target_layer_name = layer_names[-1]
-        current_layer = dict(current_module.named_children())[target_layer_name]
-
-        if "Conv" in current_layer.__class__.__name__:
-            setattr(
-                current_module,
-                target_layer_name,
-                bnn_conv_layer(bnn_prior_parameters, current_layer),
-            )
-        elif "Linear" in current_layer.__class__.__name__:
-            setattr(
-                current_module,
-                target_layer_name,
-                bnn_linear_layer(bnn_prior_parameters, current_layer),
-            )
-        elif "LSTM" in current_layer.__class__.__name__:
-            setattr(
-                current_module,
-                target_layer_name,
-                bnn_lstm_layer(bnn_prior_parameters, current_layer),
-            )
-        else:
-            pass
 
 
 def _get_input_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:

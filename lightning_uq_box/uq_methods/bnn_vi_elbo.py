@@ -8,19 +8,17 @@ from typing import Any, Optional, Union
 import numpy as np
 import torch
 import torch.nn as nn
-from bayesian_torch.models.dnn_to_bnn import get_kl_loss
-from omegaconf import ListConfig, OmegaConf
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 
+from lightning_uq_box.models.bnn_layers.utils import dnn_to_bnn_some, get_kl_loss
+
 from .base import DeterministicModel
-from .loss_functions import NLL
 from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    dnn_to_bnn_some,
     map_stochastic_modules,
     process_classification_prediction,
     process_regression_prediction,
@@ -45,7 +43,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
-        bayesian_layer_type: str = "Reparameterization",
+        bayesian_layer_type: str = "reparameterization",
         lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
     ) -> None:
         """Initialize a new Model instance.
@@ -69,7 +67,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             posterior_mu_init: mean initialization value for approximate posterior
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
-            bayesian_layer_type: `Flipout` or `Reparameterization`
+            bayesian_layer_type: `flipout` or `reparameterization`
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -84,7 +82,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             self.model, part_stoch_module_names
         )
 
-        self.save_hyperparameters(ignore=["model", "loss_fn"])
+        self.save_hyperparameters(ignore=["model", "criterion"])
         self._setup_bnn_with_vi()
 
         # update hyperparameters
@@ -106,8 +104,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
-            "type": self.hparams.bayesian_layer_type,
-            "moped_enable": False,
+            "layer_type": self.hparams.bayesian_layer_type,
         }
         # convert deterministic model to BNN
         dnn_to_bnn_some(
@@ -288,7 +285,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         prior_sigma: float = 1,
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
-        bayesian_layer_type: str = "Reparameterization",
+        bayesian_layer_type: str = "reparameterization",
         lr_scheduler: type[LRScheduler] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
@@ -313,7 +310,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             posterior_mu_init: mean initialization value for approximate posterior
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
-            bayesian_layer_type: `Flipout` or `Reparameterization`
+            bayesian_layer_type: `flipout` or `reparameterization`
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -337,7 +334,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["model", "criterion"])
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -400,7 +397,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         prior_sigma: float = 1,
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
-        bayesian_layer_type: str = "Reparameterization",
+        bayesian_layer_type: str = "reparameterization",
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new Model instance.
@@ -419,7 +416,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             posterior_mu_init: mean initialization value for approximate posterior
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
-            bayesian_layer_type: `Flipout` or `Reparameterization`
+            bayesian_layer_type: `flipout` or `reparameterization`
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -448,7 +445,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["model", "criterion"])
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
