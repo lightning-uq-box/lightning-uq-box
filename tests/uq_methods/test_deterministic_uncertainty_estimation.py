@@ -64,8 +64,8 @@ class TestDUE:
     )
     def test_forward(self, model: Union[DUERegression, DUEClassification]) -> None:
         """Test forward pass of DUE model."""
-        n_inputs = model.num_input_dims
-        n_outputs = model.num_output_dims
+        n_inputs = model.num_input_features
+        n_outputs = model.num_outputs
         X = torch.randn(5, n_inputs)
         out = model(X)
         assert out.shape()[0] == 5
@@ -76,7 +76,7 @@ class TestDUE:
     )
     def test_predict_step(self, model: Union[DUERegression, DUEClassification]) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = model.num_input_dims
+        n_inputs = model.num_input_features
         X = torch.randn(5, n_inputs)
         out = model.predict_step(X)
         assert isinstance(out, dict)

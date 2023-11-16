@@ -59,8 +59,8 @@ class TestDeepKernelLearningModel:
     )
     def test_forward(self, model: Union[DKLRegression, DKLClassification]) -> None:
         """Test forward pass of MC dropout model."""
-        n_inputs = model.num_input_dims
-        n_outputs = model.num_output_dims
+        n_inputs = model.num_input_features
+        n_outputs = model.num_outputs
         X = torch.randn(5, n_inputs)
         out = model(X)
         assert out.shape()[0] == 5
@@ -71,7 +71,7 @@ class TestDeepKernelLearningModel:
     )
     def test_predict_step(self, model: Union[DKLRegression, DKLClassification]) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = model.num_input_dims
+        n_inputs = model.num_input_features
         X = torch.randn(5, n_inputs)
         out = model.predict_step(X)
         assert isinstance(out, dict)

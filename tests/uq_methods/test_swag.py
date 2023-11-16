@@ -67,7 +67,7 @@ class TestSWAGRegression:
 
     def test_tabular_predict_step(self, swag_model_tabular: SWAGRegression) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = swag_model_tabular.num_input_dims
+        n_inputs = swag_model_tabular.num_input_features
         X = torch.randn(5, n_inputs)
         out = swag_model_tabular.predict_step(X)
         assert isinstance(out, dict)
@@ -182,7 +182,7 @@ class TestSWAGClassification:
 
     def test_tabular_predict_step(self, swag_model_tabular: SWAGClassification) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = swag_model_tabular.num_input_dims
+        n_inputs = swag_model_tabular.num_input_features
         X = torch.randn(5, n_inputs)
         out = swag_model_tabular.predict_step(X)
         assert isinstance(out, dict)

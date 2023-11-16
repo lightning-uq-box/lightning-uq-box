@@ -27,8 +27,8 @@ class TestQuantileRegression:
 
     def test_forward(self, model_regression: QuantileRegression) -> None:
         """Test forward pass of base model."""
-        n_inputs = model_regression.num_input_dims
-        n_outputs = model_regression.num_output_dims
+        n_inputs = model_regression.num_input_features
+        n_outputs = model_regression.num_outputs
         X = torch.randn(5, n_inputs)
         out = model_regression(X)
         assert out.shape[-1] == n_outputs

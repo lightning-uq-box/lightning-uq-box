@@ -39,7 +39,7 @@ class BaseModule(LightningModule):
         super().__init__(*args, **kwargs)
 
     @property
-    def num_input_dims(self) -> int:
+    def num_input_features(self) -> int:
         """Retrieve input dimension to the model.
 
         Returns:
@@ -48,7 +48,7 @@ class BaseModule(LightningModule):
         return _get_num_inputs(self.model)
 
     @property
-    def num_output_dims(self) -> int:
+    def num_outputs(self) -> int:
         """Retrieve output dimension to the model.
 
         Returns:

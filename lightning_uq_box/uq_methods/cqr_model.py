@@ -1,7 +1,8 @@
 """conformalized Quantile Regression Model."""
 
+import numbers
 import os
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -55,41 +56,23 @@ def compute_q_hat_with_cqr(
     return q_hat
 
 
-class CQR(BaseModule):
-    """Implements conformalized Quantile Regression.
+class ConformalPredictionBase(BaseModule):
+    """Base class for conformal prediction methods."""
 
-    This should be a wrapper around any pytorch lightning model
-    that conformalizes the scores and does predictions accordingly.
-    """
-
-    def __init__(
-        self, model: LightningModule, quantiles: list[float], save_dir: str
-    ) -> None:
+    def __init__(self, model: LightningModule) -> None:
         """Initialize a new Base Model.
 
         Args:
             model: initialized underlying LightningModule which is the base model
                 to conformalize
-            quantiles: quantiles used for training and prediction
-            calibration_loader: calibration data loader
-            save_dir: path to directory where to save predictions
         """
         super().__init__()
-        self.save_hyperparameters(ignore=["model"])
-
-        self.error_rate = 1 - max(
-            self.hparams.quantiles
-        )  # 1-alpha is the desired coverage
-
-        # load model from checkpoint to conformalize it
         self.model = model
 
         self.cqr_fitted = False
 
-        self.save_dir = save_dir
-
     @property
-    def num_inputs(self) -> int:
+    def num_input_features(self) -> int:
         """Retrieve input dimension to the model.
 
         Returns:
@@ -122,6 +105,36 @@ class CQR(BaseModule):
         with torch.no_grad():
             model_preds: dict[str, np.ndarray] = self.model.predict_step(X)
 
+        cqr_sets = self.conformalize_predictions(model_preds)
+
+        return cqr_sets
+
+
+class CQR(ConformalPredictionBase):
+    """Implements Conformalized Quantile Regression."""
+
+    def __init__(
+        self, model: LightningModule, quantiles: list[float] = [0.1, 0.5, 0.9]
+    ) -> None:
+        super().__init__(model)
+
+        self.save_hyperparameters(ignore=["model"])
+
+        self.error_rate = 1 - max(
+            self.hparams.quantiles
+        )  # 1-alpha is the desired coverage
+
+    def conformalize_predictions(
+        self, model_preds: dict[str, np.ndarray]
+    ) -> np.ndarray:
+        """Conformalize predictions.
+
+        Args:
+            model_preds: dictionary of model predictions
+
+        Returns:
+            conformalized prediction sets
+        """
         # conformalize predictions
         cqr_sets = np.stack(
             [
@@ -131,7 +144,6 @@ class CQR(BaseModule):
             ],
             axis=1,
         )
-
         return cqr_sets
 
     def on_test_start(self) -> None:
@@ -151,15 +163,6 @@ class CQR(BaseModule):
         # model predict steps return a dictionary that contains quantiles
         calibration_loader = self.trainer.datamodule.val_dataloader()
 
-        # calibration_loader.collate_fn = collate_fn_torch
-        model_outputs = [
-            self.model.predict_step(
-                self.trainer.datamodule.on_after_batch_transfer(
-                    batch, dataloader_idx=0
-                )[self.input_key].to(self.device)
-            )
-            for batch in calibration_loader
-        ]
         model_outputs: list[dict[str, Tensor]] = []
         cal_labels: list[np.ndarray] = []
         for batch in calibration_loader:
@@ -187,10 +190,10 @@ class CQR(BaseModule):
             batch[self.target_key].detach().squeeze(-1).cpu().numpy()
         )
 
-        if batch[self.input_key].shape[0] > 1:
-            self.test_metrics(
-                out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1)
-            )
+        # if batch[self.input_key].shape[0] > 1:
+        #     self.test_metrics(
+        #         out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1)
+        #     )
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
@@ -204,23 +207,23 @@ class CQR(BaseModule):
             del out_dict["out"]
         return out_dict
 
-    def on_test_batch_end(
-        self,
-        outputs: dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        if self.save_dir:
-            save_predictions_to_csv(
-                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
-            )
+    # def on_test_batch_end(
+    #     self,
+    #     outputs: dict[str, np.ndarray],
+    #     batch: Any,
+    #     batch_idx: int,
+    #     dataloader_idx=0,
+    # ):
+    #     """Test batch end save predictions."""
+    #     if self.save_dir:
+    #         save_predictions_to_csv(
+    #             outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+    #         )
 
-    def on_test_epoch_end(self):
-        """Log epoch-level test metrics."""
-        self.log_dict(self.test_metrics.compute())
-        self.test_metrics.reset()
+    # def on_test_epoch_end(self):
+    #     """Log epoch-level test metrics."""
+    #     self.log_dict(self.test_metrics.compute())
+    #     self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -238,18 +241,9 @@ class CQR(BaseModule):
 
         cqr_sets = self.forward(X)
 
-        mean, std = compute_sample_mean_std_from_quantile(
-            cqr_sets, self.hparams.quantiles
-        )
-
-        # can happen due to overlapping quantiles
-        std[std <= 0] = 1e-6
-
         return {
-            "pred": torch.from_numpy(mean).to(self.device),
-            "pred_uct": std,
+            "pred": torch.from_numpy(cqr_sets[:, 1]).to(self.device),
             "lower_quant": cqr_sets[:, 0],
             "upper_quant": cqr_sets[:, -1],
-            "aleatoric_uct": std,
             "out": torch.from_numpy(cqr_sets).to(self.device),
         }

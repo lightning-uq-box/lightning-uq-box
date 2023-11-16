@@ -186,7 +186,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.val_metrics.reset()
 
     @property
-    def num_input_dims(self) -> int:
+    def num_input_features(self) -> int:
         """Retrieve input dimension to the model.
 
         Returns:
@@ -195,7 +195,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         return _get_num_inputs(self.feature_extractor)
 
     @property
-    def num_output_dims(self) -> int:
+    def num_outputs(self) -> int:
         """Retrieve output dimension to the model.
 
         Returns:
@@ -558,7 +558,7 @@ class DKLGPLayer(ApproximateGP):
         """Forward pass of GP.
 
         Args:
-            X: input to GP of shape [batch_size, num_input_dims]
+            X: input to GP of shape [batch_size, num_input_features]
         """
         mean = self.mean_module(X)
         covar = self.covar_module(X)

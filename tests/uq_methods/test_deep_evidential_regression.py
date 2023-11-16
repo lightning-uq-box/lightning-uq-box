@@ -25,15 +25,15 @@ class TestDERModel:
 
     def test_forward(self, der_model: DER) -> None:
         """Test forward pass of base model."""
-        n_inputs = der_model.num_input_dims
-        n_outputs = der_model.num_output_dims
+        n_inputs = der_model.num_input_features
+        n_outputs = der_model.num_outputs
         X = torch.randn(5, n_inputs)
         out = der_model(X)
         assert out.shape[-1] == n_outputs
 
     def test_predict_step(self, der_model: DER) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = der_model.num_input_dims
+        n_inputs = der_model.num_input_features
         X = torch.randn(5, n_inputs)
         out = der_model.predict_step(X)
         assert isinstance(out, dict)
