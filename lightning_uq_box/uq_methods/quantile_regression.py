@@ -28,6 +28,7 @@ class QuantileRegressionBase(DeterministicModel):
         optimizer: type[Optimizer],
         loss_fn: nn.Module = QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
         lr_scheduler: type[LRScheduler] = None,
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 

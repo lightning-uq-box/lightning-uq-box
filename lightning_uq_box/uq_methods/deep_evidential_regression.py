@@ -9,8 +9,6 @@ from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 
-from lightning_uq_box.eval_utils import compute_quantiles_from_std
-
 from .base import DeterministicModel
 from .loss_functions import DERLoss
 from .utils import _get_num_outputs, default_regression_metrics
@@ -88,8 +86,6 @@ class DER(DeterministicModel):
         # TODO need to give control over the coeff through config or argument
         self.loss_fn = DERLoss(coeff)
 
-        self.hparams["quantiles"] = quantiles
-
     def setup_task(self) -> None:
         """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
@@ -121,17 +117,11 @@ class DER(DeterministicModel):
         aleatoric_uct = self.compute_aleatoric_uct(beta, alpha, nu)
         pred_uct = epistemic_uct + aleatoric_uct
 
-        quantiles = compute_quantiles_from_std(
-            gamma.squeeze(-1).cpu().numpy(), pred_uct, self.hparams.quantiles
-        )
-
         return {
             "pred": gamma,
             "pred_uct": pred_uct,
             "aleatoric_uct": aleatoric_uct,
             "epistemic_uct": epistemic_uct,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, 1],
             "out": pred,
         }
 
