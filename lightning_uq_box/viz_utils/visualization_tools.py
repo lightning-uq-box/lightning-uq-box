@@ -21,7 +21,7 @@ def plot_training_metrics(save_dir: str, metric: str) -> plt.figure:
     )
 
     df = pd.read_csv(metrics_path)
-    print(df.columns)
+
     train_loss = df[df["train_loss"].notna()]["train_loss"]
     train_rmse = df[df[f"train{metric}"].notna()][f"train{metric}"]
 
@@ -31,6 +31,7 @@ def plot_training_metrics(save_dir: str, metric: str) -> plt.figure:
 
     ax[1].plot(np.arange(len(train_rmse)), train_rmse)
     ax[1].set_title(f"Train {metric}")
+
     return fig
 
 

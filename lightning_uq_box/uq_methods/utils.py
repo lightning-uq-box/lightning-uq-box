@@ -203,7 +203,7 @@ def map_stochastic_modules(
     return part_stoch_names
 
 
-def dnn_to_bnn_some(m, bnn_prior_parameters, part_stoch_module_names: int):
+def dnn_to_bnn_some(m, bnn_prior_parameters, part_stoch_module_names: int) -> None:
     """Replace linear and conv. layers with stochastic layers.
 
     Args:
@@ -218,24 +218,35 @@ def dnn_to_bnn_some(m, bnn_prior_parameters, part_stoch_module_names: int):
         num_stochastic_modules: number of modules that should be stochastic,
             max value all modules.
     """
-    for name, value in m._modules.items():
-        if m._modules[name]._modules:
-            part_stoch_module_names = [
-                module_name.removeprefix(name + ".")
-                for module_name in part_stoch_module_names
-            ]
-            dnn_to_bnn_some(
-                m._modules[name], bnn_prior_parameters, part_stoch_module_names
+    for name in part_stoch_module_names:
+        layer_names = name.split(".")
+        current_module = m
+        for l_name in layer_names[:-1]:
+            current_module = dict(current_module.named_children())[l_name]
+
+        target_layer_name = layer_names[-1]
+        current_layer = dict(current_module.named_children())[target_layer_name]
+
+        if "Conv" in current_layer.__class__.__name__:
+            setattr(
+                current_module,
+                target_layer_name,
+                bnn_conv_layer(bnn_prior_parameters, current_layer),
             )
-        if "Conv" in m._modules[name].__class__.__name__:
-            setattr(m, name, bnn_conv_layer(bnn_prior_parameters, m._modules[name]))
-        elif "Linear" in m._modules[name].__class__.__name__:
-            setattr(m, name, bnn_linear_layer(bnn_prior_parameters, m._modules[name]))
-        elif "LSTM" in m._modules[name].__class__.__name__:
-            setattr(m, name, bnn_lstm_layer(bnn_prior_parameters, m._modules[name]))
+        elif "Linear" in current_layer.__class__.__name__:
+            setattr(
+                current_module,
+                target_layer_name,
+                bnn_linear_layer(bnn_prior_parameters, current_layer),
+            )
+        elif "LSTM" in current_layer.__class__.__name__:
+            setattr(
+                current_module,
+                target_layer_name,
+                bnn_lstm_layer(bnn_prior_parameters, current_layer),
+            )
         else:
             pass
-    return
 
 
 def _get_input_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:
