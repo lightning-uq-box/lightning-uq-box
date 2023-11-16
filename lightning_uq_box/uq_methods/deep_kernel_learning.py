@@ -341,15 +341,7 @@ class DKLRegression(DKLBase):
             mean = output.mean.cpu()
             std = output.stddev.cpu()
 
-        quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
-        return {
-            "pred": mean,
-            "pred_uct": std,
-            "epistemic_uct": std,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
-            "out": output,
-        }
+        return {"pred": mean, "pred_uct": std, "epistemic_uct": std, "out": output}
 
 
 class DKLClassification(DKLBase):

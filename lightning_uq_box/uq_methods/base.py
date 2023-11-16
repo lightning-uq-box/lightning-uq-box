@@ -276,6 +276,17 @@ class DeterministicClassification(DeterministicModel):
         self.task = task
         super().__init__(model, optimizer, loss_fn, lr_scheduler)
 
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract mean output from model output.
+
+        Args:
+            out: output from the model
+
+        Returns:
+            mean output
+        """
+        return out
+
     def setup_task(self) -> None:
         """Setup task specific attributes."""
         self.train_metrics = default_classification_metrics(

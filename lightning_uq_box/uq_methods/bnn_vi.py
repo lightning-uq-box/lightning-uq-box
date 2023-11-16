@@ -400,15 +400,12 @@ class BNN_VI_Regression(BNN_VI_Base):
         )
 
         std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
-        # currently only single output, might want to support NLL output as well
-        quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
+
         return {
             "pred": mean_out,
             "pred_uct": std,
             "epistemic_uct": std_epistemic,
             "aleatoric_uct": std_aleatoric,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
             "samples": model_preds,
         }
 
@@ -564,15 +561,11 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         )
         std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
 
-        # currently only single output, might want to support NLL output as well
-        quantiles = compute_quantiles_from_std(mean_out, std, self.hparams.quantiles)
         return {
             "pred": mean_out,
             "pred_uct": std,
             "epistemic_uct": std_epistemic,
             "aleatoric_uct": std_aleatoric,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
             "samples": model_preds,
         }
 

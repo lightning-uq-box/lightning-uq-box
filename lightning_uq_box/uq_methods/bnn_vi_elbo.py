@@ -387,7 +387,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
                 [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
-        return process_regression_prediction(preds, self.hparams.quantiles)
+        return process_regression_prediction(preds)
 
 
 class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):

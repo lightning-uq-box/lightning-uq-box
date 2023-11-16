@@ -120,14 +120,5 @@ class MVERegression(MVEBase):
         mean, log_sigma_2 = preds[:, 0], preds[:, 1].cpu()
         eps = torch.ones_like(log_sigma_2) * 1e-6
         std = torch.sqrt(eps + np.exp(log_sigma_2))
-        quantiles = compute_quantiles_from_std(
-            mean.cpu().numpy(), std, self.hparams.quantiles
-        )
-        return {
-            "pred": mean,
-            "pred_uct": std,
-            "aleatoric_uct": std,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
-            "out": preds,
-        }
+
+        return {"pred": mean, "pred_uct": std, "aleatoric_uct": std, "out": preds}

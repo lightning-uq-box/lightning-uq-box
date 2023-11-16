@@ -242,4 +242,4 @@ class SGLDModel(DeterministicModel):
         preds = torch.stack(preds, dim=-1).detach()
         # shape [batch_size, num_outputs, n_sgld_samples]
 
-        return process_regression_prediction(preds, self.hparams.quantiles)
+        return process_regression_prediction(preds)

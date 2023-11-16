@@ -270,17 +270,12 @@ class LaplaceRegression(LaplaceBase):
             laplace_predictive = np.sqrt(
                 laplace_epistemic**2 + laplace_aleatoric**2
             )
-            quantiles = compute_quantiles_from_std(
-                laplace_mean, laplace_predictive, self.hparams.quantiles
-            )
 
         return {
             "pred": torch.from_numpy(laplace_mean).to(self.device),
             "pred_uct": laplace_predictive,
             "epistemic_uct": laplace_epistemic,
             "aleatoric_uct": laplace_aleatoric,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
         }
 
 

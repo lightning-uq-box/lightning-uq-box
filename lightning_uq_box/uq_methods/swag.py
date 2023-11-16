@@ -416,7 +416,7 @@ class SWAGRegression(SWAGBase):
 
         preds = self.sample_predictions(X)
 
-        return process_regression_prediction(preds, self.hparams.quantiles)
+        return process_regression_prediction(preds)
 
 
 class SWAGClassification(SWAGBase):
@@ -472,6 +472,17 @@ class SWAGClassification(SWAGBase):
             num_datapoints_for_bn_update,
         )
         self.save_hyperparameters(ignore=["model", "loss_fn"])
+
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract mean output from model output.
+
+        Args:
+            out: output from the model
+
+        Returns:
+            mean output
+        """
+        return out
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""

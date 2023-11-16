@@ -128,4 +128,4 @@ class DeepEnsembleModel(BaseModule):
         with torch.no_grad():
             preds = self.generate_ensemble_predictions(X)
 
-        return process_regression_prediction(preds, self.hparams.quantiles)
+        return process_regression_prediction(preds)

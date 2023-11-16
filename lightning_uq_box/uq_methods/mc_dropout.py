@@ -166,7 +166,7 @@ class MCDropoutRegression(MCDropoutBase):
 
         # TODO: this function is specific to regression
         # maybe the  name of this should be in the base class and be foreced to be overwritten by the subclasses?
-        return process_regression_prediction(preds, self.hparams.quantiles)
+        return process_regression_prediction(preds)
 
 
 class MCDropoutClassification(MCDropoutBase):
