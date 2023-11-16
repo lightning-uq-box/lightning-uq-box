@@ -13,7 +13,7 @@ from .bnn_vi_elbo import (
     BNN_VI_ELBO_Regression,
 )
 from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
-from .cards import CARDBase, NoiseScheduler
+from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
 from .cqr_model import CQR
 from .deep_ensemble import DeepEnsembleModel
 from .deep_evidential_regression import DER
@@ -49,6 +49,8 @@ __all__ = (
     "DeterministicRegression",
     # CARD Model
     "CARDBase",
+    "CARDRegression",
+    "CARDClassification",
     "NoiseScheduler",
     # conformalized Quantile Regression
     "CQR",

@@ -8,9 +8,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 from .base import BaseModule
-from .utils import save_predictions_to_csv
+from .utils import save_predictions_to_csv, default_regression_metrics, default_classification_metrics, _get_num_outputs
 
 
 # TODO check EMA support
@@ -29,12 +31,13 @@ class CARDBase(BaseModule):
         self,
         cond_mean_model: nn.Module,
         guidance_model: nn.Module,
-        guidance_optim: type[torch.optim.Optimizer],
+        guidance_optim: type[Optimizer],
         n_steps: int = 1000,
         beta_schedule: str = "linear",
         beta_start: float = 1e-5,
         beta_end: float = 1e-2,
         n_z_samples: int = 100,
+        lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new instance of the CARD Model.
 
@@ -48,6 +51,7 @@ class CARDBase(BaseModule):
             beta_start: start value of beta scheduling
             beta_end: end value of beta scheduling
             n_z_samples: number of samples during prediction
+            lr_scheduler: learning rate scheduler
         """
         super().__init__()
 
@@ -61,6 +65,10 @@ class CARDBase(BaseModule):
         )
 
         self.guidance_optim = guidance_optim
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        pass
 
     def diffusion_process(self, batch: dict[str, Tensor]):
         """Diffusion process during training."""
@@ -91,6 +99,7 @@ class CARDBase(BaseModule):
 
         guidance_output = self.guidance_model(x, y_t_sample, y_0_hat, ant_samples_t)
 
+        # TODO does this change?
         # use the same noise sample e during training to compute loss
         loss = (e - guidance_output).square().mean()
 
@@ -149,19 +158,6 @@ class CARDBase(BaseModule):
         """Log epoch level validation metrics."""
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
-
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Tensor:
-        """Compute and return the test loss.
-
-        Args:
-            batch: the output of your DataLoader
-
-        Returns:
-            test loss
-        """
-        pass
 
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""
@@ -227,28 +223,7 @@ class CARDBase(BaseModule):
 
             final_recoverd = torch.stack(y_tile_seq, dim=0)
 
-        mean_pred = final_recoverd.mean(dim=0).detach().cpu().squeeze()
-        std_pred = final_recoverd.std(dim=0).detach().cpu().squeeze()
-
-        return {
-            "pred": mean_pred,
-            "pred_uct": std_pred,
-            "aleatoric_uct": std_pred,
-            "out": y_tile_seq,
-        }
-
-    def on_test_batch_end(
-        self,
-        outputs: dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        if self.save_dir:
-            save_predictions_to_csv(
-                outputs, os.path.join(self.save_dir, self.pred_file_name)
-            )
+        return final_recoverd
 
     def p_sample(self, x, y, y_0_hat, y_T_mean, t, alphas, one_minus_alphas_bar_sqrt):
         """Reverse diffusion process sampling -- one time step.
@@ -453,8 +428,180 @@ class CARDBase(BaseModule):
 
     def configure_optimizers(self) -> Any:
         """Configure optimizers."""
+        # lightning puts optimizer weights on device automatically
         optimizer = self.guidance_optim(params=self.guidance_model.parameters())
+
+        # put conditional mean model on device as well
+        self.cond_mean_model = self.cond_mean_model.to(self.device)
         return optimizer
+
+
+class CARDRegression(CARDBase):
+    """CARD Regression Model."""
+
+    def __init__(
+        self,
+        cond_mean_model: nn.Module,
+        guidance_model: nn.Module,
+        guidance_optim: type[Optimizer],
+        n_steps: int = 1000,
+        beta_schedule: str = "linear",
+        beta_start: float = 0.00001,
+        beta_end: float = 0.01,
+        n_z_samples: int = 100,
+        lr_scheduler: type[LRScheduler] = None,
+    ) -> None:
+        super().__init__(
+            cond_mean_model,
+            guidance_model,
+            guidance_optim,
+            n_steps,
+            beta_schedule,
+            beta_start,
+            beta_end,
+            n_z_samples,
+            lr_scheduler,
+        )
+
+        self.save_hyperparameters(ignore=["cond_mean_model", "guidance_model"])
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
+
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute and return the test loss.
+
+        Args:
+            batch: the output of your DataLoader
+
+        Returns:
+            test loss
+        """
+        out_dict = self.predict_step(batch["inputs"])
+        out_dict["targets"] = batch["targets"].detach().squeeze(-1).cpu().numpy()
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+        out_dict["pred_uct"] = out_dict["pred_uct"].detach().cpu().squeeze(-1).numpy()
+        out_dict["aleatoric_uct"] = (
+            out_dict["aleatoric_uct"].detach().cpu().squeeze(-1).numpy()
+        )
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in ["inputs", "targets"]:
+                if isinstance(val, Tensor):
+                    out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                else:
+                    out_dict[key] = val
+
+        return out_dict
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        """
+
+        final_recoverd, y_tile_seq = super().predict_step(X, batch_idx, dataloader_idx)
+
+        # momenet matching
+        mean_pred = final_recoverd.mean(dim=0).detach().cpu().squeeze()
+        std_pred = final_recoverd.std(dim=0).detach().cpu().squeeze()
+
+        return {
+            "pred": mean_pred,
+            "pred_uct": std_pred,
+            "aleatoric_uct": std_pred,
+            "out": y_tile_seq,
+        }
+
+    # def on_test_batch_end(
+    #     self,
+    #     outputs: dict[str, np.ndarray],
+    #     batch: Any,
+    #     batch_idx: int,
+    #     dataloader_idx=0,
+    # ):
+    #     """Test batch end save predictions."""
+    #     if self.save_dir:
+    #         save_predictions_to_csv(
+    #             outputs, os.path.join(self.save_dir, self.pred_file_name)
+    #         )
+
+
+class CARDClassification(CARDBase):
+    """CARD Classification Model."""
+    valid_tasks = ["binary", "multiclass"]
+
+    def __init__(
+        self,
+        cond_mean_model: nn.Module,
+        guidance_model: nn.Module,
+        guidance_optim: type[Optimizer],
+        n_steps: int = 1000,
+        beta_schedule: str = "linear",
+        beta_start: float = 0.00001,
+        beta_end: float = 0.01,
+        n_z_samples: int = 100,
+        task: str = "multiclass",
+        lr_scheduler: type[LRScheduler] = None,
+    ) -> None:
+        assert task in self.valid_tasks
+        self.task = task
+
+        self.num_classes = _get_num_outputs(cond_mean_model)
+
+        super().__init__(
+            cond_mean_model,
+            guidance_model,
+            guidance_optim,
+            n_steps,
+            beta_schedule,
+            beta_start,
+            beta_end,
+            n_z_samples,
+            lr_scheduler,
+        )
+        self.save_hyperparameters(ignore=["cond_mean_model", "guidance_model"])
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_classification_metrics("train", self.task, self.num_classes)
+        self.val_metrics = default_regression_metrics("val", self.task, self.num_classes)
+        self.test_metrics = default_regression_metrics("test", self.task, self.num_classes)
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        """
+
+        final_recoverd, y_tile_seq = super().predict_step(X, batch_idx, dataloader_idx)
+
+        # momenet matching
+        mean_pred = final_recoverd.mean(dim=0).detach().cpu().squeeze()
+        std_pred = final_recoverd.std(dim=0).detach().cpu().squeeze()
+
+        return {
+            "pred": mean_pred,
+            "pred_uct": std_pred,
+            "aleatoric_uct": std_pred,
+            "out": y_tile_seq,
+        }
 
 
 class NoiseScheduler:
