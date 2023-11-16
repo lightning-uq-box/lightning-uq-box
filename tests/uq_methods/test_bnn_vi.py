@@ -18,7 +18,7 @@ from lightning_uq_box.datamodules import (
     ToyHeteroscedasticDatamodule,
     ToyImageRegressionDatamodule,
 )
-from lightning_uq_box.uq_methods import BNN_VI, BNN_VI_Batched
+from lightning_uq_box.uq_methods import BNN_VI_BatchedRegression, BNN_VI_Regression
 
 
 class TestBNN_VI_Model:
@@ -26,8 +26,8 @@ class TestBNN_VI_Model:
     @pytest.fixture(
         params=product(
             [
-                "lightning_uq_box.uq_methods.BNN_VI",
-                "lightning_uq_box.uq_methods.BNN_VI_Batched",
+                "lightning_uq_box.uq_methods.BNN_VI_Regression",
+                "lightning_uq_box.uq_methods.BNN_VI_BatchedRegression",
             ],
             ["reparameterization", "flipout"],
             [None, [-1], ["model.0"]],
@@ -35,19 +35,22 @@ class TestBNN_VI_Model:
     )
     def bnn_vi_model_tabular(
         self, tmp_path: Path, request: SubRequest
-    ) -> Union[BNN_VI, BNN_VI_Batched]:
+    ) -> Union[BNN_VI_Regression, BNN_VI_BatchedRegression]:
         """Create BNN_VI model from an underlying model."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "bnn_vi.yaml"))
+        conf = OmegaConf.load(
+            os.path.join("tests", "configs", "bnn_vi", "bnn_vi_regression.yaml")
+        )
         dm = ToyHeteroscedasticDatamodule()
         conf.uq_method["_target_"] = request.param[0]
-        conf.uq_method["save_dir"] = str(tmp_path)
         conf.uq_method["num_training_points"] = dm.X_train.shape[0]
         conf.uq_method["layer_type"] = request.param[1]
         conf.uq_method["part_stoch_module_names"] = request.param[2]
         return instantiate(conf.uq_method)
 
     # tests for tabular data
-    def test_forward(self, bnn_vi_model_tabular: Union[BNN_VI, BNN_VI_Batched]) -> None:
+    def test_forward(
+        self, bnn_vi_model_tabular: Union[BNN_VI_Regression, BNN_VI_BatchedRegression]
+    ) -> None:
         """Test forward pass of model."""
         X = torch.randn(3, 1)
         out = bnn_vi_model_tabular(X)
@@ -56,7 +59,7 @@ class TestBNN_VI_Model:
         assert out.shape[-1] == 1
 
     def test_predict_step(
-        self, bnn_vi_model_tabular: Union[BNN_VI, BNN_VI_Batched]
+        self, bnn_vi_model_tabular: Union[BNN_VI_Regression, BNN_VI_BatchedRegression]
     ) -> None:
         """Test predict step outside of Lightning Trainer."""
         X = torch.randn(3, 1)
@@ -65,20 +68,20 @@ class TestBNN_VI_Model:
         assert isinstance(out["pred"], Tensor)
         assert out["pred"].shape[0] == 3
 
-    def test_trainer(self, bnn_vi_model_tabular: Union[BNN_VI, BNN_VI_Batched]) -> None:
+    def test_trainer(
+        self, bnn_vi_model_tabular: Union[BNN_VI_Regression, BNN_VI_BatchedRegression]
+    ) -> None:
         """Test Model with a Lightning Trainer."""
         # instantiate datamodule
         datamodule = ToyHeteroscedasticDatamodule()
-        trainer = Trainer(
-            logger=False,
-            max_epochs=1,
-            default_root_dir=bnn_vi_model_tabular.hparams.save_dir,
-        )
+        trainer = Trainer(logger=False, max_epochs=1)
         trainer.test(model=bnn_vi_model_tabular, datamodule=datamodule)
 
-    def test_freeze(self, bnn_vi_model_tabular: Union[BNN_VI, BNN_VI_Batched]) -> None:
+    def test_freeze(
+        self, bnn_vi_model_tabular: Union[BNN_VI_Regression, BNN_VI_BatchedRegression]
+    ) -> None:
         """Test freezing functionality."""
-        if isinstance(bnn_vi_model_tabular, BNN_VI_Batched):
+        if isinstance(bnn_vi_model_tabular, BNN_VI_BatchedRegression):
             bnn_vi_model_tabular.freeze_layers(n_samples=5)
         else:
             bnn_vi_model_tabular.freeze_layers()
@@ -102,11 +105,14 @@ class TestBNN_VI_Model:
             [None, [-1], ["layer4.1.conv1", "layer4.1.conv2"]],
         )  # test everything for both layer_types
     )
-    def bnn_vi_model_image(self, tmp_path: Path, request: SubRequest) -> BNN_VI:
+    def bnn_vi_model_image(
+        self, tmp_path: Path, request: SubRequest
+    ) -> BNN_VI_Regression:
         """Create BNN_VI model from an underlying model."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "bnn_vi.yaml"))
+        conf = OmegaConf.load(
+            os.path.join("tests", "configs", "bnn_vi", "bnn_vi_regression.yaml")
+        )
         dm = ToyHeteroscedasticDatamodule()
-        conf.uq_method["save_dir"] = str(tmp_path)
         conf.uq_method["num_training_points"] = dm.X_train.shape[0]
         conf.uq_method["layer_type"] = request.param[0]
         conf.uq_method["part_stoch_module_names"] = request.param[1]
@@ -114,7 +120,7 @@ class TestBNN_VI_Model:
         return instantiate(conf.uq_method, model=model)
 
     # tests for image data
-    def test_forward_image(self, bnn_vi_model_image: BNN_VI) -> None:
+    def test_forward_image(self, bnn_vi_model_image: BNN_VI_Regression) -> None:
         """Test forward pass of model."""
         X = torch.randn(2, 3, 32, 32)
         out = bnn_vi_model_image(X)
@@ -122,7 +128,7 @@ class TestBNN_VI_Model:
         assert out.shape[0] == 2
         assert out.shape[-1] == 1
 
-    def test_predict_step_image(self, bnn_vi_model_image: BNN_VI) -> None:
+    def test_predict_step_image(self, bnn_vi_model_image: BNN_VI_Regression) -> None:
         """Test predict step outside of Lightning Trainer."""
         X = torch.randn(2, 3, 32, 32)
         out = bnn_vi_model_image.predict_step(X)
@@ -130,18 +136,14 @@ class TestBNN_VI_Model:
         assert isinstance(out["pred"], Tensor)
         assert out["pred"].shape[0] == 2
 
-    def test_trainer_image(self, bnn_vi_model_image: BNN_VI) -> None:
+    def test_trainer_image(self, bnn_vi_model_image: BNN_VI_Regression) -> None:
         """Test Model with a Lightning Trainer."""
         # instantiate datamodule
         datamodule = ToyImageRegressionDatamodule()
-        trainer = Trainer(
-            logger=False,
-            max_epochs=1,
-            default_root_dir=bnn_vi_model_image.hparams.save_dir,
-        )
+        trainer = Trainer(logger=False, max_epochs=1)
         trainer.test(model=bnn_vi_model_image, datamodule=datamodule)
 
-    def test_freeze_image(self, bnn_vi_model_image: BNN_VI) -> None:
+    def test_freeze_image(self, bnn_vi_model_image: BNN_VI_Regression) -> None:
         """Test freezing functionality."""
         bnn_vi_model_image.freeze_layers()
         X = torch.randn(2, 3, 32, 32)

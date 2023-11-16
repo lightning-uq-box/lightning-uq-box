@@ -1,5 +1,5 @@
 uq_method:
-  _target_: lightning_uq_box.uq_methods.DERModel
+  _target_: lightning_uq_box.uq_methods.DER
   model:
     _target_: lightning_uq_box.models.MLP
     n_outputs: 4

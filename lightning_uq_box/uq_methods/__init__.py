@@ -6,7 +6,7 @@ from .base import (
     DeterministicModel,
     DeterministicRegression,
 )
-from .bnn_vi import BNN_VI_BatchedRegression, BNN_VIBase, BNN_VIREgression
+from .bnn_vi import BNN_VI_Base, BNN_VI_BatchedRegression, BNN_VI_Regression
 from .bnn_vi_elbo import (
     BNN_VI_ELBO_Base,
     BNN_VI_ELBO_Classification,
@@ -98,8 +98,8 @@ __all__ = (
     "BNN_VI_ELBO_Regression",
     "BNN_VI_ELBO_Classification",
     # Bayesian Neural Network trained with Variational Inference
-    "BNN_VIBase",
-    "BNN_VIREgression",
+    "BNN_VI_Base",
+    "BNN_VI_Regression",
     "BNN_VI_BatchedRegression",
     # BNN with Latent Variables
     "BNN_LV_VI",

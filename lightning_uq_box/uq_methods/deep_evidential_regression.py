@@ -13,7 +13,7 @@ from lightning_uq_box.eval_utils import compute_quantiles_from_std
 
 from .base import DeterministicModel
 from .loss_functions import DERLoss
-from .utils import _get_num_outputs
+from .utils import _get_num_outputs, default_regression_metrics
 
 
 class DERLayer(nn.Module):
@@ -82,6 +82,12 @@ class DER(DeterministicModel):
         self.loss_fn = DERLoss(coeff)
 
         self.hparams["quantiles"] = quantiles
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0

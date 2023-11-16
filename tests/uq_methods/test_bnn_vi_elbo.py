@@ -14,8 +14,8 @@ from pytest_lazyfixture import lazy_fixture
 
 from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
 from lightning_uq_box.uq_methods import (
+    BNN_VI_ELBO_Classification,
     BNN_VI_ELBO_Regression,
-    BNN_VI_ELBOClassification,
 )
 
 
@@ -36,7 +36,7 @@ class TestBNN_VI_ELBO:
 
     @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
     def test_forward(
-        self, model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBOClassification]
+        self, model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBO_Classification]
     ) -> None:
         """Test forward pass of base model."""
         n_inputs = model.num_input_dims
@@ -47,7 +47,7 @@ class TestBNN_VI_ELBO:
 
     @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
     def test_predict_step(
-        self, model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBOClassification]
+        self, model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBO_Classification]
     ) -> None:
         """Test predict step outside of Lightning Trainer."""
         n_inputs = model.num_input_dims
@@ -60,7 +60,7 @@ class TestBNN_VI_ELBO:
     @pytest.mark.parametrize("model", [lazy_fixture("model_regression")])
     def test_trainer(
         self,
-        model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBOClassification],
+        model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBO_Classification],
         tmp_path: Path,
     ) -> None:
         """Test Base Model with a Lightning Trainer."""

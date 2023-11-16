@@ -21,10 +21,14 @@ from lightning_uq_box.models.bnnlv.utils import (
 
 from .base import DeterministicModel
 from .loss_functions import EnergyAlphaDivergence
-from .utils import map_stochastic_modules, save_predictions_to_csv
+from .utils import (
+    default_regression_metrics,
+    map_stochastic_modules,
+    save_predictions_to_csv,
+)
 
 
-class BNN_VIBase(DeterministicModel):
+class BNN_VI_Base(DeterministicModel):
     """Bayesian Neural Network (BNN) with VI.
 
     Trained with (VI) Variational Inferece and energy loss.
@@ -34,7 +38,6 @@ class BNN_VIBase(DeterministicModel):
         self,
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
-        save_dir: str,
         num_training_points: int,
         part_stoch_module_names: Optional[list[Union[str, int]]] = None,
         n_mc_samples_train: int = 25,
@@ -71,7 +74,7 @@ class BNN_VIBase(DeterministicModel):
             AssertionError: if ``n_mc_samples_train`` is not positive.
             AssertionError: if ``n_mc_samples_test`` is not positive.
         """
-        super().__init__(model, optimizer, None, save_dir)
+        super().__init__(model, optimizer, None)
 
         assert n_mc_samples_train > 0, "Need to sample at least once during training."
         assert n_mc_samples_test > 0, "Need to sample at least once during testing."
@@ -87,6 +90,10 @@ class BNN_VIBase(DeterministicModel):
         self._setup_bnn_with_vi()
 
         self.pred_file_name = "predictions.csv"
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        pass
 
     def _define_bnn_args(self):
         """Define BNN Args."""
@@ -223,7 +230,7 @@ class BNN_VIBase(DeterministicModel):
         return optimizer
 
 
-class BNN_VIREgression(BNN_VIBase):
+class BNN_VI_Regression(BNN_VI_Base):
     """Bayesian Neural Network (BNN) with VI.
 
     Trained with (VI) Variational Inferece and energy loss.
@@ -233,7 +240,6 @@ class BNN_VIREgression(BNN_VIBase):
         self,
         model: nn.Module,
         optimizer: type[Optimizer],
-        save_dir: str,
         num_training_points: int,
         part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
         n_mc_samples_train: int = 25,
@@ -245,11 +251,11 @@ class BNN_VIREgression(BNN_VIBase):
         posterior_rho_init: float = -5,
         alpha: float = 1,
         layer_type: str = "reparameterization",
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         super().__init__(
             model,
             optimizer,
-            save_dir,
             num_training_points,
             part_stoch_module_names,
             n_mc_samples_train,
@@ -262,6 +268,13 @@ class BNN_VIREgression(BNN_VIBase):
             alpha,
             layer_type,
         )
+        self.save_hyperparameters(ignore=["model"])
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
 
     def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
         """Compute the loss for BNN with alpha divergence.
@@ -307,19 +320,19 @@ class BNN_VIREgression(BNN_VIBase):
 
         return energy_loss, mean_out.detach()
 
-    def on_test_batch_end(
-        self,
-        outputs: dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions for regression."""
-        if self.hparams.save_dir:
-            outputs = {key: val for key, val in outputs.items() if key != "samples"}
-            save_predictions_to_csv(
-                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
-            )
+    # def on_test_batch_end(
+    #     self,
+    #     outputs: dict[str, np.ndarray],
+    #     batch: Any,
+    #     batch_idx: int,
+    #     dataloader_idx=0,
+    # ):
+    #     """Test batch end save predictions for regression."""
+    #     if self.hparams.save_dir:
+    #         outputs = {key: val for key, val in outputs.items() if key != "samples"}
+    #         save_predictions_to_csv(
+    #             outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+    #         )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -360,14 +373,13 @@ class BNN_VIREgression(BNN_VIBase):
         }
 
 
-class BNN_VI_BatchedRegression(BNN_VIREgression):
+class BNN_VI_BatchedRegression(BNN_VI_Regression):
     """Batched sampling version of BNN_VI."""
 
     def __init__(
         self,
         model: nn.Module,
         optimizer: type[torch.optim.Optimizer],
-        save_dir: str,
         num_training_points: int,
         part_stoch_module_names: Optional[list[Union[str, int]]] = None,
         n_mc_samples_train: int = 25,
@@ -408,7 +420,6 @@ class BNN_VI_BatchedRegression(BNN_VIREgression):
         super().__init__(
             model,
             optimizer,
-            save_dir,
             num_training_points,
             part_stoch_module_names,
             n_mc_samples_train,
