@@ -367,7 +367,6 @@ class SWAGRegression(SWAGBase):
         loss_fn: nn.Module,
         part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
         num_datapoints_for_bn_update: int = 0,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of SWAG Model for Regression.
 
@@ -381,7 +380,6 @@ class SWAGRegression(SWAGBase):
             loss_fn: loss function
             part_stoch_module_names: names of modules that are partially stochastic
             num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
-            quantiles: quantiles to compute from the predictive distribution
         """
         super().__init__(
             model,

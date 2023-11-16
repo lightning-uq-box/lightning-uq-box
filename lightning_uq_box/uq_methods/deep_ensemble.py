@@ -25,7 +25,6 @@ class DeepEnsembleModel(BaseModule):
         n_ensemble_members: int,
         ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
         save_dir: str,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 

@@ -96,7 +96,6 @@ class MCDropoutRegression(MCDropoutBase):
         loss_fn: nn.Module,
         burnin_epochs: int = 0,
         lr_scheduler: type[LRScheduler] = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Regression.
 
@@ -107,7 +106,7 @@ class MCDropoutRegression(MCDropoutBase):
             loss_fn: loss function
             burnin_epochs: number of burnin epochs before using the loss_fn
             lr_scheduler: learning rate scheduler
-            quantiles: quantiles to compute from the predictive distribution
+             from the predictive distribution
         """
         super().__init__(model, optimizer, num_mc_samples, loss_fn, lr_scheduler)
         self.save_hyperparameters(ignore=["model", "loss_fn"])

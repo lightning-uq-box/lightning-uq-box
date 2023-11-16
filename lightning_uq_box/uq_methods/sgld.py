@@ -99,7 +99,6 @@ class SGLDModel(DeterministicModel):
         noise_factor: float,
         burnin_epochs: int,
         n_sgld_samples: int,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of SGLD model.
 

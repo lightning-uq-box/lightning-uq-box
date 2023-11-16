@@ -264,7 +264,6 @@ class BNN_VI_Regression(BNN_VI_Base):
         posterior_rho_init: float = -5,
         alpha: float = 1,
         layer_type: str = "reparameterization",
-        quantiles: list[float] = [0.1, 0.5, 0.9],
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new instace of BNN VI Regression.
@@ -437,7 +436,6 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         posterior_rho_init: float = -5,
         alpha: float = 1,
         layer_type: str = "reparameterization",
-        quantiles: list[float] = [0.1, 0.5, 0.9],
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new instace of BNN VI Batched.
@@ -479,7 +477,6 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             posterior_rho_init,
             alpha,
             layer_type,
-            quantiles,
             lr_scheduler,
         )
 

@@ -62,7 +62,6 @@ class BNN_LV_VI(BNN_VI_Base):
         lv_prior_std: float = 1.0,
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new instace of BNN+LV.
@@ -92,7 +91,7 @@ class BNN_LV_VI(BNN_VI_Base):
             lv_prior_mu: prior mean for latent variable network
             lv_prior_std: prior std for latent variable network
             lv_latent_dim: number of latent dimension
-            quantiles: quantiles to compute
+
             lr_scheduler: learning rate scheduler
 
         Raises:
@@ -114,7 +113,6 @@ class BNN_LV_VI(BNN_VI_Base):
             posterior_rho_init,
             alpha,
             layer_type,
-            quantiles,
             lr_scheduler,
         )
 
@@ -467,7 +465,6 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         lv_prior_std: float = 1,
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new instace of BNN+LV Batched.
@@ -496,7 +493,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             lv_prior_mu: prior mean for latent variable network
             lv_prior_std: prior std for latent variable network
             lv_latent_dim: number of latent dimension
-            quantiles: quantiles to compute
+
 
         Raises:
             AssertionError: if ``n_mc_samples_train`` is not positive
@@ -524,7 +521,6 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             lv_prior_std,
             lv_latent_dim,
             init_scaling,
-            quantiles,
             lr_scheduler,
         )
 

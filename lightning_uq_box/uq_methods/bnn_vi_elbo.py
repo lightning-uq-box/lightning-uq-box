@@ -298,7 +298,6 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
         lr_scheduler: type[LRScheduler] = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Model instance.
 

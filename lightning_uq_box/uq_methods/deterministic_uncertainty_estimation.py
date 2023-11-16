@@ -31,7 +31,6 @@ class DUERegression(DKLRegression):
         coeff: float = 0.95,
         n_power_iterations: int = 1,
         lr_scheduler: type[LRScheduler] = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 
@@ -63,7 +62,6 @@ class DUERegression(DKLRegression):
             n_inducing_points,
             optimizer,
             lr_scheduler,
-            quantiles,
         )
 
 

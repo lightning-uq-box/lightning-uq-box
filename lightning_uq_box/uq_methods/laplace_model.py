@@ -220,7 +220,6 @@ class LaplaceRegression(LaplaceBase):
         model: Laplace,
         tune_precision_lr: float = 0.1,
         n_epochs_tune_precision: int = 100,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper for Regression.
 

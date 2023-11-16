@@ -64,7 +64,6 @@ class DER(DeterministicModel):
         optimizer: type[Optimizer],
         lr_scheduler: type[LRScheduler] = None,
         coeff: float = 0.01,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Base Model.
 
@@ -73,7 +72,7 @@ class DER(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
             coeff: coefficient for the DER loss
-            quantiles: quantiles to compute from the predictive distribution
+             from the predictive distribution
         """
         super().__init__(model, optimizer, None, lr_scheduler)
 

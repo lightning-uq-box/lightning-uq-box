@@ -28,7 +28,6 @@ class MVEBase(DeterministicModel):
         optimizer: type[torch.optim.Optimizer],
         burnin_epochs: int,
         lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instace of Deterministic Gaussian Model.
 
@@ -37,7 +36,7 @@ class MVEBase(DeterministicModel):
             optimizer: optimizer used for training
             burnin_epochs: number of burnin epochs before switiching to NLL
             lr_scheduler: learning rate scheduler
-            quantiles: quantiles to compute
+
         """
         super().__init__(model, optimizer, None, None)
 
@@ -89,7 +88,6 @@ class MVERegression(MVEBase):
         optimizer: type[Optimizer],
         burnin_epochs: int,
         lr_scheduler: type[LRScheduler] = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Mean Variance Estimation Model for Regression.
 
@@ -98,9 +96,9 @@ class MVERegression(MVEBase):
             optimizer: optimizer used for training
             burnin_epochs: number of burnin epochs before switiching to NLL
             lr_scheduler: learning rate scheduler
-            quantiles: quantiles to compute
+
         """
-        super().__init__(model, optimizer, burnin_epochs, lr_scheduler, quantiles)
+        super().__init__(model, optimizer, burnin_epochs, lr_scheduler)
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
     def extract_mean_output(self, out: Tensor) -> Tensor:

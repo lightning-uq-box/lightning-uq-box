@@ -28,7 +28,6 @@ class QuantileRegressionBase(DeterministicModel):
         optimizer: type[Optimizer],
         loss_fn: nn.Module = QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
         lr_scheduler: type[LRScheduler] = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 
@@ -78,7 +77,7 @@ class QuantileRegression(QuantileRegressionBase):
             lr_scheduler: learning rate scheduler
             quantiles: quantiles to compute
         """
-        super().__init__(model, optimizer, loss_fn, lr_scheduler, quantiles)
+        super().__init__(model, optimizer, loss_fn, lr_scheduler)
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
         assert _get_num_outputs(model) == len(
@@ -138,7 +137,7 @@ class QuantileRegression(QuantileRegressionBase):
 #         optimizer: type[Optimizer],
 #         loss_fn: nn.Module = QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
 #         lr_scheduler: type[LRScheduler] = None,
-#         quantiles: list[float] = [0.1, 0.5, 0.9],
+#
 #     ) -> None:
-#         super().__init__(model, optimizer, loss_fn, lr_scheduler, quantiles)
+#         super().__init__(model, optimizer, loss_fn, lr_scheduler)
 #         self.save_hyperparameters(ignore=["model", "loss_fn"])

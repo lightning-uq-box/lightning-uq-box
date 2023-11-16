@@ -2,7 +2,7 @@
 
 import os
 from collections import OrderedDict, defaultdict
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -52,7 +52,7 @@ def default_classification_metrics(prefix: str, task: str, num_classes: int):
 
 
 def process_regression_prediction(
-    preds: Tensor, quantiles: list[float]
+    preds: Tensor, quantiles: Optional[list[float]] = None
 ) -> dict[str, np.ndarray]:
     """Process regression predictions that could be mse or nll predictions.
 
@@ -73,31 +73,32 @@ def process_regression_prediction(
         std = compute_predictive_uncertainty(mean_samples, sigma_samples)
         aleatoric = compute_aleatoric_uncertainty(sigma_samples)
         epistemic = compute_epistemic_uncertainty(mean_samples)
-        quantiles = compute_quantiles_from_std(
-            mean.detach().cpu().numpy(), std, quantiles
-        )
-        return {
+
+        pred_dict = {
             "pred": mean,
             "pred_uct": std,
             "epistemic_uct": epistemic,
             "aleatoric_uct": aleatoric,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
         }
+        if quantiles is not None:
+            quantiles = compute_quantiles_from_std(
+                mean.detach().cpu().numpy(), std, quantiles
+            )
+            pred_dict["lower_quant"] = quantiles[:, 0]
+            pred_dict["upper_quant"] = quantiles[:, -1]
+        return pred_dict
     # assume mse prediction
     else:
         std = mean_samples.std(-1)
-        quantiles = compute_quantiles_from_std(
-            mean.detach().cpu().numpy(), std, quantiles
-        )
+        pred_dict = {"pred": mean, "pred_uct": std, "epistemic_uct": std}
+        if quantiles is not None:
+            quantiles = compute_quantiles_from_std(
+                mean.detach().cpu().numpy(), std, quantiles
+            )
+            pred_dict["lower_quant"] = quantiles[:, 0]
+            pred_dict["upper_quant"] = quantiles[:, -1]
 
-        return {
-            "pred": mean,
-            "pred_uct": std,
-            "epistemic_uct": std,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
-        }
+    return pred_dict
 
 
 def process_classification_prediction(preds: Tensor) -> dict[str, np.ndarray]:
