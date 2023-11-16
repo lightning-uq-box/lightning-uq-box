@@ -36,9 +36,11 @@ class MCDropoutBase(DeterministicModel):
         """Initialize a new instance of MCDropoutModel.
 
         Args:
-            model_class:
-            model_args:
+            model: pytorch model with dropout layers
+            optimizer: optimizer used for training
             num_mc_samples: number of MC samples during prediction
+            loss_fn: loss function
+            lr_scheduler: learning rate scheduler
         """
         super().__init__(model, optimizer, loss_fn, lr_scheduler)
 
@@ -99,14 +101,13 @@ class MCDropoutRegression(MCDropoutBase):
         """Initialize a new instance of MC-Dropout Model for Regression.
 
         Args:
-            model:
-            optimizer:
-            num_mc_samples:
-            loss_fn:
-            burnin_epochs:
-            lr_scheduler:
-            quantiles:
-
+            model: pytorch model with dropout layers
+            optimizer: optimizer used for training
+            num_mc_samples: number of MC samples during prediction
+            loss_fn: loss function
+            burnin_epochs: number of burnin epochs before using the loss_fn
+            lr_scheduler: learning rate scheduler
+            quantiles: quantiles to compute from the predictive distribution
         """
         super().__init__(model, optimizer, num_mc_samples, loss_fn, lr_scheduler)
         self.save_hyperparameters(ignore=["model", "loss_fn"])
@@ -188,6 +189,16 @@ class MCDropoutClassification(MCDropoutBase):
         task: str = "multiclass",
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
+        """Initialize a new instance of MC-Dropout Model for Classification.
+
+        Args:
+            model: pytorch model with dropout layers
+            optimizer: optimizer used for training
+            num_mc_samples: number of MC samples during prediction
+            loss_fn: loss function
+            task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            lr_scheduler: learning rate scheduler
+        """
         super().__init__(model, optimizer, num_mc_samples, loss_fn, lr_scheduler)
 
         assert task in self.valid_tasks

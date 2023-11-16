@@ -26,24 +26,27 @@ class DUERegression(DKLRegression):
         gp_layer: type[ApproximateGP],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
-        optimizer: type[torch.optim.Optimizer],
+        optimizer: type[Optimizer],
         input_size: int = None,
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
         coeff: float = 0.95,
         n_power_iterations: int = 1,
+        lr_scheduler: type[LRScheduler] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 
+        Initialize a new Deep Kernel Learning Model for Regression.
+
         Args:
-            feature_extractor:
-            gp_layer: gpytorch module that takes extracted features as inputs
-            gp_args: arguments to initializ the gp_layer
-            elbo_fn: gpytorch elbo functions
-            n_train_points: number of training points necessary f
-                or Gpytorch elbo function
-            input_size: image input size to feature_extractor
+            feature_extractor: feature extractor model
+            gp_layer: Gaussian Process layer
+            elbo_fn: gpytorch elbo function used for optimization
+            n_inducing_points: number of inducing points
+            optimizer: optimizer used for training
+            inputs_size: reature input size of data to the model
             coeff: soft normalization only when sigma larger than coeff should be (0, 1)
+            n_power_iterations: number of power iterations for spectral normalization
+            lr_scheduler: learning rate scheduler
         """
         self.input_size = input_size
 
@@ -88,14 +91,16 @@ class DUEClassification(DKLClassification):
         """Initialize a new Deterministic Uncertainty Estimation Model.
 
         Args:
-            feature_extractor:
-            gp_layer: gpytorch module that takes extracted features as inputs
-            gp_args: arguments to initializ the gp_layer
-            elbo_fn: gpytorch elbo functions
-            n_train_points: number of training points necessary f
-                or Gpytorch elbo function
-            input_size: image input size to feature_extractor
+            feature_extractor: feature extractor model
+            gp_layer: Gaussian Process layer
+            elbo_fn: gpytorch elbo function used for optimization
+            n_inducing_points: number of inducing points
+            optimizer: optimizer used for training
+            inputs_size: reature input size of data to the model
+            task: classification task, one of ['binary', 'multiclass', 'multilabel']
             coeff: soft normalization only when sigma larger than coeff should be (0, 1)
+            n_power_iterations: number of power iterations for spectral normalization
+            lr_scheduler: learning rate scheduler
         """
         self.input_size = input_size
 

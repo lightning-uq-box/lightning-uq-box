@@ -73,10 +73,10 @@ class DeterministicModel(BaseModule):
         """Initialize a new Base Model.
 
         Args:
-            model: Model Class that can be initialized with arguments from dict,
-                or timm backbone name
-            lr: learning rate for adam otimizer
-            loss_fn: loss function module
+            model: pytorch model
+            optimizer: optimizer used for training
+            loss_fn: loss function used for optimization
+            lr_scheduler: learning rate scheduler
         """
         super().__init__()
 
@@ -265,10 +265,11 @@ class DeterministicClassification(DeterministicModel):
         """Initialize a new Base Model.
 
         Args:
-            model: Model Class that can be initialized with arguments from dict,
-                or timm backbone name
-            lr: learning rate for adam otimizer
-            loss_fn: loss function module
+            model: pytorch model
+            optimizer: optimizer used for training
+            loss_fn: loss function used for optimization
+            task: what kind of classification task, choose one of ["binary", "multiclass", "multilabel"]
+            lr_scheduler: learning rate scheduler
         """
         self.num_classes = _get_num_outputs(model)
         assert task in self.valid_tasks

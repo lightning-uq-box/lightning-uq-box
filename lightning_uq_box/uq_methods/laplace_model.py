@@ -65,7 +65,9 @@ class LaplaceBase(BaseModule):
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
-            model: pytorch model to use as underlying model
+            model: initialized Laplace model
+            tune_precision_lr: learning rate for tuning prior precision
+            n_epochs_tune_precision: number of epochs to tune prior precision
         """
         super().__init__()
 
@@ -220,6 +222,13 @@ class LaplaceRegression(LaplaceBase):
         n_epochs_tune_precision: int = 100,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
+        """Initialize a new instance of Laplace Model Wrapper for Regression.
+
+        Args:
+            model: initialized Laplace model
+            tune_precision_lr: learning rate for tuning prior precision
+            n_epochs_tune_precision: number of epochs to tune prior precision
+        """
         super().__init__(model, tune_precision_lr, n_epochs_tune_precision)
 
         assert model.likelihood == "regression"
@@ -288,6 +297,14 @@ class LaplaceClassification(LaplaceBase):
         n_epochs_tune_precision: int = 100,
         task: str = "multiclass",
     ) -> None:
+        """Initialize a new instance of Laplace Model Wrapper for Classification.
+
+        Args:
+            model: initialized Laplace model
+            tune_precision_lr: learning rate for tuning prior precision
+            n_epochs_tune_precision: number of epochs to tune prior precision
+            task: classification task, one of ['binary', 'multiclass']
+        """
         assert task in self.valid_tasks
         self.task = task
 

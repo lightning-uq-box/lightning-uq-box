@@ -54,12 +54,12 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         """Initialize a new Model instance.
 
         Args:
-            model_class: Model Class that can be initialized with arguments from dict,
-                or timm backbone name
-            model_args: arguments to initialize model_class
-            lr: learning rate for adam otimizer
-            save_dir: directory path to save
+            model: pytorch model that will be converted into a BNN
+            optimizer: optimizer used for training
+            criterion: loss function used for optimization
             num_training_points: number of data points contained in the training dataset
+            part_stoch_module_names: list of module names or indices that should be converted
+                to variational layers
             beta: beta factor for negative elbo loss computation,
                 should be number of weights and biases
             num_mc_samples_train: number of MC samples during training when computing
@@ -73,6 +73,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
+            lr_scheduler: learning rate scheduler
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -302,11 +303,13 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         """Initialize a new Model instance.
 
         Args:
-            model_class: Model Class that can be initialized with arguments from dict,
-                or timm backbone name
-            model_args: arguments to initialize model_class
-            lr: learning rate for adam otimizer
-            save_dir: directory path to save
+            model: pytorch model that will be converted into a BNN
+            optimizer: optimizer used for training
+            criterion: loss function used for optimization
+            burnin_epochs: number of epochs to train before switching to nll loss
+            num_training_points: number of data points contained in the training dataset
+            part_stoch_module_names: list of module names or indices that should be converted
+                to variational layers
             num_training_points: number of data points contained in the training dataset
             beta: beta factor for negative elbo loss computation,
                 should be number of weights and biases
@@ -321,6 +324,8 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
+            lr_scheduler: learning rate scheduler
+            quantiles: what quantiles to compute during prediction
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -418,6 +423,12 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         """Initialize a new Model instance.
 
         Args:
+            model: pytorch model that will be converted into a BNN
+            optimizer: optimizer used for training
+            criterion: loss function used for optimization
+            num_training_points: number of data points contained in the training dataset
+            part_stoch_module_names: list of module names or indices that should be converted
+                to variational layers
             num_training_points: number of data points contained in the training dataset
             beta: beta factor for negative elbo loss computation,
                 should be number of weights and biases
@@ -432,6 +443,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
+            lr_scheduler: learning rate scheduler
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.

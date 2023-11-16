@@ -8,7 +8,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torchgeo.trainers.utils import _get_input_layer_name_and_module
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.models.bnnlv.latent_variable_network import LatentVariableNetwork
 from lightning_uq_box.models.bnnlv.utils import (
@@ -18,7 +19,10 @@ from lightning_uq_box.models.bnnlv.utils import (
     replace_module,
     retrieve_module_init_args,
 )
-from lightning_uq_box.uq_methods.utils import _get_output_layer_name_and_module
+from lightning_uq_box.uq_methods.utils import (
+    _get_input_layer_name_and_module,
+    _get_output_layer_name_and_module,
+)
 
 from .bnn_vi import BNN_VI_Base
 
@@ -38,7 +42,7 @@ class BNN_LV_VI(BNN_VI_Base):
         self,
         model: nn.Module,
         latent_net: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
+        optimizer: type[Optimizer],
         save_dir: str,
         num_training_points: int,
         prediction_head: Optional[nn.Module] = None,
@@ -59,14 +63,17 @@ class BNN_LV_VI(BNN_VI_Base):
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
         quantiles: list[float] = [0.1, 0.5, 0.9],
+        lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new instace of BNN+LV.
 
         Args:
-            model:
+            model: pytorch model that will be converted into a BNN
             latent_net: latent variable network
-            optimizer:
-            save_dir: directory path to save
+            optimizer: optimizer used for training
+            num_training_points: number of data points contained in the training dataset
+            part_stoch_module_names: list of module names or indices that should be converted
+                to variational layers
             num_training_points: number of data points contained in the training dataset
             prediction_head: prediction head that will be attached to the model
             part_stoch_module_names:
@@ -86,6 +93,7 @@ class BNN_LV_VI(BNN_VI_Base):
             lv_prior_std: prior std for latent variable network
             lv_latent_dim: number of latent dimension
             quantiles: quantiles to compute
+            lr_scheduler: learning rate scheduler
 
         Raises:
             AssertionError: if ``n_mc_samples_train`` is not positive
@@ -107,6 +115,7 @@ class BNN_LV_VI(BNN_VI_Base):
             alpha,
             layer_type,
             quantiles,
+            lr_scheduler,
         )
 
         assert (
@@ -439,8 +448,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         self,
         model: nn.Module,
         latent_net: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
-        save_dir: str,
+        optimizer: type[Optimizer],
         num_training_points: int,
         prediction_head: Optional[nn.Module] = None,
         part_stoch_module_names: Optional[list[Union[str, int]]] = None,
@@ -460,14 +468,17 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
         quantiles: list[float] = [0.1, 0.5, 0.9],
+        lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new instace of BNN+LV Batched.
 
         Args:
-            model:
+            model: pytorch model that will be converted into a BNN
             latent_net: latent variable network
-            optimizer:
-            save_dir: directory path to save
+            optimizer: optimizer used for training
+            num_training_points: number of data points contained in the training dataset
+            part_stoch_module_names: list of module names or indices that should be converted
+                to variational layers
             num_training_points: number of data points contained in the training dataset
             prediction_head: prediction head that will be attached to the model
             part_stoch_module_names:
@@ -495,7 +506,6 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             model,
             latent_net,
             optimizer,
-            save_dir,
             num_training_points,
             prediction_head,
             part_stoch_module_names,
@@ -515,6 +525,7 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
             lv_latent_dim,
             init_scaling,
             quantiles,
+            lr_scheduler,
         )
 
     def _define_bnn_args(self):

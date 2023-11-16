@@ -66,7 +66,15 @@ class DER(DeterministicModel):
         coeff: float = 0.01,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new Base Model."""
+        """Initialize a new Base Model.
+
+        Args:
+            model: pytorch model
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+            coeff: coefficient for the DER loss
+            quantiles: quantiles to compute from the predictive distribution
+        """
         super().__init__(model, optimizer, None, lr_scheduler)
 
         self.save_hyperparameters(ignore=["model"])

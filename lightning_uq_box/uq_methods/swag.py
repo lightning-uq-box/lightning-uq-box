@@ -46,11 +46,18 @@ class SWAGBase(DeterministicModel):
         part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         num_datapoints_for_bn_update: int = 0,
     ) -> None:
-        """Initialize a new instance of Laplace Model Wrapper.
+        """Initialize a new instance of SWAG Model Wrapper.
 
         Args:
-            model: lightning module to use as underlying model
-            swag_args: laplace arguments to initialize a Laplace Model
+            model: pytorch model
+            num_swag_epochs: number of epochs to train swag
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            part_stoch_module_names: names of modules that are partially stochastic
+            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
         """
         super().__init__(model, None, loss_fn, None)
         self.part_stoch_module_names = map_stochastic_modules(
@@ -362,6 +369,20 @@ class SWAGRegression(SWAGBase):
         num_datapoints_for_bn_update: int = 0,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
+        """Initialize a new instance of SWAG Model for Regression.
+
+        Args:
+            model: pytorch model
+            num_swag_epochs: number of epochs to train swag
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            part_stoch_module_names: names of modules that are partially stochastic
+            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
+            quantiles: quantiles to compute from the predictive distribution
+        """
         super().__init__(
             model,
             num_swag_epochs,
@@ -423,6 +444,20 @@ class SWAGClassification(SWAGBase):
         part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
         num_datapoints_for_bn_update: int = 0,
     ) -> None:
+        """Initialize a new instance of SWAG Model for Classification.
+
+        Args:
+            model: pytorch model
+            num_swag_epochs: number of epochs to train swag
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            part_stoch_module_names: names of modules that are partially stochastic
+            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
+        """
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = _get_num_outputs(model)

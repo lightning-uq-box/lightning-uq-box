@@ -267,6 +267,32 @@ class BNN_VI_Regression(BNN_VI_Base):
         quantiles: list[float] = [0.1, 0.5, 0.9],
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
+        """Initialize a new instace of BNN VI Regression.
+
+        Args:
+            model: pytorch model that will be converted into a BNN
+            optimizer: optimizer used for training
+            num_training_points: number of data points contained in the training dataset
+            part_stoch_module_names: list of module names or indices that should be converted
+                to variational layers
+            n_mc_samples_train: number of MC samples during training when computing
+                the energy loss
+            n_mc_samples_test: number of MC samples during test and prediction
+            output_noise_scale: scale of predicted sigmas
+            prior_mu: prior mean value for bayesian layer
+            prior_sigma: prior variance value for bayesian layer
+            posterior_mu_init: mean initialization value for approximate posterior
+            posterior_rho_init: variance initialization value for approximate posterior
+                through softplus σ = log(1 + exp(ρ))
+            alpha: alpha divergence parameter
+            layer_type: Bayesian layer_type type, "reparametrization" or "flipout"
+            lr_scheduler: learning rate scheduler
+
+        Raises:
+            AssertionError: if ``n_mc_samples_train`` is not positive.
+            AssertionError: if ``n_mc_samples_test`` is not positive.
+
+        """
         super().__init__(
             model,
             optimizer,
@@ -417,11 +443,11 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         """Initialize a new instace of BNN VI Batched.
 
         Args:
-            model:
-            optimizer:
-            save_dir: directory path to save
+            model: pytorch model that will be converted into a BNN
+            optimizer: optimizer used for training
             num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names:
+            part_stoch_module_names: list of module names or indices that should be converted
+                to variational layers
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -432,7 +458,8 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            type: Bayesian layer_type type, "reparametrization" or "flipout"
+            layer_type: Bayesian layer_type type, "reparametrization" or "flipout"
+            lr_scheduler: learning rate scheduler
 
         Raises:
             AssertionError: if ``n_mc_samples_train`` is not positive.

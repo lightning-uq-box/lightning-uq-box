@@ -30,11 +30,18 @@ class MVEBase(DeterministicModel):
         lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new instace of Deterministic Gaussian Model."""
+        """Initialize a new instace of Deterministic Gaussian Model.
+
+        Args:
+            model: pytorch model
+            optimizer: optimizer used for training
+            burnin_epochs: number of burnin epochs before switiching to NLL
+            lr_scheduler: learning rate scheduler
+            quantiles: quantiles to compute
+        """
         super().__init__(model, optimizer, None, None)
 
         self.loss_fn = NLL()
-        # self.save_hyperparameters(ignore=["model"])
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -84,6 +91,15 @@ class MVERegression(MVEBase):
         lr_scheduler: type[LRScheduler] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
+        """Initialize a new instance of Mean Variance Estimation Model for Regression.
+
+        Args:
+            model: pytorch model
+            optimizer: optimizer used for training
+            burnin_epochs: number of burnin epochs before switiching to NLL
+            lr_scheduler: learning rate scheduler
+            quantiles: quantiles to compute
+        """
         super().__init__(model, optimizer, burnin_epochs, lr_scheduler, quantiles)
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 

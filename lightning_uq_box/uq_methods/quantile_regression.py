@@ -30,7 +30,15 @@ class QuantileRegressionBase(DeterministicModel):
         lr_scheduler: type[LRScheduler] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new instance of Quantile Regression Model."""
+        """Initialize a new instance of Quantile Regression Model.
+
+        Args:
+            model: pytorch model
+            optimizer: optimizer used for training
+            loss_fn: loss function
+            lr_scheduler: learning rate scheduler
+            quantiles: quantiles to compute
+        """
         assert all(i < 1 for i in quantiles), "Quantiles should be less than 1."
         assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
         super().__init__(model, optimizer, loss_fn, lr_scheduler)
@@ -61,6 +69,15 @@ class QuantileRegression(QuantileRegressionBase):
         lr_scheduler: type[LRScheduler] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
+        """Initialize a new instance of Quantile Regression Model.
+
+        Args:
+            model: pytorch model
+            optimizer: optimizer used for training
+            loss_fn: loss function
+            lr_scheduler: learning rate scheduler
+            quantiles: quantiles to compute
+        """
         super().__init__(model, optimizer, loss_fn, lr_scheduler, quantiles)
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 

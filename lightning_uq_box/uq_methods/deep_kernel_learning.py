@@ -29,7 +29,6 @@ from lightning_uq_box.eval_utils import compute_quantiles_from_std
 from .base import BaseModule
 from .utils import (
     _get_num_inputs,
-    _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
 )
@@ -51,22 +50,18 @@ class DKLBase(gpytorch.Module, BaseModule):
         n_inducing_points: int,
         optimizer: type[torch.optim.Optimizer],
         lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new Deep Kernel Learning Model.
 
+        Initialize a new Deep Kernel Learning Model.
+
         Args:
-            backbone: feature extractor class
-            backbone_args: arguments to initialize the backbone
-            gp_layer: gpytorch module that takes extracted features as inputs
-            gp_args: arguments to initializ the gp_layer
-            elbo_fn: gpytorch elbo functions
-            train_loader: optional to pass in train loader if
-                this lightning module is used without lightning Trainer
-            n_inducing_points:
-            optimizer: what optimizer to use
-            save_dir:
-            quantiles:
+            feature_extractor: feature extractor model
+            gp_layer: Gaussian Process layer
+            elbo_fn: gpytorch elbo function used for optimization
+            n_inducing_points: number of inducing points
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
         """
         super().__init__()
         self.save_hyperparameters(ignore=["feature_extractor", "lr_scheduler"])
@@ -256,6 +251,16 @@ class DKLRegression(DKLBase):
         lr_scheduler: type[LRScheduler] = None,
         quantiles: List[float] = [0.1, 0.5, 0.9],
     ) -> None:
+        """Initialize a new Deep Kernel Learning Model for Regression.
+
+        Args:
+            feature_extractor: feature extractor model
+            gp_layer: Gaussian Process layer
+            elbo_fn: gpytorch elbo function used for optimization
+            n_inducing_points: number of inducing points
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+        """
         super().__init__(
             feature_extractor,
             gp_layer,
@@ -368,6 +373,17 @@ class DKLClassification(DKLBase):
         task: str = "multiclass",
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
+        """Initialize a new Deep Kernel Learning Model for Classification.
+
+        Args:
+            feature_extractor: feature extractor model
+            gp_layer: Gaussian Process layer
+            elbo_fn: gpytorch elbo function used for optimization
+            n_inducing_points: number of inducing points
+            optimizer: optimizer used for training
+            task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            lr_scheduler: learning rate scheduler
+        """
         assert task in self.valid_tasks
         self.task = task
 
@@ -487,9 +503,9 @@ class DKLGPLayer(ApproximateGP):
         """Initialize a new instance of the Gaussian Process Layer.
 
         Args:
-            num_outpus: number of target outputs
-            initial_lengthscale:
-            initial_inducing_points:
+            n_outpus: number of target outputs
+            initial_lengthscale: initial lengthscale to use
+            initial_inducing_points: initial inducing points to use
             kernel: kernel choice, supports one of
                 ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
 
