@@ -2,19 +2,14 @@
 
 import copy
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 from laplace import Laplace
-from laplace.curvature import AsdlGGN
-from laplace.utils import LargestMagnitudeSubnetMask, ModuleNameSubnetMask
-from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from torch import Tensor
 from tqdm import trange
 
-from lightning_uq_box.eval_utils import compute_quantiles_from_std
 from lightning_uq_box.uq_methods import BaseModule
 
 from .utils import (

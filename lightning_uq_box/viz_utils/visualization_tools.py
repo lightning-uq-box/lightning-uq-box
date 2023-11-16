@@ -15,9 +15,9 @@ def plot_training_metrics(save_dir: str, metric: str) -> plt.figure:
     Args:
         save_dir: path to save directory of CSVLogger
     """
-    latest_version = sorted(os.listdir(os.path.join(save_dir, "lightning_logs")))[-1]
+    latest_version = sorted(os.listdir(save_dir))[-1]
     metrics_path = os.path.join(
-        save_dir, "lightning_logs", latest_version, "metrics.csv"
+        save_dir, latest_version, "metrics.csv"
     )
 
     df = pd.read_csv(metrics_path)

@@ -14,6 +14,7 @@ from .utils import (
     default_regression_metrics,
     process_classification_prediction,
     process_regression_prediction,
+    _get_num_outputs
 )
 
 
@@ -198,19 +199,23 @@ class MCDropoutClassification(MCDropoutBase):
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             lr_scheduler: learning rate scheduler
         """
+        assert task in self.valid_tasks
+        self.task = task
+        self.num_classes = _get_num_outputs(model)
         super().__init__(model, optimizer, num_mc_samples, loss_fn, lr_scheduler)
 
-        assert task in self.valid_tasks
 
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
-        self.num_classes = self.num_output_dims
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
         self.train_metrics = default_classification_metrics(
-            "train", task, self.num_classes
+            "train", self.task, self.num_classes
         )
-        self.val_metrics = default_classification_metrics("val", task, self.num_classes)
+        self.val_metrics = default_classification_metrics("val", self.task, self.num_classes)
         self.test_metrics = default_classification_metrics(
-            "test", task, self.num_classes
+            "test", self.task, self.num_classes
         )
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
