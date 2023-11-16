@@ -13,18 +13,20 @@ from lightning_uq_box.datamodules import (
     ToyHeteroscedasticDatamodule,
     ToyImageRegressionDatamodule,
 )
-from lightning_uq_box.uq_methods import CARDModel
+from lightning_uq_box.uq_methods import CARDRegression
 
 
 class TestCARDS:
     @pytest.fixture
-    def card_linear_model(self, tmp_path: Path) -> CARDModel:
+    def card_linear_model(self, tmp_path: Path) -> CARDRegression:
         """Instantiat a card model for 1D regression."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "card_linear.yaml"))
+        conf = OmegaConf.load(
+            os.path.join("tests", "configs", "card", "card_linear.yaml")
+        )
         # conf.uq_method["save_dir"] = str(tmp_path)
         return instantiate(conf.uq_method)
 
-    def test_predict_step(self, card_linear_model: CARDModel) -> None:
+    def test_predict_step(self, card_linear_model: CARDRegression) -> None:
         x_test = torch.randn(32, 1)
         out = card_linear_model.predict_step(x_test)
 
@@ -43,13 +45,15 @@ class TestCARDS:
 
     # image test
     @pytest.fixture
-    def card_conv_model(self, tmp_path: Path) -> CARDModel:
+    def card_conv_model(self, tmp_path: Path) -> CARDRegression:
         """Instantiate a card model for Image regression tasks."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "card_conv.yaml"))
+        conf = OmegaConf.load(
+            os.path.join("tests", "configs", "card", "card_conv.yaml")
+        )
         # conf.uq_method["save_dir"] = str(tmp_path)
         return instantiate(conf.uq_method)
 
-    def test_predict_step_img(self, card_conv_model: CARDModel) -> None:
+    def test_predict_step_img(self, card_conv_model: CARDRegression) -> None:
         """Test predict step with an image."""
         x_test = torch.randn(2, 3, 64, 64)
         out = card_conv_model.predict_step(x_test)

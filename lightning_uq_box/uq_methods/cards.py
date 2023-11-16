@@ -12,7 +12,12 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 
 from .base import BaseModule
-from .utils import save_predictions_to_csv, default_regression_metrics, default_classification_metrics, _get_num_outputs
+from .utils import (
+    _get_num_outputs,
+    default_classification_metrics,
+    default_regression_metrics,
+    save_predictions_to_csv,
+)
 
 
 # TODO check EMA support
@@ -20,7 +25,7 @@ from .utils import save_predictions_to_csv, default_regression_metrics, default_
 class CARDBase(BaseModule):
     """CARD Model.
 
-    Regression Diffusion Model based on CARD paper.
+    Diffusion Model based on CARD paper.
 
     If you use this in your research, please cite the following paper:
 
@@ -65,6 +70,8 @@ class CARDBase(BaseModule):
         )
 
         self.guidance_optim = guidance_optim
+
+        self.setup_task()
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -133,10 +140,10 @@ class CARDBase(BaseModule):
         self.log("train_loss", train_loss)
         return train_loss
 
-    def on_train_epoch_end(self):
-        """Log epoch-level training metrics."""
-        self.log_dict(self.train_metrics.compute())
-        self.train_metrics.reset()
+    # def on_train_epoch_end(self):
+    #     """Log epoch-level training metrics."""
+    #     self.log_dict(self.train_metrics.compute())
+    #     self.train_metrics.reset()
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -154,15 +161,15 @@ class CARDBase(BaseModule):
         self.log("val_loss", val_loss)
         return val_loss
 
-    def on_validation_epoch_end(self) -> None:
-        """Log epoch level validation metrics."""
-        self.log_dict(self.val_metrics.compute())
-        self.val_metrics.reset()
+    # def on_validation_epoch_end(self) -> None:
+    #     """Log epoch level validation metrics."""
+    #     self.log_dict(self.val_metrics.compute())
+    #     self.val_metrics.reset()
 
-    def on_test_epoch_end(self):
-        """Log epoch-level test metrics."""
-        self.log_dict(self.test_metrics.compute())
-        self.test_metrics.reset()
+    # def on_test_epoch_end(self):
+    #     """Log epoch-level test metrics."""
+    #     self.log_dict(self.test_metrics.compute())
+    #     self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -223,7 +230,7 @@ class CARDBase(BaseModule):
 
             final_recoverd = torch.stack(y_tile_seq, dim=0)
 
-        return final_recoverd
+        return final_recoverd, y_tile_seq
 
     def p_sample(self, x, y, y_0_hat, y_T_mean, t, alphas, one_minus_alphas_bar_sqrt):
         """Reverse diffusion process sampling -- one time step.
@@ -541,6 +548,7 @@ class CARDRegression(CARDBase):
 
 class CARDClassification(CARDBase):
     """CARD Classification Model."""
+
     valid_tasks = ["binary", "multiclass"]
 
     def __init__(
@@ -576,9 +584,15 @@ class CARDClassification(CARDBase):
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
-        self.train_metrics = default_classification_metrics("train", self.task, self.num_classes)
-        self.val_metrics = default_regression_metrics("val", self.task, self.num_classes)
-        self.test_metrics = default_regression_metrics("test", self.task, self.num_classes)
+        self.train_metrics = default_classification_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_regression_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_regression_metrics(
+            "test", self.task, self.num_classes
+        )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0

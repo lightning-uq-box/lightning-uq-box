@@ -1,5 +1,5 @@
 uq_method:
-  _target_: lightning_uq_box.uq_methods.CARDModel
+  _target_: lightning_uq_box.uq_methods.CARDRegression
   cond_mean_model:
     _target_: lightning_uq_box.models.MLP
     n_inputs: 1
