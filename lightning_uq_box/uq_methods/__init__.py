@@ -31,7 +31,7 @@ from .loss_functions import NLL, DERLoss, HuberQLoss, QuantileLoss
 from .mc_dropout import MCDropoutBase, MCDropoutClassification, MCDropoutRegression
 from .mean_variance_estimation import MVEBase, MVERegression
 from .quantile_regression import QuantileRegression, QuantileRegressionBase
-from .sgld import SGLDModel
+from .sgld import SGLDBase, SGLDClassification, SGLDRegression
 from .spectral_normalized_layers import (
     SpectralBatchNorm1d,
     SpectralBatchNorm2d,
@@ -87,7 +87,9 @@ __all__ = (
     "SWAGRegression",
     "SWAGClassification",
     # SGLD Model.
-    "SGLDModel",
+    "SGLDBase",
+    "SGLDRegression",
+    "SGLDClassification",
     # Deep Evidential Regression Model
     "DER",
     # Spectral Normalization Layers

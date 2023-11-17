@@ -10,11 +10,11 @@ from torch.optim.lr_scheduler import LRScheduler
 
 from .base import DeterministicModel
 from .utils import (
+    _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
     process_classification_prediction,
     process_regression_prediction,
-    _get_num_outputs
 )
 
 
@@ -204,16 +204,16 @@ class MCDropoutClassification(MCDropoutBase):
         self.num_classes = _get_num_outputs(model)
         super().__init__(model, optimizer, num_mc_samples, loss_fn, lr_scheduler)
 
-
         self.save_hyperparameters(ignore=["model", "loss_fn"])
-
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
-        self.val_metrics = default_classification_metrics("val", self.task, self.num_classes)
+        self.val_metrics = default_classification_metrics(
+            "val", self.task, self.num_classes
+        )
         self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
         )

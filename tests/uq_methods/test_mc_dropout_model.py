@@ -30,7 +30,7 @@ class TestMCDropout:
 
     @pytest.fixture(params=["mc_dropout_class.yaml"])
     def model_classification(self, request: SubRequest) -> MCDropoutClassification:
-        """Create a MC Dropout Regression Model."""
+        """Create a MC Dropout Classification Model."""
         conf = OmegaConf.load(
             os.path.join("tests", "configs", "mc_dropout", request.param)
         )

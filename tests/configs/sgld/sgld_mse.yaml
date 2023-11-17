@@ -1,5 +1,5 @@
 uq_method:
-  _target_: lightning_uq_box.uq_methods.SGLDModel
+  _target_: lightning_uq_box.uq_methods.SGLDRegression
   model:
     _target_: lightning_uq_box.models.MLP
     n_outputs: 1
