@@ -315,9 +315,19 @@ class PosthocBase(BaseModule):
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
-        """Postoc Method can use this method to iterate over dataloader."""
-        raise NotImplementedError
+    ) -> None:
+        """Single gathering step of model logits and labels.
+
+        Args:
+            batch: batch of data
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+
+        Returns:
+            underlying model output and labels
+        """
+        self.model_logits.append(self.model(batch[self.input_key]))
+        self.labels.append(batch[self.target_key])
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

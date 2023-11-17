@@ -103,36 +103,20 @@ class ConformalQR(PosthocBase):
     def on_validation_start(self) -> None:
         """Before validation epoch starts, create tensors that gather model outputs and labels."""
         # TODO intitialize zero tensors for memory efficiency
-        self.model_outputs = []
+        self.model_logits = []
         self.labels = []
 
     # Memory efficient version
     # def on_validation_start(self) -> None:
     #     """Before validation epoch starts, create tensors that gather model outputs and labels."""
     #     num_validation_samples = len(self.val_dataloader().dataset)
-    #     self.model_outputs = torch.zeros(num_validation_samples, device=self.device)
+    #     self.model_logits = torch.zeros(num_validation_samples, device=self.device)
     #     self.labels = torch.zeros(num_validation_samples, device=self.device)
     # def validation_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> None:
     #     start_idx = batch_idx * self.val_dataloader().batch_size
     #     end_idx = start_idx + len(batch[self.input_key])
-    #     self.model_outputs[start_idx:end_idx] = self.model(batch[self.input_key])
+    #     self.model_logits[start_idx:end_idx] = self.model(batch[self.input_key])
     #     self.labels[start_idx:end_idx] = batch[self.target_key]
-
-    def validation_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Single CQR gathering step.
-
-        Args:
-            batch: batch of data
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-
-        Returns:
-            underlying model output and labels
-        """
-        self.model_outputs.append(self.model(batch[self.input_key]))
-        self.labels.append(batch[self.target_key])
 
     def on_validation_epoch_end(self) -> None:
         """Perform CQR computation to obtain q_hat for predictions.
@@ -142,7 +126,7 @@ class ConformalQR(PosthocBase):
 
         """
         # `outputs` is a list of dictionaries, each containing 'output' and 'label' from each validation step
-        all_outputs = torch.cat(self.model_outputs, dim=0)
+        all_outputs = torch.cat(self.model_logits, dim=0)
         all_labels = torch.cat(self.labels, dim=0)
 
         # calibration quantiles assume order of outputs corresponds to order of quantiles
