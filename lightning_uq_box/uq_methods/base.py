@@ -1,7 +1,7 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import torch
@@ -298,3 +298,57 @@ class DeterministicClassification(DeterministicModel):
         self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
         )
+
+
+class PosthocBase(BaseModule):
+    def __init__(self, model: Union[LightningModule, nn.Module]) -> None:
+        """Initialize a new Post hoc Base Model."""
+        super().__init__()
+
+        self.model = model
+
+        self.post_hoc_fitted = False
+
+    def training_step(self, *args: Any, **kwargs: Any):
+        """Posthoc Methods do not have a training step."""
+        pass
+
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Postoc Method can use this method to iterate over dataloader."""
+        raise NotImplementedError
+
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Test step after running posthoc fitting methodology."""
+        raise NotImplementedError
+
+    def adjust_model_output(self, model_output: Tensor) -> Tensor:
+        """Adjust model output according to post-hoc fitting procedure.
+
+        Args:
+            model_output: model output tensor of shape [batch_size x num_outputs]
+
+        Returns:
+            adjusted model output tensor of shape [batch_size x num_outputs]
+        """
+        raise NotImplementedError
+
+    def forward(self, X: Tensor) -> Tensor:
+        """Forward pass of CQR model.
+
+        Args:
+            X: input tensor of shape [batch_size x input_dims]
+        """
+        if not self.post_hoc_fitted:
+            raise RuntimeError(
+                "Model has not been post hoc fitted, please call trainer.validate(model, datamodule) first."
+            )
+
+        # predict with underlying model
+        with torch.no_grad():
+            model_preds: dict[str, np.ndarray] = self.model(X)
+
+        return self.adjust_model_output(model_preds)

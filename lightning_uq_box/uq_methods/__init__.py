@@ -5,6 +5,7 @@ from .base import (
     DeterministicClassification,
     DeterministicModel,
     DeterministicRegression,
+    PosthocBase,
 )
 from .bnn_vi import BNN_VI_Base, BNN_VI_BatchedRegression, BNN_VI_Regression
 from .bnn_vi_elbo import (
@@ -14,7 +15,7 @@ from .bnn_vi_elbo import (
 )
 from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
 from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
-from .cqr_model import CQR
+from .cqr_model import ConformalQR
 from .deep_ensemble import DeepEnsembleModel
 from .deep_evidential_regression import DER
 from .deep_kernel_learning import (
@@ -53,7 +54,7 @@ __all__ = (
     "CARDClassification",
     "NoiseScheduler",
     # conformalized Quantile Regression
-    "CQR",
+    "ConformalQR",
     # MC-Dropout
     "MCDropoutBase",
     "MCDropoutRegression",

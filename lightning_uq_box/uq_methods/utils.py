@@ -247,6 +247,8 @@ def _get_num_inputs(module):
         num_inputs = module.in_features
     elif hasattr(module, "in_channels"):  # Conv Layer
         num_inputs = module.in_channels
+    else:
+        raise ValueError(f"Module {module} does not have in_features or in_channels.")
     return num_inputs
 
 
@@ -257,4 +259,6 @@ def _get_num_outputs(module: nn.Module) -> int:
         num_outputs = module.out_features
     elif hasattr(module, "out_channels"):  # Conv Layer
         num_outputs = module.out_channels
+    else:
+        raise ValueError(f"Module {module} does not have out_features or out_channels.")
     return num_outputs
