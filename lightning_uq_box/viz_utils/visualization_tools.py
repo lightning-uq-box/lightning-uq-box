@@ -9,32 +9,31 @@ import pandas as pd
 import uncertainty_toolbox as uct
 
 
-def plot_training_metrics(save_dir: str) -> plt.figure:
+def plot_training_metrics(save_dir: str, metric: str) -> plt.figure:
     """Plot training metrics from latest lightning CSVLogger version.
 
     Args:
         save_dir: path to save directory of CSVLogger
     """
-    latest_version = sorted(os.listdir(os.path.join(save_dir, "lightning_logs")))[-1]
-    metrics_path = os.path.join(
-        save_dir, "lightning_logs", latest_version, "metrics.csv"
-    )
+    latest_version = sorted(os.listdir(save_dir))[-1]
+    metrics_path = os.path.join(save_dir, latest_version, "metrics.csv")
 
     df = pd.read_csv(metrics_path)
 
     train_loss = df[df["train_loss"].notna()]["train_loss"]
-    train_rmse = df[df["train_RMSE"].notna()]["train_RMSE"]
+    train_rmse = df[df[f"train{metric}"].notna()][f"train{metric}"]
 
     fig, ax = plt.subplots(ncols=2)
     ax[0].plot(np.arange(len(train_loss)), train_loss)
     ax[0].set_title("Train Loss")
 
     ax[1].plot(np.arange(len(train_rmse)), train_rmse)
-    ax[1].set_title("Train RMSE")
+    ax[1].set_title(f"Train {metric}")
+
     return fig
 
 
-def plot_toy_data(
+def plot_toy_regression_data(
     X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
 ):
     """Plot the toy data.
@@ -53,7 +52,84 @@ def plot_toy_data(
     plt.show()
 
 
-def plot_predictions(
+def plot_two_moons_data(
+    X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray
+) -> None:
+    """
+    Plot the two moons dataset.
+
+    Args:
+        X_train: Training data features.
+        y_train: Training data labels.
+        X_val: Validation data features.
+        y_val: Validation data labels.
+    """
+    plt.figure(figsize=(10, 5))
+
+    # Plot training data
+    plt.subplot(1, 2, 1)
+    plt.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap="viridis")
+    plt.title("Training Set")
+
+    # Plot validation data
+    plt.subplot(1, 2, 2)
+    plt.scatter(X_val[:, 0], X_val[:, 1], c=y_val, cmap="viridis")
+    plt.title("Validation Set")
+
+    plt.show()
+
+
+def plot_predictions_classification(
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    y_pred: np.ndarray,
+    test_grid_points,
+    pred_uct: np.ndarray = None,
+) -> None:
+    """
+    Plot the classification results and the associated uncertainty.
+
+    Args:
+        X: The input features.
+        y: The true labels.
+        y_pred: The predicted labels.
+        pred_uct: The uncertainty of the predictions.
+        test_grid_points: The grid of test points.
+    """
+    if pred_uct is None:
+        num_cols = 2
+    else:
+        num_cols = 3
+
+    fig, axs = plt.subplots(1, num_cols, figsize=(num_cols * 6, 6))
+    cm = plt.cm.viridis
+
+    grid_size = int(np.sqrt(test_grid_points.shape[0]))
+    xx = test_grid_points[:, 0].reshape(grid_size, grid_size)
+    yy = test_grid_points[:, 1].reshape(grid_size, grid_size)
+
+    # Create a scatter plot of the input features, colored by the true labels
+    # axs[0].contour(xx, yy, y_pred.reshape(xx.shape), alpha=0.5)
+    axs[0].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm)
+    axs[0].set_title("True Labels")
+
+    # Create a scatter plot of the input features, colored by the predicted labels
+    axs[1].contourf(xx, yy, y_pred.reshape(grid_size, grid_size), alpha=0.8, cmap=cm)
+    axs[1].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm)
+    axs[1].set_title("Predicted Labels")
+
+    if pred_uct is not None:
+        # Create a scatter plot of the input features, colored by the uncertainty
+        axs[2].contourf(
+            xx, yy, pred_uct.reshape(grid_size, grid_size), alpha=0.8, cmap=cm
+        )
+        axs[2].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm)
+        axs[2].set_title("Uncertainty")
+
+    plt.show()
+
+
+def plot_predictions_regression(
     X_train: np.ndarray,
     y_train: np.ndarray,
     X_test: np.ndarray,
@@ -80,6 +156,7 @@ def plot_predictions(
       epistemic: epistemic uncertainy
       aleatoric: aleatoric uncertainty
     """
+    y_pred = y_pred.squeeze(-1)
     # fig, ax = plt.subplots(ncols=2)
     fig = plt.figure(figsize=(10, 7))
     ax0 = fig.add_subplot(1, 2, 1)

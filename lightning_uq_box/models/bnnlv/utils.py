@@ -5,52 +5,6 @@ from typing import Union
 
 import torch.nn as nn
 
-import lightning_uq_box.models.bnn_layers as bayesian_layers
-
-
-def bnnlv_linear_layer(params, d):
-    """Convert deterministic linear layer to bayesian linear layer."""
-    layer = d.__class__.__name__ + "Variational"
-    layer_fn = getattr(bayesian_layers, layer)
-    bnn_layer = layer_fn(
-        in_features=d.in_features,
-        out_features=d.out_features,
-        bias=d.bias is not None,
-        **params,
-    )
-    return bnn_layer
-
-
-def bnnlv_conv_layer(params, d):
-    """Convert deterministic convolutional layer to bayesian convolutional layer."""
-    layer = d.__class__.__name__ + "Variational"
-    layer_fn = getattr(bayesian_layers, layer)  # Get BNN layer
-    bnn_layer = layer_fn(
-        in_channels=d.in_channels,
-        out_channels=d.out_channels,
-        kernel_size=d.kernel_size,
-        stride=d.stride,
-        padding=d.padding,
-        dilation=d.dilation,
-        groups=d.groups,
-        bias=d.bias is not None,
-        **params,
-    )
-    return bnn_layer
-
-
-def bnnlv_lstm_layer(params, d):
-    """Convert lstm layer to bayesian lstm layer."""
-    layer = d.__class__.__name__ + "Variational"
-    layer_fn = getattr(bayesian_layers, layer)  # Get BNN layer
-    bnn_layer = layer_fn(
-        in_features=d.input_size,
-        out_features=d.hidden_size,
-        bias=d.bias is not None,
-        **params,
-    )
-    return bnn_layer
-
 
 # get loss terms for energy functional
 def get_log_normalizer(models: list[nn.Module]):
@@ -157,55 +111,3 @@ def retrieve_module_init_args(
             # like device, dtype
             continue
     return current_args
-
-
-# changed partial stochastic change function to update layers to bnn+lv
-def dnn_to_bnnlv_some(
-    m: nn.Module,
-    bnn_prior_parameters: dict[str, Union[str, float]],
-    part_stoch_module_names: list[str],
-) -> None:
-    """Replace linear and conv. layers with stochastic layers.
-
-    Args:
-        m: nn.module
-        bnn_prior_parameter: dictionary,
-            prior_mu: prior mean value for bayesian layer
-            prior_sigma: prior variance value for bayesian layer
-            posterior_mu_init: mean initialization value for approximate posterior
-            posterior_rho_init: variance initialization value for approximate posterior
-                through softplus σ = log(1 + exp(ρ))
-            bayesian_layer_type: `Flipout` or `Reparameterization
-        num_stochastic_modules: number of modules that should be stochastic,
-            max value all modules.
-    """
-    # assert len(list(m.named_modules(remove_duplicate=False)))
-    # >= num_stochastic_modules,
-    #  "More stochastic modules than modules.
-
-    for name, value in m._modules.items():
-        if m._modules[name]._modules:
-            part_stoch_module_names = [
-                module_name.removeprefix(name + ".")
-                for module_name in part_stoch_module_names
-            ]
-            dnn_to_bnnlv_some(
-                m._modules[name], bnn_prior_parameters, part_stoch_module_names
-            )
-        if name in part_stoch_module_names:
-            if "Conv" in m._modules[name].__class__.__name__:
-                setattr(
-                    m, name, bnnlv_conv_layer(bnn_prior_parameters, m._modules[name])
-                )
-            elif "Linear" in m._modules[name].__class__.__name__:
-                setattr(
-                    m, name, bnnlv_linear_layer(bnn_prior_parameters, m._modules[name])
-                )
-            elif "LSTM" in m._modules[name].__class__.__name__:
-                setattr(
-                    m, name, bnnlv_lstm_layer(bnn_prior_parameters, m._modules[name])
-                )
-            else:
-                pass
-        else:
-            continue

@@ -2,74 +2,108 @@
 
 import copy
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 from laplace import Laplace
-from laplace.curvature import AsdlGGN
-from laplace.utils import LargestMagnitudeSubnetMask, ModuleNameSubnetMask
 from torch import Tensor
 from tqdm import trange
 
-from lightning_uq_box.eval_utils import compute_quantiles_from_std
 from lightning_uq_box.uq_methods import BaseModule
 
 from .utils import (
-    change_inplace_activation,
-    map_stochastic_modules,
+    _get_num_inputs,
+    _get_num_outputs,
+    default_classification_metrics,
+    default_regression_metrics,
     save_predictions_to_csv,
 )
 
+# TODO check whether Laplace fitting procedure can be implemented as working
+# over training_step in lightning
 
-class LaplaceModel(BaseModule):
+
+def tune_prior_precision(
+    model: Laplace, tune_precision_lr: float, n_epochs_tune_precision: int
+):
+    """Tune the prior precision via Empirical Bayes.
+
+    Args:
+        model: laplace model
+        tune_precision_lr: learning rate for tuning prior precision
+        n_epochs_tune_precision: number of epochs to tune prior precision
+    """
+    log_prior, log_sigma = torch.ones(1, requires_grad=True), torch.ones(
+        1, requires_grad=True
+    )
+    hyper_optimizer = torch.optim.Adam([log_prior, log_sigma], lr=tune_precision_lr)
+    bar = trange(n_epochs_tune_precision)
+    # find out why this is so extremely slow?
+    for i in bar:
+        hyper_optimizer.zero_grad()
+        neg_marglik = -model.log_marginal_likelihood(log_prior.exp(), log_sigma.exp())
+        neg_marglik.backward()
+        hyper_optimizer.step()
+        bar.set_postfix(neg_marglik=f"{neg_marglik.detach().cpu().item()}")
+
+
+class LaplaceBase(BaseModule):
     """Laplace Approximation method for regression."""
-
-    subset_of_weights_options = ["last_layer", "subnetwork", "all"]
-    hessian_structure_options = ["diag", "kron", "full", "lowrank"]
 
     def __init__(
         self,
-        model: nn.Module,
-        save_dir: str,
-        sigma_noise: float = 1.0,
-        prior_precision: float = 1.0,
-        prior_mean: float = 0.0,
-        temperature: float = 1.0,
-        subset_of_weights: str = "last_layer",
-        hessian_structure: str = "kron",
+        model: Laplace,
         tune_precision_lr: float = 0.1,
         n_epochs_tune_precision: int = 100,
-        n_params_subnet: int = None,
-        part_stoch_module_names: Optional[list[Union[int, str]]] = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
-            model: pytorch model to use as underlying model
-            laplace_args: laplace arguments to initialize a Laplace Model
-            train_loader: train loader to be used but maybe this can
-                also be accessed through the trainer or write a
-                train_dataloader() method for this model based on the config?
+            model: initialized Laplace model
+            tune_precision_lr: learning rate for tuning prior precision
+            n_epochs_tune_precision: number of epochs to tune prior precision
         """
         super().__init__()
 
-        if part_stoch_module_names and n_params_subnet:
-            raise ValueError(
-                "Only one of `part_stoch_module_names` or `n_params_subnet` can be defined."
-            )
+        self.save_hyperparameters(ignore=["model"])
 
-        if part_stoch_module_names or n_params_subnet:
-            assert subset_of_weights == "subnetwork"
+        self.model = model
 
-        self.save_hyperparameters(ignore=["model", "train_loader"])
-
-        self.model = model  # pytorch model
         self.laplace_fitted = False
 
-        self.loss_fn = torch.nn.MSELoss()
+        self.setup_task()
+
+    def setup_task(self) -> None:
+        """"""
+        pass
+
+    @property
+    def num_input_features(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        return _get_num_inputs(self.model.model)
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of output dimension to model
+        """
+        return _get_num_outputs(self.model.model)
+
+    # def training_step(self, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
+    #     pass
+
+    # def validation_step(self, *args: Any, **kwargs: Any) -> STEP_OUTPUT | None:
+    #     return super().validation_step(*args, **kwargs)
+
+    # def configure_optimizers(self) -> OptimizerLRScheduler:
+    #     pass
 
     def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
         """Fitted Laplace Model Forward Pass.
@@ -83,7 +117,7 @@ class LaplaceModel(BaseModule):
         if not self.laplace_fitted:
             self.on_test_start()
 
-        return self.la_model(X)
+        return self.model(X)
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
@@ -120,71 +154,22 @@ class LaplaceModel(BaseModule):
         self.train_loader.collate_fn = collate_fn_laplace_torch
 
         if not self.laplace_fitted:
-            # select by largest params
-            if self.hparams.n_params_subnet:
-                assert self.hparams.subset_of_weights == "subnetwork"
-                subnetwork_mask = LargestMagnitudeSubnetMask(
-                    copy.deepcopy(self.model),
-                    n_params_subnet=self.hparams.n_params_subnet,
-                )
-                subnetwork_indices = subnetwork_mask.select().cpu()
-                del subnetwork_mask
-                self.model.apply(change_inplace_activation)
-            # select by module names
-            elif self.hparams.part_stoch_module_names:
-                assert self.hparams.subset_of_weights == "subnetwork"
-                self.part_stoch_module_names = map_stochastic_modules(
-                    self.model, self.part_stoch_module_names
-                )
-                subnetwork_mask = ModuleNameSubnetMask(
-                    copy.deepcopy(self.model), module_names=self.part_stoch_module_names
-                )
-                subnetwork_mask.select()
-                subnetwork_indices = subnetwork_mask.indices.cpu()
-                del subnetwork_mask
-                self.model.apply(change_inplace_activation)
-            # last layer case
-            else:
-                subnetwork_indices = None
-
             # take the deterministic model we trained and fit laplace
             # laplace needs a nn.Module ant not a lightning module
 
             # also lightning automatically disables gradient computation during test
             # but need it for laplace so set inference mode to false with cntx manager
             with torch.inference_mode(False):
-                self.la_model = Laplace(
-                    model=self.model.model,
-                    likelihood="regression",
-                    subset_of_weights=self.hparams.subset_of_weights,
-                    hessian_structure=self.hparams.hessian_structure,
-                    # subnetwork_indices=subnetwork_indices,
-                    sigma_noise=self.hparams.sigma_noise,
-                    prior_precision=self.hparams.prior_precision,
-                    prior_mean=self.hparams.prior_mean,
-                    temperature=self.hparams.temperature,
-                    backend=AsdlGGN,
-                )
                 # fit the laplace approximation
-                self.la_model.fit(self.train_loader)
+                self.model.fit(self.train_loader)
 
                 # tune the prior precision via Empirical Bayes
-                log_prior, log_sigma = torch.ones(1, requires_grad=True), torch.ones(
-                    1, requires_grad=True
-                )
-                hyper_optimizer = torch.optim.Adam(
-                    [log_prior, log_sigma], lr=self.hparams.tune_precision_lr
-                )
-                bar = trange(self.hparams.n_epochs_tune_precision)
-                # find out why this is so extremely slow?
-                for i in bar:
-                    hyper_optimizer.zero_grad()
-                    neg_marglik = -self.la_model.log_marginal_likelihood(
-                        log_prior.exp(), log_sigma.exp()
-                    )
-                    neg_marglik.backward()
-                    hyper_optimizer.step()
-                    bar.set_postfix(neg_marglik=f"{neg_marglik.detach().cpu().item()}")
+                self.model.optimize_prior_precision(method="marglik")
+                # tune_prior_precision(
+                #     self.model,
+                #     self.hparams.tune_precision_lr,
+                #     self.hparams.n_epochs_tune_precision,
+                # )
 
             self.laplace_fitted = True
 
@@ -216,23 +201,39 @@ class LaplaceModel(BaseModule):
 
         return out_dict
 
-    def on_test_batch_end(
-        self,
-        outputs: dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        if self.hparams.save_dir:
-            save_predictions_to_csv(
-                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
-            )
-
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""
         self.log_dict(self.test_metrics.compute())
         self.test_metrics.reset()
+
+
+class LaplaceRegression(LaplaceBase):
+    """Laplace Approximation Wrapper for regression."""
+
+    def __init__(
+        self,
+        model: Laplace,
+        tune_precision_lr: float = 0.1,
+        n_epochs_tune_precision: int = 100,
+    ) -> None:
+        """Initialize a new instance of Laplace Model Wrapper for Regression.
+
+        Args:
+            model: initialized Laplace model
+            tune_precision_lr: learning rate for tuning prior precision
+            n_epochs_tune_precision: number of epochs to tune prior precision
+        """
+        super().__init__(model, tune_precision_lr, n_epochs_tune_precision)
+
+        assert model.likelihood == "regression"
+
+        self.model = model
+
+        self.loss_fn = torch.nn.MSELoss()
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.test_metrics = default_regression_metrics("test")
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -259,13 +260,10 @@ class LaplaceModel(BaseModule):
             laplace_mean = laplace_mean.squeeze().detach().cpu().numpy()
             laplace_epistemic = laplace_var.squeeze().sqrt().cpu().numpy()
             laplace_aleatoric = (
-                np.ones_like(laplace_epistemic) * self.la_model.sigma_noise.item()
+                np.ones_like(laplace_epistemic) * self.model.sigma_noise.item()
             )
             laplace_predictive = np.sqrt(
                 laplace_epistemic**2 + laplace_aleatoric**2
-            )
-            quantiles = compute_quantiles_from_std(
-                laplace_mean, laplace_predictive, self.hparams.quantiles
             )
 
         return {
@@ -273,6 +271,69 @@ class LaplaceModel(BaseModule):
             "pred_uct": laplace_predictive,
             "epistemic_uct": laplace_epistemic,
             "aleatoric_uct": laplace_aleatoric,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
         }
+
+
+class LaplaceClassification(LaplaceBase):
+    """Laplace Approximation Wrapper for classification."""
+
+    valid_tasks = ["binary", "multiclass"]
+
+    def __init__(
+        self,
+        model: Laplace,
+        tune_precision_lr: float = 0.1,
+        n_epochs_tune_precision: int = 100,
+        task: str = "multiclass",
+    ) -> None:
+        """Initialize a new instance of Laplace Model Wrapper for Classification.
+
+        Args:
+            model: initialized Laplace model
+            tune_precision_lr: learning rate for tuning prior precision
+            n_epochs_tune_precision: number of epochs to tune prior precision
+            task: classification task, one of ['binary', 'multiclass']
+        """
+        assert task in self.valid_tasks
+        self.task = task
+
+        super().__init__(model, tune_precision_lr, n_epochs_tune_precision)
+
+        self.loss_fn = torch.nn.CrossEntropyLoss()
+
+        self.model = model
+
+        assert model.likelihood == "classification"
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, _get_num_outputs(self.model.model)
+        )
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Predict step with Laplace Approximation.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            prediction dictionary
+        """
+        if not self.laplace_fitted:
+            self.on_test_start()
+
+        # also lightning automatically disables gradient computation during test
+        # but need it for laplace so set inference mode to false with context manager
+        with torch.inference_mode(False):
+            # inference tensors are not saved for backward so need to create
+            # a clone with autograd enables
+            input = X.clone().requires_grad_()
+
+            probs = self.forward(input)
+
+            entropy = -torch.sum(probs * torch.log(probs), dim=1)
+
+        return {"pred": probs, "pred_uct": entropy}

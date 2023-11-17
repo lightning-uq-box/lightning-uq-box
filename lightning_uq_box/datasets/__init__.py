@@ -6,6 +6,7 @@ from .card_regression import (
     LogLinearDatasetWithOneX,
     SinusoidDatasetWithOneX,
 )
+from .toy_image_classification import ToyImageClassificationDataset
 from .toy_image_regression import ToyImageRegressionDataset
 from .uci import UCIRegressionDataset
 from .uci_boston import UCIBoston
@@ -26,6 +27,7 @@ __all__ = (
     "CircleDatasetWithOneX",
     # Toy Image dataset
     "ToyImageRegressionDataset",
+    "ToyImageClassificationDataset",
     # UCI Datasets
     "UCIRegressionDataset",
     "UCIBoston",

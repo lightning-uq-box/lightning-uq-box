@@ -1,119 +1,85 @@
-"""BNN+VI Testing Script Toy Data."""
-
-import os
 import tempfile
 from functools import partial
 
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import torch
+import torch.nn as nn
 from lightning import Trainer
+from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import CSVLogger
 
-from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
+from lightning_uq_box.datamodules import (
+    ToyHeteroscedasticDatamodule,
+    TwoMoonsDataModule,
+)
 from lightning_uq_box.models import MLP
-from lightning_uq_box.uq_methods import BNN_VI
-from lightning_uq_box.viz_utils import plot_predictions
+from lightning_uq_box.uq_methods import (
+    NLL,
+    BNN_VI_ELBO_Classification,
+    BNN_VI_ELBO_Regression,
+)
+from lightning_uq_box.viz_utils import (
+    plot_predictions_classification,
+    plot_predictions_regression,
+    plot_training_metrics,
+    plot_two_moons_data,
+)
 
-# seed_everything(4)
-torch.set_float32_matmul_precision("medium")
+plt.rcParams["figure.figsize"] = [14, 5]
 
+
+seed_everything(1)  # seed everything for reproducibility
+
+my_temp_dir = tempfile.mkdtemp()
 
 dm = ToyHeteroscedasticDatamodule(batch_size=50)
 
-X_train, y_train, train_loader, X_test, y_test, test_loader = (
-    dm.X_train,
-    dm.y_train,
-    dm.train_dataloader(),
-    dm.X_test,
-    dm.y_test,
-    dm.test_dataloader(),
-)
+X_train, y_train, X_test, y_test = (dm.X_train, dm.y_train, dm.X_test, dm.y_test)
 
-my_config = {
-    "model_args": {
-        "n_inputs": 1,
-        "n_outputs": 1,
-        "n_hidden": [50, 50],
-        "activation_fn": torch.nn.ReLU(),
-    },
-    "loss_fn": "nll",
-}
+network = MLP(n_inputs=1, n_hidden=[50, 50], n_outputs=2, activation_fn=nn.Tanh())
 
-my_dir = tempfile.mkdtemp()
-
-max_epochs = 1000
-
-base_model = BNN_VI(
-    MLP(**my_config["model_args"]),
-    optimizer=partial(torch.optim.Adam, lr=1e-3),
-    save_dir=my_dir,
+bbp_model = BNN_VI_ELBO_Regression(
+    network,
+    optimizer=partial(torch.optim.Adam, lr=1e-2),
+    criterion=NLL(),
+    part_stoch_module_names=[-1],
     num_training_points=X_train.shape[0],
-    part_stoch_module_names=None,
-    n_mc_samples_train=10,
-    n_mc_samples_test=50,
-    output_noise_scale=1.3,
-    prior_mu=0.0,
-    prior_sigma=1.0,
-    posterior_mu_init=0.0,
-    posterior_rho_init=-6.0,
-    alpha=1e-3,
-    layer_type="reparameterization",
+    num_mc_samples_train=10,
+    num_mc_samples_test=25,
+    burnin_epochs=20,
 )
 
-logger = CSVLogger(my_dir)
-
-pl_args = {
-    "max_epochs": max_epochs,
-    "logger": logger,
-    "log_every_n_steps": 1,
-    # "accelerator": "gpu",
-    # "devices": [5],
-    "limit_val_batches": 0.0,
-}
-trainer = Trainer(**pl_args)
-
-# fit model
-trainer.fit(base_model, dm)
-
-# using the trainer does save predictions
-trainer.test(base_model, dm.test_dataloader())
-csv_path = os.path.join(my_dir, "predictions.csv")
-
-pred = base_model.predict_step(X_test)
-
-my_fig = plot_predictions(
-    X_train,
-    y_train,
-    X_test,
-    y_test,
-    pred["pred"],
-    pred["pred_uct"],
-    epistemic=pred.get("epistemic_uct", None),
-    aleatoric=pred.get("aleatoric_uct", None),
-    title="BNN with VI",
+logger = CSVLogger(my_temp_dir)
+trainer = Trainer(
+    max_epochs=50,  # number of epochs we want to train
+    logger=logger,  # log training metrics for later evaluation
+    log_every_n_steps=20,
+    enable_checkpointing=False,
+    enable_progress_bar=False,
 )
-plt.savefig("preds.png")
-plt.show()
 
-metrics_path = os.path.join(my_dir, "lightning_logs", "version_0", "metrics.csv")
-df = pd.read_csv(metrics_path)
+trainer.fit(bbp_model, dm)
 
-train_loss = df[df["train_loss"].notna()]["train_loss"]
-train_rmse = df[df["train_RMSE"].notna()]["train_RMSE"]
+preds = bbp_model.predict_step(X_test)
 
-fig, ax = plt.subplots(2)
-ax[0].plot(np.arange(len(train_loss)), train_loss)
-ax[0].set_title("Train Loss")
-
-ax[1].plot(np.arange(len(train_rmse)), train_rmse)
-ax[1].set_title("Train RMSE")
-
-plt.show()
-plt.savefig("loss_curves.png")
 # import pdb
 
 # pdb.set_trace()
 
-# print(0)
+fig = plot_training_metrics(my_temp_dir, "RMSE")
+
+fig = plot_predictions_regression(
+    X_train,
+    y_train,
+    X_test,
+    y_test,
+    preds["pred"].squeeze(-1),
+    preds["pred_uct"],
+    epistemic=preds["epistemic_uct"],
+    aleatoric=preds["aleatoric_uct"],
+    title="Bayes By Backprop MFVI",
+    show_bands=False,
+)
+
+
+plt.show()

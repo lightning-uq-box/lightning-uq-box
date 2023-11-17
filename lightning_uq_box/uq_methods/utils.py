@@ -2,18 +2,22 @@
 
 import os
 from collections import OrderedDict, defaultdict
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
+import torch
 import torch.nn as nn
-from bayesian_torch.models.dnn_to_bnn import (
-    bnn_conv_layer,
-    bnn_linear_layer,
-    bnn_lstm_layer,
-)
 from torch import Tensor
-from torchmetrics import MeanAbsoluteError, MeanSquaredError, MetricCollection, R2Score
+from torchmetrics import (
+    Accuracy,
+    CalibrationError,
+    F1Score,
+    MeanAbsoluteError,
+    MeanSquaredError,
+    MetricCollection,
+    R2Score,
+)
 
 from lightning_uq_box.eval_utils import (
     compute_aleatoric_uncertainty,
@@ -35,53 +39,83 @@ def default_regression_metrics(prefix: str):
     )
 
 
-def process_model_prediction(
-    preds: Tensor, quantiles: list[float]
+def default_classification_metrics(prefix: str, task: str, num_classes: int):
+    """Return a set of default classification metrics."""
+    return MetricCollection(
+        {
+            "Acc": Accuracy(task=task, num_classes=num_classes),
+            # "CalibErr": CalibrationError(task),
+            "F1Score": F1Score(task, num_classes=num_classes),
+        },
+        prefix=prefix,
+    )
+
+
+def process_regression_prediction(
+    preds: Tensor, quantiles: Optional[list[float]] = None
 ) -> dict[str, np.ndarray]:
-    """Process model predictions that could be mse or nll predictions.
+    """Process regression predictions that could be mse or nll predictions.
 
     Args:
         preds: prediction tensor of shape [batch_size, num_outputs, num_samples]
         quantiles: quantiles to compute
 
     Returns:
-        dictionary with mean and uncertainty predictions
+        dictionary with mean prediction and predictive uncertainty
     """
-    mean_samples = preds[:, 0, :].cpu().numpy()
+    mean_samples = preds[:, 0, :].cpu()
     mean = preds[:, 0:1, :].mean(-1)
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
-        log_sigma_2_samples = preds[:, 1, :].cpu().numpy()
-        eps = np.ones_like(log_sigma_2_samples) * 1e-6
-        sigma_samples = np.sqrt(eps + np.exp(log_sigma_2_samples))
+        log_sigma_2_samples = preds[:, 1, :].cpu()
+        eps = torch.ones_like(log_sigma_2_samples) * 1e-6
+        sigma_samples = torch.sqrt(eps + torch.exp(log_sigma_2_samples))
         std = compute_predictive_uncertainty(mean_samples, sigma_samples)
         aleatoric = compute_aleatoric_uncertainty(sigma_samples)
         epistemic = compute_epistemic_uncertainty(mean_samples)
-        quantiles = compute_quantiles_from_std(
-            mean.detach().cpu().numpy(), std, quantiles
-        )
-        return {
+
+        pred_dict = {
             "pred": mean,
             "pred_uct": std,
             "epistemic_uct": epistemic,
             "aleatoric_uct": aleatoric,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
         }
+        if quantiles is not None:
+            quantiles = compute_quantiles_from_std(
+                mean.detach().cpu().numpy(), std, quantiles
+            )
+            pred_dict["lower_quant"] = quantiles[:, 0]
+            pred_dict["upper_quant"] = quantiles[:, -1]
+        return pred_dict
     # assume mse prediction
     else:
         std = mean_samples.std(-1)
-        quantiles = compute_quantiles_from_std(
-            mean.detach().cpu().numpy(), std, quantiles
-        )
+        pred_dict = {"pred": mean, "pred_uct": std, "epistemic_uct": std}
+        if quantiles is not None:
+            quantiles = compute_quantiles_from_std(
+                mean.detach().cpu().numpy(), std, quantiles
+            )
+            pred_dict["lower_quant"] = quantiles[:, 0]
+            pred_dict["upper_quant"] = quantiles[:, -1]
 
-        return {
-            "pred": mean,
-            "pred_uct": std,
-            "epistemic_uct": std,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
-        }
+    return pred_dict
+
+
+def process_classification_prediction(preds: Tensor) -> dict[str, np.ndarray]:
+    """Process classification predictions.
+
+    Applies softmax to logit and computes mean over the samples and entropy.
+
+    Args:
+        preds: prediction logits tensor of shape [batch_size, num_classes, num_samples]
+
+    Returns:
+        dictionary with mean and predictive uncertainty
+    """
+    mean = nn.functional.softmax(preds.mean(-1), dim=-1)
+    entropy = -(mean * mean.log()).sum(dim=-1)
+
+    return {"pred": mean, "pred_uct": entropy}
 
 
 def change_inplace_activation(module):
@@ -165,41 +199,6 @@ def map_stochastic_modules(
     return part_stoch_names
 
 
-def dnn_to_bnn_some(m, bnn_prior_parameters, part_stoch_module_names: int):
-    """Replace linear and conv. layers with stochastic layers.
-
-    Args:
-        m: nn.module
-        bnn_prior_parameter: dictionary,
-            prior_mu: prior mean value for bayesian layer
-            prior_sigma: prior variance value for bayesian layer
-            posterior_mu_init: mean initialization value for approximate posterior
-            posterior_rho_init: variance initialization value for approximate posterior
-                through softplus σ = log(1 + exp(ρ))
-            bayesian_layer_type: `Flipout` or `Reparameterization
-        num_stochastic_modules: number of modules that should be stochastic,
-            max value all modules.
-    """
-    for name, value in m._modules.items():
-        if m._modules[name]._modules:
-            part_stoch_module_names = [
-                module_name.removeprefix(name + ".")
-                for module_name in part_stoch_module_names
-            ]
-            dnn_to_bnn_some(
-                m._modules[name], bnn_prior_parameters, part_stoch_module_names
-            )
-        if "Conv" in m._modules[name].__class__.__name__:
-            setattr(m, name, bnn_conv_layer(bnn_prior_parameters, m._modules[name]))
-        elif "Linear" in m._modules[name].__class__.__name__:
-            setattr(m, name, bnn_linear_layer(bnn_prior_parameters, m._modules[name]))
-        elif "LSTM" in m._modules[name].__class__.__name__:
-            setattr(m, name, bnn_lstm_layer(bnn_prior_parameters, m._modules[name]))
-        else:
-            pass
-    return
-
-
 def _get_input_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:
     """Retrieve the input layer name and module from a timm model.
 
@@ -248,6 +247,8 @@ def _get_num_inputs(module):
         num_inputs = module.in_features
     elif hasattr(module, "in_channels"):  # Conv Layer
         num_inputs = module.in_channels
+    else:
+        raise ValueError(f"Module {module} does not have in_features or in_channels.")
     return num_inputs
 
 
@@ -258,4 +259,6 @@ def _get_num_outputs(module: nn.Module) -> int:
         num_outputs = module.out_features
     elif hasattr(module, "out_channels"):  # Conv Layer
         num_outputs = module.out_channels
+    else:
+        raise ValueError(f"Module {module} does not have out_features or out_channels.")
     return num_outputs

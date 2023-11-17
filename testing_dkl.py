@@ -13,20 +13,28 @@ from lightning import Trainer
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import CSVLogger
 
-from lightning_uq_box.datamodules import ToyDUE, ToyHeteroscedasticDatamodule
+from lightning_uq_box.datamodules import (
+    ToyDUE,
+    ToyHeteroscedasticDatamodule,
+    TwoMoonsDataModule,
+)
 from lightning_uq_box.models import MLP
 from lightning_uq_box.uq_methods import (  # BaseModel,; DeterministicGaussianModel,
-    DeepKernelLearningModel,
+    DKLClassification,
     DKLGPLayer,
-    DUEModel,
+    DKLRegression,
+    DUEClassification,
 )
-from lightning_uq_box.viz_utils import plot_predictions
+from lightning_uq_box.viz_utils import (
+    plot_predictions_classification,
+    plot_predictions_regression,
+)
 
 seed_everything(2)
 
 # define datamodule
 
-dm = ToyHeteroscedasticDatamodule(batch_size=100)
+dm = TwoMoonsDataModule(batch_size=100)
 
 # define data
 X_train, y_train, train_loader, X_test, y_test, test_loader = (
@@ -43,30 +51,20 @@ my_dir = tempfile.mkdtemp()
 
 # define untrained feature extractor
 feature_extractor = MLP(
-    n_inputs=1, n_outputs=10, n_hidden=[50], activation_fn=torch.nn.ELU()
+    n_inputs=2, n_outputs=13, n_hidden=[50], activation_fn=torch.nn.ELU()
 )
 
-# dkl_model = DUEModel(
-#    feature_extractor,
-#    gp_layer=partial(DKLGPLayer, n_outputs=1, kernel="RBF"),
-#    elbo_fn=partial(VariationalELBO),
-#    optimizer=partial(torch.optim.Adam, lr=1e-3),
-#    train_loader=train_loader,
-#    n_inducing_points=50,
-#    save_dir=my_dir,
-# )
 
-dkl_model = DUEModel(
+dkl_model = DUEClassification(
     feature_extractor,
-    gp_layer=partial(DKLGPLayer, n_outputs=1, kernel="Matern52"),
+    gp_layer=partial(DKLGPLayer, n_outputs=2, kernel="Matern52"),
     elbo_fn=partial(VariationalELBO),
     optimizer=partial(torch.optim.Adam, lr=1e-2),
-    train_loader=train_loader,
-    n_inducing_points=100,
-    save_dir=my_dir,
+    n_inducing_points=85,
+    input_size=2,
 )
 
-max_epochs = 750
+max_epochs = 100
 
 logger = CSVLogger(my_dir)
 
@@ -87,22 +85,37 @@ trainer.fit(dkl_model, dm)
 trainer.test(dkl_model, dm.test_dataloader())
 csv_path = os.path.join(my_dir, "predictions.csv")
 
-with torch.no_grad():
-    pred = dkl_model.predict_step(X_test)
 
-dkl_fig = plot_predictions(
-    X_train,
-    y_train,
-    X_test,
-    y_test,
-    pred["pred"],
-    pred["pred_uct"],
-    epistemic=pred["epistemic_uct"],
-    aleatoric=pred.get("aleatoric_uct", None),
-    title="DUE",
-)
+if isinstance(dkl_model, DKLRegression):
+    with torch.no_grad():
+        pred = dkl_model.predict_step(X_test)
+    dkl_fig = plot_predictions_regression(
+        X_train,
+        y_train,
+        X_test,
+        y_test,
+        pred["pred"],
+        pred["pred_uct"],
+        epistemic=pred["epistemic_uct"],
+        aleatoric=pred.get("aleatoric_uct", None),
+        title="DUE",
+    )
+else:
+    with torch.no_grad():
+        pred = dkl_model.predict_step(dm.test_grid_points)
+    dkl_fig = plot_predictions_classification(
+        X_test=X_test,
+        y_test=y_test,
+        y_pred=pred["pred"].argmax(-1),
+        pred_uct=pred["pred_uct"],
+        test_grid_points=dm.test_grid_points,
+    )
 
 plt.savefig("dkl.png")
+
+import pdb
+
+pdb.set_trace()
 
 metrics_path = os.path.join(my_dir, "lightning_logs", "version_0", "metrics.csv")
 df = pd.read_csv(metrics_path)

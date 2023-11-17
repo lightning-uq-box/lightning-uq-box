@@ -3,47 +3,96 @@ lightning_uq_box.uq_methods
 
 .. automodule:: lightning_uq_box.uq_methods
 
-.. autoclass:: BaseModel
+.. currentmodule:: lightning_uq_box.uq_methods.base
 
-Single Forward Pass Methods
----------------------------
-
-.. autoclass:: DeterministicGaussianModel
-
-.. autoclass:: QuantileRegressionModel
-
-.. autoclass:: DERModel
+.. autoclass:: DeterministicModel
 
 
-Approximate Bayesian Methods
-----------------------------
+Mean Variance Estimation
+------------------------
 
-.. autoclass:: MCDropoutModel
+.. currentmodule:: lightning_uq_box.uq_methods.mean_variance_estimation
 
-.. autoclass:: LaplaceModel
+.. autoclass:: MVEBase
+.. autoclass:: MVERegression
 
-.. autoclass:: BNN_VI_ELBO
+Quantile Regression
+-------------------
 
-.. autoclass:: BNN_VI
+.. currentmodule:: lightning_uq_box.uq_methods.quantile_regression
 
-.. autoclass:: BNN_LV_VI
+.. autoclass:: QuantileRegressionBase
+.. autoclass:: QuantileRegression
+
+Deep Evidential Regression
+--------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.deep_evidential_regression
+
+.. autoclass:: DER
+
+Monte Carlo Dropout
+-------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.mc_dropout
+
+.. autoclass:: MCDropoutBase
+.. autoclass:: MCDropoutRegression
+.. autoclass:: MCDropoutClassification
+
+Laplace Approximation
+---------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.laplace_model
+
+.. autoclass:: LaplaceBase
+.. autoclass:: LaplaceClassification
+.. autoclass:: LaplaceRegression
+
+Bayesian Neural Networks ELBO
+-----------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.bnn_vi_elbo
+
+.. autoclass:: BNN_VI_ELBO_Base
+.. autoclass:: BNN_VI_ELBO_Regression
+.. autoclass:: BNN_VI_ELBO_Classification
+
+Stochastic Gradient Langevin Dynamics
+-------------------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.sgld
 
 .. autoclass:: SGLDModel
 
-.. autoclass:: SWAGModel
+Deep Kernel Learning
+--------------------
 
-.. autoclass:: DeepKernelLearningModel
+.. currentmodule:: lightning_uq_box.uq_methods.deep_kernel_learning
 
-.. autoclass:: DUEModel
+.. autoclass:: DKLBase
+.. autoclass:: DKLRegression
+.. autoclass:: DKLClassification
 
+Deterministic Uncertainty Estimation
+------------------------------------
 
-Ensemble Methods
-----------------
+.. currentmodule:: lightning_uq_box.uq_methods.deterministic_uncertainty_estimation
+
+.. autoclass:: DUERegression
+.. autoclass:: DUEClassification    
+
+Deep Ensembles
+--------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.deep_ensemble
 
 .. autoclass:: DeepEnsembleModel
 
 UQ Calibration Methods
 ----------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.cqr_model
 
 .. autoclass:: CQR
 

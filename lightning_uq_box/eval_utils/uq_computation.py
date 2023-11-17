@@ -4,7 +4,9 @@ import math
 from collections import defaultdict
 
 import numpy as np
+import torch
 from scipy import stats
+from torch import Tensor
 
 # TODO:
 # write function to compute nll for GMM for BNNs without moment matching
@@ -14,7 +16,7 @@ from scipy import stats
 # (1/sqrt(2 *\pi* sigma(x)_i^2))*exp(-(mu_i(x)-y)^2/(2 sigma(x)_i^2)) )
 
 
-def compute_epistemic_uncertainty(sample_mean_preds: np.ndarray) -> np.ndarray:
+def compute_epistemic_uncertainty(sample_mean_preds: Tensor) -> Tensor:
     """Compute epistemic uncertainty as defined in Kendall et al. 2017.
 
     Equation (9) left hand side. Gaussian Mixture Model assumption.
@@ -26,10 +28,10 @@ def compute_epistemic_uncertainty(sample_mean_preds: np.ndarray) -> np.ndarray:
       epistemic uncertainty for each sample
     """
     right_term = sample_mean_preds.mean(1) ** 2
-    return np.sqrt((sample_mean_preds**2).mean(axis=1) - right_term)
+    return torch.sqrt((sample_mean_preds**2).mean(axis=1) - right_term)
 
 
-def compute_aleatoric_uncertainty(sample_sigma_preds: np.ndarray) -> np.ndarray:
+def compute_aleatoric_uncertainty(sample_sigma_preds: Tensor) -> Tensor:
     """Compute aleatoric uncertainty as defined in Kendall et al. 2017.
 
     Equation (9) right hand side. Gaussian Mixture Model assumption.
@@ -40,12 +42,12 @@ def compute_aleatoric_uncertainty(sample_sigma_preds: np.ndarray) -> np.ndarray:
     Returns:
       aleatoric uncertainty for each sample
     """
-    return np.sqrt(sample_sigma_preds.mean(-1))
+    return torch.sqrt(sample_sigma_preds.mean(-1))
 
 
 def compute_predictive_uncertainty(
-    sample_mean_preds: np.ndarray, sample_sigma_preds: np.ndarray
-) -> np.ndarray:
+    sample_mean_preds: Tensor, sample_sigma_preds: Tensor
+) -> Tensor:
     """Compute predictive uncertainty as defined in Kendall et al. 2017.
 
     Equation (9). Gaussian Mixture Model.
@@ -57,7 +59,7 @@ def compute_predictive_uncertainty(
     Returns:
       predictive uncertainty for each sample
     """
-    return np.sqrt(
+    return torch.sqrt(
         sample_sigma_preds.mean(-1)
         + (sample_mean_preds**2).mean(-1)
         - (sample_mean_preds.mean(-1) ** 2)

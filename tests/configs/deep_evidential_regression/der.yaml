@@ -1,0 +1,10 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.DER
+  model:
+    _target_: lightning_uq_box.models.MLP
+    n_outputs: 4
+    n_hidden: [50]
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003

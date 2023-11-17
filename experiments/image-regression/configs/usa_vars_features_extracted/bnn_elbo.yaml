@@ -11,6 +11,6 @@ uq_method:
   prior_sigma: 1.0
   posterior_mu_init: 0.0
   posterior_rho_init: -3.0
-  bayesian_layer_type: "Reparameterization"
+  bayesian_layer_type: "reparameterization"
   burnin_epochs: 0
   beta: 1000

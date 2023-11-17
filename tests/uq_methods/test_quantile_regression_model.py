@@ -11,44 +11,36 @@ from omegaconf import OmegaConf
 from torch import Tensor
 
 from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
-from lightning_uq_box.uq_methods import QuantileRegressionModel
+from lightning_uq_box.uq_methods import QuantileRegression
 
 # TODO test different quantiles and wrong quantiles
 
 
-class TestQuantileRegressionModel:
+class TestQuantileRegression:
     @pytest.fixture
-    def qr_model(self, tmp_path: Path) -> QuantileRegressionModel:
-        """Create a QR model being used for different tests."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "qr_model.yaml"))
-        conf.uq_method["save_dir"] = str(tmp_path)
+    def model_regression(self, tmp_path: Path) -> QuantileRegression:
+        """Create a base model being used for different tests."""
+        conf = OmegaConf.load(
+            os.path.join("tests", "configs", "quantile_regression", "qr_model.yaml")
+        )
         return instantiate(conf.uq_method)
 
-    def test_forward(self, qr_model: QuantileRegressionModel) -> None:
-        """Test forward pass of QR model."""
-        n_inputs = qr_model.num_inputs
-        n_outputs = qr_model.num_outputs
+    def test_forward(self, model_regression: QuantileRegression) -> None:
+        """Test forward pass of base model."""
+        n_inputs = model_regression.num_input_features
+        n_outputs = model_regression.num_outputs
         X = torch.randn(5, n_inputs)
-        out = qr_model(X)
+        out = model_regression(X)
         assert out.shape[-1] == n_outputs
 
-    def test_predict_step(self, qr_model: QuantileRegressionModel) -> None:
-        """Test predict step outside of Lightning Trainer."""
-        n_inputs = qr_model.num_inputs
-        X = torch.randn(5, n_inputs)
-        out = qr_model.predict_step(X)
-        assert isinstance(out, dict)
-        assert isinstance(out["pred"], Tensor)
-        assert out["pred"].shape[0] == 5
-
-    def test_trainer(self, qr_model: QuantileRegressionModel) -> None:
-        """Test QR Model with a Lightning Trainer."""
+    def test_trainer(
+        self, model_regression: QuantileRegression, tmp_path: Path
+    ) -> None:
+        """Test Base Model with a Lightning Trainer."""
         # instantiate datamodule
         datamodule = ToyHeteroscedasticDatamodule()
         trainer = Trainer(
-            log_every_n_steps=1,
-            max_epochs=1,
-            default_root_dir=qr_model.hparams.save_dir,
+            log_every_n_steps=1, max_epochs=2, default_root_dir=str(tmp_path)
         )
-        trainer.fit(model=qr_model, datamodule=datamodule)
-        trainer.test(model=qr_model, datamodule=datamodule)
+        trainer.fit(model=model_regression, datamodule=datamodule)
+        trainer.test(model=model_regression, datamodule=datamodule)

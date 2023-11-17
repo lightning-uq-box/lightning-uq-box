@@ -147,9 +147,9 @@ class LSTMVariational(BaseVariationalLayer_):
             x_t = X[:, t, :]
 
             ff_i = self.ih(x_t)
-            # like a LinearReparameterization layer
+            # like a Linearreparameterization layer
             ff_h = self.hh(h_t)
-            # like a LinearReparameterization layer
+            # like a Linearreparameterization layer
             gates = ff_i + ff_h
 
             i_t, f_t, g_t, o_t = (

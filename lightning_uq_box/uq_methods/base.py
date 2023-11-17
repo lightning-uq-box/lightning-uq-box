@@ -1,17 +1,20 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 from .utils import (
     _get_num_inputs,
     _get_num_outputs,
+    default_classification_metrics,
     default_regression_metrics,
     save_predictions_to_csv,
 )
@@ -22,14 +25,12 @@ class BaseModule(LightningModule):
 
     The base module has some basic utilities and attributes
     but is otherwise just an extension of a LightningModule.
+
+    This is for things useful across all tasks and methods
     """
 
     input_key = "input"
     target_key = "target"
-
-    train_metrics = default_regression_metrics("train_")
-    val_metrics = default_regression_metrics("val_")
-    test_metrics = default_regression_metrics("test_")
 
     pred_file_name = "predictions.csv"
 
@@ -38,7 +39,7 @@ class BaseModule(LightningModule):
         super().__init__(*args, **kwargs)
 
     @property
-    def num_inputs(self) -> int:
+    def num_input_features(self) -> int:
         """Retrieve input dimension to the model.
 
         Returns:
@@ -51,12 +52,12 @@ class BaseModule(LightningModule):
         """Retrieve output dimension to the model.
 
         Returns:
-            number of input dimension to the model
+            number of output dimension to model
         """
         return _get_num_outputs(self.model)
 
 
-class BaseModel(BaseModule):
+class DeterministicModel(BaseModule):
     """Deterministic Base Trainer as LightningModule."""
 
     input_key = "input"
@@ -65,19 +66,17 @@ class BaseModel(BaseModule):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
+        optimizer: type[Optimizer],
         loss_fn: nn.Module,
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
-        save_dir: str = None,
+        lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new Base Model.
 
         Args:
-            model: Model Class that can be initialized with arguments from dict,
-                or timm backbone name
-            lr: learning rate for adam otimizer
-            loss_fn: loss function module
-            save_dir: directory path to save predictions
+            model: pytorch model
+            optimizer: optimizer used for training
+            loss_fn: loss function used for optimization
+            lr_scheduler: learning rate scheduler
         """
         super().__init__()
 
@@ -85,7 +84,23 @@ class BaseModel(BaseModule):
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.loss_fn = loss_fn
-        self.save_dir = save_dir
+
+        self.setup_task()
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        raise NotImplementedError
+
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract mean output from model output.
+
+        Args:
+            out: output from the model
+
+        Returns:
+            mean output
+        """
+        return out[:, 0:1]
 
     def forward(self, X: Tensor, **kwargs: Any) -> Any:
         """Forward pass of the model.
@@ -97,22 +112,6 @@ class BaseModel(BaseModule):
             output from the model
         """
         return self.model(X, **kwargs)
-
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean output from model prediction.
-
-        Different models have different number of outputs, i.e. Gaussian NLL 2
-        or quantile regression but for the torchmetrics only
-        the mean/median is considered.
-
-        Args:
-            out: output from :meth:`self.forward` [batch_size x num_outputs]
-
-        Returns:
-            extracted mean used for metric computation [batch_size x 1]
-        """
-        assert out.shape[-1] <= 2, "Ony support single mean or Gaussian output."
-        return out[:, 0:1]
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -183,6 +182,7 @@ class BaseModel(BaseModule):
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
 
         # save metadata
+        # UNIQUE to method
         for key, val in batch.items():
             if key not in [self.input_key, self.target_key]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
@@ -208,18 +208,18 @@ class BaseModel(BaseModule):
             out = self.forward(X)
         return {"pred": self.extract_mean_output(out)}
 
-    def on_test_batch_end(
-        self,
-        outputs: dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        if self.save_dir:
-            save_predictions_to_csv(
-                outputs, os.path.join(self.save_dir, self.pred_file_name)
-            )
+    # def on_test_batch_end(
+    #     self,
+    #     outputs: dict[str, np.ndarray],
+    #     batch: Any,
+    #     batch_idx: int,
+    #     dataloader_idx=0,
+    # ):
+    #     """Test batch end save predictions."""
+    #     if self.save_dir:
+    #         save_predictions_to_csv(
+    #             outputs, os.path.join(self.save_dir, self.pred_file_name)
+    # )
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -237,3 +237,118 @@ class BaseModel(BaseModule):
             }
         else:
             return {"optimizer": optimizer}
+
+
+class DeterministicRegression(DeterministicModel):
+    """Deterministic Base Trainer for regression as LightningModule."""
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
+
+
+class DeterministicClassification(DeterministicModel):
+    """Deterministic Base Trainer for classification as LightningModule."""
+
+    valid_tasks = ["binary", "multiclass", "multilable"]
+
+    def __init__(
+        self,
+        model: nn.Module,
+        optimizer: type[Optimizer],
+        loss_fn: nn.Module,
+        task: str = "multiclass",
+        lr_scheduler: type[LRScheduler] = None,
+    ) -> None:
+        """Initialize a new Base Model.
+
+        Args:
+            model: pytorch model
+            optimizer: optimizer used for training
+            loss_fn: loss function used for optimization
+            task: what kind of classification task, choose one of ["binary", "multiclass", "multilabel"]
+            lr_scheduler: learning rate scheduler
+        """
+        self.num_classes = _get_num_outputs(model)
+        assert task in self.valid_tasks
+        self.task = task
+        super().__init__(model, optimizer, loss_fn, lr_scheduler)
+
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract mean output from model output.
+
+        Args:
+            out: output from the model
+
+        Returns:
+            mean output
+        """
+        return out
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_classification_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_classification_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, self.num_classes
+        )
+
+
+class PosthocBase(BaseModule):
+    def __init__(self, model: Union[LightningModule, nn.Module]) -> None:
+        """Initialize a new Post hoc Base Model."""
+        super().__init__()
+
+        self.model = model
+
+        self.post_hoc_fitted = False
+
+    def training_step(self, *args: Any, **kwargs: Any):
+        """Posthoc Methods do not have a training step."""
+        pass
+
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Postoc Method can use this method to iterate over dataloader."""
+        raise NotImplementedError
+
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Test step after running posthoc fitting methodology."""
+        raise NotImplementedError
+
+    def adjust_model_output(self, model_output: Tensor) -> Tensor:
+        """Adjust model output according to post-hoc fitting procedure.
+
+        Args:
+            model_output: model output tensor of shape [batch_size x num_outputs]
+
+        Returns:
+            adjusted model output tensor of shape [batch_size x num_outputs]
+        """
+        raise NotImplementedError
+
+    def forward(self, X: Tensor) -> Tensor:
+        """Forward pass of CQR model.
+
+        Args:
+            X: input tensor of shape [batch_size x input_dims]
+        """
+        if not self.post_hoc_fitted:
+            raise RuntimeError(
+                "Model has not been post hoc fitted, please call trainer.validate(model, datamodule) first."
+            )
+
+        # predict with underlying model
+        with torch.no_grad():
+            model_preds: dict[str, np.ndarray] = self.model(X)
+
+        return self.adjust_model_output(model_preds)

@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Union
 
 import pytest
 import torch
@@ -9,54 +10,70 @@ from gpytorch.distributions import MultivariateNormal
 from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
+from pytest_lazyfixture import lazy_fixture
 from torch import Tensor
 
-from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
-from lightning_uq_box.uq_methods import DeepKernelLearningModel
+from lightning_uq_box.datamodules import (
+    ToyHeteroscedasticDatamodule,
+    TwoMoonsDataModule,
+)
+from lightning_uq_box.uq_methods import DKLClassification, DKLRegression
 
 
 class TestDeepKernelLearningModel:
     @pytest.fixture
-    def dkl_model(self, tmp_path: Path) -> DeepKernelLearningModel:
+    def model_regression(self, tmp_path: Path) -> DKLRegression:
         """Create DKL model from an underlying model."""
         conf = OmegaConf.load(
-            os.path.join("tests", "configs", "deep_kernel_learning.yaml")
+            os.path.join(
+                "tests", "configs", "deep_kernel_learning", "dkl_regression.yaml"
+            )
         )
-        conf.uq_method["save_dir"] = str(tmp_path)
         dkl_model = instantiate(conf.uq_method)
         trainer = Trainer(
-            log_every_n_steps=1,
-            max_epochs=1,
-            default_root_dir=dkl_model.hparams.save_dir,
+            log_every_n_steps=1, max_epochs=1, default_root_dir=str(tmp_path)
         )
         trainer.fit(dkl_model, datamodule=ToyHeteroscedasticDatamodule())
 
         return dkl_model
 
-    def test_forward(self, dkl_model: DeepKernelLearningModel) -> None:
-        """Test forward pass of conformalized model."""
-        n_inputs = dkl_model.num_inputs
-        X = torch.randn(5, n_inputs)
-        out = dkl_model(X)
-        assert isinstance(out, MultivariateNormal)
+    @pytest.fixture
+    def model_classification(self, tmp_path: Path) -> DKLRegression:
+        """Create DKL model from an underlying model."""
+        conf = OmegaConf.load(
+            os.path.join(
+                "tests", "configs", "deep_kernel_learning", "dkl_classification.yaml"
+            )
+        )
+        dkl_model = instantiate(conf.uq_method)
+        trainer = Trainer(
+            log_every_n_steps=1, max_epochs=1, default_root_dir=str(tmp_path)
+        )
+        trainer.fit(dkl_model, datamodule=TwoMoonsDataModule())
 
-    def test_predict_step(self, dkl_model: DeepKernelLearningModel) -> None:
-        """Test predict step outside of Lightning Trainer."""
-        n_inputs = dkl_model.num_inputs
+        return dkl_model
+
+    @pytest.mark.parametrize(
+        "model",
+        [lazy_fixture("model_regression"), lazy_fixture("model_classification")],
+    )
+    def test_forward(self, model: Union[DKLRegression, DKLClassification]) -> None:
+        """Test forward pass of MC dropout model."""
+        n_inputs = model.num_input_features
+        n_outputs = model.num_outputs
         X = torch.randn(5, n_inputs)
-        out = dkl_model.predict_step(X)
+        out = model(X)
+        assert out.shape()[0] == 5
+
+    @pytest.mark.parametrize(
+        "model",
+        [lazy_fixture("model_regression"), lazy_fixture("model_classification")],
+    )
+    def test_predict_step(self, model: Union[DKLRegression, DKLClassification]) -> None:
+        """Test predict step outside of Lightning Trainer."""
+        n_inputs = model.num_input_features
+        X = torch.randn(5, n_inputs)
+        out = model.predict_step(X)
         assert isinstance(out, dict)
         assert isinstance(out["pred"], Tensor)
         assert out["pred"].shape[0] == 5
-
-    def test_trainer(self, dkl_model: DeepKernelLearningModel) -> None:
-        """Test QR Model with a Lightning Trainer."""
-        # instantiate datamodule
-        datamodule = ToyHeteroscedasticDatamodule()
-        trainer = Trainer(
-            log_every_n_steps=1,
-            max_epochs=1,
-            default_root_dir=dkl_model.hparams.save_dir,
-        )
-        # backpack expects a torch.nn.sequential but also works otherwise
-        trainer.test(model=dkl_model, datamodule=datamodule)

@@ -2,80 +2,70 @@
 
 import os
 from pathlib import Path
+from typing import Union
 
 import pytest
 import torch
+from _pytest.fixtures import SubRequest
 from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
+from pytest_lazyfixture import lazy_fixture
 from torch import Tensor
 
-from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
-from lightning_uq_box.uq_methods import BaseModel, LaplaceModel
+from lightning_uq_box.datamodules import (
+    ToyHeteroscedasticDatamodule,
+    TwoMoonsDataModule,
+)
+from lightning_uq_box.uq_methods import (
+    DeterministicClassification,
+    DeterministicModel,
+    LaplaceClassification,
+    LaplaceRegression,
+)
 
-# TODO need to test all different laplace args
 
-
-class TestLaplaceModel:
-    # TODO need to test that we are able to conformalize all models
-    @pytest.fixture
-    def base_model(self, tmp_path: Path) -> BaseModel:
-        """Create a QR model being used for different tests."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "laplace.yaml"))
-        conf.uq_method["save_dir"] = str(tmp_path)
-
-        # train the model with a trainer
-        model = instantiate(conf.uq_method)
-        datamodule = ToyHeteroscedasticDatamodule()
-        trainer = Trainer(
-            log_every_n_steps=1, max_epochs=1, default_root_dir=model.save_dir
+class TestLaplace:
+    @pytest.fixture(params=["laplace_classification.yaml", "laplace_regression.yaml"])
+    def model(
+        self, request: SubRequest
+    ) -> Union[LaplaceRegression, LaplaceClassification]:
+        """Create a Laplace Model."""
+        conf = OmegaConf.load(
+            os.path.join("tests", "configs", "laplace", request.param)
         )
-        trainer.fit(model, datamodule)
+        deterministic_model = instantiate(conf.model)
 
-        return model
+        laplace_model = instantiate(conf.laplace, model=deterministic_model)
 
-    @pytest.fixture
-    def laplace_model(self, base_model: BaseModel, tmp_path: Path) -> LaplaceModel:
-        """Create Laplace model from an underlying model."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "laplace.yaml"))
-        conf.post_processing["save_dir"] = str(tmp_path)
-        laplace_model = instantiate(conf.post_processing, model=base_model.model)
-        trainer = Trainer(
-            log_every_n_steps=1,
-            max_epochs=1,
-            default_root_dir=laplace_model.hparams.save_dir,
-        )
-        trainer.test(laplace_model, datamodule=ToyHeteroscedasticDatamodule())
-        return laplace_model
+        laplace_module = instantiate(conf.uq_method, model=laplace_model)
+        trainer = Trainer(log_every_n_steps=1, max_epochs=1)
 
-    def test_forward(self, laplace_model: LaplaceModel) -> None:
-        """Test forward pass of conformalized model."""
-        n_inputs = laplace_model.num_inputs
+        if isinstance(laplace_module, LaplaceRegression):
+            datamodule = ToyHeteroscedasticDatamodule()
+        else:
+            datamodule = TwoMoonsDataModule()
+
+        trainer.test(laplace_module, datamodule=datamodule)
+
+        return laplace_module
+
+    def test_forward(
+        self, model: Union[LaplaceRegression, LaplaceClassification]
+    ) -> None:
+        """Test forward pass of Laplace model."""
+        n_inputs = model.num_input_features
+        n_outputs = model.num_outputs
         X = torch.randn(5, n_inputs)
-        # output of laplace like it is in the libray
-        out = laplace_model(X)
-        assert isinstance(out, tuple)
-        assert out[0].shape[-1] == 1
-        assert out[-1].shape[-1] == 1
+        out = model(X)
 
-    def test_predict_step(self, laplace_model: LaplaceModel) -> None:
+    def test_predict_step(
+        self, model: Union[LaplaceRegression, LaplaceClassification]
+    ) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = laplace_model.num_inputs
+        n_inputs = model.num_input_features
         X = torch.randn(5, n_inputs)
-        # backpack expects a torch.nn.sequential but also works otherwise
-        out = laplace_model.predict_step(X)
+        out = model.predict_step(X)
         assert isinstance(out, dict)
         assert isinstance(out["pred"], Tensor)
         assert out["pred"].shape[0] == 5
-
-    def test_trainer(self, laplace_model: LaplaceModel) -> None:
-        """Test QR Model with a Lightning Trainer."""
-        # instantiate datamodule
-        datamodule = ToyHeteroscedasticDatamodule()
-        trainer = Trainer(
-            log_every_n_steps=1,
-            max_epochs=1,
-            default_root_dir=laplace_model.hparams.save_dir,
-        )
-        # backpack expects a torch.nn.sequential but also works otherwise
-        trainer.test(model=laplace_model, datamodule=datamodule)

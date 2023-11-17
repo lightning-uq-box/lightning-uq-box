@@ -1,5 +1,7 @@
 """Conditional Neural Process."""
 
+from typing import Any
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -9,7 +11,7 @@ from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
 
-from .base import BaseModel
+from .base import BaseModule
 
 # TODO: https://github.com/makora9143/pytorch-convcnp/blob/master/convcnp/dataset/dataset.py
 # TODO: write appropriate Data Generator
@@ -28,203 +30,122 @@ from .base import BaseModel
 # Training Procedure
 
 
-def to_multiple(x, multiple):
-    """Convert `x` to the nearest above multiple.
+class DeepSensorModule(BaseModule):
+    """Lightning Module to train Deep Sensor models."""
 
-    Args:
-        x (number): Number to round up.
-        multiple (int): Multiple to round up to.
-
-    Returns:
-        number: `x` rounded to the nearest above multiple of `multiple`.
-    """
-    if x % multiple == 0:
-        return x
-    else:
-        return x + multiple - x % multiple
-
-
-class ConvCondNeuralProcess(BaseModel):
-    """Convolutional Conditional Neural Process."""
-
-    def __init__(
-        self,
-        encoder: nn.Module,
-        decoder: nn.Module,
-        mean_layer: nn.Module,
-        sigma_layer: nn.Module,
-        points_per_unit: int,
-        model: nn.Module,
-        optimizer: type[Optimizer],
-        loss_fn: nn.Module,
-        lr_scheduler: type[LRScheduler] = None,
-        save_dir: str = None,
-    ) -> None:
-        """Initialize a new instance of Conditional Neural Process.
+    def __init__(self, deep_sensor_model):
+        """Initialize a new instance of the Deep Sensor Module.
 
         Args:
-            encoder:
-            decoder: denoted rho in the paper
-            mean_layer: map decoder to mean output
-            sigma_layer: map decoder to sigma output
-            points_per_unit: number of points per unit interval on the input
-                and used to discretize the function
+            model: model to train
         """
-        super().__init__(model, optimizer, loss_fn, lr_scheduler, save_dir)
+        super().__init__()
 
-        self.encoder = encoder
-        self.decoder = decoder
-        self.mean_layer = mean_layer
-        self.sigma_layer = sigma_layer
+        self.deep_sensor_model = deep_sensor_model
+        # this is just the neural process model
+        self.np_model = deep_sensor_model.model
 
-        self.points_per_unit = points_per_unit
+        self.fix_noise = None
+        self.num_lv_samples = 8
+        self.normalise = True
 
-    def forward(self, x_context: Tensor, y_context: Tensor, x_target: Tensor) -> Tensor:
-        """Forward pass of the Model.
+    def forward(self, batch: dict[str, Any]) -> AbstractMultiOutputDistribution:
+        """Forward pass of NP Model.
 
         Args:
-            x_context: observation locations of shape [batch, data, features]
-            y_context: observation values of shape [batch, data, features]
-            x_target: locations of outputs of shape [batch, data, features]
+            batch: batch containing context, targets sets and model kwargs
 
         Returns:
-            means and stds of shape [batch, 2]
+            neuralprocess distribution
         """
-        # Determine the grid on which to evaluate functional representation.
-        x_min = (
-            min(
-                torch.min(x_context).cpu().numpy(),
-                torch.min(x_target).cpu().numpy(),
-                -2.0,
-            )
-            - 0.1
+        return self.np_model(
+            batch["context_data"],
+            batch["xt"],
+            **batch["model_kwargs"],
+            fix_noise=self.fix_noise,
+            num_samples=self.num_lv_samples,
+            normalise=self.normalise,
         )
-        x_max = (
-            max(
-                torch.max(x_context).cpu().numpy(),
-                torch.max(x_target).cpu().numpy(),
-                2.0,
-            )
-            + 0.1
-        )
-        num_points = int(
-            to_multiple(self.points_per_unit * (x_max - x_min), self.multiplier)
-        )
-        x_grid = torch.linspace(x_min, x_max, num_points).to(self.device)
-        x_grid = x_grid[None, :, None].repeat(x_context.shape[0], 1, 1)
 
-        # Apply first layer and conv net. Take care to put the axis ranging
-        # over the data last.
-        h = self.activation(self.encoder(x_context, y_context, x_grid))
-        h = h.permute(0, 2, 1)
-        h = h.reshape(h.shape[0], h.shape[1], num_points)
-        h = self.rho(h)
-        h = h.reshape(h.shape[0], h.shape[1], -1).permute(0, 2, 1)
-
-        # Check that shape is still fine!
-        if h.shape[1] != x_grid.shape[1]:
-            raise RuntimeError("Shape changed.")
-
-        # Produce means and standard deviations.
-        mean = self.mean_layer(x_grid, h, x_target)
-        sigma = self.sigma_layer(x_grid, h, x_target)
-
-        return torch.stack([mean, sigma], dim=-1)
-
-    def training_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Tensor:
-        """Training Step.
+    def training_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
+        """Define training step.
 
         Args:
+            batch: a batch from TaskStreamDataset
 
+        Returns:
+            the training loss
         """
-        out = self.forward(batch["x_context"], batch["y_context"], batch["x_target"])
+        train_dist = self.forward(batch)
+        train_loss = -torch.mean(train_dist.logpdf(batch["yt"]))
 
-        loss = self.loss_fn(out, batch["y_target"])
+        # logging
+        self.log("train_loss", train_loss, batch_size=batch["yt"].shape[0])
 
-        self.log("train_loss", loss)  # logging to Logger
-        if batch[self.input_key].shape[0] > 1:
-            self.train_metrics(self.extract_mean_output(out), batch["y_target"])
-
-        return loss
-
-    def validation_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Tensor:
-        """Validation Step.
-
-        Args:
-
-        """
-        out = self.forward(batch["x_context"], batch["y_context"], batch["x_target"])
-
-        loss = self.loss_fn(out, batch["y_target"])
-
-        self.log("val_loss", loss)  # logging to Logger
-        if batch[self.input_key].shape[0] > 1:
-            self.val_metrics(self.extract_mean_output(out), batch["y_target"])
-
-        return loss
-
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Test step.
-
-        Args:
-
-
-        """
-        out_dict = self.predict_step(
-            batch["x_context"], batch["y_context"], batch["x_target"]
+        self.train_metrics(
+            train_dist.mean.squeeze().reshape(-1), batch["yt"].squeeze().reshape(-1)
         )
-        out_dict["targets"] = batch["y_target"].detach().squeeze(-1).cpu().numpy()
 
-        if batch[self.input_key].shape[0] > 1:
-            self.test_metrics(
-                out_dict["pred"].squeeze(-1), batch["y_target"].squeeze(-1)
-            )
+        return train_loss
 
-        # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].cpu().squeeze(-1).numpy()
+    def on_train_epoch_end(self):
+        """Log epoch-level training metrics."""
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
 
-        # save metadata
-        for key, val in batch.items():
-            if key not in ["x_context", "y_context", "x_target", "y_target"]:
-                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
-
-        if "out" in out_dict:
-            del out_dict["out"]
-        return out_dict
-
-    def predict_step(
-        self,
-        x_context: Tensor,
-        y_context: Tensor,
-        x_target: Tensor,
-        batch_idx: int = 0,
-        dataloader_idx: int = 0,
-    ) -> dict[str, ndarray]:
-        """Predict Step.
+    def validation_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
+        """Define validation step.
 
         Args:
-            x_context: observation locations of shape [batch, data, features]
-            y_context: observation values of shape [batch, data, features]
-            x_target: locations of outputs of shape [batch, data, features]
+            batch: a batch from TaskStreamDataset
+
+        Returns:
+            the validation loss
         """
-        with torch.no_grad():
-            out = self.forward(x_context, y_context, x_target).cpu()
+        val_dist = self.forward(batch)
+        val_loss = -torch.mean(val_dist.logpdf(batch["yt"]))
 
-        mean, std = out[..., 0], out[..., 1].numpy()
+        # logging
+        self.log("val_loss", val_loss, batch_size=batch["yt"].shape[0])
+        self.val_metrics(
+            val_dist.mean.squeeze().reshape(-1), batch["yt"].squeeze().reshape(-1)
+        )
 
-        quantiles = compute_quantiles_from_std(mean, std, self.hparams.quantiles)
+        return val_loss
 
-        return {
-            "pred": mean,
-            "pred_uct": std,
-            "epistemic_uct": std,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, -1],
-            "out": out,
-        }
+    def on_validation_epoch_end(self) -> None:
+        """Log epoch level validation metrics."""
+        self.log_dict(self.val_metrics.compute())
+        self.val_metrics.reset()
+
+    def test_step(self, batch: dict[str, Any], batch_idx: int) -> Tensor:
+        """Define test step.
+
+        Args:
+            batch: a batch from TaskStreamDataset
+
+        Returns:
+            the test loss
+        """
+        test_dist = self.forward(batch)
+        test_loss = -torch.mean(test_dist.logpdf(batch["yt"]))
+
+        # logging
+        self.log("test_loss", test_loss, batch_size=batch["yt"].shape[0])
+        self.test_metrics(
+            test_dist.mean.squeeze().reshape(-1), batch["yt"].squeeze().reshape(-1)
+        )
+
+        return test_loss
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
+
+    def predict_step(self, *args: Any, **kwargs: Any) -> Any:
+        """Prediction Step."""
+
+    def configure_optimizers(self):
+        """Configure optimizers."""
+        return torch.optim.Adam(self.np_model.parameters(), lr=0.001)

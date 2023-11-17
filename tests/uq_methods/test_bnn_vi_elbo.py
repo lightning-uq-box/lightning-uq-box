@@ -2,49 +2,82 @@
 
 import os
 from pathlib import Path
+from typing import Union
 
 import pytest
 import torch
+from _pytest.fixtures import SubRequest
 from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
+from pytest_lazyfixture import lazy_fixture
 
-from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
-from lightning_uq_box.uq_methods import BNN_VI_ELBO
+from lightning_uq_box.datamodules import (
+    ToyHeteroscedasticDatamodule,
+    TwoMoonsDataModule,
+)
+from lightning_uq_box.uq_methods import (
+    BNN_VI_ELBO_Classification,
+    BNN_VI_ELBO_Regression,
+)
 
 
 class TestBNN_VI_ELBO:
-    @pytest.fixture
-    def bnn_vi_elbo_model(self, tmp_path: Path) -> BNN_VI_ELBO:
-        conf = OmegaConf.load(os.path.join("tests", "configs", "bnn_vi_elbo.yaml"))
-        conf.uq_method["save_dir"] = str(tmp_path)
+    @pytest.fixture(params=["bnn_vi_elbo_regression.yaml"])
+    def model_regression(self, request: SubRequest) -> BNN_VI_ELBO_Regression:
+        conf = OmegaConf.load(
+            os.path.join("tests", "configs", "bnn_vi_elbo", request.param)
+        )
         return instantiate(conf.uq_method)
 
-    def test_forward(self, bnn_vi_elbo_model: BNN_VI_ELBO) -> None:
+    @pytest.fixture(params=["bnn_vi_elbo_classification.yaml"])
+    def model_classification(self, request: SubRequest) -> BNN_VI_ELBO_Regression:
+        conf = OmegaConf.load(
+            os.path.join("tests", "configs", "bnn_vi_elbo", request.param)
+        )
+        return instantiate(conf.uq_method)
+
+    @pytest.mark.parametrize(
+        "model",
+        [lazy_fixture("model_regression"), lazy_fixture("model_classification")],
+    )
+    def test_forward(
+        self, model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBO_Classification]
+    ) -> None:
         """Test forward pass of base model."""
-        n_inputs = bnn_vi_elbo_model.num_inputs
-        n_outputs = bnn_vi_elbo_model.num_outputs
+        n_inputs = model.num_input_features
+        n_outputs = model.num_outputs
         X = torch.randn(5, n_inputs)
-        out = bnn_vi_elbo_model(X)
+        out = model(X)
         assert out.shape[-1] == n_outputs
 
-    def test_predict_step(self, bnn_vi_elbo_model: BNN_VI_ELBO) -> None:
+    @pytest.mark.parametrize(
+        "model",
+        [lazy_fixture("model_regression"), lazy_fixture("model_classification")],
+    )
+    def test_predict_step(
+        self, model: Union[BNN_VI_ELBO_Regression, BNN_VI_ELBO_Classification]
+    ) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = bnn_vi_elbo_model.num_inputs
+        n_inputs = model.num_input_features
         X = torch.randn(5, n_inputs)
-        out = bnn_vi_elbo_model.predict_step(X)
+        out = model.predict_step(X)
         assert isinstance(out, dict)
         assert isinstance(out["pred"], torch.Tensor)
         assert out["pred"].shape[0] == 5
 
-    def test_trainer(self, bnn_vi_elbo_model: BNN_VI_ELBO) -> None:
+    @pytest.mark.parametrize(
+        "model, datamodule",
+        [
+            (lazy_fixture("model_regression"), ToyHeteroscedasticDatamodule()),
+            (lazy_fixture("model_classification"), TwoMoonsDataModule()),
+        ],
+    )
+    def test_trainer(self, model, datamodule, tmp_path: Path) -> None:
         """Test Base Model with a Lightning Trainer."""
         # instantiate datamodule
-        datamodule = ToyHeteroscedasticDatamodule()
         trainer = Trainer(
-            log_every_n_steps=1,
-            max_epochs=1,
-            default_root_dir=bnn_vi_elbo_model.hparams.save_dir,
+            log_every_n_steps=1, max_epochs=1, default_root_dir=str(tmp_path)
         )
-        trainer.fit(model=bnn_vi_elbo_model, datamodule=datamodule)
-        trainer.test(model=bnn_vi_elbo_model, datamodule=datamodule)
+        trainer.fit(model=model, datamodule=datamodule)
+        trainer.test(model=model, datamodule=datamodule)

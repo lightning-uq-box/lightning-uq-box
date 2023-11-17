@@ -6,19 +6,19 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
-from lightning_uq_box.eval_utils import compute_quantiles_from_std
-
-from .base import BaseModel
+from .base import DeterministicModel
 from .loss_functions import DERLoss
+from .utils import _get_num_outputs, default_regression_metrics
 
 
 class DERLayer(nn.Module):
     """Deep Evidential Regression Layer.
 
-    Taken from https://github.com/pasteurlabs/unreasonable_effective_der
-    /blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22
 
+    Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_.
     """
 
     def __init__(self):
@@ -46,12 +46,10 @@ class DERLayer(nn.Module):
         return torch.stack((gamma, nu, alpha, beta), dim=1)
 
 
-class DERModel(BaseModel):
+class DER(DeterministicModel):
     """Deep Evidential Regression Model.
 
-    Following the suggested implementation of:
-    https://github.com/pasteurlabs/unreasonable_effective_der/
-    blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22
+    Following the suggested implementation of `Unreasonable Effectiveness of Deep Evidential Regression <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22`_.
 
     If you use this model in your work, please cite:
 
@@ -61,39 +59,38 @@ class DERModel(BaseModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
-        save_dir: str = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
+        optimizer: type[Optimizer],
+        lr_scheduler: type[LRScheduler] = None,
+        coeff: float = 0.01,
     ) -> None:
         """Initialize a new Base Model.
 
         Args:
-            model_class: Model Class that can be initialized with arguments from dict,
-                or timm backbone name
-            model_args: arguments to initialize model_class
-            lr: learning rate for adam otimizer
-            loss_fn: string name of loss function to use
-            save_dir: directory path to save predictions
+            model: pytorch model
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+            coeff: coefficient for the DER loss
+             from the predictive distribution
         """
-        super().__init__(model, optimizer, None, lr_scheduler, save_dir)
+        super().__init__(model, optimizer, None, lr_scheduler)
 
         self.save_hyperparameters(ignore=["model"])
 
         # check that output is 4 dimensional
-        # _, output_module = list(self.model.named_children())[-1]
-        # assert output_module.out == 4,
-        # "DER Model requires 4-dimensional output for 1D regression task."
+        assert _get_num_outputs(model) == 4, "DER model expects 4 outputs."
 
         # add DER Layer
         self.model = nn.Sequential(self.model, DERLayer())
 
         # set DER Loss
-        self.loss_fn = (
-            DERLoss()
-        )  # need to give control over the coeff through config or argument
+        # TODO need to give control over the coeff through config or argument
+        self.loss_fn = DERLoss(coeff)
 
-        self.hparams["quantiles"] = quantiles
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -120,17 +117,11 @@ class DERModel(BaseModel):
         aleatoric_uct = self.compute_aleatoric_uct(beta, alpha, nu)
         pred_uct = epistemic_uct + aleatoric_uct
 
-        quantiles = compute_quantiles_from_std(
-            gamma.squeeze(-1).cpu().numpy(), pred_uct, self.hparams.quantiles
-        )
-
         return {
             "pred": gamma,
             "pred_uct": pred_uct,
             "aleatoric_uct": aleatoric_uct,
             "epistemic_uct": epistemic_uct,
-            "lower_quant": quantiles[:, 0],
-            "upper_quant": quantiles[:, 1],
             "out": pred,
         }
 

@@ -23,7 +23,7 @@ from lightning_uq_box.uq_methods import (
     BNN_LV_VI_Batched,
     BNN_VI_Batched,
 )
-from lightning_uq_box.viz_utils import plot_predictions
+from lightning_uq_box.viz_utils import plot_predictions_regression
 
 # seed_everything(4)
 torch.set_float32_matmul_precision("medium")
@@ -99,7 +99,7 @@ print(f"Fit took {time.time() - start} seconds.")
 pred = base_model.predict_step(X_test)
 
 
-my_fig = plot_predictions(
+my_fig = plot_predictions_regression(
     X_train,
     y_train,
     X_test,

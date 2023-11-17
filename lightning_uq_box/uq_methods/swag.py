@@ -15,12 +15,24 @@ from torch import Tensor
 from torch.distributions import Normal
 from tqdm import trange
 
-from .base import BaseModel
-from .utils import map_stochastic_modules, process_model_prediction
+from .base import DeterministicModel
+from .utils import (
+    _get_num_outputs,
+    default_classification_metrics,
+    default_regression_metrics,
+    map_stochastic_modules,
+    process_classification_prediction,
+    process_regression_prediction,
+)
 
 
-class SWAGModel(BaseModel):
-    """Stochastic Weight Averaging - Gaussian (SWAG)."""
+class SWAGBase(DeterministicModel):
+    """Stochastic Weight Averaging - Gaussian (SWAG).
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    """
 
     def __init__(
         self,
@@ -31,24 +43,24 @@ class SWAGModel(BaseModel):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        save_dir: str,
         part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         num_datapoints_for_bn_update: int = 0,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
-        """Initialize a new instance of Laplace Model Wrapper.
+        """Initialize a new instance of SWAG Model Wrapper.
 
         Args:
-            model: lightning module to use as underlying model
-            swag_args: laplace arguments to initialize a Laplace Model
-            train_loader: train loader to be used but maybe this can
-                also be accessed through the trainer or write a
-                train_dataloader() method for this model based on the config?
+            model: pytorch model
+            num_swag_epochs: number of epochs to train swag
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            part_stoch_module_names: names of modules that are partially stochastic
+            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
         """
-        super().__init__(model, None, loss_fn, None, save_dir)
-
-        self.save_hyperparameters(ignore=["model", "train_loader", "loss_fn"])
-        self.hparams["part_stoch_module_names"] = map_stochastic_modules(
+        super().__init__(model, None, loss_fn, None)
+        self.part_stoch_module_names = map_stochastic_modules(
             self.model, part_stoch_module_names
         )
         self.model = model
@@ -61,7 +73,12 @@ class SWAGModel(BaseModel):
         self.model_w_and_b_module_names = self._find_weights_and_bias_modules(
             self.model
         )
+        self.max_swag_snapshots = max_swag_snapshots
         self._create_swag_buffers(self.model)
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        pass
 
     def training_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Not intended to be used."""
@@ -77,7 +94,7 @@ class SWAGModel(BaseModel):
         for name, _ in instance.named_parameters():
             if (
                 name.removesuffix(".weight").removesuffix(".bias")
-                in self.hparams.part_stoch_module_names
+                in self.part_stoch_module_names
             ):  # noqa: E501
                 model_w_and_b_module_names.append(name)
         return model_w_and_b_module_names
@@ -99,7 +116,7 @@ class SWAGModel(BaseModel):
                 instance.register_buffer(
                     f"{name}_D_block",
                     torch.zeros(
-                        (self.hparams.max_swag_snapshots, *parameter.shape),
+                        (self.max_swag_snapshots, *parameter.shape),
                         device=parameter.device,
                     ),
                 )
@@ -312,20 +329,8 @@ class SWAGModel(BaseModel):
 
             self.swag_fitted = True
 
-    def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Any:
-        """Prediction step that produces conformalized prediction sets.
-
-        Args:
-            X: prediction batch of shape [batch_size x input_dims]
-
-        Returns:
-            prediction dictionary
-        """
-        if not self.swag_fitted:
-            self.on_test_start()
-
+    def sample_predictions(self, X: Tensor) -> Tensor:
+        """Sample predictions."""
         preds = []
         for i in range(self.hparams.num_mc_samples):
             # sample weights
@@ -336,11 +341,178 @@ class SWAGModel(BaseModel):
 
         preds = torch.stack(preds, dim=-1)
 
-        return process_model_prediction(preds, self.hparams.quantiles)
+        return preds
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Manually implemented."""
         pass
+
+
+class SWAGRegression(SWAGBase):
+    """SWAG Model for Regression.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    """
+
+    def __init__(
+        self,
+        model: nn.Module,
+        num_swag_epochs: int,
+        max_swag_snapshots: int,
+        snapshot_freq: int,
+        num_mc_samples: int,
+        swag_lr: float,
+        loss_fn: nn.Module,
+        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        num_datapoints_for_bn_update: int = 0,
+    ) -> None:
+        """Initialize a new instance of SWAG Model for Regression.
+
+        Args:
+            model: pytorch model
+            num_swag_epochs: number of epochs to train swag
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            part_stoch_module_names: names of modules that are partially stochastic
+            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
+        """
+        super().__init__(
+            model,
+            num_swag_epochs,
+            max_swag_snapshots,
+            snapshot_freq,
+            num_mc_samples,
+            swag_lr,
+            loss_fn,
+            part_stoch_module_names,
+            num_datapoints_for_bn_update,
+        )
+        self.save_hyperparameters(ignore=["model", "loss_fn"])
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
+        """Prediction step that produces conformalized prediction sets.b
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            prediction dictionary
+        """
+        if not self.swag_fitted:
+            self.on_test_start()
+
+        preds = self.sample_predictions(X)
+
+        return process_regression_prediction(preds)
+
+
+class SWAGClassification(SWAGBase):
+    """SWAG Model for Classification.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    """
+
+    valid_tasks = ["binary", "multiclass", "multilable"]
+
+    def __init__(
+        self,
+        model: nn.Module,
+        num_swag_epochs: int,
+        max_swag_snapshots: int,
+        snapshot_freq: int,
+        num_mc_samples: int,
+        swag_lr: float,
+        loss_fn: nn.Module,
+        task: str = "multiclass",
+        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        num_datapoints_for_bn_update: int = 0,
+    ) -> None:
+        """Initialize a new instance of SWAG Model for Classification.
+
+        Args:
+            model: pytorch model
+            num_swag_epochs: number of epochs to train swag
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            part_stoch_module_names: names of modules that are partially stochastic
+            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
+        """
+        assert task in self.valid_tasks
+        self.task = task
+        self.num_classes = _get_num_outputs(model)
+
+        super().__init__(
+            model,
+            num_swag_epochs,
+            max_swag_snapshots,
+            snapshot_freq,
+            num_mc_samples,
+            swag_lr,
+            loss_fn,
+            part_stoch_module_names,
+            num_datapoints_for_bn_update,
+        )
+        self.save_hyperparameters(ignore=["model", "loss_fn"])
+
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract mean output from model output.
+
+        Args:
+            out: output from the model
+
+        Returns:
+            mean output
+        """
+        return out
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_classification_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_classification_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, self.num_classes
+        )
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
+        """Prediction step that produces conformalized prediction sets.b
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            prediction dictionary
+        """
+        if not self.swag_fitted:
+            self.on_test_start()
+
+        preds = self.sample_predictions(X)
+
+        return process_classification_prediction(preds)
 
 
 # Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501

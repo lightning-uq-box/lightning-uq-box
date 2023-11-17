@@ -1,25 +1,41 @@
 """UQ-Methods as Lightning Modules."""
 
-from .base import BaseModel, BaseModule
-from .bnn_vi import BNN_VI, BNN_VI_Batched
-from .bnn_vi_elbo import BNN_VI_ELBO
+from .base import (
+    BaseModule,
+    DeterministicClassification,
+    DeterministicModel,
+    DeterministicRegression,
+    PosthocBase,
+)
+from .bnn_vi import BNN_VI_Base, BNN_VI_BatchedRegression, BNN_VI_Regression
+from .bnn_vi_elbo import (
+    BNN_VI_ELBO_Base,
+    BNN_VI_ELBO_Classification,
+    BNN_VI_ELBO_Regression,
+)
 from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
-from .cards import CARDModel
-from .cqr_model import CQR
-from .deep_ensemble_model import DeepEnsembleModel
-from .deep_evidential_regression import DERModel
+from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
+from .cqr_model import ConformalQR
+from .deep_ensemble import (
+    DeepEnsemble,
+    DeepEnsembleClassification,
+    DeepEnsembleRegression,
+)
+from .deep_evidential_regression import DER
 from .deep_kernel_learning import (
-    DeepKernelLearningModel,
+    DKLBase,
+    DKLClassification,
     DKLGPLayer,
+    DKLRegression,
     compute_initial_values,
 )
-from .deterministic_gaussian import DeterministicGaussianModel
-from .deterministic_uncertainty_estimation import DUEModel
-from .laplace_model import LaplaceModel
+from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
+from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
 from .loss_functions import NLL, DERLoss, HuberQLoss, QuantileLoss
-from .mc_dropout_model import MCDropoutModel
-from .quantile_regression_model import QuantileRegressionModel
-from .sgld import SGLDModel
+from .mc_dropout import MCDropoutBase, MCDropoutClassification, MCDropoutRegression
+from .mean_variance_estimation import MVEBase, MVERegression
+from .quantile_regression import QuantileRegression, QuantileRegressionBase
+from .sgld import SGLDBase, SGLDClassification, SGLDRegression
 from .spectral_normalized_layers import (
     SpectralBatchNorm1d,
     SpectralBatchNorm2d,
@@ -27,40 +43,62 @@ from .spectral_normalized_layers import (
     SpectralNormFC,
     spectral_normalize_model_layers,
 )
-from .swag import SWAGModel
+from .swag import SWAGBase, SWAGClassification, SWAGRegression
 
 __all__ = (
     # Base Module
     "BaseModule",
+    "PosthocBase",
     # base model
-    "BaseModel",
+    "DeterministicModel",
+    "DeterministicClassification",
+    "DeterministicRegression",
     # CARD Model
-    "CARDModel",
+    "CARDBase",
+    "CARDRegression",
+    "CARDClassification",
+    "NoiseScheduler",
     # conformalized Quantile Regression
-    "CQR",
+    "ConformalQR",
     # MC-Dropout
-    "MCDropoutModel",
+    "MCDropoutBase",
+    "MCDropoutRegression",
+    "MCDropoutClassification",
     # Laplace Approximation
-    "LaplaceModel",
+    "LaplaceBase",
+    "LaplaceRegression",
+    "LaplaceClassification",
     # Quantile Regression
-    "QuantileRegressionModel",
+    "QuantileRegressionBase",
+    "QuantileRegression",
+    "QuantilePxRegression",
     # Deep Ensemble Wrapper
-    "DeepEnsembleModel",
-    # Deterministic Gaussian Model
-    "DeterministicGaussianModel",
+    "DeepEnsemble",
+    "DeepEnsembleRegression",
+    "DeepEnsembleClassification",
+    # Mean Variance Estimation Network
+    "MVEBase",
+    "MVERegression",
     # Deep Uncertainty Estimation Model
-    "DUEModel",
+    "DUERegression",
+    "DUEClassification",
     # Deep Kernel Learning Model
-    "DeepKernelLearningModel",
+    "DKLBase",
+    "DKLRegression",
+    "DKLClassification",
     # Approximate GP model for DKL
     "DKLGPLayer",
     "compute_initial_values",
     # SWAG Model
-    "SWAGModel",
+    "SWAGBase",
+    "SWAGRegression",
+    "SWAGClassification",
     # SGLD Model.
-    "SGLDModel",
+    "SGLDBase",
+    "SGLDRegression",
+    "SGLDClassification",
     # Deep Evidential Regression Model
-    "DERModel",
+    "DER",
     # Spectral Normalization Layers
     "SpectralBatchNorm1d",
     "SpectralBatchNorm2d",
@@ -68,10 +106,13 @@ __all__ = (
     "SpectralNormFC",
     "spectral_normalize_model_layers",
     # BNN with ELBO
-    "BNN_VI_ELBO",
+    "BNN_VI_ELBO_Base",
+    "BNN_VI_ELBO_Regression",
+    "BNN_VI_ELBO_Classification",
     # Bayesian Neural Network trained with Variational Inference
-    "BNN_VI",
-    "BNN_VI_Batched",
+    "BNN_VI_Base",
+    "BNN_VI_Regression",
+    "BNN_VI_BatchedRegression",
     # BNN with Latent Variables
     "BNN_LV_VI",
     "BNN_LV_VI_Batched",

@@ -11,16 +11,29 @@ There exist a wide variety of UQ-Methods. Similarly, there are several general t
 
 While some UQ-Methods like MC-Dropout or Deep Ensembles can be applied across tasks, other methods are specifically developed for certain tasks. The following aims to give an overview of supported methods for the different tasks.
 
+Currently, Lightning-UQ-Box supports the following models and tasks:
+
+
 ## Regression 1D targets
 
 ```{toctree}
 :maxdepth: 1
 
-tutorials/regression1D
+tutorials/regression
 ```
 
-## Pixelwise Regression
+## Classification
 
-## Classification with single labels
+```{toctree}
+:maxdepth: 1
 
-## Segmentation
+tutorials/classification
+```
+
+## Pixel Wise Regression
+
+In Progress.
+
+## Semantic Segmentation 
+
+In Progress.

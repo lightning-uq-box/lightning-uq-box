@@ -1,6 +1,6 @@
 # Lightning-UQ-Box
 
-Welcome to the lightning-uq-box documentation page. Finding your way around.
+Welcome to the lightning-uq-box documentation page. Our goal is to give you both intuition of how different UQ-Methods work and demonstrate how you can apply these methods in your research or projects.
 
 ## Table of contents
 
@@ -9,7 +9,8 @@ Welcome to the lightning-uq-box documentation page. Finding your way around.
 
 user_guide
 contribute
-tutorials
+tutorial_overview
+method_overview
 application_by_task
 api/index
 GitHub Repository <https://github.com/nilsleh/lightning-uq-box>
