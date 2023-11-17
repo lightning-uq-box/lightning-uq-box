@@ -16,7 +16,11 @@ from .bnn_vi_elbo import (
 from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
 from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
 from .cqr_model import ConformalQR
-from .deep_ensemble import DeepEnsembleModel
+from .deep_ensemble import (
+    DeepEnsemble,
+    DeepEnsembleClassification,
+    DeepEnsembleRegression,
+)
 from .deep_evidential_regression import DER
 from .deep_kernel_learning import (
     DKLBase,
@@ -44,6 +48,7 @@ from .swag import SWAGBase, SWAGClassification, SWAGRegression
 __all__ = (
     # Base Module
     "BaseModule",
+    "PosthocBase",
     # base model
     "DeterministicModel",
     "DeterministicClassification",
@@ -68,7 +73,9 @@ __all__ = (
     "QuantileRegression",
     "QuantilePxRegression",
     # Deep Ensemble Wrapper
-    "DeepEnsembleModel",
+    "DeepEnsemble",
+    "DeepEnsembleRegression",
+    "DeepEnsembleClassification",
     # Mean Variance Estimation Network
     "MVEBase",
     "MVERegression",

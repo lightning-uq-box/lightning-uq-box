@@ -1,5 +1,5 @@
 uq_method:
-  _target_: lightning_uq_box.uq_methods.BaseModel
+  _target_: lightning_uq_box.uq_methods.DeterministicRegression
   model:
     _target_: lightning_uq_box.models.MLP
     n_outputs: 1

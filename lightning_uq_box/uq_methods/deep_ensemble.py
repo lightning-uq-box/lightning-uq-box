@@ -9,10 +9,16 @@ from lightning import LightningModule
 from torch import Tensor
 
 from .base import BaseModule
-from .utils import process_regression_prediction, save_predictions_to_csv
+from .utils import (
+    default_classification_metrics,
+    default_regression_metrics,
+    process_classification_prediction,
+    process_regression_prediction,
+    save_predictions_to_csv,
+)
 
 
-class DeepEnsembleModel(BaseModule):
+class DeepEnsemble(BaseModule):
     """Base Class for different Ensemble Models.
 
     If you use this model in your work, please cite:
@@ -24,7 +30,6 @@ class DeepEnsembleModel(BaseModule):
         self,
         n_ensemble_members: int,
         ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
-        save_dir: str,
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
@@ -40,6 +45,12 @@ class DeepEnsembleModel(BaseModule):
         # make hparams accessible
         self.save_hyperparameters(ignore=["ensemble_members"])
         self.ensemble_members = ensemble_members
+
+        self.setup_task()
+
+    def setup_task(self) -> None:
+        """Setup the task."""
+        pass
 
     def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
         """Forward step of Deep Ensemble.
@@ -90,19 +101,6 @@ class DeepEnsembleModel(BaseModule):
 
         return out_dict
 
-    def on_test_batch_end(
-        self,
-        outputs: dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
-        if self.hparams.save_dir:
-            save_predictions_to_csv(
-                outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
-            )
-
     def generate_ensemble_predictions(self, X: Tensor) -> Tensor:
         """Generate DeepEnsemble Predictions.
 
@@ -113,6 +111,34 @@ class DeepEnsembleModel(BaseModule):
             the ensemble predictions
         """
         return self.forward(X)  # [batch_size, num_outputs, num_ensemble_members]
+
+
+class DeepEnsembleRegression(DeepEnsemble):
+    """Deep Ensemble Model for regression."""
+
+    def __init__(
+        self,
+        n_ensemble_members: int,
+        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
+    ) -> None:
+        super().__init__(n_ensemble_members, ensemble_members)
+
+    def setup_task(self) -> None:
+        """Setup the task for regression."""
+        self.test_metrics = default_regression_metrics("test")
+
+    # def on_test_batch_end(
+    #     self,
+    #     outputs: dict[str, np.ndarray],
+    #     batch: Any,
+    #     batch_idx: int,
+    #     dataloader_idx=0,
+    # ):
+    #     """Test batch end save predictions."""
+    #     if self.hparams.save_dir:
+    #         save_predictions_to_csv(
+    #             outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+    #         )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -129,3 +155,43 @@ class DeepEnsembleModel(BaseModule):
             preds = self.generate_ensemble_predictions(X)
 
         return process_regression_prediction(preds)
+
+
+class DeepEnsembleClassification(DeepEnsemble):
+    """Deep Ensemble Model for classification."""
+
+    valid_tasks = ["multiclass", "binary", "multilabel"]
+
+    def __init__(
+        self,
+        n_ensemble_members: int,
+        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
+        num_classes: int,
+        task: str = "multiclass",
+    ) -> None:
+        assert task in self.valid_tasks
+        self.task = task
+        self.num_classes = num_classes
+        super().__init__(n_ensemble_members, ensemble_members)
+
+    def setup_task(self) -> None:
+        """Setup the task for regression."""
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, self.num_classes
+        )
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
+        """Compute prediction step for a deep ensemble.
+
+        Args:
+            X: input tensor of shape [batch_size, input_di]
+
+        Returns:
+            mean and standard deviation of MC predictions
+        """
+        with torch.no_grad():
+            preds = self.generate_ensemble_predictions(X)
+
+        return process_classification_prediction(preds)

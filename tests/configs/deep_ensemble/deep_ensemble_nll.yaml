@@ -1,5 +1,5 @@
 uq_method:
-  _target_: lightning_uq_box.uq_methods.DeterministicGaussianModel
+  _target_: lightning_uq_box.uq_methods.MVERegression
   model:
     _target_: lightning_uq_box.models.MLP
     n_outputs: 2
