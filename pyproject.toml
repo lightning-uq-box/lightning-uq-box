@@ -1,52 +1,50 @@
-[tool.black]
-target-version = ["py38", "py39", "py310"]
-color = true
-skip_magic_trailing_comma = true
-line-length = 88 
-
-[tool.isort]
-profile = "black"
-skip_gitignore = true
-color_output = true
-
-[tool.flake8]
-max-line-length = 88 
-
-[tool.pytest.ini_options]
-# Skip slow tests by default
-addopts = "-m 'not slow'"
-# https://docs.pytest.org/en/latest/how-to/capture-warnings.html
-
-# add uq_method_box to path
-pythonpath = [
-  "."
+[build-system]
+requires = [
+    # setuptools 61+ required for pyproject.toml support
+    "setuptools>=61",
 ]
-filterwarnings = [
-    # Treat all warnings as errors
-    "error",
+build-backend = "setuptools.build_meta"
 
-    # Warnings raised by dependencies of dependencies, out of our control
+# https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
+[project]
+name = "lightnin_uq_box"
+description = "Lighning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Nils Lehmann", email = "n.lehmann@tum.de"},
+]
+maintainers = [
+    {name = "Nils Lehmann", email = "n.lehmann@tum.de"},
+]
+keywords = ["pytorch", "lightning", "uncertainty quantification", "conformal prediction", "bayesian deep learning"]
 
-    # Expected warnings
-    # Lightning warns us about using num_workers=0, but it's faster on macOS
-    "ignore:The dataloader, .*, does not have many workers which may be a bottleneck:UserWarning",
-    # Lightning warns us about using the CPU when a GPU is available
-    "ignore:GPU available but not used.:UserWarning",
-    # timm swinv2_tiny_transformer meshgrid
-    #"ignore::UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3483.)"
-    # save_hyperparameters() Lightning
-    #"ignore:is an instance of `nn.Module` is already saved during checkpointing. It is recommended to ignore them using"
-    "ignore:Using a non-full backward hook when the forward contains multiple autograd Nodes is deprecated and will be removed in future versions. This hook will be missing some grad_input. Please use register_full_backward_hook to get the documented behavior."
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-markers = [
-    "slow: marks tests as slow",
+dependencies = [
+    # lightning 2+ required for LightningCLI args + sys.argv support
+    "lightning[pytorch-extra]>=2",
+    # matplotlib 3.3.3+ required for Python 3.9 wheels
+    "matplotlib>=3.3.3",
+    # numpy 1.19.3+ required by Python 3.9 wheels
+    "numpy>=1.19.3",
+    # pandas 1.1.3+ required for Python 3.9 wheels
+    "pandas>=1.1.3",
+    # torch 1.12+ required by torchvision
+    "torch>=2.0",
+    # torchmetrics 0.10+ required for binary/multiclass/multilabel classification metrics
+    "torchmetrics>=1.2",
+    # torchvision 0.13+ required for torchvision.models._api.WeightsEnum
+    "torchvision>=0.16",
 ]
-norecursedirs = [
-    ".ipynb_checkpoints",
-    "data",
-    "__pycache__",
-]
-testpaths = [
-    "tests",
-    "docs/tutorials",
-]
+dynamic = ["version"]
