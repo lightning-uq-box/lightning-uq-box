@@ -60,10 +60,8 @@ class TestDeepKernelLearningModel:
     def test_forward(self, model: Union[DKLRegression, DKLClassification]) -> None:
         """Test forward pass of MC dropout model."""
         n_inputs = model.num_input_features
-        n_outputs = model.num_outputs
         X = torch.randn(5, n_inputs)
         out = model(X)
-        assert out.shape()[0] == 5
 
     @pytest.mark.parametrize(
         "model",

@@ -14,12 +14,6 @@ from .uci_concrete import UCIConcrete
 from .uci_energy import UCIEnergy
 from .uci_naval import UCINaval
 from .uci_yacht import UCIYacht
-from .usa_vars import (
-    USAVarsFeatureExtracted,
-    USAVarsFeaturesOOD,
-    USAVarsFeaturesOur,
-    USAVarsOOD,
-)
 
 __all__ = (
     "SinusoidDatasetWithOneX",
@@ -35,9 +29,4 @@ __all__ = (
     "UCIConcrete",
     "UCINaval",
     "UCIYacht",
-    # Image Datasets
-    "USAVarsOOD",
-    "USAVarsFeaturesOOD",
-    "USAVarsFeatureExtracted",
-    "USAVarsFeaturesOur",
 )

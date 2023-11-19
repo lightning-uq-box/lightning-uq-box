@@ -6,10 +6,10 @@ from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
 from gpytorch.models import ApproximateGP
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
-from torchgeo.trainers.utils import _get_input_layer_name_and_module
 
 from .deep_kernel_learning import DKLClassification, DKLRegression
 from .spectral_normalized_layers import spectral_normalize_model_layers
+from .utils import _get_input_layer_name_and_module
 
 
 class DUERegression(DKLRegression):
