@@ -7,13 +7,18 @@ from .base import (
     DeterministicRegression,
     PosthocBase,
 )
+from .bnn_lv_vi import (
+    BNN_LV_VI_Base,
+    BNN_LV_VI_Batched_Base,
+    BNN_LV_VI_Batched_Regression,
+    BNN_LV_VI_Regression,
+)
 from .bnn_vi import BNN_VI_Base, BNN_VI_BatchedRegression, BNN_VI_Regression
 from .bnn_vi_elbo import (
     BNN_VI_ELBO_Base,
     BNN_VI_ELBO_Classification,
     BNN_VI_ELBO_Regression,
 )
-from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
 from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
 from .cqr_model import ConformalQR
 from .deep_ensemble import (
@@ -114,8 +119,10 @@ __all__ = (
     "BNN_VI_Regression",
     "BNN_VI_BatchedRegression",
     # BNN with Latent Variables
-    "BNN_LV_VI",
-    "BNN_LV_VI_Batched",
+    "BNN_LV_VI_Base",
+    "BNN_LV_VI_Regression",
+    "BNN_LV_VI_Batched_Base",
+    "BNN_LV_VI_Batched_Regression",
     # Loss Functions
     "NLL",
     "QuantileLoss",

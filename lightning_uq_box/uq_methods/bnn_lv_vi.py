@@ -22,19 +22,20 @@ from lightning_uq_box.models.bnnlv.utils import (
 from lightning_uq_box.uq_methods.utils import (
     _get_input_layer_name_and_module,
     _get_output_layer_name_and_module,
+    default_regression_metrics,
 )
 
 from .bnn_vi import BNN_VI_Base
 
 
-class BNN_LV_VI(BNN_VI_Base):
+class BNN_LV_VI_Base(BNN_VI_Base):
     """Bayesian Neural Network (BNN) with Latent Variables (LV) trained with Variational Inferece.
 
     If you use this model in your work, please cite:
 
     * https://proceedings.mlr.press/v80/depeweg18a
 
-    """  # noqa: E501
+    """
 
     lv_intro_options = ["first", "last"]
 
@@ -43,7 +44,6 @@ class BNN_LV_VI(BNN_VI_Base):
         model: nn.Module,
         latent_net: nn.Module,
         optimizer: type[Optimizer],
-        save_dir: str,
         num_training_points: int,
         prediction_head: Optional[nn.Module] = None,
         part_stoch_module_names: Optional[list[Union[str, int]]] = None,
@@ -101,7 +101,6 @@ class BNN_LV_VI(BNN_VI_Base):
         super().__init__(
             model,
             optimizer,
-            save_dir,
             num_training_points,
             part_stoch_module_names,
             n_mc_samples_train,
@@ -125,6 +124,10 @@ class BNN_LV_VI(BNN_VI_Base):
         self.prediction_head = prediction_head
 
         self._setup_bnn_with_vi_lv(latent_net)
+
+    def setup_task(self) -> None:
+        """Setup task."""
+        pass
 
     def _setup_bnn_with_vi_lv(self, latent_net: nn.Module) -> None:
         """Configure setup of BNN with VI model."""
@@ -434,7 +437,17 @@ class BNN_LV_VI(BNN_VI_Base):
         return optimizer
 
 
-class BNN_LV_VI_Batched(BNN_LV_VI):
+class BNN_LV_VI_Regression(BNN_LV_VI_Base):
+    nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
+
+    def setup_task(self) -> None:
+        """Setup task."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
+
+
+class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
     """Batched sampling version of BNN_LV_VI.
 
     If you use this model in your work, please cite:
@@ -720,3 +733,13 @@ class BNN_LV_VI_Batched(BNN_LV_VI):
         for _, module in self.named_modules():
             if "Variational" in module.__class__.__name__:
                 module.freeze_layer(n_samples)
+
+
+class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
+    nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
+
+    def setup_task(self) -> None:
+        """Setup task."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
