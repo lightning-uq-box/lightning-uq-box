@@ -71,6 +71,8 @@ dev = [
     "pytest-cov>=4",
     # pytest lazy fixture
     "pytest-lazy-fixture>=0.6",
+    # hydra for tests
+    "hydra-core>=1.3.2",
 
     ### Docs ###
     # sphinx
@@ -101,6 +103,18 @@ filterwarnings = [
     "ignore:The dataloader, .*, does not have many workers which may be a bottleneck:UserWarning",
     # Lightning warns us about using the CPU when a GPU is available
     "ignore:GPU available but not used.:UserWarning",
+
+    # https://github.com/Lightning-AI/lightning/issues/16756
+    "ignore:Deprecated call to `pkg_resources.declare_namespace:DeprecationWarning",
+    "ignore:pkg_resources is deprecated as an API.:DeprecationWarning:lightning_utilities.core.imports",
+    "ignore:distutils Version classes are deprecated. Use packaging.version instead.",
+
+    # testing is run with num_workers=0
+    "ignore:The .*dataloader.* does not have many workers which may be a bottleneck:UserWarning:lightning",
+    "ignore:The .*dataloader.* does not have many workers which may be a bottleneck:lightning.fabric.utilities.warnings.PossibleUserWarning:lightning",
+
+    # Lightning warns us if TensorBoard is not installed
+    "ignore:Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `lightning.pytorch` package:UserWarning",
 ]
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}
