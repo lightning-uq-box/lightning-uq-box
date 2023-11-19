@@ -118,3 +118,7 @@ filterwarnings = [
 ]
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}
+
+
+[project.scripts]
+uq-box = "lightning_uq_box.main:main"
