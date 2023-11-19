@@ -1,5 +1,5 @@
 uq_method:
-  _target_: lightning_uq_box.uq_methods.BNN_LV_VI
+  _target_: lightning_uq_box.uq_methods.BNN_LV_VI_Regression
   model:
     _target_: lightning_uq_box.models.MLP
     n_outputs: 1
