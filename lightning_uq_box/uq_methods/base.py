@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
@@ -407,3 +408,6 @@ class PosthocBase(BaseModule):
             model_preds: dict[str, np.ndarray] = self.model(X)
 
         return self.adjust_model_logits(model_preds)
+
+    def configure_optimizers(self) -> Any:
+        pass

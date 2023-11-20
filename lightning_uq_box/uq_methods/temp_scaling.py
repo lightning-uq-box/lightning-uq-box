@@ -59,13 +59,10 @@ class TempScaling(PosthocBase):
         Returns:
             adjusted model logits of shape [batch_size x num_outputs]
         """
-        temperature = self.temperature.clone().detach().requires_grad_(True)
-        temperature = temperature.unsqueeze(1).expand(
+        temperature = self.temperature.unsqueeze(1).expand(
             model_logits.size(0), model_logits.size(1)
         )
-
-        adjusted_logits = model_logits / temperature
-        return adjusted_logits
+        return model_logits / temperature
 
     def on_validation_epoch_end(self) -> None:
         """Perform CQR computation to obtain q_hat for predictions.
@@ -121,7 +118,4 @@ class TempScaling(PosthocBase):
     ) -> dict[str, np.ndarray]:
         """Test step after running posthoc fitting methodology."""
         preds = self.predict_step(batch[self.input_key])
-        import pdb
-
-        pdb.set_trace()
         return preds

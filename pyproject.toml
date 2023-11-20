@@ -36,7 +36,10 @@ filterwarnings = [
     #"ignore::UserWarning: torch.meshgrid: in an upcoming release, it will be required to pass the indexing argument. (Triggered internally at ../aten/src/ATen/native/TensorShape.cpp:3483.)"
     # save_hyperparameters() Lightning
     #"ignore:is an instance of `nn.Module` is already saved during checkpointing. It is recommended to ignore them using"
-    "ignore:Using a non-full backward hook when the forward contains multiple autograd Nodes is deprecated and will be removed in future versions. This hook will be missing some grad_input. Please use register_full_backward_hook to get the documented behavior."
+    "ignore:Using a non-full backward hook when the forward contains multiple autograd Nodes is deprecated and will be removed in future versions. This hook will be missing some grad_input. Please use register_full_backward_hook to get the documented behavior.",
+    # using post-hoc methods with .fit() and no optimizers
+    "ignore:`LightningModule.configure_optimizers` returned `None`, this fit will run with no optimizer",
+    "ignore:`training_step` returned `None`. If this was on purpose, ignore this warning..."
 ]
 markers = [
     "slow: marks tests as slow",

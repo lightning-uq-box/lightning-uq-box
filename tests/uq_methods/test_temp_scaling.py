@@ -36,8 +36,8 @@ class TestTempScaling:
         datamodule = TwoMoonsDataModule()
 
         temp_scale_model = TempScaling(deterministic_model)
-        trainer = Trainer(log_every_n_steps=1, max_epochs=1, inference_mode=False)
-        trainer.validate(temp_scale_model, datamodule.val_dataloader())
+        trainer = Trainer(log_every_n_steps=1, max_epochs=1)
+        trainer.fit(temp_scale_model, datamodule)
 
         return temp_scale_model
 
