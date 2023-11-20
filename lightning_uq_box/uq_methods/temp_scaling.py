@@ -83,7 +83,6 @@ class TempScaling(PosthocBase):
 
         # also lightning automatically disables gradient computation during this stage
         # but need it for temp scaling optimization so set inference mode to false with context manager
-        # with torch.inference_mode(False):
         with torch.inference_mode(False):
             all_logits = all_logits.clone().requires_grad_(True)
 
@@ -94,19 +93,6 @@ class TempScaling(PosthocBase):
                 return loss
 
             optimizer.step(eval)
-
-        # all_logits_clone = all_logits.clone().requires_grad_(True)
-        # def eval():
-        #     optimizer.zero_grad()
-        #     # all_logits.requires_grad_(True)
-        #     import pdb
-        #     pdb.set_trace()
-        #     with torch.inference_mode(False) and torch.enable_grad():
-        #         loss = self.criterion(self.adjust_model_logits(all_logits_clone), all_labels)
-        #     grads = torch.autograd.grad(loss, self.temperature, create_graph=True)
-        #     self.temperature.grad = grads[0]
-        #     return loss
-        optimizer.step(eval)
 
         self.post_hoc_fitted = True
 

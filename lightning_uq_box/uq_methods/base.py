@@ -343,6 +343,9 @@ class PosthocBase(BaseModule):
         self.model_logits = []
         self.labels = []
 
+        # TODO this doesn't do anything right now
+        self.trainer.inference_mode = False
+
     # Memory efficient version
     # def on_validation_start(self) -> None:
     #     """Before validation epoch starts, create tensors that gather model outputs and labels."""
