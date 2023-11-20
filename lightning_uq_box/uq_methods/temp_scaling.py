@@ -2,6 +2,7 @@
 
 """Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperature_scaling.py."""
 
+from functools import partial
 from typing import Any, Union
 
 import numpy as np
@@ -49,7 +50,6 @@ class TempScaling(PosthocBase):
         """Test step after running posthoc fitting methodology."""
         raise NotImplementedError
 
-    @torch.enable_grad()
     def adjust_model_logits(self, model_logits: Tensor) -> Tensor:
         """Adjust model logits by applying temperature scaling.
 
@@ -59,13 +59,7 @@ class TempScaling(PosthocBase):
         Returns:
             adjusted model logits of shape [batch_size x num_outputs]
         """
-        temperature = self.temperature.clone().detach().requires_grad_(True)
-        temperature = temperature.unsqueeze(1).expand(
-            model_logits.size(0), model_logits.size(1)
-        )
-
-        adjusted_logits = model_logits / temperature
-        return adjusted_logits
+        return temp_scale_logits(model_logits, self.temperature)
 
     def on_validation_epoch_end(self) -> None:
         """Perform CQR computation to obtain q_hat for predictions.
@@ -74,39 +68,14 @@ class TempScaling(PosthocBase):
             outputs: list of dictionaries containing model outputs and labels
 
         """
-        # `outputs` is a list of dictionaries, each containing 'output' and 'label' from each validation step
         all_logits = torch.cat(self.model_logits, dim=0).detach()
         all_labels = torch.cat(self.labels, dim=0).detach()
 
         # optimizer temperature w.r.t. NLL
-        optimizer = LBFGS([self.temperature], lr=self.optim_lr, max_iter=self.max_iter)
-
-        # also lightning automatically disables gradient computation during this stage
-        # but need it for temp scaling optimization so set inference mode to false with context manager
-        # with torch.inference_mode(False):
-        with torch.inference_mode(False):
-            all_logits = all_logits.clone().requires_grad_(True)
-
-            def eval():
-                optimizer.zero_grad()
-                loss = self.criterion(self.adjust_model_logits(all_logits), all_labels)
-                loss.backward()
-                return loss
-
-            optimizer.step(eval)
-
-        # all_logits_clone = all_logits.clone().requires_grad_(True)
-        # def eval():
-        #     optimizer.zero_grad()
-        #     # all_logits.requires_grad_(True)
-        #     import pdb
-        #     pdb.set_trace()
-        #     with torch.inference_mode(False) and torch.enable_grad():
-        #         loss = self.criterion(self.adjust_model_logits(all_logits_clone), all_labels)
-        #     grads = torch.autograd.grad(loss, self.temperature, create_graph=True)
-        #     self.temperature.grad = grads[0]
-        #     return loss
-        optimizer.step(eval)
+        optimizer = partial(torch.optim.LBFGS, lr=self.optim_lr, max_iter=self.max_iter)
+        self.temperature = run_temperature_optimization(
+            optimizer, self.temperature, all_logits, all_labels, self.criterion
+        )
 
         self.post_hoc_fitted = True
 
@@ -135,7 +104,42 @@ class TempScaling(PosthocBase):
     ) -> dict[str, np.ndarray]:
         """Test step after running posthoc fitting methodology."""
         preds = self.predict_step(batch[self.input_key])
-        import pdb
-
-        pdb.set_trace()
         return preds
+
+
+def temp_scale_logits(logits: torch.Tensor, temperature: torch.Tensor) -> torch.Tensor:
+    """Apply temperature scaling to logits.
+
+    Args:
+        logits: model output logits of shape [batch_size x num_outputs]
+        temperature: temperature tensor of shape [batch_size x 1]
+
+    Returns:
+        temperature scaled logits of shape [batch_size x num_outputs]
+    """
+    return logits / temperature
+
+
+def run_temperature_optimization(
+    optimizer: type[torch.optim.Optimizer],
+    temperature: nn.Parameter,
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+    criterion: nn.Module,
+) -> Tensor:
+    """Run temperature optimization."""
+    optimizer = optimizer([temperature])
+
+    with torch.inference_mode(False):
+        logits = logits.clone().requires_grad_(True)
+
+        def eval():
+            optimizer.zero_grad()
+            print(temperature)
+            loss = criterion(temp_scale_logits(logits, temperature), labels)
+            loss.backward()
+            return loss
+
+        optimizer.step(eval)
+
+    return temperature

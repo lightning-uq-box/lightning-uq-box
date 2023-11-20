@@ -1,0 +1,14 @@
+det_method:
+  _target_: lightning_uq_box.uq_methods.DeterministicClassification
+  model:
+    _target_: lightning_uq_box.models.MLP
+    n_inputs: 2
+    n_outputs: 2
+    n_hidden: [50]
+  optimizer:
+    _target_: torch.optim.SGD
+    _partial_: true
+    lr: 0.003
+  loss_fn:
+    _target_: torch.nn.CrossEntropyLoss
+

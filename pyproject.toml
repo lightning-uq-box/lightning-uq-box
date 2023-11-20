@@ -115,6 +115,10 @@ filterwarnings = [
 
     # Lightning warns us if TensorBoard is not installed
     "ignore:Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `lightning.pytorch` package:UserWarning",
+
+    # using post-hoc methods with .fit() and no optimizers
+    "ignore:`LightningModule.configure_optimizers` returned `None`, this fit will run with no optimizer",
+    "ignore:`training_step` returned `None`. If this was on purpose, ignore this warning..."
 ]
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}

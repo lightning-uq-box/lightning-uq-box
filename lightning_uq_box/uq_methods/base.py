@@ -309,14 +309,59 @@ class PosthocBase(BaseModule):
 
         self.post_hoc_fitted = False
 
+    @property
+    def num_input_features(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        if isinstance(self.model, LightningModule):
+            return _get_num_inputs(self.model.model)
+        else:
+            return _get_num_inputs(self.model)
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of output dimension to model
+        """
+        if isinstance(self.model, LightningModule):
+            return _get_num_outputs(self.model.model)
+        else:
+            return _get_num_outputs(self.model)
+
     def training_step(self, *args: Any, **kwargs: Any):
         """Posthoc Methods do not have a training step."""
         pass
 
+    def on_validation_start(self) -> None:
+        """Before validation epoch starts, create tensors that gather model outputs and labels."""
+        # TODO intitialize zero tensors for memory efficiency
+        self.model_logits = []
+        self.labels = []
+
+        # TODO this doesn't do anything right now
+        self.trainer.inference_mode = False
+
+    # Memory efficient version
+    # def on_validation_start(self) -> None:
+    #     """Before validation epoch starts, create tensors that gather model outputs and labels."""
+    #     num_validation_samples = len(self.val_dataloader().dataset)
+    #     self.model_logits = torch.zeros(num_validation_samples, device=self.device)
+    #     self.labels = torch.zeros(num_validation_samples, device=self.device)
+    # def validation_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> None:
+    #     start_idx = batch_idx * self.val_dataloader().batch_size
+    #     end_idx = start_idx + len(batch[self.input_key])
+    #     self.model_logits[start_idx:end_idx] = self.model(batch[self.input_key])
+    #     self.labels[start_idx:end_idx] = batch[self.target_key]
+
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> None:
-        """Single gathering step of model logits and labels.
+        """Single gathering step of model logits and targets.
 
         Args:
             batch: batch of data
@@ -335,7 +380,7 @@ class PosthocBase(BaseModule):
         """Test step after running posthoc fitting methodology."""
         raise NotImplementedError
 
-    def adjust_model_output(self, model_output: Tensor) -> Tensor:
+    def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model output according to post-hoc fitting procedure.
 
         Args:
@@ -361,4 +406,7 @@ class PosthocBase(BaseModule):
         with torch.no_grad():
             model_preds: dict[str, np.ndarray] = self.model(X)
 
-        return self.adjust_model_output(model_preds)
+        return self.adjust_model_logits(model_preds)
+
+    def configure_optimizers(self) -> Any:
+        pass
