@@ -66,8 +66,8 @@ class DeterministicModel(BaseModule):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         loss_fn: nn.Module,
+        optimizer: type[Optimizer] = None,
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
         """Initialize a new Base Model.
@@ -257,8 +257,8 @@ class DeterministicClassification(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         loss_fn: nn.Module,
+        optimizer: type[Optimizer] = None,
         task: str = "multiclass",
         lr_scheduler: type[LRScheduler] = None,
     ) -> None:
@@ -274,7 +274,7 @@ class DeterministicClassification(DeterministicModel):
         self.num_classes = _get_num_outputs(model)
         assert task in self.valid_tasks
         self.task = task
-        super().__init__(model, optimizer, loss_fn, lr_scheduler)
+        super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract mean output from model output.
