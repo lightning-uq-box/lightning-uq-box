@@ -18,7 +18,10 @@ from lightning_uq_box.datamodules import (
     ToyHeteroscedasticDatamodule,
     ToyImageRegressionDatamodule,
 )
-from lightning_uq_box.uq_methods import BNN_LV_VI, BNN_LV_VI_Batched
+from lightning_uq_box.uq_methods import (
+    BNN_LV_VI_Batched_Regression,
+    BNN_LV_VI_Regression,
+)
 
 
 class TestBNN_LV_VI_Model:
@@ -26,22 +29,25 @@ class TestBNN_LV_VI_Model:
     @pytest.fixture(
         params=product(
             [
-                "lightning_uq_box.uq_methods.BNN_LV_VI",
-                "lightning_uq_box.uq_methods.BNN_LV_VI_Batched",
+                "lightning_uq_box.uq_methods.BNN_LV_VI_Regression",
+                "lightning_uq_box.uq_methods.BNN_LV_VI_Batched_Regression",
             ],
             ["reparameterization", "flipout"],  # layer types
             ["first", "last"],  # LV intro options
             [None, [-1], ["model.0"]],  # part stochastic
         )
     )
-    def bnn_vi_lv_model_tabular(self, tmp_path: Path, request: SubRequest) -> BNN_LV_VI:
+    def bnn_vi_lv_model_tabular(
+        self, tmp_path: Path, request: SubRequest
+    ) -> Union[BNN_LV_VI_Regression, BNN_LV_VI_Batched_Regression]:
         """Create BNN_LV_VI model from an underlying model."""
         conf = OmegaConf.load(
-            os.path.join("tests", "configs", f"bnn_vi_lv_{request.param[2]}.yaml")
+            os.path.join(
+                "tests", "configs", "bnn_vi_lv", f"bnn_vi_lv_{request.param[2]}.yaml"
+            )
         )
         dm = ToyHeteroscedasticDatamodule()
         conf.uq_method["_target_"] = request.param[0]
-        conf.uq_method["save_dir"] = str(tmp_path)
         conf.uq_method["num_training_points"] = dm.X_train.shape[0]
         conf.uq_method["layer_type"] = request.param[1]
         conf.uq_method["latent_variable_intro"] = request.param[2]
@@ -50,7 +56,10 @@ class TestBNN_LV_VI_Model:
 
     # tests for tabular data
     def test_forward(
-        self, bnn_vi_lv_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
+        self,
+        bnn_vi_lv_model_tabular: Union[
+            BNN_LV_VI_Regression, BNN_LV_VI_Batched_Regression
+        ],
     ) -> None:
         """Test forward pass of model."""
         X = torch.randn(3, 1)
@@ -61,7 +70,10 @@ class TestBNN_LV_VI_Model:
         assert out.shape[-1] == 1
 
     def test_predict_step(
-        self, bnn_vi_lv_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
+        self,
+        bnn_vi_lv_model_tabular: Union[
+            BNN_LV_VI_Regression, BNN_LV_VI_Batched_Regression
+        ],
     ) -> None:
         """Test predict step outside of Lightning Trainer."""
         X = torch.randn(3, 1)
@@ -71,31 +83,33 @@ class TestBNN_LV_VI_Model:
         assert out["pred"].shape[0] == 3
 
     def test_trainer(
-        self, bnn_vi_lv_model_tabular: Union[BNN_LV_VI, BNN_LV_VI_Batched]
+        self,
+        bnn_vi_lv_model_tabular: Union[
+            BNN_LV_VI_Regression, BNN_LV_VI_Batched_Regression
+        ],
     ) -> None:
         """Test Model with a Lightning Trainer."""
         # instantiate datamodule
         datamodule = ToyHeteroscedasticDatamodule()
-        trainer = Trainer(
-            logger=False,
-            max_epochs=1,
-            default_root_dir=bnn_vi_lv_model_tabular.hparams.save_dir,
-        )
+        trainer = Trainer(logger=False, max_epochs=1)
         trainer.test(model=bnn_vi_lv_model_tabular, datamodule=datamodule)
 
-    # # tests for image data
+    # tests for image data
     @pytest.fixture(
         params=product(
             ["reparameterization", "flipout"],  # layer types
             [None, [-1], ["layer4.1.conv1", "layer4.1.conv2"]],  # part stochastic
         )
     )
-    def bnn_vi_lv_model_image(self, tmp_path: Path, request: SubRequest) -> BNN_LV_VI:
+    def bnn_vi_lv_model_image(
+        self, tmp_path: Path, request: SubRequest
+    ) -> BNN_LV_VI_Regression:
         """Create BNN_LV_VI model from an underlying model."""
-        conf = OmegaConf.load(os.path.join("tests", "configs", "bnn_vi_lv_last.yaml"))
+        conf = OmegaConf.load(
+            os.path.join("tests", "configs", "bnn_vi_lv", "bnn_vi_lv_last.yaml")
+        )
         dm = ToyHeteroscedasticDatamodule()
 
-        conf.uq_method["save_dir"] = str(tmp_path)
         conf.uq_method["num_training_points"] = dm.X_train.shape[0]
         conf.uq_method["layer_type"] = request.param[0]
         conf.uq_method["latent_variable_intro"] = "last"
@@ -106,7 +120,7 @@ class TestBNN_LV_VI_Model:
         model = timm.create_model("resnet18", in_chans=3, num_classes=1)
         return instantiate(conf.uq_method, model=model)
 
-    def test_forward_image(self, bnn_vi_lv_model_image: BNN_LV_VI) -> None:
+    def test_forward_image(self, bnn_vi_lv_model_image: BNN_LV_VI_Regression) -> None:
         """Test forward pass of model."""
         X = torch.randn(2, 3, 32, 32)
         y = torch.randn(2, 1)
@@ -115,7 +129,9 @@ class TestBNN_LV_VI_Model:
         assert out.shape[0] == 2
         assert out.shape[-1] == 1
 
-    def test_predict_step_image(self, bnn_vi_lv_model_image: BNN_LV_VI) -> None:
+    def test_predict_step_image(
+        self, bnn_vi_lv_model_image: BNN_LV_VI_Regression
+    ) -> None:
         """Test predict step outside of Lightning Trainer."""
         X = torch.randn(2, 3, 32, 32)
         out = bnn_vi_lv_model_image.predict_step(X)
@@ -123,13 +139,9 @@ class TestBNN_LV_VI_Model:
         assert isinstance(out["pred"], Tensor)
         assert out["pred"].shape[0] == 2
 
-    def test_trainer_image(self, bnn_vi_lv_model_image: BNN_LV_VI) -> None:
+    def test_trainer_image(self, bnn_vi_lv_model_image: BNN_LV_VI_Regression) -> None:
         """Test Model with a Lightning Trainer."""
         # instantiate datamodule
         datamodule = ToyImageRegressionDatamodule()
-        trainer = Trainer(
-            logger=False,
-            max_epochs=1,
-            default_root_dir=bnn_vi_lv_model_image.hparams.save_dir,
-        )
+        trainer = Trainer(logger=False, max_epochs=1)
         trainer.test(model=bnn_vi_lv_model_image, datamodule=datamodule)

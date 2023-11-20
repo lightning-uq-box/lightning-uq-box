@@ -7,7 +7,6 @@ import torch
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import TensorDataset
-from torchgeo.datasets.utils import download_and_extract_archive
 from torchvision.datasets.utils import download_url
 
 

@@ -12,6 +12,14 @@ The goal of this library is threefold:
 
 To this end, each UQ-Method is essentially nothing more than a [Lightning Module](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) which can be used with [Lightning Data Module](https://lightning.ai/docs/pytorch/stable/data/datamodule.html) and a [Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html) to exectute training, evaluation and inference for your desired task. The library also utilizes the [Lightning Command Line Interface (CLI)](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) for better reproducability of experiments and setting up experiments at scale.
 
+## Installation
+
+```console
+$ git clone https://github.com/nilsleh/lightning-uq-box.git
+$ cd lightning-uq-box
+$ pip install .
+```
+
 ## Documentation 
 We aim to provide an extensive documentation on all included UQ-methods that provide some theoretical background, as well as tutorials that illustrate these methods on toy datasets. 
 
