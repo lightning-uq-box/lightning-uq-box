@@ -3,11 +3,10 @@
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
-
-from lightning_uq_box.eval_utils import compute_quantiles_from_std
 
 from .base import DeterministicModel
 from .loss_functions import NLL
@@ -25,9 +24,9 @@ class MVEBase(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
         burnin_epochs: int,
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instace of Deterministic Gaussian Model.
 
@@ -38,7 +37,7 @@ class MVEBase(DeterministicModel):
             lr_scheduler: learning rate scheduler
 
         """
-        super().__init__(model, optimizer, None, None)
+        super().__init__(model, None, optimizer, lr_scheduler)
 
         self.loss_fn = NLL()
 
@@ -85,9 +84,9 @@ class MVERegression(MVEBase):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         burnin_epochs: int,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instance of Mean Variance Estimation Model for Regression.
 
@@ -98,8 +97,10 @@ class MVERegression(MVEBase):
             lr_scheduler: learning rate scheduler
 
         """
-        super().__init__(model, optimizer, burnin_epochs, lr_scheduler)
-        self.save_hyperparameters(ignore=["model", "loss_fn"])
+        super().__init__(model, burnin_epochs, optimizer, lr_scheduler)
+        self.save_hyperparameters(
+            ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
+        )
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract mean output from model."""

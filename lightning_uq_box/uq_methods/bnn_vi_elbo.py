@@ -8,9 +8,8 @@ from typing import Any, Optional, Union
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.models.bnn_layers.utils import dnn_to_bnn_some, get_kl_loss
 
@@ -36,7 +35,6 @@ class BNN_VI_ELBO_Base(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
         criterion: nn.Module,
         num_training_points: int,
         part_stoch_module_names: Optional[list[Union[int, str]]] = None,
@@ -49,7 +47,8 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         bayesian_layer_type: str = "reparameterization",
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -79,7 +78,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
-        super().__init__(model, optimizer, criterion, lr_scheduler)
+        super().__init__(model, criterion, optimizer, lr_scheduler)
 
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
@@ -88,7 +87,9 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             self.model, part_stoch_module_names
         )
 
-        self.save_hyperparameters(ignore=["model", "criterion"])
+        self.save_hyperparameters(
+            ignore=["model", "criterion", "optimizer", "lr_scheduler"]
+        )
         self._setup_bnn_with_vi()
 
         # update hyperparameters
@@ -261,7 +262,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             self.named_parameters(), weight_decay=self.hparams.weight_decay
         )
 
-        optimizer = self.optimizer(params=params)
+        optimizer = self.optimizer(params)
         if self.lr_scheduler is not None:
             lr_scheduler = self.lr_scheduler(optimizer=optimizer)
             return {
@@ -283,7 +284,6 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         criterion: nn.Module,
         burnin_epochs: int,
         num_training_points: int,
@@ -297,7 +297,8 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -332,7 +333,6 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         """
         super().__init__(
             model,
-            optimizer,
             criterion,
             num_training_points,
             part_stoch_module_names,
@@ -345,10 +345,13 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             posterior_mu_init,
             posterior_rho_init,
             bayesian_layer_type,
+            optimizer,
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["model", "criterion"])
+        self.save_hyperparameters(
+            ignore=["model", "criterion", "optimizer", "lr_scheduler"]
+        )
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -403,7 +406,6 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         criterion: nn.Module,
         num_training_points: int,
         task: str = "multiclass",
@@ -417,7 +419,8 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -455,7 +458,6 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
 
         super().__init__(
             model,
-            optimizer,
             criterion,
             num_training_points,
             part_stoch_module_names,
@@ -468,10 +470,13 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             posterior_mu_init,
             posterior_rho_init,
             bayesian_layer_type,
+            optimizer,
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["model", "criterion"])
+        self.save_hyperparameters(
+            ignore=["model", "criterion", "optimizer", "lr_scheduler"]
+        )
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""

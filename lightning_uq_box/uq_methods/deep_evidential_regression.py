@@ -5,9 +5,8 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from .base import DeterministicModel
 from .loss_functions import DERLoss
@@ -59,22 +58,23 @@ class DER(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
-        lr_scheduler: type[LRScheduler] = None,
         coeff: float = 0.01,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Base Model.
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
             coeff: coefficient for the DER loss
              from the predictive distribution
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
         """
-        super().__init__(model, optimizer, None, lr_scheduler)
+        super().__init__(model, None, optimizer, lr_scheduler)
 
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["model", "optimizer", "lr_scheduler"])
 
         # check that output is 4 dimensional
         assert _get_num_outputs(model) == 4, "DER model expects 4 outputs."

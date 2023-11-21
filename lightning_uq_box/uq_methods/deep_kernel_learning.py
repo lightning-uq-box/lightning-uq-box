@@ -19,12 +19,9 @@ from gpytorch.variational import (
     IndependentMultitaskVariationalStrategy,
     VariationalStrategy,
 )
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from sklearn import cluster
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
-
-from lightning_uq_box.eval_utils import compute_quantiles_from_std
 
 from .base import BaseModule
 from .utils import (
@@ -48,8 +45,8 @@ class DKLBase(gpytorch.Module, BaseModule):
         gp_layer: type[ApproximateGP],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
-        optimizer: type[torch.optim.Optimizer],
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model.
 
@@ -64,7 +61,9 @@ class DKLBase(gpytorch.Module, BaseModule):
             lr_scheduler: learning rate scheduler
         """
         super().__init__()
-        self.save_hyperparameters(ignore=["feature_extractor", "lr_scheduler"])
+        self.save_hyperparameters(
+            ignore=["feature_extractor", "optimizer", "lr_scheduler"]
+        )
         self.optimizer = optimizer
         self.feature_extractor = feature_extractor
         self.gp_layer = gp_layer
@@ -247,9 +246,8 @@ class DKLRegression(DKLBase):
         gp_layer: type[ApproximateGP],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
-        optimizer: type[Optimizer],
-        lr_scheduler: type[LRScheduler] = None,
-        quantiles: List[float] = [0.1, 0.5, 0.9],
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Regression.
 
@@ -270,7 +268,9 @@ class DKLRegression(DKLBase):
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["feature_extractor"])
+        self.save_hyperparameters(
+            ignore=["feature_extractor", "gp_layer", "optimizer", "lr_scheduler"]
+        )
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -280,6 +280,9 @@ class DKLRegression(DKLBase):
 
     def _build_model(self) -> None:
         """Build the model ready for training."""
+        import pdb
+
+        pdb.set_trace()
         self.gp_layer = self.gp_layer(
             initial_lengthscale=self.initial_lengthscale,
             initial_inducing_points=self.initial_inducing_points,
@@ -361,9 +364,9 @@ class DKLClassification(DKLBase):
         gp_layer: type[ApproximateGP],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
-        optimizer: type[Optimizer],
         task: str = "multiclass",
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Classification.
 

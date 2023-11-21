@@ -7,6 +7,7 @@ import einops
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
@@ -41,9 +42,7 @@ class BNN_VI_Base(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         num_training_points: int,
-        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -53,7 +52,9 @@ class BNN_VI_Base(DeterministicModel):
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
         layer_type: str = "reparameterization",
-        lr_scheduler: type[LRScheduler] = None,
+        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instace of BNN VI.
 
@@ -79,14 +80,16 @@ class BNN_VI_Base(DeterministicModel):
             AssertionError: if ``n_mc_samples_train`` is not positive.
             AssertionError: if ``n_mc_samples_test`` is not positive.
         """
-        super().__init__(model, optimizer, None, lr_scheduler)
+        super().__init__(model, None, optimizer, lr_scheduler)
 
         assert n_mc_samples_train > 0, "Need to sample at least once during training."
         assert n_mc_samples_test > 0, "Need to sample at least once during testing."
 
         # update hparams
         self.hparams.weight_decay = 0.0
-        self.save_hyperparameters(ignore=["model", "latent_net"])
+        self.save_hyperparameters(
+            ignore=["model", "optimizer", "lr_scheduler", "latent_net"]
+        )
 
         self.part_stoch_module_names = map_stochastic_modules(
             self.model, part_stoch_module_names
@@ -173,7 +176,7 @@ class BNN_VI_Base(DeterministicModel):
         energy_loss, mean_output = self.compute_energy_loss(X, y)
 
         self.log("val_loss", energy_loss)  # logging to Logger
-        self.train_metrics(mean_output, y)
+        self.val_metrics(mean_output, y)
 
         return energy_loss
 
@@ -226,11 +229,27 @@ class BNN_VI_Base(DeterministicModel):
             a "lr dict" according to the pytorch lightning documentation --
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer_args = getattr(self.optimizer, "keywords")
-        wd = optimizer_args.get("weight_decay", 0.0)
-        params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=wd)
+        # import inspect
+        # def get_function_args_defaults(func):
+        #     signature = inspect.signature(func)
+        #     args = []
+        #     defaults = {}
+        #     for name, param in signature.parameters.items():
+        #         if param.default is not inspect.Parameter.empty:
+        #             defaults[name] = param.default
+        #         args.append(name)
+        #     return args, defaults
+        # args, defaults = get_function_args_defaults(self.optimizer)
+        # import pdb
+        # pdb.set_trace()
+        # optimizer_args = getattr(self.optimizer, "keywords")
+        # wd = optimizer_args.get("weight_decay", 0.0)
+        # TODO this does not work with lightning CLI correctly yet
+        # self.optimizer is not a partial function anymore that can be accessed with keywords
+        # using default weight decay for now
+        params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=0.01)
 
-        optimizer = self.optimizer(params=params)
+        optimizer = self.optimizer(params)
         return optimizer
 
 
@@ -247,9 +266,7 @@ class BNN_VI_Regression(BNN_VI_Base):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         num_training_points: int,
-        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -259,7 +276,9 @@ class BNN_VI_Regression(BNN_VI_Base):
         posterior_rho_init: float = -5,
         alpha: float = 1,
         layer_type: str = "reparameterization",
-        lr_scheduler: type[LRScheduler] = None,
+        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instace of BNN VI Regression.
 
@@ -289,9 +308,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         """
         super().__init__(
             model,
-            optimizer,
             num_training_points,
-            part_stoch_module_names,
             n_mc_samples_train,
             n_mc_samples_test,
             output_noise_scale,
@@ -301,9 +318,11 @@ class BNN_VI_Regression(BNN_VI_Base):
             posterior_rho_init,
             alpha,
             layer_type,
+            part_stoch_module_names,
+            optimizer,
             lr_scheduler,
         )
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["model", "optimizer", "lr_scheduler"])
 
         # need individual nlls of a gaussian, as we first do logsumexp over samples
         # cannot sum over batch size first as logsumexp is non-linear
@@ -421,7 +440,6 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
         num_training_points: int,
         part_stoch_module_names: Optional[list[Union[str, int]]] = None,
         n_mc_samples_train: int = 25,
@@ -433,7 +451,8 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         posterior_rho_init: float = -5,
         alpha: float = 1,
         layer_type: str = "reparameterization",
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instace of BNN VI Batched.
 

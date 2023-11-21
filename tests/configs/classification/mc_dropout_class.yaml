@@ -1,8 +1,9 @@
-uq_method:
-  _target_: lightning_uq_box.uq_methods.MCDropoutRegression
+model:
+  _target_: lightning_uq_box.uq_methods.MCDropoutClassification
   model:
     _target_: lightning_uq_box.models.MLP
-    n_outputs: 1
+    n_inputs: 2
+    n_outputs: 2
     n_hidden: [50]
     dropout_p: 0.1
   optimizer:
@@ -10,6 +11,5 @@ uq_method:
     _partial_: true
     lr: 0.003
   loss_fn:
-    _target_: torch.nn.MSELoss
+    _target_: torch.nn.CrossEntropyLoss
   num_mc_samples: 10
-  burnin_epochs: 5

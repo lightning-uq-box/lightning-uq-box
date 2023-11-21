@@ -1,12 +1,13 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
@@ -67,15 +68,15 @@ class DeterministicModel(BaseModule):
         self,
         model: nn.Module,
         loss_fn: nn.Module,
-        optimizer: type[Optimizer] = None,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Base Model.
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             loss_fn: loss function used for optimization
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         super().__init__()
@@ -102,7 +103,7 @@ class DeterministicModel(BaseModule):
         """
         return out[:, 0:1]
 
-    def forward(self, X: Tensor, **kwargs: Any) -> Any:
+    def forward(self, X: Tensor) -> Any:
         """Forward pass of the model.
 
         Args:
@@ -111,7 +112,7 @@ class DeterministicModel(BaseModule):
         Returns:
             output from the model
         """
-        return self.model(X, **kwargs)
+        return self.model(X)
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -228,7 +229,7 @@ class DeterministicModel(BaseModule):
             a "lr dict" according to the pytorch lightning documentation --
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer = self.optimizer(params=self.parameters())
+        optimizer = self.optimizer(self.parameters())
         if self.lr_scheduler is not None:
             lr_scheduler = self.lr_scheduler(optimizer=optimizer)
             return {
@@ -258,9 +259,9 @@ class DeterministicClassification(DeterministicModel):
         self,
         model: nn.Module,
         loss_fn: nn.Module,
-        optimizer: type[Optimizer] = None,
         task: str = "multiclass",
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Base Model.
 

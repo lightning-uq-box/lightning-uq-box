@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
@@ -29,10 +30,10 @@ class MCDropoutBase(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         num_mc_samples: int,
         loss_fn: nn.Module,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instance of MCDropoutModel.
 
@@ -43,7 +44,7 @@ class MCDropoutBase(DeterministicModel):
             loss_fn: loss function
             lr_scheduler: learning rate scheduler
         """
-        super().__init__(model, optimizer, loss_fn, lr_scheduler)
+        super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -92,11 +93,11 @@ class MCDropoutRegression(MCDropoutBase):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         num_mc_samples: int,
         loss_fn: nn.Module,
         burnin_epochs: int = 0,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Regression.
 
@@ -109,8 +110,10 @@ class MCDropoutRegression(MCDropoutBase):
             lr_scheduler: learning rate scheduler
              from the predictive distribution
         """
-        super().__init__(model, optimizer, num_mc_samples, loss_fn, lr_scheduler)
-        self.save_hyperparameters(ignore=["model", "loss_fn"])
+        super().__init__(model, num_mc_samples, loss_fn, optimizer, lr_scheduler)
+        self.save_hyperparameters(
+            ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
+        )
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -183,11 +186,11 @@ class MCDropoutClassification(MCDropoutBase):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         num_mc_samples: int,
         loss_fn: nn.Module,
         task: str = "multiclass",
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Classification.
 
@@ -202,9 +205,11 @@ class MCDropoutClassification(MCDropoutBase):
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = _get_num_outputs(model)
-        super().__init__(model, optimizer, num_mc_samples, loss_fn, lr_scheduler)
+        super().__init__(model, num_mc_samples, loss_fn, optimizer, lr_scheduler)
 
-        self.save_hyperparameters(ignore=["model", "loss_fn"])
+        self.save_hyperparameters(
+            ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
+        )
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -250,11 +255,11 @@ class MCDropoutClassification(MCDropoutBase):
 #     def __init__(
 #         self,
 #         model: nn.Module,
-#         optimizer: type[Optimizer],
+#         optimizer: OptimizerCallable = torch.optim.Adam,
 #         num_mc_samples: int,
 #         loss_fn: nn.Module,
 #         burnin_epochs: int = 0,
-#         lr_scheduler: type[LRScheduler] = None,
+#         lr_scheduler: LRSchedulerCallable = None,
 #     ) -> None:
 #         super().__init__(
 #             model, optimizer, num_mc_samples, loss_fn, burnin_epochs, lr_scheduler
@@ -267,11 +272,11 @@ class MCDropoutClassification(MCDropoutBase):
 #     def __init__(
 #         self,
 #         model: nn.Module,
-#         optimizer: type[Optimizer],
+#         optimizer: OptimizerCallable = torch.optim.Adam,
 #         num_mc_samples: int,
 #         loss_fn: nn.Module,
 #         burnin_epochs: int = 0,
-#         lr_scheduler: type[LRScheduler] = None,
+#         lr_scheduler: LRSchedulerCallable = None,
 #     ) -> None:
 #         super().__init__(
 #             model, optimizer, num_mc_samples, loss_fn, burnin_epochs, lr_scheduler

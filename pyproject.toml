@@ -115,6 +115,12 @@ filterwarnings = [
 
     # Lightning warns us if TensorBoard is not installed
     "ignore:Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `lightning.pytorch` package:UserWarning",
+
+    # https://github.com/Lightning-AI/lightning/issues/18545
+    "ignore:LightningCLI's args parameter is intended to run from within Python like if it were from the command line.:UserWarning",
+
+    # MLP has activation_fn as a module that can be changed, we use it in tests
+    "ignore:Unable to serialize instance ReLU()"
 ]
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}

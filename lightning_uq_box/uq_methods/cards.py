@@ -7,6 +7,7 @@ from typing import Any, Optional
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
@@ -36,13 +37,13 @@ class CARDBase(BaseModule):
         self,
         cond_mean_model: nn.Module,
         guidance_model: nn.Module,
-        guidance_optim: type[Optimizer],
         n_steps: int = 1000,
         beta_schedule: str = "linear",
         beta_start: float = 1e-5,
         beta_end: float = 1e-2,
         n_z_samples: int = 100,
-        lr_scheduler: type[LRScheduler] = None,
+        guidance_optim: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instance of the CARD Model.
 
@@ -436,7 +437,7 @@ class CARDBase(BaseModule):
     def configure_optimizers(self) -> Any:
         """Configure optimizers."""
         # lightning puts optimizer weights on device automatically
-        optimizer = self.guidance_optim(params=self.guidance_model.parameters())
+        optimizer = self.guidance_optim(self.guidance_model.parameters())
 
         # put conditional mean model on device as well
         self.cond_mean_model = self.cond_mean_model.to(self.device)
@@ -450,27 +451,34 @@ class CARDRegression(CARDBase):
         self,
         cond_mean_model: nn.Module,
         guidance_model: nn.Module,
-        guidance_optim: type[Optimizer],
         n_steps: int = 1000,
         beta_schedule: str = "linear",
         beta_start: float = 0.00001,
         beta_end: float = 0.01,
         n_z_samples: int = 100,
-        lr_scheduler: type[LRScheduler] = None,
+        guidance_optim: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         super().__init__(
             cond_mean_model,
             guidance_model,
-            guidance_optim,
             n_steps,
             beta_schedule,
             beta_start,
             beta_end,
             n_z_samples,
+            guidance_optim,
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["cond_mean_model", "guidance_model"])
+        self.save_hyperparameters(
+            ignore=[
+                "cond_mean_model",
+                "guidance_model",
+                "guidance_optim",
+                "lr_scheduler",
+            ]
+        )
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -555,14 +563,14 @@ class CARDClassification(CARDBase):
         self,
         cond_mean_model: nn.Module,
         guidance_model: nn.Module,
-        guidance_optim: type[Optimizer],
         n_steps: int = 1000,
         beta_schedule: str = "linear",
         beta_start: float = 0.00001,
         beta_end: float = 0.01,
         n_z_samples: int = 100,
         task: str = "multiclass",
-        lr_scheduler: type[LRScheduler] = None,
+        guidance_optim: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         assert task in self.valid_tasks
         self.task = task
@@ -572,15 +580,22 @@ class CARDClassification(CARDBase):
         super().__init__(
             cond_mean_model,
             guidance_model,
-            guidance_optim,
             n_steps,
             beta_schedule,
             beta_start,
             beta_end,
             n_z_samples,
+            guidance_optim,
             lr_scheduler,
         )
-        self.save_hyperparameters(ignore=["cond_mean_model", "guidance_model"])
+        self.save_hyperparameters(
+            ignore=[
+                "cond_mean_model",
+                "guidance_model",
+                "guidance_optim",
+                "lr_scheduler",
+            ]
+        )
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""

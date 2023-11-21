@@ -4,8 +4,7 @@ import torch
 import torch.nn as nn
 from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
 from gpytorch.models import ApproximateGP
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 
 from .deep_kernel_learning import DKLClassification, DKLRegression
 from .spectral_normalized_layers import spectral_normalize_model_layers
@@ -26,11 +25,11 @@ class DUERegression(DKLRegression):
         gp_layer: type[ApproximateGP],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
-        optimizer: type[Optimizer],
         input_size: int = None,
         coeff: float = 0.95,
         n_power_iterations: int = 1,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 
@@ -79,12 +78,12 @@ class DUEClassification(DKLClassification):
         gp_layer: type[ApproximateGP],
         elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
-        optimizer: type[Optimizer],
         input_size: int = None,
         task: str = "multiclass",
         coeff: float = 0.95,
         n_power_iterations: int = 1,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 
@@ -113,8 +112,8 @@ class DUEClassification(DKLClassification):
             gp_layer,
             elbo_fn,
             n_inducing_points,
-            optimizer,
             task,
+            optimizer,
             lr_scheduler,
         )
 

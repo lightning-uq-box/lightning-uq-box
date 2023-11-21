@@ -7,6 +7,7 @@ import einops
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
@@ -43,7 +44,6 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         self,
         model: nn.Module,
         latent_net: nn.Module,
-        optimizer: type[Optimizer],
         num_training_points: int,
         prediction_head: Optional[nn.Module] = None,
         part_stoch_module_names: Optional[list[Union[str, int]]] = None,
@@ -62,7 +62,8 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         lv_prior_std: float = 1.0,
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instace of BNN+LV.
 
@@ -100,9 +101,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         """
         super().__init__(
             model,
-            optimizer,
             num_training_points,
-            part_stoch_module_names,
             n_mc_samples_train,
             n_mc_samples_test,
             output_noise_scale,
@@ -112,6 +111,8 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             posterior_rho_init,
             alpha,
             layer_type,
+            part_stoch_module_names,
+            optimizer,
             lr_scheduler,
         )
 
@@ -119,7 +120,15 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             latent_variable_intro in self.lv_intro_options
         ), f"Only one of {self.lv_intro_options} is possible, but found {latent_variable_intro}."  # noqa: E501
 
-        self.save_hyperparameters(ignore=["model", "latent_net", "prediction_head"])
+        self.save_hyperparameters(
+            ignore=[
+                "model",
+                "latent_net",
+                "prediction_head",
+                "optimizer",
+                "lr_scheduler",
+            ]
+        )
 
         self.prediction_head = prediction_head
 
@@ -426,14 +435,16 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
-            a "lr dict" according to the pytorch lightning documentation --
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+            optimizer and lr_scheduler
         """
-        optimizer_args = getattr(self.optimizer, "keywords")
-        wd = optimizer_args.get("weight_decay", 0.0)
-        params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=wd)
+        # optimizer_args = getattr(self.optimizer, "keywords")
+        # wd = optimizer_args.get("weight_decay", 0.0)
+        # TODO this does not work with lightning CLI correctly yet
+        # self.optimizer is not a partial function anymore that can be accessed with keywords
+        # using default weight decay for now
+        params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=0.01)
 
-        optimizer = self.optimizer(params=params)
+        optimizer = self.optimizer(params)
         return optimizer
 
 
@@ -459,7 +470,6 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         self,
         model: nn.Module,
         latent_net: nn.Module,
-        optimizer: type[Optimizer],
         num_training_points: int,
         prediction_head: Optional[nn.Module] = None,
         part_stoch_module_names: Optional[list[Union[str, int]]] = None,
@@ -478,7 +488,8 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         lv_prior_std: float = 1,
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instace of BNN+LV Batched.
 
@@ -515,7 +526,6 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         super().__init__(
             model,
             latent_net,
-            optimizer,
             num_training_points,
             prediction_head,
             part_stoch_module_names,
@@ -534,6 +544,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             lv_prior_std,
             lv_latent_dim,
             init_scaling,
+            optimizer,
             lr_scheduler,
         )
 

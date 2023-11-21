@@ -1,5 +1,7 @@
 """CARDS Model Utilities."""
 
+from typing import Optional
+
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -80,7 +82,7 @@ class ConditionalGuidedLinearModel(nn.Module):
         n_outputs: int = 1,
         cat_x: bool = False,
         cat_y_pred: bool = False,
-        activation_fn: nn.Module = nn.Softplus(),
+        activation_fn: Optional[nn.Module] = None,
     ) -> None:
         """Initialize a new instance of Conditional Guided Model.
 
@@ -98,6 +100,8 @@ class ConditionalGuidedLinearModel(nn.Module):
             activation_fn: activation function between conditional linear layers
         """
         super().__init__()
+        if activation_fn is None:
+            activation_fn = nn.Softplus()
         self.n_steps = n_steps
         self.x_dim = x_dim
         self.y_dim = y_dim
