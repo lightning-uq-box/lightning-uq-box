@@ -1,7 +1,8 @@
 """Deep Kernel Learning."""
 
 import os
-from typing import Any, Dict, List
+from functools import partial
+from typing import Any, Dict, List, Optional
 
 import gpytorch
 import numpy as np
@@ -42,9 +43,9 @@ class DKLBase(gpytorch.Module, BaseModule):
     def __init__(
         self,
         feature_extractor: nn.Module,
-        gp_layer: type[ApproximateGP],
-        elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
+        gp_layer: Optional[ApproximateGP] = None,
+        elbo_fn: Optional[_ApproximateMarginalLogLikelihood] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -54,9 +55,9 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         Args:
             feature_extractor: feature extractor model
-            gp_layer: Gaussian Process layer
-            elbo_fn: gpytorch elbo function used for optimization
             n_inducing_points: number of inducing points
+            elbo_fn: gpytorch elbo function used for optimization
+            gp_layer: Gaussian Process layer
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -72,6 +73,9 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.lr_scheduler = lr_scheduler
 
         # partially initialized gp layer
+        # if gp_layer is None:
+        #     self.gp_layer = partial(gp_layer, DKLGPLayer)
+        # else:
         self.gp_layer = gp_layer
 
         self.dkl_model_built = False
@@ -206,7 +210,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
-            a "lr dict" according to the pytorch lightning documentation --
+            a "lr dict" according to the pytorch lightning documentation
         """
         # need to create models here given the order of hooks
         # https://lightning.ai/docs/pytorch/stable/common/lightning_module.html#hooks
@@ -243,9 +247,11 @@ class DKLRegression(DKLBase):
     def __init__(
         self,
         feature_extractor: nn.Module,
-        gp_layer: type[ApproximateGP],
-        elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
+        # gp_layer: type[ApproximateGP],
+        # elbo_fn: type[_ApproximateMarginalLogLikelihood],
+        gp_layer: ApproximateGP,
+        elbo_fn: _ApproximateMarginalLogLikelihood,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -261,9 +267,9 @@ class DKLRegression(DKLBase):
         """
         super().__init__(
             feature_extractor,
+            n_inducing_points,
             gp_layer,
             elbo_fn,
-            n_inducing_points,
             optimizer,
             lr_scheduler,
         )
@@ -361,10 +367,10 @@ class DKLClassification(DKLBase):
     def __init__(
         self,
         feature_extractor: nn.Module,
-        gp_layer: type[ApproximateGP],
-        elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
         task: str = "multiclass",
+        gp_layer: Optional[ApproximateGP] = None,
+        elbo_fn: Optional[_ApproximateMarginalLogLikelihood] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -387,9 +393,9 @@ class DKLClassification(DKLBase):
 
         super().__init__(
             feature_extractor,
+            n_inducing_points,
             gp_layer,
             elbo_fn,
-            n_inducing_points,
             optimizer,
             lr_scheduler,
         )

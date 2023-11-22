@@ -37,13 +37,17 @@ class QuantileRegressionBase(DeterministicModel):
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             loss_fn: loss function
-            lr_scheduler: learning rate scheduler
             quantiles: quantiles to compute
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
         """
         assert all(i < 1 for i in quantiles), "Quantiles should be less than 1."
         assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
+        assert _get_num_outputs(model) == len(
+            quantiles
+        ), "The number of desired quantiles should match the number of outputs of the model."
+
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
         if loss_fn is None:
@@ -66,31 +70,27 @@ class QuantileRegression(QuantileRegressionBase):
     * https://www.jstor.org/stable/1913643
     """
 
-    def __init__(
-        self,
-        model: nn.Module,
-        loss_fn: Optional[nn.Module] = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
-        optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
-    ) -> None:
-        """Initialize a new instance of Quantile Regression Model.
+    # def __init__(
+    #     self,
+    #     model: nn.Module,
+    #     loss_fn: Optional[nn.Module] = None,
+    #     quantiles: list[float] = [0.1, 0.5, 0.9],
+    #     optimizer: OptimizerCallable = torch.optim.Adam,
+    #     lr_scheduler: LRSchedulerCallable = None,
+    # ) -> None:
+    #     """Initialize a new instance of Quantile Regression Model.
 
-        Args:
-            model: pytorch model
-            optimizer: optimizer used for training
-            loss_fn: loss function
-            lr_scheduler: learning rate scheduler
-            quantiles: quantiles to compute
-        """
-        super().__init__(model, loss_fn, quantiles, optimizer, lr_scheduler)
-        self.save_hyperparameters(
-            ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
-        )
-
-        assert _get_num_outputs(model) == len(
-            quantiles
-        ), "The number of desired quantiles should match the number of outputs of the model."
+    #     Args:
+    #         model: pytorch model
+    #         optimizer: optimizer used for training
+    #         loss_fn: loss function
+    #         lr_scheduler: learning rate scheduler
+    #         quantiles: quantiles to compute
+    #     """
+    #     super().__init__(model, loss_fn, quantiles, optimizer, lr_scheduler)
+    #     self.save_hyperparameters(
+    #         ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
+    #     )
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract the mean/median prediction from quantile regression model.

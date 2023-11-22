@@ -51,7 +51,7 @@ class TestBNN_LV_VI_Model:
         conf.uq_method["num_training_points"] = dm.X_train.shape[0]
         conf.uq_method["layer_type"] = request.param[1]
         conf.uq_method["latent_variable_intro"] = request.param[2]
-        conf.uq_method["part_stoch_module_names"] = request.param[3]
+        conf.uq_method["stochastic_module_names"] = request.param[3]
         return instantiate(conf.uq_method)
 
     # tests for tabular data
@@ -113,7 +113,7 @@ class TestBNN_LV_VI_Model:
         conf.uq_method["num_training_points"] = dm.X_train.shape[0]
         conf.uq_method["layer_type"] = request.param[0]
         conf.uq_method["latent_variable_intro"] = "last"
-        conf.uq_method["part_stoch_module_names"] = request.param[1]
+        conf.uq_method["stochastic_module_names"] = request.param[1]
         conf.uq_method["latent_net"][
             "n_inputs"
         ] = 513  # resnet18 hast 512 output feature dim + 1 target dim noqa: E501

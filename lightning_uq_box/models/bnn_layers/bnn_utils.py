@@ -59,7 +59,7 @@ def bnn_lstm_layer(params: dict[str, Any], lstm_layer: nn.LSTM) -> nn.Module:
 def convert_deterministic_to_bnn(
     deterministic_model: nn.Module,
     bnn_prior_parameters: dict[str, Any],
-    part_stoch_module_names: list[str],
+    stochastic_module_names: list[str],
 ) -> None:
     """Replace linear and conv. layers with stochastic layers.
 
@@ -72,9 +72,9 @@ def convert_deterministic_to_bnn(
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization
-        part_stoch_module_names: list of module names that should become stochastic
+        stochastic_module_names: list of module names that should become stochastic
     """
-    for name in part_stoch_module_names:
+    for name in stochastic_module_names:
         layer_names = name.split(".")
         current_module = deterministic_model
         for l_name in layer_names[:-1]:

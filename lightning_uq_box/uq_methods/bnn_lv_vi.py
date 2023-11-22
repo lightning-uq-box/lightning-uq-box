@@ -1,7 +1,7 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 import math
-from typing import Any, Optional, Union
+from typing import Any, Optional, Tuple, Union
 
 import einops
 import numpy as np
@@ -46,7 +46,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         latent_net: nn.Module,
         num_training_points: int,
         prediction_head: Optional[nn.Module] = None,
-        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
+        stochastic_module_names: Optional[list[Union[str, int]]] = None,
         latent_variable_intro: str = "first",
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
@@ -57,7 +57,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
-        layer_type: str = "reparameterization",
+        bayesian_layer_type: str = "reparameterization",
         lv_prior_mu: float = 0.0,
         lv_prior_std: float = 1.0,
         lv_latent_dim: int = 1,
@@ -70,18 +70,17 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         Args:
             model: pytorch model that will be converted into a BNN
             latent_net: latent variable network
-            optimizer: optimizer used for training
             num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names: list of module names or indices that should be converted
-                to variational layers
             num_training_points: number of data points contained in the training dataset
             prediction_head: prediction head that will be attached to the model
-            part_stoch_module_names:
-            latent_variable_intro:
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
+            latent_variable_intro: whether to introduce the latent variable at the first or
+                last layer of the model
             n_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
             n_mc_samples_test: number of MC samples during test and prediction
-            n_mc_samples_epistemic:
+            n_mc_samples_epistemic: number of epistemic samples during prediction
             output_noise_scale: scale of predicted sigmas
             prior_mu: prior mean value for bayesian layer
             prior_sigma: prior variance value for bayesian layer
@@ -89,10 +88,12 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
+            bayesian_layer_type: `flipout` or `reparameterization`
             lv_prior_mu: prior mean for latent variable network
             lv_prior_std: prior std for latent variable network
             lv_latent_dim: number of latent dimension
-
+            init_scaling: init scaling factor for q(z) in latent variable network
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
         Raises:
@@ -110,8 +111,8 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             posterior_mu_init,
             posterior_rho_init,
             alpha,
-            layer_type,
-            part_stoch_module_names,
+            bayesian_layer_type,
+            stochastic_module_names,
             optimizer,
             lr_scheduler,
         )
@@ -139,7 +140,11 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         pass
 
     def _setup_bnn_with_vi_lv(self, latent_net: nn.Module) -> None:
-        """Configure setup of BNN with VI model."""
+        """Configure setup of BNN with VI model.
+
+        Args:
+            latent_net: latent variable network
+        """
         # replace the last ultimate layer with nn.Identy so that
         # a user's own model like a `resnet18` that relies on a custom
         # forward pass can still be used as is but we add the final linear
@@ -242,7 +247,9 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             init_scaling=self.hparams.init_scaling,
         )
 
-    def forward(self, X: Tensor, y: Optional[Tensor] = None, training=True) -> Tensor:
+    def forward(
+        self, X: Tensor, y: Optional[Tensor] = None, training: bool = True
+    ) -> Tensor:
         """Forward pass BNN LV.
 
         Args:
@@ -300,7 +307,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         batch_size = X.shape[0]
         return torch.randn(batch_size, self.hparams.lv_latent_dim).to(self.device)
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -349,7 +356,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
@@ -449,6 +456,13 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
 
 class BNN_LV_VI_Regression(BNN_LV_VI_Base):
+    """Bayesian Latent Variable Network with Variational Inference for Regression.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.mlr.press/v80/depeweg18a
+    """
+
     nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
     def setup_task(self) -> None:
@@ -472,7 +486,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         latent_net: nn.Module,
         num_training_points: int,
         prediction_head: Optional[nn.Module] = None,
-        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
+        stochastic_module_names: Optional[list[Union[str, int]]] = None,
         latent_variable_intro: str = "first",
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
@@ -483,7 +497,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         alpha: float = 1,
-        layer_type: str = "reparameterization",
+        bayesian_layer_type: str = "reparameterization",
         lv_prior_mu: float = 0,
         lv_prior_std: float = 1,
         lv_latent_dim: int = 1,
@@ -496,13 +510,12 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         Args:
             model: pytorch model that will be converted into a BNN
             latent_net: latent variable network
-            optimizer: optimizer used for training
             num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names: list of module names or indices that should be converted
+            stochastic_module_names: list of module names or indices that should be converted
                 to variational layers
             num_training_points: number of data points contained in the training dataset
             prediction_head: prediction head that will be attached to the model
-            part_stoch_module_names:
+            stochastic_module_names:
             latent_variable_intro:
             n_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
@@ -514,9 +527,12 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
+            bayesian_layer_type: `flipout` or `reparameterization`
             lv_prior_mu: prior mean for latent variable network
             lv_prior_std: prior std for latent variable network
             lv_latent_dim: number of latent dimension
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
 
 
         Raises:
@@ -528,7 +544,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             latent_net,
             num_training_points,
             prediction_head,
-            part_stoch_module_names,
+            stochastic_module_names,
             latent_variable_intro,
             n_mc_samples_train,
             n_mc_samples_test,
@@ -539,7 +555,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             posterior_mu_init,
             posterior_rho_init,
             alpha,
-            layer_type,
+            bayesian_layer_type,
             lv_prior_mu,
             lv_prior_std,
             lv_latent_dim,
@@ -555,7 +571,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.layer_type,
+            "bayesian_layer_type": self.hparams.bayesian_layer_type,
             "batched_samples": True,
             "max_n_samples": max(
                 self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
@@ -563,7 +579,11 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         }
 
     def forward(
-        self, X: Tensor, y: Optional[Tensor] = None, n_samples: int = 5, training=True
+        self,
+        X: Tensor,
+        y: Optional[Tensor] = None,
+        n_samples: int = 5,
+        training: bool = True,
     ) -> Tensor:
         """Forward pass BNN+LI.
 
@@ -597,7 +617,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             self.device
         )
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -632,7 +652,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         batch_idx: int = 0,
         dataloader_idx: int = 0,
         n_samples_pred: int = 100,
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
@@ -747,6 +767,13 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
 
 
 class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
+    """Bayesian Latent Variable Network with Variational Inference Batched for Regression.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.mlr.press/v80/depeweg18a
+    """
+
     nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
     def setup_task(self) -> None:

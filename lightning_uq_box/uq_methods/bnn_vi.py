@@ -1,7 +1,7 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 import os
-from typing import Any, Optional, Union
+from typing import Any, Optional, Tuple, Union
 
 import einops
 import numpy as np
@@ -51,8 +51,8 @@ class BNN_VI_Base(DeterministicModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
-        layer_type: str = "reparameterization",
-        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
+        bayesian_layer_type: str = "reparameterization",
+        stochastic_module_names: Optional[list[Union[str, int]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -60,10 +60,9 @@ class BNN_VI_Base(DeterministicModel):
 
         Args:
             model:
-            optimizer:
             save_dir: directory path to save
             num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names:
+            stochastic_module_names:
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -74,7 +73,11 @@ class BNN_VI_Base(DeterministicModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            type: Bayesian layer_type type, "reparametrization" or "flipout"
+            bayesian_layer_type: `flipout` or `reparameterization`
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
 
         Raises:
             AssertionError: if ``n_mc_samples_train`` is not positive.
@@ -91,8 +94,8 @@ class BNN_VI_Base(DeterministicModel):
             ignore=["model", "optimizer", "lr_scheduler", "latent_net"]
         )
 
-        self.part_stoch_module_names = map_stochastic_modules(
-            self.model, part_stoch_module_names
+        self.stochastic_module_names = map_stochastic_modules(
+            self.model, stochastic_module_names
         )
 
         self._setup_bnn_with_vi()
@@ -110,13 +113,13 @@ class BNN_VI_Base(DeterministicModel):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.layer_type,
+            "layer_type": self.hparams.bayesian_layer_type,
         }
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
         convert_deterministic_to_bnn(
-            self.model, self._define_bnn_args(), self.part_stoch_module_names
+            self.model, self._define_bnn_args(), self.stochastic_module_names
         )
 
         self.energy_loss_module = EnergyAlphaDivergence(
@@ -275,8 +278,8 @@ class BNN_VI_Regression(BNN_VI_Base):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         alpha: float = 1,
-        layer_type: str = "reparameterization",
-        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        bayesian_layer_type: str = "reparameterization",
+        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -286,7 +289,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             model: pytorch model that will be converted into a BNN
             optimizer: optimizer used for training
             num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names: list of module names or indices that should be converted
+            stochastic_module_names: list of module names or indices that should be converted
                 to variational layers
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
@@ -298,7 +301,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            layer_type: Bayesian layer_type type, "reparametrization" or "flipout"
+            bayesian_layer_type: Bayesian bayesian_layer_type type, "reparametrization" or "flipout"
             lr_scheduler: learning rate scheduler
 
         Raises:
@@ -317,8 +320,8 @@ class BNN_VI_Regression(BNN_VI_Base):
             posterior_mu_init,
             posterior_rho_init,
             alpha,
-            layer_type,
-            part_stoch_module_names,
+            bayesian_layer_type,
+            stochastic_module_names,
             optimizer,
             lr_scheduler,
         )
@@ -441,7 +444,6 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         self,
         model: nn.Module,
         num_training_points: int,
-        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -450,7 +452,8 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         alpha: float = 1,
-        layer_type: str = "reparameterization",
+        bayesian_layer_type: str = "reparameterization",
+        stochastic_module_names: Optional[list[Union[str, int]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -458,10 +461,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
 
         Args:
             model: pytorch model that will be converted into a BNN
-            optimizer: optimizer used for training
             num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names: list of module names or indices that should be converted
-                to variational layers
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -472,8 +472,11 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            layer_type: Bayesian layer_type type, "reparametrization" or "flipout"
+            bayesian_layer_type: Bayesian bayesian_layer_type type, "reparametrization" or "flipout"
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
             lr_scheduler: learning rate scheduler
+            optimizer: optimizer used for training
 
         Raises:
             AssertionError: if ``n_mc_samples_train`` is not positive.
@@ -481,9 +484,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         """
         super().__init__(
             model,
-            optimizer,
             num_training_points,
-            part_stoch_module_names,
             n_mc_samples_train,
             n_mc_samples_test,
             output_noise_scale,
@@ -492,7 +493,9 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             posterior_mu_init,
             posterior_rho_init,
             alpha,
-            layer_type,
+            bayesian_layer_type,
+            stochastic_module_names,
+            optimizer,
             lr_scheduler,
         )
 
@@ -505,7 +508,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.layer_type,
+            "layer_type": self.hparams.bayesian_layer_type,
             "batched_samples": True,
             "max_n_samples": max(
                 self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
@@ -525,7 +528,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         batched_sample_X = einops.repeat(X, "b f -> s b f", s=n_samples)
         return self.model(batched_sample_X)
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -557,7 +560,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:

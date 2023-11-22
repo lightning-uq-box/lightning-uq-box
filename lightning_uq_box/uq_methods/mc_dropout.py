@@ -48,9 +48,10 @@ class MCDropoutBase(DeterministicModel):
 
         Args:
             model: pytorch model with dropout layers
-            optimizer: optimizer used for training
             num_mc_samples: number of MC samples during prediction
             loss_fn: loss function
+            dropout_layer_names: names of dropout layers to activate during prediction
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
@@ -111,8 +112,8 @@ class MCDropoutRegression(MCDropoutBase):
         model: nn.Module,
         num_mc_samples: int,
         loss_fn: nn.Module,
-        dropout_layer_names: list[str] = [],
         burnin_epochs: int = 0,
+        dropout_layer_names: list[str] = [],
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -120,12 +121,13 @@ class MCDropoutRegression(MCDropoutBase):
 
         Args:
             model: pytorch model with dropout layers
-            optimizer: optimizer used for training
             num_mc_samples: number of MC samples during prediction
             loss_fn: loss function
             burnin_epochs: number of burnin epochs before using the loss_fn
+            dropout_layer_names: names of dropout layers to activate during prediction
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
-             from the predictive distribution
+                from the predictive distribution
         """
         super().__init__(
             model, num_mc_samples, loss_fn, dropout_layer_names, optimizer, lr_scheduler
@@ -172,7 +174,7 @@ class MCDropoutRegression(MCDropoutBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Predict steps via Monte Carlo Sampling.
 
         Args:
@@ -216,10 +218,11 @@ class MCDropoutClassification(MCDropoutBase):
 
         Args:
             model: pytorch model with dropout layers
-            optimizer: optimizer used for training
             num_mc_samples: number of MC samples during prediction
             loss_fn: loss function
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            dropout_layer_names: names of dropout layers to activate during prediction
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         assert task in self.valid_tasks

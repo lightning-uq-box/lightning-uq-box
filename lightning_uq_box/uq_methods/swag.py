@@ -41,25 +41,25 @@ class SWAGBase(DeterministicModel):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        part_stoch_module_names: Optional[list[Union[int, str]]] = None,
+        stochastic_module_names: Optional[list[Union[int, str]]] = None,
         num_datapoints_for_bn_update: int = 0,
     ) -> None:
         """Initialize a new instance of SWAG Model Wrapper.
 
         Args:
             model: pytorch model
-            num_swag_epochs: number of epochs to train swag
             max_swag_snapshots: maximum number of snapshots to store
             snapshot_freq: frequency of snapshots
             num_mc_samples: number of MC samples during prediction
             swag_lr: learning rate for swag
             loss_fn: loss function
-            part_stoch_module_names: names of modules that are partially stochastic
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
             num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
         """
         super().__init__(model, loss_fn, None, None)
-        self.part_stoch_module_names = map_stochastic_modules(
-            self.model, part_stoch_module_names
+        self.stochastic_module_names = map_stochastic_modules(
+            self.model, stochastic_module_names
         )
         self.swag_fitted = False
         self.current_iteration = 0
@@ -119,7 +119,7 @@ class SWAGBase(DeterministicModel):
         for name, _ in instance.named_parameters():
             if (
                 name.removesuffix(".weight").removesuffix(".bias")
-                in self.part_stoch_module_names
+                in self.stochastic_module_names
             ):  # noqa: E501
                 model_w_and_b_module_names.append(name)
         return model_w_and_b_module_names
@@ -288,7 +288,14 @@ class SWAGBase(DeterministicModel):
             )
 
     def sample_predictions(self, X: Tensor) -> Tensor:
-        """Sample predictions."""
+        """Sample predictions.
+
+        Args:
+            X: input batch of shape [batch_size x input_dims]
+
+        Returns:
+            predictions of shape [batch_size x num_outputs x num_mc_samples]
+        """
         preds = []
         for i in range(self.hparams.num_mc_samples):
             # sample weights
@@ -302,7 +309,7 @@ class SWAGBase(DeterministicModel):
         return preds
 
     def configure_optimizers(self) -> dict[str, Any]:
-        """Manually implemented."""
+        """Manually implemented SWAG optimization."""
         swag_params: list[nn.Parameter] = [
             param
             for name, param in self.model.named_parameters()
@@ -328,7 +335,7 @@ class SWAGRegression(SWAGBase):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
         num_datapoints_for_bn_update: int = 0,
     ) -> None:
         """Initialize a new instance of SWAG Model for Regression.
@@ -341,7 +348,7 @@ class SWAGRegression(SWAGBase):
             num_mc_samples: number of MC samples during prediction
             swag_lr: learning rate for swag
             loss_fn: loss function
-            part_stoch_module_names: names of modules that are partially stochastic
+            stochastic_module_names: names of modules that are partially stochastic
             num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
         """
         super().__init__(
@@ -351,7 +358,7 @@ class SWAGRegression(SWAGBase):
             num_mc_samples,
             swag_lr,
             loss_fn,
-            part_stoch_module_names,
+            stochastic_module_names,
             num_datapoints_for_bn_update,
         )
         self.save_hyperparameters(ignore=["model", "loss_fn"])
@@ -402,7 +409,7 @@ class SWAGClassification(SWAGBase):
         swag_lr: float,
         loss_fn: nn.Module,
         task: str = "multiclass",
-        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
+        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
         num_datapoints_for_bn_update: int = 0,
     ) -> None:
         """Initialize a new instance of SWAG Model for Classification.
@@ -416,7 +423,7 @@ class SWAGClassification(SWAGBase):
             swag_lr: learning rate for swag
             loss_fn: loss function
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
-            part_stoch_module_names: names of modules that are partially stochastic
+            stochastic_module_names: names of modules that are partially stochastic
             num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
         """
         assert task in self.valid_tasks
@@ -430,7 +437,7 @@ class SWAGClassification(SWAGBase):
             num_mc_samples,
             swag_lr,
             loss_fn,
-            part_stoch_module_names,
+            stochastic_module_names,
             num_datapoints_for_bn_update,
         )
         self.save_hyperparameters(ignore=["model", "loss_fn"])

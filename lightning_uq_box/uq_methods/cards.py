@@ -51,12 +51,12 @@ class CARDBase(BaseModule):
             cond_mean_model: conditional mean model, should be
                 pretrained model that estimates $E[y|x]$
             guidance_model: guidance diffusion model
-            guidance_optim: optimizer for the guidance model
             n_steps: number of diffusion steps
             beta_schedule: what type of noise scheduling to conduct
             beta_start: start value of beta scheduling
             beta_end: end value of beta scheduling
             n_z_samples: number of samples during prediction
+            guidance_optim: optimizer for the guidance model
             lr_scheduler: learning rate scheduler
         """
         super().__init__()
@@ -78,8 +78,15 @@ class CARDBase(BaseModule):
         """Setup task specific attributes."""
         pass
 
-    def diffusion_process(self, batch: dict[str, Tensor]):
-        """Diffusion process during training."""
+    def diffusion_process(self, batch: dict[str, Tensor]) -> Tensor:
+        """Diffusion process during training.
+
+        Args:
+            batch: the output of your DataLoader
+
+        Returns:
+            loss from diffusion process
+        """
         x, y = batch[self.input_key], batch[self.target_key]
 
         batch_size = x.shape[0]
@@ -113,19 +120,6 @@ class CARDBase(BaseModule):
 
         return loss
 
-        # # optimize diffusion model that predicts eps_theta
-        # optimizer.zero_grad()
-        # loss.backward()
-        # optimizer.step()
-
-        # losses.append(loss.detach().cpu())
-
-        # # optimize non-linear guidance model
-        # aux_cost = aux_cost_fn(mlp(x), y)
-        # aux_optimizer.zero_grad()
-        # aux_cost.backward()
-        # aux_optimizer.step()
-
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -141,6 +135,7 @@ class CARDBase(BaseModule):
         self.log("train_loss", train_loss)
         return train_loss
 
+    # TODO what metrics should be logged?
     # def on_train_epoch_end(self):
     #     """Log epoch-level training metrics."""
     #     self.log_dict(self.train_metrics.compute())
@@ -151,12 +146,11 @@ class CARDBase(BaseModule):
     ) -> Tensor:
         """Compute and return the validation loss.
 
-                Args:
-                    batch: the output of your DataLoader
-        q
+        Args:
+            batch: the output of your DataLoader
 
-                Returns:
-                    validation loss
+        Returns:
+            validation loss
         """
         val_loss = self.diffusion_process(batch)
         self.log("val_loss", val_loss)
@@ -445,40 +439,45 @@ class CARDBase(BaseModule):
 
 
 class CARDRegression(CARDBase):
-    """CARD Regression Model."""
+    """CARD Regression Model.
 
-    def __init__(
-        self,
-        cond_mean_model: nn.Module,
-        guidance_model: nn.Module,
-        n_steps: int = 1000,
-        beta_schedule: str = "linear",
-        beta_start: float = 0.00001,
-        beta_end: float = 0.01,
-        n_z_samples: int = 100,
-        guidance_optim: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
-    ) -> None:
-        super().__init__(
-            cond_mean_model,
-            guidance_model,
-            n_steps,
-            beta_schedule,
-            beta_start,
-            beta_end,
-            n_z_samples,
-            guidance_optim,
-            lr_scheduler,
-        )
+    If you use this in your research, please cite the following paper:
 
-        self.save_hyperparameters(
-            ignore=[
-                "cond_mean_model",
-                "guidance_model",
-                "guidance_optim",
-                "lr_scheduler",
-            ]
-        )
+    * https://arxiv.org/abs/2206.07275
+    """
+
+    # def __init__(
+    #     self,
+    #     cond_mean_model: nn.Module,
+    #     guidance_model: nn.Module,
+    #     n_steps: int = 1000,
+    #     beta_schedule: str = "linear",
+    #     beta_start: float = 0.00001,
+    #     beta_end: float = 0.01,
+    #     n_z_samples: int = 100,
+    #     guidance_optim: OptimizerCallable = torch.optim.Adam,
+    #     lr_scheduler: LRSchedulerCallable = None,
+    # ) -> None:
+    #     super().__init__(
+    #         cond_mean_model,
+    #         guidance_model,
+    #         n_steps,
+    #         beta_schedule,
+    #         beta_start,
+    #         beta_end,
+    #         n_z_samples,
+    #         guidance_optim,
+    #         lr_scheduler,
+    #     )
+
+    #     self.save_hyperparameters(
+    #         ignore=[
+    #             "cond_mean_model",
+    #             "guidance_model",
+    #             "guidance_optim",
+    #             "lr_scheduler",
+    #         ]
+    #     )
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -555,7 +554,12 @@ class CARDRegression(CARDBase):
 
 
 class CARDClassification(CARDBase):
-    """CARD Classification Model."""
+    """CARD Classification Model.
+
+    If you use this in your research, please cite the following paper:
+
+    * https://arxiv.org/abs/2206.07275
+    """
 
     valid_tasks = ["binary", "multiclass"]
 
@@ -617,6 +621,8 @@ class CARDClassification(CARDBase):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
 
+        Returns:
+            predictions
         """
 
         final_recoverd, y_tile_seq = super().predict_step(X, batch_idx, dataloader_idx)

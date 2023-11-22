@@ -66,9 +66,8 @@ class DER(DeterministicModel):
 
         Args:
             model: pytorch model
-            lr_scheduler: learning rate scheduler
             coeff: coefficient for the DER loss
-             from the predictive distribution
+                from the predictive distribution
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -94,11 +93,12 @@ class DER(DeterministicModel):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Any]:
+    ) -> dict[str, Tensor]:
         """Prediction Step Deep Evidential Regression.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+
         Returns:
             dictionary with predictions and uncertainty measures
         """

@@ -54,7 +54,7 @@ class TestSWAGRegression:
         conf = OmegaConf.load(
             os.path.join("tests", "configs", "swag", "swag_regression.yaml")
         )
-        conf.post_processing["part_stoch_module_names"] = request.param
+        conf.post_processing["stochastic_module_names"] = request.param
 
         datamodule = ToyHeteroscedasticDatamodule()
 
@@ -107,7 +107,7 @@ class TestSWAGRegression:
         conf = OmegaConf.load(
             os.path.join("tests", "configs", "swag", "swag_regression.yaml")
         )
-        conf.post_processing["part_stoch_module_names"] = request.param
+        conf.post_processing["stochastic_module_names"] = request.param
         datamodule = ToyImageRegressionDatamodule()
 
         swag_model = instantiate(conf.post_processing, model=base_model_image.model)
@@ -169,7 +169,7 @@ class TestSWAGClassification:
         conf = OmegaConf.load(
             os.path.join("tests", "configs", "swag", "swag_classification.yaml")
         )
-        conf.post_processing["part_stoch_module_names"] = request.param
+        conf.post_processing["stochastic_module_names"] = request.param
 
         datamodule = TwoMoonsDataModule()
 
@@ -222,7 +222,7 @@ class TestSWAGClassification:
         conf = OmegaConf.load(
             os.path.join("tests", "configs", "swag", "swag_classification.yaml")
         )
-        conf.post_processing["part_stoch_module_names"] = request.param
+        conf.post_processing["stochastic_module_names"] = request.param
         datamodule = ToyImageClassificationDatamodule()
 
         swag_model = instantiate(conf.post_processing, model=base_model_image.model)

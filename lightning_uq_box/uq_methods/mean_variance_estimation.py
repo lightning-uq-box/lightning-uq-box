@@ -32,10 +32,9 @@ class MVEBase(DeterministicModel):
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             burnin_epochs: number of burnin epochs before switiching to NLL
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
-
         """
         super().__init__(model, None, optimizer, lr_scheduler)
 
@@ -92,8 +91,8 @@ class MVERegression(MVEBase):
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             burnin_epochs: number of burnin epochs before switiching to NLL
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
         """

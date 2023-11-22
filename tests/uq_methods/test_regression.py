@@ -16,19 +16,19 @@ class TestRegressionTask:
     @pytest.mark.parametrize(
         "config_path",
         [
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/mc_dropout_mse.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/mc_dropout_nll.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/mean_variance_estimation.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/qr_model.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/der.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi_elbo.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi_lv_first.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi_lv_last.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/card_linear.yaml"
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/swag.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/sgld_mse.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/sgld_nll.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/mc_dropout_mse.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/mc_dropout_nll.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/mean_variance_estimation.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/qr_model.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/der.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi_elbo.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi_lv_first.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi_lv_last.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/card_linear.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/swag.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/sgld_mse.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/regression/sgld_nll.yaml",
             # "/home/nils/projects/lightning-uq-box/tests/configs/regression/laplace.yaml"
             # "/home/nils/projects/lightning-uq-box/tests/configs/regression/dkl.yaml"
         ],
@@ -49,6 +49,7 @@ class TestRegressionTask:
             str(tmp_path),
         ]
 
+        main(["fit"] + args)
+
         # TODO should probably do this: https://lightning.ai/docs/pytorch/stable/cli/lightning_cli_advanced_3.html#instantiation-only-mode
         # in order to test both training and test
-        main(["fit"] + args)

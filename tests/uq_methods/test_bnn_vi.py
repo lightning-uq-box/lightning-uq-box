@@ -44,7 +44,7 @@ class TestBNN_VI_Model:
         conf.uq_method["_target_"] = request.param[0]
         conf.uq_method["num_training_points"] = dm.X_train.shape[0]
         conf.uq_method["layer_type"] = request.param[1]
-        conf.uq_method["part_stoch_module_names"] = request.param[2]
+        conf.uq_method["stochastic_module_names"] = request.param[2]
         return instantiate(conf.uq_method)
 
     # tests for tabular data
@@ -115,7 +115,7 @@ class TestBNN_VI_Model:
         dm = ToyHeteroscedasticDatamodule()
         conf.uq_method["num_training_points"] = dm.X_train.shape[0]
         conf.uq_method["layer_type"] = request.param[0]
-        conf.uq_method["part_stoch_module_names"] = request.param[1]
+        conf.uq_method["stochastic_module_names"] = request.param[1]
         model = timm.create_model("resnet18", in_chans=3, num_classes=1)
         return instantiate(conf.uq_method, model=model)
 

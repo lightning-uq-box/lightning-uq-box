@@ -16,13 +16,13 @@ class TestRegressionTask:
     @pytest.mark.parametrize(
         "config_path",
         [
-            # "/home/nils/projects/lightning-uq-box/tests/configs/classification/bnn_vi_elbo.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/classification/bnn_vi_elbo.yaml",
             # "/home/nils/projects/lightning-uq-box/tests/configs/classification/dkl.yaml",
             # "/home/nils/projects/lightning-uq-box/tests/configs/classification/due.yaml",
             # "/home/nils/projects/lightning-uq-box/tests/configs/classification/laplace.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/classification/mc_dropout.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/classification/mc_dropout.yaml",
             "/home/nils/projects/lightning-uq-box/tests/configs/classification/sgld.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/classification/swag.yaml",
+            "/home/nils/projects/lightning-uq-box/tests/configs/classification/swag.yaml",
         ],
     )
     def test_trainer(self, config_path: str, tmp_path: Path) -> None:
