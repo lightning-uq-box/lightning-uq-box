@@ -1,5 +1,3 @@
-
-
 model:
   class_path: lightning_uq_box.uq_methods.SWAGRegression
   init_args:
@@ -16,7 +14,6 @@ model:
           init_args:
             lr: 0.003
         burnin_epochs: 1
-    num_swag_epochs: 4
     max_swag_snapshots: 4
     snapshot_freq: 1
     num_mc_samples: 10
