@@ -19,11 +19,17 @@ from .utils import (
 )
 
 
-def find_dropout_layers(model):
+def find_dropout_layers(model: nn.Module) -> list[str]:
+    """Find dropout layers in model."""
     dropout_layers = []
     for name, module in model.named_modules():
         if isinstance(module, nn.Dropout):
             dropout_layers.append(name)
+
+    if not dropout_layers:
+        raise UserWarning(
+            "No dropout layers found in model, maybe dropout is configured through nn.fucntional?"
+        )
     return dropout_layers
 
 
