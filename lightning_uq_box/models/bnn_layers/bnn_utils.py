@@ -24,7 +24,7 @@ def bnn_linear_layer(params: dict[str, Any], linear_layer: nn.Linear) -> nn.Modu
 
 
 def bnn_conv_layer(
-    params, conv_layer: Union[nn.Conv1d, nn.Conv2d, nn.Conv3d]
+    params: dict[str, Any], conv_layer: Union[nn.Conv1d, nn.Conv2d, nn.Conv3d]
 ) -> nn.Module:
     """Convert deterministic convolutional layer to bayesian convolutional layer."""
     layer = conv_layer.__class__.__name__ + "Variational"
@@ -43,7 +43,7 @@ def bnn_conv_layer(
     return bnn_layer
 
 
-def bnn_lstm_layer(params, lstm_layer: nn.LSTM) -> nn.Module:
+def bnn_lstm_layer(params: dict[str, Any], lstm_layer: nn.LSTM) -> nn.Module:
     """Convert lstm layer to bayesian lstm layer."""
     layer = lstm_layer.__class__.__name__ + "Variational"
     layer_fn = getattr(bayesian_layers, layer)
@@ -56,7 +56,11 @@ def bnn_lstm_layer(params, lstm_layer: nn.LSTM) -> nn.Module:
     return bnn_layer
 
 
-def dnn_to_bnn_some(m, bnn_prior_parameters, part_stoch_module_names: int) -> None:
+def convert_deterministic_to_bnn(
+    deterministic_model: nn.Module,
+    bnn_prior_parameters: dict[str, Any],
+    part_stoch_module_names: list[str],
+) -> None:
     """Replace linear and conv. layers with stochastic layers.
 
     Args:
@@ -68,12 +72,11 @@ def dnn_to_bnn_some(m, bnn_prior_parameters, part_stoch_module_names: int) -> No
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization
-        num_stochastic_modules: number of modules that should be stochastic,
-            max value all modules.
+        part_stoch_module_names: list of module names that should become stochastic
     """
     for name in part_stoch_module_names:
         layer_names = name.split(".")
-        current_module = m
+        current_module = deterministic_model
         for l_name in layer_names[:-1]:
             current_module = dict(current_module.named_children())[l_name]
 

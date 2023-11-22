@@ -13,7 +13,7 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
-from lightning_uq_box.models.bnn_layers.utils import dnn_to_bnn_some
+from lightning_uq_box.models.bnn_layers.bnn_utils import convert_deterministic_to_bnn
 from lightning_uq_box.models.bnnlv.utils import (
     get_log_f_hat,
     get_log_normalizer,
@@ -115,7 +115,7 @@ class BNN_VI_Base(DeterministicModel):
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
-        dnn_to_bnn_some(
+        convert_deterministic_to_bnn(
             self.model, self._define_bnn_args(), self.part_stoch_module_names
         )
 

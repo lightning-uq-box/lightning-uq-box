@@ -11,7 +11,10 @@ import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
-from lightning_uq_box.models.bnn_layers.utils import dnn_to_bnn_some, get_kl_loss
+from lightning_uq_box.models.bnn_layers.bnn_utils import (
+    convert_deterministic_to_bnn,
+    get_kl_loss,
+)
 
 from .base import DeterministicModel
 from .utils import (
@@ -114,7 +117,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             "layer_type": self.hparams.bayesian_layer_type,
         }
         # convert deterministic model to BNN
-        dnn_to_bnn_some(
+        convert_deterministic_to_bnn(
             self.model,
             self.bnn_args,
             part_stoch_module_names=self.part_stoch_module_names,
