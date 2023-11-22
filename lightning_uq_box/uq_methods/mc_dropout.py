@@ -19,6 +19,14 @@ from .utils import (
 )
 
 
+def find_dropout_layers(model):
+    dropout_layers = []
+    for name, module in model.named_modules():
+        if isinstance(module, nn.Dropout):
+            dropout_layers.append(name)
+    return dropout_layers
+
+
 class MCDropoutBase(DeterministicModel):
     """MC-Dropout Base class.
 
@@ -32,6 +40,7 @@ class MCDropoutBase(DeterministicModel):
         model: nn.Module,
         num_mc_samples: int,
         loss_fn: nn.Module,
+        dropout_layer_names: list[str] = [],
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -45,6 +54,10 @@ class MCDropoutBase(DeterministicModel):
             lr_scheduler: learning rate scheduler
         """
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
+
+        if not dropout_layer_names:
+            dropout_layer_names = find_dropout_layers(model)
+        self.dropout_layer_names = dropout_layer_names
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -72,12 +85,15 @@ class MCDropoutBase(DeterministicModel):
     def activate_dropout(self) -> None:
         """Activate dropout layers."""
 
-        def activate_dropout_recursive(model):
-            for module in model.children():
-                if isinstance(module, nn.Dropout):
+        def activate_dropout_recursive(model, prefix=""):
+            for name, module in model.named_children():
+                full_name = f"{prefix}.{name}" if prefix else name
+                if full_name in self.dropout_layer_names and isinstance(
+                    module, nn.Dropout
+                ):
                     module.train()
                 elif isinstance(module, nn.Module):
-                    activate_dropout_recursive(module)
+                    activate_dropout_recursive(module, full_name)
 
         activate_dropout_recursive(self.model)
 
@@ -95,6 +111,7 @@ class MCDropoutRegression(MCDropoutBase):
         model: nn.Module,
         num_mc_samples: int,
         loss_fn: nn.Module,
+        dropout_layer_names: list[str] = [],
         burnin_epochs: int = 0,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -110,7 +127,9 @@ class MCDropoutRegression(MCDropoutBase):
             lr_scheduler: learning rate scheduler
              from the predictive distribution
         """
-        super().__init__(model, num_mc_samples, loss_fn, optimizer, lr_scheduler)
+        super().__init__(
+            model, num_mc_samples, loss_fn, dropout_layer_names, optimizer, lr_scheduler
+        )
         self.save_hyperparameters(
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )
@@ -189,6 +208,7 @@ class MCDropoutClassification(MCDropoutBase):
         num_mc_samples: int,
         loss_fn: nn.Module,
         task: str = "multiclass",
+        dropout_layer_names: list[str] = [],
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -205,7 +225,9 @@ class MCDropoutClassification(MCDropoutBase):
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = _get_num_outputs(model)
-        super().__init__(model, num_mc_samples, loss_fn, optimizer, lr_scheduler)
+        super().__init__(
+            model, num_mc_samples, loss_fn, dropout_layer_names, optimizer, lr_scheduler
+        )
 
         self.save_hyperparameters(
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
