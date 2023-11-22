@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from lightning_uq_box.main import main
+from lightning_uq_box.main import get_uq_box_cli
 
 
 class TestRegressionTask:
@@ -29,8 +29,9 @@ class TestRegressionTask:
             "/home/nils/projects/lightning-uq-box/tests/configs/regression/swag.yaml",
             "/home/nils/projects/lightning-uq-box/tests/configs/regression/sgld_mse.yaml",
             "/home/nils/projects/lightning-uq-box/tests/configs/regression/sgld_nll.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/laplace.yaml"
+            # # "/home/nils/projects/lightning-uq-box/tests/configs/regression/laplace.yaml"
             # "/home/nils/projects/lightning-uq-box/tests/configs/regression/dkl.yaml"
+            # "/home/nils/projects/lightning-uq-box/tests/configs/regression/due.yaml"
         ],
     )
     def test_trainer(self, config_path: str, tmp_path: Path) -> None:
@@ -49,7 +50,6 @@ class TestRegressionTask:
             str(tmp_path),
         ]
 
-        main(["fit"] + args)
-
-        # TODO should probably do this: https://lightning.ai/docs/pytorch/stable/cli/lightning_cli_advanced_3.html#instantiation-only-mode
-        # in order to test both training and test
+        cli = get_uq_box_cli(args)
+        cli.trainer.fit(cli.model, cli.datamodule)
+        cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)

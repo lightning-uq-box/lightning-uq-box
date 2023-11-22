@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from lightning_uq_box.main import main
+from lightning_uq_box.main import get_uq_box_cli
 
 
 class TestRegressionTask:
@@ -41,6 +41,6 @@ class TestRegressionTask:
             str(tmp_path),
         ]
 
-        # TODO should probably do this: https://lightning.ai/docs/pytorch/stable/cli/lightning_cli_advanced_3.html#instantiation-only-mode
-        # in order to test both training and test
-        main(["fit"] + args)
+        cli = get_uq_box_cli(args)
+        cli.trainer.fit(cli.model, cli.datamodule)
+        cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
