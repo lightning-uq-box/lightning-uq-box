@@ -1,0 +1,24 @@
+model:
+  class_path: lightning_uq_box.uq_methods.BNN_VI_ELBO_Classification
+  init_args:
+    model:
+      class_path: lightning_uq_box.models.MLP
+      init_args:
+        n_inputs: 2
+        n_outputs: 2
+        n_hidden: [50]
+    optimizer:
+      class_path: torch.optim.SGD
+      init_args:
+        lr: 0.003
+    criterion:
+      class_path: torch.nn.CrossEntropyLoss
+    num_training_points: 200
+    num_mc_samples_train: 3
+    num_mc_samples_test: 3
+    num_training_points: 10
+    prior_mu: 0.0
+    prior_sigma: 1.0
+    posterior_mu_init: 0.0
+    posterior_rho_init: -3.0
+    bayesian_layer_type: "reparameterization"

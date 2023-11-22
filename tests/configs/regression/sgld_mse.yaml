@@ -1,13 +1,15 @@
-uq_method:
-  _target_: lightning_uq_box.uq_methods.SGLDRegression
-  model:
-    _target_: lightning_uq_box.models.MLP
-    n_outputs: 1
-    n_hidden: [50]
-  loss_fn:
-    _target_: torch.nn.MSELoss
-  lr: 0.0001
-  n_sgld_samples: 5
-  weight_decay: 0.1
-  noise_factor: 0.2
-  burnin_epochs: 5
+model:
+  class_path: lightning_uq_box.uq_methods.SGLDRegression
+  init_args:
+    model:
+      class_path: lightning_uq_box.models.MLP
+      init_args:
+        n_outputs: 1
+        n_hidden: [50]
+    loss_fn:
+      class_path: torch.nn.MSELoss
+    lr: 0.0001
+    n_sgld_samples: 5
+    weight_decay: 0.1
+    noise_factor: 0.2
+    burnin_epochs: 5

@@ -1,15 +1,15 @@
 model:
-  class_path: lightning_uq_box.uq_methods.SGLDRegression
+  class_path: lightning_uq_box.uq_methods.SGLDClassification
   init_args:
     model:
       class_path: lightning_uq_box.models.MLP
       init_args:
+        n_inputs: 2
         n_outputs: 2
         n_hidden: [50]
     loss_fn:
-      class_path: lightning_uq_box.uq_methods.NLL
+      class_path: torch.nn.CrossEntropyLoss
     lr: 0.0001
     n_sgld_samples: 5
     weight_decay: 0.1
     noise_factor: 0.2
-    burnin_epochs: 5

@@ -98,7 +98,7 @@ class SGLDBase(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        loss_fn: str,
+        loss_fn: nn.Module,
         lr: float,
         weight_decay: float,
         noise_factor: float,
@@ -116,7 +116,7 @@ class SGLDBase(DeterministicModel):
             n_sgld_samples: number of sgld samples to collect
 
         """
-        super().__init__(model, None, loss_fn, None)
+        super().__init__(model, loss_fn, None, None)
 
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
@@ -172,7 +172,7 @@ class SGLDRegression(SGLDBase):
     def __init__(
         self,
         model: nn.Module,
-        loss_fn: str,
+        loss_fn: nn.Module,
         lr: float,
         weight_decay: float,
         noise_factor: float,
@@ -280,7 +280,7 @@ class SGLDClassification(SGLDBase):
     def __init__(
         self,
         model: nn.Module,
-        loss_fn: str,
+        loss_fn: nn.Module,
         lr: float,
         weight_decay: float,
         noise_factor: float,
