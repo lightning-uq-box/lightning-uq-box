@@ -55,11 +55,11 @@ class RAPS(PosthocBase):
             lamda_criterion: optimize for 'size' or 'adaptiveness'
             task: task type, one of 'binary', 'multiclass', or 'multilabel'
         """
-        self.num_classes = _get_num_outputs(model)
-        assert task in self.valid_tasks
-        self.task = task
         super().__init__(model)
 
+        self.num_classes = self.num_outputs
+        assert task in self.valid_tasks
+        self.task = task
         self.temperature = nn.Parameter(torch.ones(1) * 1.5)
         self.optim_lr = optim_lr
         self.max_iter = max_iter
@@ -70,10 +70,12 @@ class RAPS(PosthocBase):
         self.pct_param_tune = pct_param_tune
         self.lamda_criterion = lamda_criterion
 
+        self.alpha = alpha
+
         self.kreg = kreg
         self.lamda_param = lamda_param
 
-        self.penalties = np.zeros((1, self.num_classes))
+        self.penalties = torch.zeros((1, self.num_classes))
         self.penalties[:, kreg:] += lamda_param
 
     def setup_task(self) -> None:
@@ -98,7 +100,7 @@ class RAPS(PosthocBase):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step after running posthoc fitting methodology."""
         pred_dict = self.predict_step(batch[self.input_key])
 
@@ -109,7 +111,7 @@ class RAPS(PosthocBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Predict steps via Monte Carlo Sampling.
 
         Args:
@@ -155,10 +157,12 @@ class RAPS(PosthocBase):
 
         optimizer = partial(torch.optim.LBFGS, lr=self.optim_lr, max_iter=self.max_iter)
         self.temperature = run_temperature_optimization(
-            optimizer, self.temperature, all_logits, all_labels, self.criterion
+            optimizer, self.temperature, all_logits, all_labels, self.loss_fn
         )
 
         self.Qhat = self.compute_q_hat(all_logits, all_labels)
+
+        self.post_hoc_fitted = True
 
 
 def gen_inverse_quantile_function(
@@ -191,8 +195,10 @@ def gen_cond_quantile_function(
 ):
     """Generalized conditional quantile function."""
     penalties_cumsum = torch.cumsum(penalties, dim=1)
-    sizes_base = ((cumsum + penalties_cumsum) <= tau).sum(dim=1) + 1  # 1 - 1001
-    sizes_base = torch.minimum(sizes_base, scores.shape[1])  # 1-1000
+    sizes_base = ((cumsum + penalties_cumsum) <= tau).sum(dim=1) + 1
+    sizes_base = torch.minimum(
+        sizes_base, torch.ones_like(sizes_base) * scores.shape[1]
+    )
 
     if randomized:
         V = torch.zeros(sizes_base.shape)

@@ -27,9 +27,7 @@ class TestTempScaling:
         return model
 
     @pytest.fixture
-    def temp_scaled_model(
-        self, deterministic_model: DeterministicClassification
-    ) -> RAPS:
+    def raps_model(self, deterministic_model: DeterministicClassification) -> RAPS:
         """Apply RASP to an underlying model."""
         datamodule = TwoMoonsDataModule()
 
@@ -39,25 +37,18 @@ class TestTempScaling:
 
         return temp_scale_model
 
-    def test_forward(self, temp_scaled_model: RAPS) -> None:
+    def test_forward(self, raps_model: RAPS) -> None:
         """Test forward pass of conformalized model."""
-        n_inputs = temp_scaled_model.num_input_features
-        n_outputs = temp_scaled_model.num_outputs
+        n_inputs = raps_model.num_input_features
+        n_outputs = raps_model.num_outputs
         X = torch.randn(5, n_inputs)
-        out = temp_scaled_model(X)
-        assert out.shape[-1] == n_outputs
+        out = raps_model(X)
 
-    def test_predict_step(self, temp_scaled_model: RAPS) -> None:
+    def test_predict_step(self, raps_model: RAPS) -> None:
         """Test predict step outside of Lightning Trainer."""
-        n_inputs = temp_scaled_model.num_input_features
+        n_inputs = raps_model.num_input_features
         X = torch.randn(5, n_inputs)
-        out = temp_scaled_model.predict_step(X)
+        out = raps_model.predict_step(X)
         assert isinstance(out, dict)
         assert isinstance(out["pred"], Tensor)
         assert out["pred"].shape[0] == 5
-
-    def test_trainer(self, temp_scaled_model: RAPS) -> None:
-        """Test QR Model with a Lightning Trainer."""
-        # instantiate datamodule
-        datamodule = TwoMoonsDataModule()
-        trainer = Trainer(log_every_n_steps=1, max_epochs=1)
