@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/nilsleh/lightning-uq-box/main/logo/log.png" width="400" alt="Lightning-UQ-Box logo"/>
+<img src="logo/logo.png" alt="Lightning-UQ-Box logo" width="200" height="100"/>
 
 # lightning-uq-box
 
