@@ -2,12 +2,10 @@
 
 """Adapted from https://github.com/aangelopoulos/conformal_classification"""
 
-import time
 from functools import partial
 from typing import Union
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn as nn
 from lightning import LightningModule
@@ -15,7 +13,7 @@ from torch import Tensor
 
 from .base import PosthocBase
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
-from .utils import _get_num_inputs, _get_num_outputs, default_classification_metrics
+from .utils import _get_num_outputs, default_classification_metrics
 
 
 class RAPS(PosthocBase):
@@ -26,18 +24,21 @@ class RAPS(PosthocBase):
     * https://arxiv.org/abs/2009.14193
     """
 
+    valid_tasks = ["binary", "multiclass", "multilable"]
+
     def __init__(
         self,
         model: Union[LightningModule, nn.Module],
         optim_lr: float = 0.01,
         max_iter: int = 50,
         alpha: float = 0.1,
-        kreg: float = None,
-        lambda_param: float = None,
+        kreg: float = 5,
+        lamda_param: float = 0.01,
         randomized: bool = False,
         allow_zero_sets: bool = False,
         pct_param_tune: float = 0.3,
-        lambda_criterion: str = "size",
+        lamda_criterion: str = "size",
+        task: str = "multiclass",
     ) -> None:
         """Initialize RAPS.
 
@@ -45,47 +46,87 @@ class RAPS(PosthocBase):
             model: model to be calibrated with Temperature S
             optim_lr: learning rate for optimizer
             max_iter: maximum number of iterations to run optimizer
+            alpha: 1 - alpha is the desired coverage
+            kreg: regularization param (smaller kreg leads to smaller sets)
+            lamda_param: regularization param (larger lamda leads to smaller sets)
+            randomized: whether to use randomized version of conformal prediction
+            allow_zero_sets: whether to allow sets of size zero
+            pct_param_tune: fraction of calibration data to use for parameter tuning
+            lamda_criterion: optimize for 'size' or 'adaptiveness'
+            task: task type, one of 'binary', 'multiclass', or 'multilabel'
         """
+        self.num_classes = _get_num_outputs(model)
+        assert task in self.valid_tasks
+        self.task = task
         super().__init__(model)
 
         self.temperature = nn.Parameter(torch.ones(1) * 1.5)
         self.optim_lr = optim_lr
         self.max_iter = max_iter
-        self.criterion = nn.CrossEntropyLoss()
+        self.loss_fn = nn.CrossEntropyLoss()
 
         self.randomized = randomized
         self.allow_zero_sets = allow_zero_sets
         self.pct_param_tune = pct_param_tune
-        self.num_classes = _get_num_outputs(model)
-        self.lambda_criterion = lambda_criterion
+        self.lamda_criterion = lamda_criterion
 
         self.kreg = kreg
-        self.lambda_param = lambda_param
-        if kreg == None or lambda_param == None:
-            kreg, lamda, calib_logits = pick_parameters(
-                model,
-                calib_logits,
-                alpha,
-                kreg,
-                lamda,
-                randomized,
-                allow_zero_sets,
-                pct_param_tune,
-                batch_size,
-                lambda_criterion,
-            )
+        self.lamda_param = lamda_param
 
         self.penalties = np.zeros((1, self.num_classes))
-        self.penalties[:, kreg:] += lamda
+        self.penalties[:, kreg:] += lamda_param
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, self.num_classes
+        )
+
+    def compute_q_hat(self, logits: Tensor, targets: Tensor) -> Tensor:
+        """Compute q_hat."""
+
+        scores = temp_scale_logits(logits, self.temperature)
+        I, ordered, cumsum = sort_sum(scores)
+
+        E = gen_inverse_quantile_function(
+            scores, targets, I, ordered, cumsum, self.penalties, True, True
+        )
+
+        Qhat = torch.quantile(E, 1 - self.alpha, interpolation="higher")
+
+        return Qhat
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, np.ndarray]:
         """Test step after running posthoc fitting methodology."""
-        raise NotImplementedError
+        pred_dict = self.predict_step(batch[self.input_key])
+
+        # logging metrics
+        self.log("test_loss", self.loss_fn(pred_dict["pred"], batch[self.target_key]))
+        self.test_metrics(pred_dict["pred"], batch[self.target_key])
+        return pred_dict
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, np.ndarray]:
+        """Predict steps via Monte Carlo Sampling.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+
+        Returns:
+            logits and conformalized prediction sets
+        """
+        with torch.no_grad():
+            logits = self.model(X)
+            scores = temp_scale_logits(logits, self.temperature)
+            S = self.adjust_model_logits(logits)
+
+        return {"pred": scores, "pred_set": S}
 
     def adjust_model_logits(self, model_logits: Tensor) -> Tensor:
-        """Adjust model output according to post-hoc fitting procedure.
+        """Adjust model output according to RAPS with fitted Qhat.
 
         Args:
             model_logits: model output tensor of shape [batch_size x num_outputs]
@@ -93,7 +134,19 @@ class RAPS(PosthocBase):
         Returns:
             adjusted model logits tensor of shape [batch_size x num_outputs]
         """
-        raise NotImplementedError
+        scores = temp_scale_logits(model_logits, self.temperature)
+        I, ordered, cumsum = sort_sum(scores)
+
+        return gen_cond_quantile_function(
+            scores,
+            self.Qhat,
+            I,
+            ordered,
+            cumsum,
+            self.penalties,
+            self.randomized,
+            self.allow_zero_sets,
+        )
 
     def on_validation_end(self) -> None:
         """Apply RASP conformal method."""
@@ -104,251 +157,103 @@ class RAPS(PosthocBase):
         self.temperature = run_temperature_optimization(
             optimizer, self.temperature, all_logits, all_labels, self.criterion
         )
-        import pdb
 
-        pdb.set_trace()
-        print(0)
+        self.Qhat = self.compute_q_hat(all_logits, all_labels)
 
 
-def pick_parameters(
-    model,
-    calib_logits,
-    alpha,
-    kreg,
-    lamda,
-    randomized,
-    allow_zero_sets,
-    pct_paramtune,
-    batch_size,
-    lambda_criterion,
-):
-    num_paramtune = int(np.ceil(pct_paramtune * len(calib_logits)))
-    #  dataloader with only a percentage of the calib logets and the remaining ones
-    paramtune_logits, calib_logits = tdata.random_split(
-        calib_logits, [num_paramtune, len(calib_logits) - num_paramtune]
-    )
-    paramtune_loader = tdata.DataLoader(
-        paramtune_logits, batch_size=batch_size, shuffle=False, pin_memory=True
-    )
-    calib_loader = tdata.DataLoader(
-        calib_logits, batch_size=batch_size, shuffle=False, pin_memory=True
-    )
+def gen_inverse_quantile_function(
+    scores, targets, I, ordered, cumsum, penalties, randomized, allow_zero_sets
+) -> Tensor:
+    """Generalized inverse quantile conformity score function.
 
-    if kreg == None:
-        # only tune kreg with paramtune data
-        kreg = pick_kreg(paramtune_logits, alpha)
-    if lamda == None:
-        if lambda_criterion == "size":
-            lamda = pick_lamda_size(
-                model, paramtune_loader, alpha, kreg, randomized, allow_zero_sets
-            )
-        elif lambda_criterion == "adaptiveness":
-            lamda = pick_lamda_adaptiveness(
-                model, paramtune_loader, alpha, kreg, randomized, allow_zero_sets
-            )
-    return kreg, lamda, calib_logits
+    E from equation (7) in Romano, Sesia, Candes.  Find the minimum tau in [0, 1] such that the correct label enters.
 
-
-def pick_kreg(paramtune_logits, alpha):
-    gt_locs_kstar = np.array(
-        [
-            np.where(np.argsort(x[0]).flip(dims=(0,)) == x[1])[0][0]
-            for x in paramtune_logits
-        ]
-    )
-    kstar = np.quantile(gt_locs_kstar, 1 - alpha, interpolation="higher") + 1
-    return kstar
-
-
-def pick_lamda_size(model, paramtune_loader, alpha, kreg, randomized, allow_zero_sets):
-    # Calculate lamda_star
-    best_size = iter(paramtune_loader).__next__()[0][1].shape[0]  # number of classes
-    # Use the paramtune data to pick lamda.  Does not violate exchangeability.
-    for temp_lam in [
-        0.001,
-        0.01,
-        0.1,
-        0.2,
-        0.5,
-    ]:  # predefined grid, change if more precision desired.
-        # this is somehow running a hole procedure again, but don't know why we need dataloaders for this
-        conformal_model = ConformalModelLogits(
-            model,
-            paramtune_loader,
-            alpha=alpha,
-            kreg=kreg,
-            lamda=temp_lam,
+    Returns:
+        E: generalized inverse quantile conformity score
+    """
+    E = -torch.ones((scores.shape[0],))
+    for i in range(scores.shape[0]):
+        E[i] = get_single_tau(
+            targets[i].item(),
+            I[i : i + 1, :],
+            ordered[i : i + 1, :],
+            cumsum[i : i + 1, :],
+            penalties[0, :],
             randomized=randomized,
             allow_zero_sets=allow_zero_sets,
-            naive=False,
         )
-        top1_avg, top5_avg, cvg_avg, sz_avg = validate(
-            paramtune_loader, conformal_model, print_bool=False
-        )
-        if sz_avg < best_size:
-            best_size = sz_avg
-            lamda_star = temp_lam
-    return lamda_star
+
+    return E
 
 
-def pick_lamda_adaptiveness(
-    model,
-    paramtune_loader,
-    alpha,
-    kreg,
-    randomized,
-    allow_zero_sets,
-    strata=[[0, 1], [2, 3], [4, 6], [7, 10], [11, 100], [101, 1000]],
+def gen_cond_quantile_function(
+    scores, tau, I, ordered, cumsum, penalties, randomized, allow_zero_sets
 ):
-    # Calculate lamda_star
-    lamda_star = 0
-    best_violation = 1
-    # Use the paramtune data to pick lamda.  Does not violate exchangeability.
-    for temp_lam in [
-        0,
-        1e-5,
-        1e-4,
-        8e-4,
-        9e-4,
-        1e-3,
-        1.5e-3,
-        2e-3,
-    ]:  # predefined grid, change if more precision desired.
-        conformal_model = ConformalModelLogits(
-            model,
-            paramtune_loader,
-            alpha=alpha,
-            kreg=kreg,
-            lamda=temp_lam,
-            randomized=randomized,
-            allow_zero_sets=allow_zero_sets,
-            naive=False,
-        )
-        curr_violation = get_violation(conformal_model, paramtune_loader, strata, alpha)
-        if curr_violation < best_violation:
-            best_violation = curr_violation
-            lamda_star = temp_lam
-    return lamda_star
+    """Generalized conditional quantile function."""
+    penalties_cumsum = torch.cumsum(penalties, dim=1)
+    sizes_base = ((cumsum + penalties_cumsum) <= tau).sum(dim=1) + 1  # 1 - 1001
+    sizes_base = torch.minimum(sizes_base, scores.shape[1])  # 1-1000
 
-
-def sort_sum(scores):
-    I = scores.argsort(axis=1)[:, ::-1]
-    ordered = np.sort(scores, axis=1)[:, ::-1]
-    cumsum = np.cumsum(ordered, axis=1)
-    return I, ordered, cumsum
-
-
-def get_violation(cmodel, loader_paramtune, strata, alpha):
-    df = pd.DataFrame(columns=["size", "correct"])
-    for logit, target in loader_paramtune:
-        # compute output
-        output, S = cmodel(
-            logit
-        )  # This is a 'dummy model' which takes logits, for efficiency.
-        # measure accuracy and record loss
-        size = np.array([x.size for x in S])
-        I, _, _ = sort_sum(logit.numpy())
-        correct = np.zeros_like(size)
-        for j in range(correct.shape[0]):
-            correct[j] = int(target[j] in list(S[j]))
-        batch_df = pd.DataFrame({"size": size, "correct": correct})
-        df = df.append(batch_df, ignore_index=True)
-    wc_violation = 0
-    for stratum in strata:
-        temp_df = df[(df["size"] >= stratum[0]) & (df["size"] <= stratum[1])]
-        if len(temp_df) == 0:
-            continue
-        stratum_violation = abs(temp_df.correct.mean() - (1 - alpha))
-        wc_violation = max(wc_violation, stratum_violation)
-    return wc_violation  # the violation
-
-
-def validate(val_loader, model, print_bool):
-    with torch.no_grad():
-        batch_time = AverageMeter("batch_time")
-        top1 = AverageMeter("top1")
-        top5 = AverageMeter("top5")
-        coverage = AverageMeter("RAPS coverage")
-        size = AverageMeter("RAPS size")
-        # switch to evaluate mode
-        model.eval()
-        end = time.time()
-        N = 0
-        for i, (x, target) in enumerate(val_loader):
-            target = target.cuda()
-            # compute output
-            output, S = model(x.cuda())
-            # measure accuracy and record loss
-            prec1, prec5 = accuracy(output, target, topk=(1, 5))
-            cvg, sz = coverage_size(S, target)
-
-            # Update meters
-            top1.update(prec1.item() / 100.0, n=x.shape[0])
-            top5.update(prec5.item() / 100.0, n=x.shape[0])
-            coverage.update(cvg, n=x.shape[0])
-            size.update(sz, n=x.shape[0])
-
-            # measure elapsed time
-            batch_time.update(time.time() - end)
-            end = time.time()
-            N = N + x.shape[0]
-            if print_bool:
-                print(
-                    f"\rN: {N} | Time: {batch_time.val:.3f} ({batch_time.avg:.3f}) | Cvg@1: {top1.val:.3f} ({top1.avg:.3f}) | Cvg@5: {top5.val:.3f} ({top5.avg:.3f}) | Cvg@RAPS: {coverage.val:.3f} ({coverage.avg:.3f}) | Size@RAPS: {size.val:.3f} ({size.avg:.3f})",
-                    end="",
+    if randomized:
+        V = torch.zeros(sizes_base.shape)
+        for i in range(sizes_base.shape[0]):
+            V[i] = (
+                1
+                / ordered[i, sizes_base[i] - 1]
+                * (
+                    tau
+                    - (cumsum[i, sizes_base[i] - 1] - ordered[i, sizes_base[i] - 1])
+                    - penalties_cumsum[0, sizes_base[i] - 1]
                 )
-    if print_bool:
-        print("")  # Endline
+            )  # -1 since sizes_base \in {1,...,1000}.
 
-    return top1.avg, top5.avg, coverage.avg, size.avg
+        sizes = sizes_base - (torch.rand(V.shape) >= V).int()
+    else:
+        sizes = sizes_base
 
+    # always predict max size if alpha==0. (Avoids numerical error.)
+    if tau == 1.0:
+        sizes[:] = cumsum.shape[1]
 
-class AverageMeter:
-    """Computes and stores the average and current value"""
+    # allow the user the option to never have empty sets (will lead to incorrect coverage if 1-alpha < model's top-1 accuracy
+    if not allow_zero_sets:
+        sizes[sizes == 0] = 1
 
-    def __init__(self, name, fmt=":f"):
-        self.name = name
-        self.fmt = fmt
-        self.reset()
+    S = list()
 
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
+    # Construct S from equation (5)
+    for i in range(I.shape[0]):
+        S = S + [I[i, 0 : sizes[i]]]
 
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-    def __str__(self):
-        fmtstr = "{name} {val" + self.fmt + "} ({avg" + self.fmt + "})"
-        return fmtstr.format(**self.__dict__)
+    return S
 
 
-def coverage_size(S, targets):
-    covered = 0
-    size = 0
-    for i in range(targets.shape[0]):
-        if targets[i].item() in S[i]:
-            covered += 1
-        size = size + S[i].shape[0]
-    return float(covered) / targets.shape[0], size / targets.shape[0]
+def get_single_tau(target, I, ordered, cumsum, penalty, randomized, allow_zero_sets):
+    """Get tau for one example."""
+    idx = torch.where(I == target)
+    tau_nonrandom = cumsum[idx]
+
+    if not randomized:
+        return tau_nonrandom + penalty[0]
+
+    U = np.random.random()
+
+    if idx == (0, 0):
+        if not allow_zero_sets:
+            return tau_nonrandom + penalty[0]
+        else:
+            return U * tau_nonrandom + penalty[0]
+    else:
+        return (
+            U * ordered[idx]
+            + cumsum[(idx[0], idx[1] - 1)]
+            + (penalty[0 : (idx[1][0] + 1)]).sum()
+        )
 
 
-def accuracy(output, target, topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    maxk = max(topk)
-    batch_size = target.size(0)
-
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-    res = []
-    for k in topk:
-        correct_k = correct[:k].float().sum()
-        res.append(correct_k.mul_(100.0 / batch_size))
-    return res
+def sort_sum(scores: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    """Sort and sum scores."""
+    I = torch.argsort(scores, dim=1, descending=True)
+    ordered = torch.sort(scores, dim=1, descending=True).values
+    cumsum = torch.cumsum(ordered, dim=1)
+    return I, ordered, cumsum
