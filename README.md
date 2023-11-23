@@ -1,4 +1,4 @@
-<img src="logo/logo.png" alt="Lightning-UQ-Box logo" width="200" height="100"/>
+<img src="logo/logo.png" alt="Lightning-UQ-Box logo" width="200" height="150" />
 
 # lightning-uq-box
 
