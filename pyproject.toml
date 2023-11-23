@@ -71,8 +71,6 @@ dev = [
     "pytest-cov>=4",
     # pytest lazy fixture
     "pytest-lazy-fixture>=0.6",
-    # hydra for tests
-    "hydra-core>=1.3.2",
 
     ### Docs ###
     # sphinx
@@ -85,6 +83,21 @@ dev = [
     "sphinx-book-theme>=1.0.1",
     # Extension for markdown
     "myst-parser>=2.0",
+    # toggle dropdowns
+    "sphinx-togglebutton>=0.3.2",
+
+    ## Style
+    # black 21.8+ required for Jupyter support
+    "black[jupyter]>=21.8",
+    # flake8 3.8+ depends on pyflakes 2.2+, which fixes a bug with mypy error code ignores:
+    # https://github.com/PyCQA/pyflakes/pull/455
+    "flake8>=3.8",
+    # isort 5.8+ required for extend_skip option
+    "isort[colors]>=5.8",
+    # pydocstyle 6.1+ required for pyproject.toml support
+    "pydocstyle[toml]>=6.1",
+    # pyupgrade 2.8+ required for --py39-plus flag
+    "pyupgrade>=2.8",
 ]
 
 

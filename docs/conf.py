@@ -25,6 +25,7 @@ extensions = [
     "myst_parser",
     "nbsphinx",
     "IPython.sphinxext.ipython_console_highlighting",
+    "sphinx_togglebutton",
 ]
 
 myst_enable_extensions = ["dollarmath", "colon_fence"]
