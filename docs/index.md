@@ -12,6 +12,7 @@ contribute
 tutorial_overview
 method_overview
 application_by_task
+running_experiments
 api/index
 GitHub Repository <https://github.com/nilsleh/lightning-uq-box>
 ```

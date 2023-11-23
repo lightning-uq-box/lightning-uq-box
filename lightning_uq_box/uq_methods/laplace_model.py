@@ -53,7 +53,7 @@ class LaplaceBase(BaseModule):
 
     def __init__(
         self,
-        model: Laplace,
+        laplace_model: Laplace,
         tune_precision_lr: float = 0.1,
         n_epochs_tune_precision: int = 100,
     ) -> None:
@@ -68,7 +68,7 @@ class LaplaceBase(BaseModule):
 
         self.save_hyperparameters(ignore=["model"])
 
-        self.model = model
+        self.laplace_model = laplace_model
 
         self.laplace_fitted = False
 
@@ -212,7 +212,7 @@ class LaplaceRegression(LaplaceBase):
 
     def __init__(
         self,
-        model: Laplace,
+        laplace_model: Laplace,
         tune_precision_lr: float = 0.1,
         n_epochs_tune_precision: int = 100,
     ) -> None:
@@ -223,11 +223,11 @@ class LaplaceRegression(LaplaceBase):
             tune_precision_lr: learning rate for tuning prior precision
             n_epochs_tune_precision: number of epochs to tune prior precision
         """
-        super().__init__(model, tune_precision_lr, n_epochs_tune_precision)
+        super().__init__(laplace_model, tune_precision_lr, n_epochs_tune_precision)
 
-        assert model.likelihood == "regression"
+        assert laplace_model.likelihood == "regression"
 
-        self.model = model
+        self.model = laplace_model
 
         self.loss_fn = torch.nn.MSELoss()
 

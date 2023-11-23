@@ -1,0 +1,14 @@
+model:
+  class_path: lightning_uq_box.uq_methods.QuantileRegression
+  init_args:
+    model:
+      class_path: lightning_uq_box.models.MLP
+      init_args:
+        n_outputs: 3
+        n_hidden: [50]
+        activation_fn:
+          class_path: torch.nn.ReLU
+    optimizer:
+      class_path: torch.optim.SGD
+      init_args:
+        lr: 0.003

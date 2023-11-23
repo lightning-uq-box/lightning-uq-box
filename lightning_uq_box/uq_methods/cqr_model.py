@@ -3,12 +3,13 @@
 import math
 import numbers
 import os
-from typing import Any
+from typing import Any, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
 
 from .base import PosthocBase
@@ -62,7 +63,9 @@ class ConformalQR(PosthocBase):
     """
 
     def __init__(
-        self, model: LightningModule, quantiles: list[float] = [0.1, 0.5, 0.9]
+        self,
+        model: Union[nn.Module, LightningModule],
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize a new CQR model.
 
@@ -105,18 +108,6 @@ class ConformalQR(PosthocBase):
         # TODO intitialize zero tensors for memory efficiency
         self.model_outputs = []
         self.labels = []
-
-    # Memory efficient version
-    # def on_validation_start(self) -> None:
-    #     """Before validation epoch starts, create tensors that gather model outputs and labels."""
-    #     num_validation_samples = len(self.val_dataloader().dataset)
-    #     self.model_outputs = torch.zeros(num_validation_samples, device=self.device)
-    #     self.labels = torch.zeros(num_validation_samples, device=self.device)
-    # def validation_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> None:
-    #     start_idx = batch_idx * self.val_dataloader().batch_size
-    #     end_idx = start_idx + len(batch[self.input_key])
-    #     self.model_outputs[start_idx:end_idx] = self.model(batch[self.input_key])
-    #     self.labels[start_idx:end_idx] = batch[self.target_key]
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -192,3 +183,7 @@ class ConformalQR(PosthocBase):
             "upper_quant": cqr_sets[:, -1],
             "out": cqr_sets,
         }
+
+    def configure_optimizers(self) -> OptimizerLRScheduler:
+        """No optimizer needed for Conformal QR."""
+        pass

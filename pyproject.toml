@@ -71,8 +71,6 @@ dev = [
     "pytest-cov>=4",
     # pytest lazy fixture
     "pytest-lazy-fixture>=0.6",
-    # hydra for tests
-    "hydra-core>=1.3.2",
 
     ### Docs ###
     # sphinx
@@ -85,6 +83,21 @@ dev = [
     "sphinx-book-theme>=1.0.1",
     # Extension for markdown
     "myst-parser>=2.0",
+    # toggle dropdowns
+    "sphinx-togglebutton>=0.3.2",
+
+    ## Style
+    # black 21.8+ required for Jupyter support
+    "black[jupyter]>=21.8",
+    # flake8 3.8+ depends on pyflakes 2.2+, which fixes a bug with mypy error code ignores:
+    # https://github.com/PyCQA/pyflakes/pull/455
+    "flake8>=3.8",
+    # isort 5.8+ required for extend_skip option
+    "isort[colors]>=5.8",
+    # pydocstyle 6.1+ required for pyproject.toml support
+    "pydocstyle[toml]>=6.1",
+    # pyupgrade 2.8+ required for --py39-plus flag
+    "pyupgrade>=2.8",
 ]
 
 
@@ -115,6 +128,20 @@ filterwarnings = [
 
     # Lightning warns us if TensorBoard is not installed
     "ignore:Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `lightning.pytorch` package:UserWarning",
+
+    # https://github.com/Lightning-AI/lightning/issues/18545
+    "ignore:LightningCLI's args parameter is intended to run from within Python like if it were from the command line.:UserWarning",
+
+    # MLP has activation_fn as a module that can be changed, we use it in tests
+    "ignore:Unable to serialize instance ReLU()",
+
+    # Post Hoc methods TODO maybe more finegrained control in tests
+    "ignore:`LightningModule.configure_optimizers` returned `None`, this fit will run with no optimizer",
+    "ignore:`training_step` returned `None`. If this was on purpose, ignore this warning...",
 ]
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}
+
+
+[project.scripts]
+uq-box = "lightning_uq_box.main:main"

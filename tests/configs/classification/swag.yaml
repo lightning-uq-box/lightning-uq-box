@@ -1,0 +1,15 @@
+model:
+  class_path: lightning_uq_box.uq_methods.SWAGClassification
+  init_args:
+    model:
+      class_path: lightning_uq_box.models.MLP
+      init_args:
+        n_inputs: 2
+        n_outputs: 2
+        n_hidden: [50]
+    max_swag_snapshots: 4
+    snapshot_freq: 1
+    num_mc_samples: 10
+    swag_lr: 0.001
+    loss_fn:
+      class_path: torch.nn.CrossEntropyLoss

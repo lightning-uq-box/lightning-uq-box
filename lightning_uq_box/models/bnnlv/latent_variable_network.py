@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from lightning_uq_box.models.bnn_layers.utils import calc_log_normalizer
+from lightning_uq_box.models.bnn_layers.bnn_utils import calc_log_normalizer
 
 
 def calc_log_f_hat_z(

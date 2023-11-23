@@ -67,15 +67,40 @@ def spectral_normalize_model_layers(
 
 
 class _SpectralBatchNorm(_NormBase):
+    """Spectral Batch Normalization."""
+
     def __init__(
-        self, num_features, coeff, eps=1e-5, momentum=0.01, affine=True
+        self,
+        num_features: int,
+        coeff: float,
+        eps: float = 1e-5,
+        momentum: float = 0.01,
+        affine: bool = True,
     ):  # momentum is 0.01 by default instead of 0.1 of BN which alleviates
         # noisy power iteration
         # Code is based on torch.nn.modules._NormBase
+        """Initialize a new instance of Spectral Batch Normalization.
+
+        Args:
+            num_features: number of features
+            coeff: soft normalization only when sigma larger than coeff
+            eps: a value added to the denominator for numerical stability.
+                Default: 1e-5
+            momentum: the value used for the running_mean and running_var
+                computation. Can be set to ``None`` for cumulative moving average
+                (i.e. simple average).
+            affine: a boolean value that when set to ``True``, this module has
+                learnable affine parameters.
+        """
         super().__init__(num_features, eps, momentum, affine, track_running_stats=True)
         self.coeff = coeff
 
     def forward(self, input: Tensor) -> Tensor:
+        """Forward pass of spectral batch norm.
+
+        Args:
+            input: input tensor
+        """
         self._check_input_dim(input)
 
         # exponential_average_factor is set to self.momentum

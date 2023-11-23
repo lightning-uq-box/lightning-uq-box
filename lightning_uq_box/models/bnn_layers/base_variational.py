@@ -11,7 +11,10 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import Parameter
 
-from .utils import calc_log_f_hat, calc_log_normalizer
+from lightning_uq_box.models.bnn_layers.bnn_utils import (
+    calc_log_f_hat,
+    calc_log_normalizer,
+)
 
 
 class BaseVariationalLayer_(nn.Module):

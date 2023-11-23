@@ -37,3 +37,11 @@ In Progress.
 ## Semantic Segmentation 
 
 In Progress.
+
+## Earth Observation applications
+
+```{toctree}
+:maxdepth: 1
+
+tutorials/earth_observation
+```

@@ -1,12 +1,13 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LRScheduler
@@ -31,8 +32,6 @@ class BaseModule(LightningModule):
 
     input_key = "input"
     target_key = "target"
-
-    pred_file_name = "predictions.csv"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize a new instance of the Base Module."""
@@ -60,22 +59,19 @@ class BaseModule(LightningModule):
 class DeterministicModel(BaseModule):
     """Deterministic Base Trainer as LightningModule."""
 
-    input_key = "input"
-    target_key = "target"
-
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         loss_fn: nn.Module,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Base Model.
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             loss_fn: loss function used for optimization
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         super().__init__()
@@ -102,7 +98,7 @@ class DeterministicModel(BaseModule):
         """
         return out[:, 0:1]
 
-    def forward(self, X: Tensor, **kwargs: Any) -> Any:
+    def forward(self, X: Tensor) -> Any:
         """Forward pass of the model.
 
         Args:
@@ -111,7 +107,7 @@ class DeterministicModel(BaseModule):
         Returns:
             output from the model
         """
-        return self.model(X, **kwargs)
+        return self.model(X)
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -208,27 +204,13 @@ class DeterministicModel(BaseModule):
             out = self.forward(X)
         return {"pred": self.extract_mean_output(out)}
 
-    # def on_test_batch_end(
-    #     self,
-    #     outputs: dict[str, np.ndarray],
-    #     batch: Any,
-    #     batch_idx: int,
-    #     dataloader_idx=0,
-    # ):
-    #     """Test batch end save predictions."""
-    #     if self.save_dir:
-    #         save_predictions_to_csv(
-    #             outputs, os.path.join(self.save_dir, self.pred_file_name)
-    # )
-
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
-            a "lr dict" according to the pytorch lightning documentation --
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+            a "lr dict" according to the pytorch lightning documentation
         """
-        optimizer = self.optimizer(params=self.parameters())
+        optimizer = self.optimizer(self.parameters())
         if self.lr_scheduler is not None:
             lr_scheduler = self.lr_scheduler(optimizer=optimizer)
             return {
@@ -242,11 +224,26 @@ class DeterministicModel(BaseModule):
 class DeterministicRegression(DeterministicModel):
     """Deterministic Base Trainer for regression as LightningModule."""
 
+    pred_file_name = "preds.csv"
+
     def setup_task(self) -> None:
         """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
+
+    # def on_test_batch_end(
+    #     self,
+    #     outputs: dict[str, np.ndarray],
+    #     batch: Any,
+    #     batch_idx: int,
+    #     dataloader_idx=0,
+    # ):
+    #     """Test batch end save predictions."""
+    #     if self.save_dir:
+    #         save_predictions_to_csv(
+    #             outputs, os.path.join(self.save_dir, self.pred_file_name)
+    # )
 
 
 class DeterministicClassification(DeterministicModel):
@@ -257,24 +254,24 @@ class DeterministicClassification(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         loss_fn: nn.Module,
         task: str = "multiclass",
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
-        """Initialize a new Base Model.
+        """Initialize a new Deterministic Classification Model.
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             loss_fn: loss function used for optimization
             task: what kind of classification task, choose one of ["binary", "multiclass", "multilabel"]
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         self.num_classes = _get_num_outputs(model)
         assert task in self.valid_tasks
         self.task = task
-        super().__init__(model, optimizer, loss_fn, lr_scheduler)
+        super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract mean output from model output.
