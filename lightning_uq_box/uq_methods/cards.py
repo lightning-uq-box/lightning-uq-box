@@ -71,6 +71,7 @@ class CARDBase(BaseModule):
         )
 
         self.guidance_optim = guidance_optim
+        self.lr_scheduler = lr_scheduler
 
         self.setup_task()
 

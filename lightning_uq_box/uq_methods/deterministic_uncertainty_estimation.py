@@ -22,10 +22,10 @@ class DUERegression(DKLRegression):
     def __init__(
         self,
         feature_extractor: nn.Module,
-        gp_layer: type[ApproximateGP],
-        elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
-        input_size: int = None,
+        input_size: int,
+        num_targets: int = 1,
+        gp_kernel: str = "RBF",
         coeff: float = 0.95,
         n_power_iterations: int = 1,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -37,18 +37,18 @@ class DUERegression(DKLRegression):
 
         Args:
             feature_extractor: feature extractor model
-            gp_layer: Gaussian Process layer
-            elbo_fn: gpytorch elbo function used for optimization
             n_inducing_points: number of inducing points
-            optimizer: optimizer used for training
+            num_targets: number of targets
+            gp_kernel: GP kernel, one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ]
             inputs_size: reature input size of data to the model
             coeff: soft normalization only when sigma larger than coeff should be (0, 1)
             n_power_iterations: number of power iterations for spectral normalization
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         self.input_size = input_size
 
-        self.input_dimensions = collect_input_sizes(feature_extractor, input_size)
+        self.input_dimensions = collect_input_sizes(feature_extractor, self.input_size)
         # spectral normalize the feature extractor layers
         feature_extractor = spectral_normalize_model_layers(
             feature_extractor, n_power_iterations, self.input_dimensions, coeff
@@ -56,9 +56,9 @@ class DUERegression(DKLRegression):
 
         super().__init__(
             feature_extractor,
-            gp_layer,
-            elbo_fn,
             n_inducing_points,
+            num_targets,
+            gp_kernel,
             optimizer,
             lr_scheduler,
         )
@@ -75,10 +75,10 @@ class DUEClassification(DKLClassification):
     def __init__(
         self,
         feature_extractor: nn.Module,
-        gp_layer: type[ApproximateGP],
-        elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
-        input_size: int = None,
+        input_size: int,
+        num_classes: int,
+        gp_kernel: str = "RBF",
         task: str = "multiclass",
         coeff: float = 0.95,
         n_power_iterations: int = 1,
@@ -101,7 +101,7 @@ class DUEClassification(DKLClassification):
         """
         self.input_size = input_size
 
-        self.input_dimensions = collect_input_sizes(feature_extractor, input_size)
+        self.input_dimensions = collect_input_sizes(feature_extractor, self.input_size)
         # spectral normalize the feature extractor layers
         feature_extractor = spectral_normalize_model_layers(
             feature_extractor, n_power_iterations, self.input_dimensions, coeff
@@ -109,9 +109,9 @@ class DUEClassification(DKLClassification):
 
         super().__init__(
             feature_extractor,
-            gp_layer,
-            elbo_fn,
             n_inducing_points,
+            num_classes,
+            gp_kernel,
             task,
             optimizer,
             lr_scheduler,

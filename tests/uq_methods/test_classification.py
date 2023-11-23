@@ -8,29 +8,29 @@ import pytest
 
 from lightning_uq_box.main import get_uq_box_cli
 
+model_config_paths = [
+    "tests/configs/classification/mc_dropout.yaml",
+    "tests/configs/classification/bnn_vi_elbo.yaml",
+    "tests/configs/classification/swag.yaml",
+    "tests/configs/classification/sgld.yaml",
+    "tests/configs/classification/dkl.yaml",
+    # "tests/configs/classification/due.yaml"
+]
 
-class TestRegressionTask:
-    # @pytest.mark.parametrize(
-    #     "config_path", glob.glob(os.path.join("tests", "configs", "classification", "*.yaml"))
-    # )
-    @pytest.mark.parametrize(
-        "config_path",
-        [
-            "/home/nils/projects/lightning-uq-box/tests/configs/classification/bnn_vi_elbo.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/classification/dkl.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/classification/due.yaml",
-            # "/home/nils/projects/lightning-uq-box/tests/configs/classification/laplace.yaml",
-            "/home/nils/projects/lightning-uq-box/tests/configs/classification/mc_dropout.yaml",
-            "/home/nils/projects/lightning-uq-box/tests/configs/classification/sgld.yaml",
-            "/home/nils/projects/lightning-uq-box/tests/configs/classification/swag.yaml",
-        ],
-    )
-    def test_trainer(self, config_path: str, tmp_path: Path) -> None:
+data_config_paths = ["tests/configs/classification/toy_classification.yaml"]
+
+
+class TestClassificationTask:
+    @pytest.mark.parametrize("model_config_path", model_config_paths)
+    @pytest.mark.parametrize("data_config_path", data_config_paths)
+    def test_trainer(
+        self, model_config_path: str, data_config_path: str, tmp_path: Path
+    ) -> None:
         args = [
             "--config",
-            config_path,
+            model_config_path,
             "--config",
-            "/home/nils/projects/lightning-uq-box/tests/configs/classification/toy_classification.yaml",
+            data_config_path,
             "--trainer.accelerator",
             "cpu",
             "--trainer.max_epochs",

@@ -2,7 +2,7 @@
 
 import os
 from functools import partial
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import gpytorch
 import numpy as np
@@ -12,6 +12,7 @@ from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import MaternKernel, RBFKernel, RQKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood, SoftmaxLikelihood
 from gpytorch.means import ConstantMean
+from gpytorch.mlls import VariationalELBO
 from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.utils.grid import ScaleToBounds
@@ -40,12 +41,15 @@ class DKLBase(gpytorch.Module, BaseModule):
     * https://proceedings.mlr.press/v51/wilson16.html
     """
 
+    # TODO make elbo_fn an argument that can be instatiated with
+    # different elbo functions and Lightning CLI
+    kernel_choices = ["RBF", "Matern12", "Matern32", "Matern52", "RQ"]
+
     def __init__(
         self,
         feature_extractor: nn.Module,
         n_inducing_points: int,
-        gp_layer: Optional[ApproximateGP] = None,
-        elbo_fn: Optional[_ApproximateMarginalLogLikelihood] = None,
+        gp_kernel: str = "RBF",
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -56,27 +60,30 @@ class DKLBase(gpytorch.Module, BaseModule):
         Args:
             feature_extractor: feature extractor model
             n_inducing_points: number of inducing points
+            gp_kernel: kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             elbo_fn: gpytorch elbo function used for optimization
-            gp_layer: Gaussian Process layer
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         super().__init__()
         self.save_hyperparameters(
-            ignore=["feature_extractor", "optimizer", "lr_scheduler"]
+            ignore=[
+                "feature_extractor",
+                "gp_layer",
+                "optimizer",
+                "lr_scheduler",
+                "elbo_fn",
+            ]
         )
+
+        assert (
+            gp_kernel in self.kernel_choices
+        ), "Please choose one of the supported kernel choices ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']"  # noqa: E501
+        self.gp_kernel = gp_kernel
         self.optimizer = optimizer
         self.feature_extractor = feature_extractor
-        self.gp_layer = gp_layer
-        self.elbo_fn = elbo_fn
 
         self.lr_scheduler = lr_scheduler
-
-        # partially initialized gp layer
-        # if gp_layer is None:
-        #     self.gp_layer = partial(gp_layer, DKLGPLayer)
-        # else:
-        self.gp_layer = gp_layer
 
         self.dkl_model_built = False
 
@@ -248,10 +255,8 @@ class DKLRegression(DKLBase):
         self,
         feature_extractor: nn.Module,
         n_inducing_points: int,
-        # gp_layer: type[ApproximateGP],
-        # elbo_fn: type[_ApproximateMarginalLogLikelihood],
-        gp_layer: ApproximateGP,
-        elbo_fn: _ApproximateMarginalLogLikelihood,
+        num_targets: int = 1,
+        gp_kernel: str = "RBF",
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -259,24 +264,27 @@ class DKLRegression(DKLBase):
 
         Args:
             feature_extractor: feature extractor model
-            gp_layer: Gaussian Process layer
-            elbo_fn: gpytorch elbo function used for optimization
             n_inducing_points: number of inducing points
+            num_targets: number of targets
+            gp_kernel: kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            elbo_fn: gpytorch elbo function used for optimization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         super().__init__(
-            feature_extractor,
-            n_inducing_points,
-            gp_layer,
-            elbo_fn,
-            optimizer,
-            lr_scheduler,
+            feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
         )
 
         self.save_hyperparameters(
-            ignore=["feature_extractor", "gp_layer", "optimizer", "lr_scheduler"]
+            ignore=[
+                "feature_extractor",
+                "gp_layer",
+                "optimizer",
+                "lr_scheduler",
+                "elbo_fn",
+            ]
         )
+        self.num_targets = num_targets
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -286,16 +294,17 @@ class DKLRegression(DKLBase):
 
     def _build_model(self) -> None:
         """Build the model ready for training."""
-        import pdb
 
-        pdb.set_trace()
-        self.gp_layer = self.gp_layer(
+        self.gp_layer = DKLGPLayer(
+            n_outputs=self.num_targets,
             initial_lengthscale=self.initial_lengthscale,
             initial_inducing_points=self.initial_inducing_points,
+            kernel=self.gp_kernel,
         )
         self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
         self.likelihood = GaussianLikelihood()
-        self.elbo_fn = self.elbo_fn(
+
+        self.elbo_fn = VariationalELBO(
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
 
@@ -368,9 +377,9 @@ class DKLClassification(DKLBase):
         self,
         feature_extractor: nn.Module,
         n_inducing_points: int,
+        num_classes: int,
         task: str = "multiclass",
-        gp_layer: Optional[ApproximateGP] = None,
-        elbo_fn: Optional[_ApproximateMarginalLogLikelihood] = None,
+        gp_kernel: str = "RBF",
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -378,8 +387,7 @@ class DKLClassification(DKLBase):
 
         Args:
             feature_extractor: feature extractor model
-            gp_layer: Gaussian Process layer
-            elbo_fn: gpytorch elbo function used for optimization
+            gp_kernel: GP kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             n_inducing_points: number of inducing points
             optimizer: optimizer used for training
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
@@ -388,19 +396,22 @@ class DKLClassification(DKLBase):
         assert task in self.valid_tasks
         self.task = task
 
-        self.num_classes = gp_layer.keywords["n_outputs"]
+        self.num_classes = num_classes
         self.num_features = _get_num_inputs(feature_extractor)
 
         super().__init__(
-            feature_extractor,
-            n_inducing_points,
-            gp_layer,
-            elbo_fn,
-            optimizer,
-            lr_scheduler,
+            feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
         )
 
-        self.save_hyperparameters(ignore=["feature_extractor"])
+        self.save_hyperparameters(
+            ignore=[
+                "feature_extractor",
+                "gp_layer",
+                "optimizer",
+                "lr_scheduler",
+                "elbo_fn",
+            ]
+        )
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -420,15 +431,17 @@ class DKLClassification(DKLBase):
 
     def _build_model(self) -> None:
         """Build the model ready for training."""
-        self.gp_layer = self.gp_layer(
+        self.gp_layer = DKLGPLayer(
+            n_outputs=self.num_classes,
             initial_lengthscale=self.initial_lengthscale,
             initial_inducing_points=self.initial_inducing_points,
+            kernel=self.gp_kernel,
         )
         self.scale_to_bounds = ScaleToBounds(-2.0, 2.0)
         self.likelihood = SoftmaxLikelihood(
             num_classes=self.num_classes, num_features=self.num_features
         )
-        self.elbo_fn = self.elbo_fn(
+        self.elbo_fn = VariationalELBO(
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
 

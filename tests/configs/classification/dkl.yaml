@@ -1,20 +1,16 @@
 model:
   class_path: lightning_uq_box.uq_methods.DKLClassification
-  feature_extractor:
-    class_path: lightning_uq_box.models.MLP
-    init_args:
-      n_inputs: 2
-      n_outputs: 10
-      n_hidden: [50]
-  gp_layer:
-    class_path: lightning_uq_box.uq_methods.DKLGPLayer
-    init_args:
-      n_outputs: 2
-      kernel: "RBF"
-  optimizer:
-    class_path: torch.optim.Adam
-    init_args:
-      lr: 0.003
-  elbo_fn:
-    class_path: gpytorch.mlls.VariationalELBO
-  n_inducing_points: 50
+  init_args:
+    feature_extractor:
+      class_path: lightning_uq_box.models.MLP
+      init_args:
+        n_inputs: 2
+        n_outputs: 10
+        n_hidden: [50]
+    gp_kernel: "RBF"
+    optimizer:
+      class_path: torch.optim.Adam
+      init_args:
+        lr: 0.003
+    n_inducing_points: 50
+    num_classes: 2

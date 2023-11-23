@@ -10,28 +10,24 @@ import pytest
 from lightning_uq_box.main import get_uq_box_cli
 
 model_config_paths = [
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/mc_dropout_mse.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/mc_dropout_nll.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/mean_variance_estimation.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/qr_model.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/der.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi_elbo.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi_lv_first.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/bnn_vi_lv_last.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/card_linear.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/swag.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/sgld_mse.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/sgld_nll.yaml",
-    "/home/nils/projects/lightning-uq-box/tests/configs/regression/laplace.yaml"
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/dkl.yaml"
-    # "/home/nils/projects/lightning-uq-box/tests/configs/image_regression/mc_dropout_nll.yaml"
+    "tests/configs/regression/mc_dropout_mse.yaml",
+    "tests/configs/regression/mc_dropout_nll.yaml",
+    "tests/configs/regression/mean_variance_estimation.yaml",
+    "tests/configs/regression/qr_model.yaml",
+    "tests/configs/regression/der.yaml",
+    "tests/configs/regression/bnn_vi_elbo.yaml",
+    "tests/configs/regression/bnn_vi.yaml",
+    "tests/configs/regression/bnn_vi_lv_first.yaml",
+    "tests/configs/regression/bnn_vi_lv_last.yaml",
+    "tests/configs/regression/card_linear.yaml",
+    "tests/configs/regression/swag.yaml",
+    "tests/configs/regression/sgld_mse.yaml",
+    "tests/configs/regression/sgld_nll.yaml",
+    "tests/configs/regression/dkl.yaml",
+    "tests/configs/regression/due.yaml",
 ]
 
-data_config_paths = [
-    "/home/nils/projects/lightning-uq-box/tests/configs/regression/toy_regression.yaml",
-    # "/home/nils/projects/lightning-uq-box/tests/configs/regression/toy_regression_image.yaml"
-]
+data_config_paths = ["tests/configs/regression/toy_regression.yaml"]
 
 
 class TestRegressionTask:
