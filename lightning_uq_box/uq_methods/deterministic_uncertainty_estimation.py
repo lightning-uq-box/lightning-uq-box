@@ -111,8 +111,8 @@ class DUEClassification(DKLClassification):
             feature_extractor,
             n_inducing_points,
             num_classes,
-            gp_kernel,
             task,
+            gp_kernel,
             optimizer,
             lr_scheduler,
         )
@@ -120,11 +120,7 @@ class DUEClassification(DKLClassification):
 
 def collect_input_sizes(feature_extractor, input_size):
     """Spectral Normalization needs input sizes to each layer."""
-    try:
-        _, module = _get_input_layer_name_and_module(feature_extractor)
-    except UnboundLocalError:
-        input_dimensions = {}
-        return input_dimensions
+    _, module = _get_input_layer_name_and_module(feature_extractor)
 
     if isinstance(module, torch.nn.Linear):
         input_tensor = torch.zeros(1, module.in_features)

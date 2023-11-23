@@ -133,7 +133,11 @@ filterwarnings = [
     "ignore:LightningCLI's args parameter is intended to run from within Python like if it were from the command line.:UserWarning",
 
     # MLP has activation_fn as a module that can be changed, we use it in tests
-    "ignore:Unable to serialize instance ReLU()"
+    "ignore:Unable to serialize instance ReLU()",
+
+    # Post Hoc methods TODO maybe more finegrained control in tests
+    "ignore:`LightningModule.configure_optimizers` returned `None`, this fit will run with no optimizer",
+    "ignore:`training_step` returned `None`. If this was on purpose, ignore this warning...",
 ]
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}

@@ -14,6 +14,7 @@ model_config_paths = [
     "tests/configs/regression/mc_dropout_nll.yaml",
     "tests/configs/regression/mean_variance_estimation.yaml",
     "tests/configs/regression/qr_model.yaml",
+    "tests/configs/regression/conformal_qr.yaml",
     "tests/configs/regression/der.yaml",
     "tests/configs/regression/bnn_vi_elbo.yaml",
     "tests/configs/regression/bnn_vi.yaml",

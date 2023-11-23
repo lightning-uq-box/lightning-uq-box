@@ -393,6 +393,10 @@ class DKLClassification(DKLBase):
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             lr_scheduler: learning rate scheduler
         """
+        if task not in self.valid_tasks:
+            import pdb
+
+            pdb.set_trace()
         assert task in self.valid_tasks
         self.task = task
 
