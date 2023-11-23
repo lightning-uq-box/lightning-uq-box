@@ -1,4 +1,0 @@
-uq_method:
-  _target_: lightning_uq_box.uq_methods.QuantileRegressionModel
-  model:
-    n_outputs: 3

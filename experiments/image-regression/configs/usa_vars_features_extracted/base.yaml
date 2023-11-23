@@ -1,7 +1,0 @@
-# everything to configure the UQ method
-uq_method:
-  _target_: lightning_uq_box.uq_methods.BaseModel
-  model:
-    n_outputs: 1
-  loss_fn:
-    _target_: torch.nn.MSELoss
