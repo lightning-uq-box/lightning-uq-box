@@ -442,7 +442,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
-            optimizer and lr_scheduler
+            a "lr dict" according to the pytorch lightning documentation
         """
         # optimizer_args = getattr(self.optimizer, "keywords")
         # wd = optimizer_args.get("weight_decay", 0.0)
@@ -452,7 +452,15 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=0.01)
 
         optimizer = self.optimizer(params)
-        return optimizer
+        optimizer = self.optimizer(self.parameters())
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}
 
 
 class BNN_LV_VI_Regression(BNN_LV_VI_Base):

@@ -258,8 +258,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
-            a "lr dict" according to the pytorch lightning documentation --
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+            a "lr dict" according to the pytorch lightning documentation
         """
         params = self.exclude_from_wt_decay(
             self.named_parameters(), weight_decay=self.hparams.weight_decay

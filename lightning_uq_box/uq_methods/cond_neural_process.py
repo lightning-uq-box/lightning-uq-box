@@ -1,39 +1,31 @@
 """Conditional Neural Process."""
 
-from typing import Any
+from typing import Any, Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from neuralprocess.model import Model as NPModel
+from neuralprocesses.dist import AbstractMultiOutputDistribution
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
-
-from lightning_uq_box.eval_utils import compute_quantiles_from_std
 
 from .base import BaseModule
+from .utils import default_regression_metrics
 
 # TODO: https://github.com/makora9143/pytorch-convcnp/blob/master/convcnp/dataset/dataset.py
 # TODO: write appropriate Data Generator
 # TODO:
 
-# Exlanation Conditional Neural Process
-# NPs model the mapping from datasets to parameters directly using Deep Sets Theory
-# Encoder: Set Encoder takes in pairs of input and target samples, so all N points in the datasets
-#   pass them through an encoder which yields a vector representation over which you take a sum
-#   which distills a dataset representation (mapping from dataset to a vector)
 
-# Decoder: function rho, where we also pass in the query location (location at which we want to make a prediction)
-#   and together with the encoder representation we pass it through the decoder to get a mean and std
-#   representation for each query location (mapping from a vector to mean/var), use decoder to query arbitrary test locations
-
-# Training Procedure
-
-
-class DeepSensorModule(BaseModule):
+class NeuralProcess(BaseModule):
     """Lightning Module to train Deep Sensor models."""
 
-    def __init__(self, deep_sensor_model):
+    def __init__(
+        self,
+        model: NPModel,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
+    ):
         """Initialize a new instance of the Deep Sensor Module.
 
         Args:
@@ -41,13 +33,16 @@ class DeepSensorModule(BaseModule):
         """
         super().__init__()
 
-        self.deep_sensor_model = deep_sensor_model
-        # this is just the neural process model
-        self.np_model = deep_sensor_model.model
-
+        self.model
         self.fix_noise = None
         self.num_lv_samples = 8
         self.normalise = True
+
+    def setup_task(self) -> None:
+        """Setup task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
 
     def forward(self, batch: dict[str, Any]) -> AbstractMultiOutputDistribution:
         """Forward pass of NP Model.
@@ -58,7 +53,7 @@ class DeepSensorModule(BaseModule):
         Returns:
             neuralprocess distribution
         """
-        return self.np_model(
+        return self.model(
             batch["context_data"],
             batch["xt"],
             **batch["model_kwargs"],
@@ -146,6 +141,18 @@ class DeepSensorModule(BaseModule):
     def predict_step(self, *args: Any, **kwargs: Any) -> Any:
         """Prediction Step."""
 
-    def configure_optimizers(self):
-        """Configure optimizers."""
-        return torch.optim.Adam(self.np_model.parameters(), lr=0.001)
+    def configure_optimizers(self) -> dict[str, Any]:
+        """Initialize the optimizer and learning rate scheduler.
+
+        Returns:
+            a "lr dict" according to the pytorch lightning documentation
+        """
+        optimizer = self.optimizer(self.parameters())
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}

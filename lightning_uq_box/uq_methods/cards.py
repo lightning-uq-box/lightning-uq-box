@@ -435,7 +435,15 @@ class CARDBase(BaseModule):
 
         # put conditional mean model on device as well
         self.cond_mean_model = self.cond_mean_model.to(self.device)
-        return optimizer
+
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}
 
 
 class CARDRegression(CARDBase):

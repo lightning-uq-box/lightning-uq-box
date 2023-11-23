@@ -250,10 +250,18 @@ class BNN_VI_Base(DeterministicModel):
         # TODO this does not work with lightning CLI correctly yet
         # self.optimizer is not a partial function anymore that can be accessed with keywords
         # using default weight decay for now
+
         params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=0.01)
 
         optimizer = self.optimizer(params)
-        return optimizer
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}
 
 
 class BNN_VI_Regression(BNN_VI_Base):

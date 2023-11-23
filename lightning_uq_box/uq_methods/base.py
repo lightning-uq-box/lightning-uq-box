@@ -208,8 +208,7 @@ class DeterministicModel(BaseModule):
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
-            a "lr dict" according to the pytorch lightning documentation --
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+            a "lr dict" according to the pytorch lightning documentation
         """
         optimizer = self.optimizer(self.parameters())
         if self.lr_scheduler is not None:
