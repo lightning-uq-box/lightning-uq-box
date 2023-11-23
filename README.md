@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/nilsleh/lightning-uq-box/main/logo/log.png" width="400" alt="Lightning-UQ-Box logo"/>
+
 # lightning-uq-box
 
 The lightning-uq-box is a PyTorch library that provides various Uncertainty Quantification (UQ) techniques for modern neural network architectures. 
