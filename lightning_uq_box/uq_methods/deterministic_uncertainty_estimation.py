@@ -1,5 +1,7 @@
 """Deterministic Uncertainty Estimation."""
 
+from typing import Dict
+
 import torch
 import torch.nn as nn
 from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
@@ -93,7 +95,7 @@ class DUEClassification(DKLClassification):
             elbo_fn: gpytorch elbo function used for optimization
             n_inducing_points: number of inducing points
             optimizer: optimizer used for training
-            inputs_size: reature input size of data to the model
+            inputs_size: input size of image data to the model
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             coeff: soft normalization only when sigma larger than coeff should be (0, 1)
             n_power_iterations: number of power iterations for spectral normalization
@@ -118,8 +120,16 @@ class DUEClassification(DKLClassification):
         )
 
 
-def collect_input_sizes(feature_extractor, input_size):
-    """Spectral Normalization needs input sizes to each layer."""
+def collect_input_sizes(feature_extractor, input_size) -> Dict[str, torch.Size]:
+    """Spectral Normalization needs input sizes to each layer.
+
+    Args:
+        feature_extractor: feature extractor model
+        input_size: input size of image data to the model
+
+    Returns:
+        input_dimensions: dictionary of input dimensions to each layer
+    """
     _, module = _get_input_layer_name_and_module(feature_extractor)
 
     if isinstance(module, torch.nn.Linear):

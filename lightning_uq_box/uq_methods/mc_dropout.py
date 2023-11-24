@@ -26,10 +26,10 @@ def find_dropout_layers(model: nn.Module) -> list[str]:
         if isinstance(module, nn.Dropout):
             dropout_layers.append(name)
 
-    if not dropout_layers:
-        raise UserWarning(
-            "No dropout layers found in model, maybe dropout is configured through nn.fucntional?"
-        )
+    # if not dropout_layers:
+    #     raise UserWarning(
+    #         "No dropout layers found in model, maybe dropout is implemented through nn.fucntional?"
+    #     )
     return dropout_layers
 
 

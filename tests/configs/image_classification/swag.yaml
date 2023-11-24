@@ -1,0 +1,13 @@
+model:
+  _target_: lightning_uq_box.uq_methods.SWAGClassification
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    num_classes: 2
+    drop_rate: 0.1
+  max_swag_snapshots: 4
+  snapshot_freq: 1
+  num_mc_samples: 10
+  swag_lr: 0.001
+  loss_fn:
+    _target_: torch.nn.CrossEntropyLoss

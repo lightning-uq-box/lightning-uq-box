@@ -28,6 +28,7 @@ from torch import Tensor
 from .base import BaseModule
 from .utils import (
     _get_num_inputs,
+    _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
 )
@@ -187,6 +188,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
         self.log("val_loss", loss)  # logging to Logger
+
         self.val_metrics(y_pred.mean, y.squeeze(-1))
         return loss
 
@@ -395,15 +397,12 @@ class DKLClassification(DKLBase):
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             lr_scheduler: learning rate scheduler
         """
-        if task not in self.valid_tasks:
-            import pdb
-
-            pdb.set_trace()
         assert task in self.valid_tasks
         self.task = task
 
         self.num_classes = num_classes
-        self.num_features = _get_num_inputs(feature_extractor)
+        # number of latent features of the feature extractor
+        self.num_features = _get_num_outputs(feature_extractor)
 
         super().__init__(
             feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
@@ -438,7 +437,7 @@ class DKLClassification(DKLBase):
     def _build_model(self) -> None:
         """Build the model ready for training."""
         self.gp_layer = DKLGPLayer(
-            n_outputs=self.num_classes,
+            n_outputs=self.num_features,
             initial_lengthscale=self.initial_lengthscale,
             initial_inducing_points=self.initial_inducing_points,
             kernel=self.gp_kernel,
@@ -450,6 +449,57 @@ class DKLClassification(DKLBase):
         self.elbo_fn = VariationalELBO(
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
+
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute and return the training loss.
+
+        Args:
+            batch: the output of your DataLoader
+
+        Returns:
+            training loss
+        """
+        X, y = batch[self.input_key], batch[self.target_key]
+
+        y_pred = self.forward(X)
+        loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
+
+        self.log("train_loss", loss)  # logging to Logger
+        scores = self.likelihood(y_pred).probs.mean(0)
+        self.train_metrics(scores, y.squeeze(-1))
+        return loss
+
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute validation loss and log example predictions.
+
+        Args:
+            batch: the output of your DataLoader
+            batch_idx: the index of this batch
+
+        Returns:
+            validation loss
+        """
+        X, y = batch[self.input_key], batch[self.target_key]
+
+        # in sanity checking GPPYtorch is not in eval
+        # and we get a device error
+        if self.trainer.sanity_checking:
+            self.scale_to_bounds.train()
+            y_pred = self.forward(X)
+            self.scale_to_bounds.eval()
+        else:
+            y_pred = self.forward(X)
+
+        loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
+
+        self.log("val_loss", loss)  # logging to Logger
+        scores = self.likelihood(y_pred).probs.mean(0)
+        self.val_metrics(scores, y.squeeze(-1))
+        return loss
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -465,7 +515,10 @@ class DKLClassification(DKLBase):
             -self.elbo_fn(out_dict["out"], batch[self.target_key].squeeze(-1)),
         )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
-            self.test_metrics(out_dict["out"].mean, batch[self.target_key].squeeze(-1))
+            self.test_metrics(
+                self.likelihood(out_dict["out"]).probs.mean(0),
+                batch[self.target_key].squeeze(-1),
+            )
 
         del out_dict["out"]
 
@@ -500,7 +553,7 @@ class DKLClassification(DKLBase):
         ), gpytorch.settings.fast_pred_var(state=False):
             gp_dist = self.forward(X)
             output = self.likelihood(gp_dist)
-            mean = output.logits.mean(0).cpu()  # take mean over sampling dimension
+            mean = output.probs.mean(0).cpu()  # take mean over sampling dimension
             entropy = output.entropy().mean(0).cpu()
         return {"pred": mean, "pred_uct": entropy, "out": gp_dist}
 
@@ -523,7 +576,7 @@ class DKLGPLayer(ApproximateGP):
         """Initialize a new instance of the Gaussian Process Layer.
 
         Args:
-            n_outpus: number of target outputs
+            n_outpus: number of latent output features of the GP
             initial_lengthscale: initial lengthscale to use
             initial_inducing_points: initial inducing points to use
             kernel: kernel choice, supports one of
