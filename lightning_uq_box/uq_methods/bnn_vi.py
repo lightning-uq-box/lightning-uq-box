@@ -507,7 +507,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["model", "optimizer", "lr_scheduler"])
 
     def _define_bnn_args(self):
         """Define BNN Args."""
@@ -523,7 +523,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             ),
         }
 
-    def forward(self, X: Tensor, n_samples: int = 5) -> Tensor:
+    def forward(self, X: Tensor, n_samples: int) -> Tensor:
         """Forward pass BNN+LI.
 
         Args:
@@ -556,9 +556,12 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
         # BUGS here in log_f_hat should be shape [n_samples]
 
+        # batched sampling is implemented for a max amount of samples
+        # however, self.hparams.n_mc_samples_train might be smaller
+        # thus pick those number of sapmles from log_f_hat
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
-            get_log_f_hat([self.model]),
+            get_log_f_hat([self.model])[: self.hparams.n_mc_samples_train],
             get_log_Z_prior([self.model]),
             get_log_normalizer([self.model]),
             log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
@@ -574,14 +577,16 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         Args:
             X: prediction batch of shape [batch_size x input_dims]
         """
-        preds = []
+        # preds = []
         with torch.no_grad():
-            for _ in range(
-                int(self.hparams.n_mc_samples_test / self.hparams.n_mc_samples_train)
-            ):
-                preds.append(self.forward(X).cpu())
+            # TODO why is this not batched?
+            # for _ in range(
+            #     int(self.hparams.n_mc_samples_test / self.hparams.n_mc_samples_train)
+            # ):
+            #     preds.append(self.forward(X).cpu())
+            model_preds = self.forward(X, self.hparams.n_mc_samples_test).cpu()
 
-        model_preds = torch.cat(preds, dim=0)
+        # model_preds = torch.cat(preds, dim=0)
         mean_out = model_preds.mean(dim=0).squeeze()
 
         std_epistemic = model_preds.std(dim=0).squeeze()

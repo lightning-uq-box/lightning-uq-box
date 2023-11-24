@@ -579,7 +579,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
-            "bayesian_layer_type": self.hparams.bayesian_layer_type,
+            "layer_type": self.hparams.bayesian_layer_type,
             "batched_samples": True,
             "max_n_samples": max(
                 self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
@@ -646,7 +646,9 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
 
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
-            get_log_f_hat([self.model, self.prediction_head]),
+            get_log_f_hat([self.model, self.prediction_head])[
+                : self.hparams.n_mc_samples_train
+            ],  # noqa: E203
             get_log_Z_prior([self.model, self.prediction_head]),
             get_log_normalizer([self.model, self.prediction_head]),
             log_normalizer_z=self.lv_net.log_normalizer_z,  # log_normalizer_z

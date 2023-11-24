@@ -86,50 +86,51 @@ class EnergyAlphaDivergence(nn.Module):
         return loss * one_over_N
 
 
-class LowRankMultivariateNormal_NLL(nn.Module):
-    """Negative Log Likelihood loss."""
+# TODO to be addded for pixel wise regression
+# class LowRankMultivariateNormal_NLL(nn.Module):
+#     """Negative Log Likelihood loss."""
 
-    def __init__(self, rank=10, eps=1e-8):
-        """Initialize a new instance of LowRankMultivariateNormal_NLL.
+#     def __init__(self, rank=10, eps=1e-8):
+#         """Initialize a new instance of LowRankMultivariateNormal_NLL.
 
-        Args:
-          rank: rank (=number of columns) of covariance matrix factor matrix.
-          eps: eps-value for strictly positive diagonal Psi
+#         Args:
+#           rank: rank (=number of columns) of covariance matrix factor matrix.
+#           eps: eps-value for strictly positive diagonal Psi
 
-        """
-        super().__init__()
-        self.rank = rank
-        self.eps = eps
+#         """
+#         super().__init__()
+#         self.rank = rank
+#         self.eps = eps
 
-    def forward(self, preds: Tensor, target: Tensor):
-        """Compute LowRankMultivariateNormal_NLL Loss.
+#     def forward(self, preds: Tensor, target: Tensor):
+#         """Compute LowRankMultivariateNormal_NLL Loss.
 
-        Args:
-          preds: batch_size x (rank + 2) x tager_shape, consisting of mu and Gamma and Psi
-          target: batch_size x target_shape, regression targets
+#         Args:
+#           preds: batch_size x (rank + 2) x tager_shape, consisting of mu and Gamma and Psi
+#           target: batch_size x target_shape, regression targets
 
-        Returns:
-          computed loss for the entire batch
-        """
+#         Returns:
+#           computed loss for the entire batch
+#         """
 
-        mu, gamma, psi = (
-            preds[:, 0:1],
-            preds[:, 1 : self.rank + 1],
-            preds[:, self.tran + 1].exp() + self.eps,
-        )
+#         mu, gamma, psi = (
+#             preds[:, 0:1],
+#             preds[:, 1 : self.rank + 1],
+#             preds[:, self.tran + 1].exp() + self.eps,
+#         )
 
-        [b, w, h] = target.shape
+#         [b, w, h] = target.shape
 
-        gamma = gamma.reshape([b, w * h, self.rank])
-        psi = torch.diag(psi, diagonal=-1)
+#         gamma = gamma.reshape([b, w * h, self.rank])
+#         psi = torch.diag(psi, diagonal=-1)
 
-        lowrank_norm = torch.distributions.LowRankMultivariateNormal(
-            loc=mu, cov_factor=gamma, cov_diag=psi
-        )
+#         lowrank_norm = torch.distributions.LowRankMultivariateNormal(
+#             loc=mu, cov_factor=gamma, cov_diag=psi
+#         )
 
-        loss = -lowrank_norm.log_prob(target)
-        loss = torch.mean(loss, dim=0)
-        return loss
+#         loss = -lowrank_norm.log_prob(target)
+#         loss = torch.mean(loss, dim=0)
+#         return loss
 
 
 class NLL(nn.Module):
@@ -155,29 +156,6 @@ class NLL(nn.Module):
         )
         loss = torch.mean(loss, dim=0)
         return loss
-
-
-class TheirNLL(nn.Module):
-    """NLL Loss from Wilson papers.
-
-    https://github.com/wjmaddox/drbayes/blob/0c0c32edade51f1ec471753b7bf258f40bf8fdd6/subspace_inference/losses.py#L4
-
-    """
-
-    def __init__(self, *args, **kwargs) -> None:
-        """Initialize a new instance."""
-        super().__init__(*args, **kwargs)
-
-    def forward(self, preds: Tensor, target: Tensor):
-        """Compute loss."""
-        mean = preds[:, 0].view_as(target)
-        var = preds[:, 1].view_as(target)
-
-        mse = torch.nn.functional.mse_loss(mean, target, reduction="none")
-        mean_portion = mse / (2 * var)
-        var_portion = 0.5 * torch.log(var)
-        loss = mean_portion + var_portion
-        return loss.mean()
 
 
 class QuantileLoss(nn.Module):

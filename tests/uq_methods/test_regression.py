@@ -21,6 +21,8 @@ model_config_paths = [
     "tests/configs/regression/der.yaml",
     "tests/configs/regression/bnn_vi_elbo.yaml",
     "tests/configs/regression/bnn_vi.yaml",
+    "tests/configs/regression/bnn_vi_batched.yaml",
+    "tests/configs/regression/bnn_vi_lv_first_batched.yaml",
     "tests/configs/regression/bnn_vi_lv_first.yaml",
     "tests/configs/regression/bnn_vi_lv_last.yaml",
     "tests/configs/regression/swag.yaml",
