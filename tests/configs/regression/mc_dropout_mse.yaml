@@ -18,4 +18,4 @@ model:
     lr_scheduler:
       class_path: torch.optim.lr_scheduler.ConstantLR
     num_mc_samples: 10
-    burnin_epochs: 5
+    burnin_epochs: 1
