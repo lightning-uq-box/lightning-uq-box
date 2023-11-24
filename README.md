@@ -24,9 +24,3 @@ $ pip install .
 
 ## Documentation 
 We aim to provide an extensive documentation on all included UQ-methods that provide some theoretical background, as well as tutorials that illustrate these methods on toy datasets. 
-
-## Contribution
-For a basic contribution guide see this [doc](contribution_guide.md).
-
-## Citation
-If you use this software in your work, please cite...
