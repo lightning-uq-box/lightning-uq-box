@@ -138,6 +138,9 @@ filterwarnings = [
     # Post Hoc methods TODO maybe more finegrained control in tests
     "ignore:`LightningModule.configure_optimizers` returned `None`, this fit will run with no optimizer",
     "ignore:`training_step` returned `None`. If this was on purpose, ignore this warning...",
+
+    # MC-Dropout timm libraries implement dropout as functional an not module
+    "ignore:No dropout layers found in model, maybe dropout is implemented through nn.fucntional?"
 ]
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}

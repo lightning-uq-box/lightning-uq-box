@@ -13,9 +13,8 @@ class ToyImageRegressionDataset(Dataset):
         super().__init__()
 
         self.num_samples = 10
-        self.nun_classes = 6
         self.images = [torch.ones(3, 64, 64) * val for val in range(self.num_samples)]
-        self.targets = torch.randint(0, self.nun_classes, (self.num_samples,))
+        self.targets = torch.arange(0, self.num_samples).to(torch.float32)
 
     def __len__(self):
         """Return the length of the dataset."""

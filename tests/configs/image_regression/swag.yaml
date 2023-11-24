@@ -1,0 +1,19 @@
+model:
+  _target_: lightning_uq_box.uq_methods.SWAGRegression
+  model:
+    _target_: lightning_uq_box.uq_methods.MVERegression
+    model:
+      _target_: timm.create_model
+      model_name: resnet18
+      num_classes: 2
+    optimizer:
+      _target_: torch.optim.Adam
+      _partial_: true
+      lr: 0.003
+    burnin_epochs: 1
+  max_swag_snapshots: 4
+  snapshot_freq: 1
+  num_mc_samples: 10
+  swag_lr: 0.001
+  loss_fn:
+    _target_: lightning_uq_box.uq_methods.NLL
