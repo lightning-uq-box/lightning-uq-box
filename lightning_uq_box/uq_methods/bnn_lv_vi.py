@@ -202,6 +202,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                 feature_output = self.model(test_x)
 
             _, lv_input_module = _get_input_layer_name_and_module(latent_net)
+
             assert (
                 lv_input_module.in_features
                 == last_module_args["out_features"] + feature_output.shape[-1]

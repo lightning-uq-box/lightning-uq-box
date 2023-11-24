@@ -143,7 +143,10 @@ def calc_log_f_hat(w: Tensor, m_W: Tensor, std_W: Tensor, prior_sigma: float) ->
     out = ((v_W - prior_sigma) / (2 * prior_sigma * v_W)) * (w**2) + (m_W / v_W) * w
     # sum out over all dimension except first
 
-    return torch.sum(out, dim=tuple(range(1, out.ndim)))
+    # this does not support both linear anc conv layers
+    # conv layers have number of filters in first dimension
+    # return torch.sum(out, dim=tuple(range(1, out.ndim)))
+    return torch.atleast_1d(torch.sum(out))  # keep dimension 0
 
 
 def calc_log_normalizer(m_W: Tensor, std_W: Tensor) -> Tensor:

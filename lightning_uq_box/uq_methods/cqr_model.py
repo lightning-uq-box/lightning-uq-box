@@ -22,7 +22,7 @@ from .utils import (
 
 
 def compute_q_hat_with_cqr(
-    cal_preds: Tensor, cal_labels: Tensor, error_rate: float
+    cal_preds: Tensor, cal_labels: Tensor, alpha: float
 ) -> float:
     """Compute q_hat which is the adjustment factor for quantiles.
 
@@ -31,7 +31,7 @@ def compute_q_hat_with_cqr(
     Args:
         cal_preds: calibration set predictions
         cal_labels: calibration set targets
-        error_rate: desired error rate for quantile
+        alpha: 1 - alpha is desired error rate for quantile
 
     Returns:
         q_hat the computed quantile by which prediction intervals
@@ -48,7 +48,7 @@ def compute_q_hat_with_cqr(
 
     # Get the score quantile
     q_hat = torch.quantile(
-        cal_scores, math.ceil((n + 1) * (1 - error_rate)) / n, interpolation="higher"
+        cal_scores, math.ceil((n + 1) * (1 - alpha)) / n, interpolation="higher"
     )
 
     return q_hat
@@ -79,9 +79,9 @@ class ConformalQR(PosthocBase):
 
         self.quantiles = quantiles
 
-        self.error_rate = 1 - max(
-            self.hparams.quantiles
-        )  # 1-alpha is the desired coverage
+        self.alpha = max(self.hparams.quantiles)
+
+        self.error_rate = 1 - self.alpha  # 1-alpha is the desired coverage
 
     def adjust_model_output(self, model_output: Tensor) -> Tensor:
         """Conformalize underlying model output.
@@ -137,7 +137,7 @@ class ConformalQR(PosthocBase):
         all_labels = torch.cat(self.labels, dim=0)
 
         # calibration quantiles assume order of outputs corresponds to order of quantiles
-        self.q_hat = compute_q_hat_with_cqr(all_outputs, all_labels, self.error_rate)
+        self.q_hat = compute_q_hat_with_cqr(all_outputs, all_labels, self.alpha)
 
         self.post_hoc_fitted = True
 

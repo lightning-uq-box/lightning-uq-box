@@ -47,7 +47,12 @@ def get_log_f_hat(models: list[nn.Module]):
                 if log_f_hat is None:
                     log_f_hat = layer.log_f_hat()
                 else:
-                    log_f_hat += layer.log_f_hat()
+                    try:
+                        log_f_hat += layer.log_f_hat()
+                    except:
+                        import pdb
+
+                        pdb.set_trace()
 
     return log_f_hat
 

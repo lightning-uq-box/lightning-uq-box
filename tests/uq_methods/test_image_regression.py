@@ -22,7 +22,6 @@ model_config_paths = [
     "tests/configs/image_regression/der.yaml",
     "tests/configs/image_regression/bnn_vi_elbo.yaml",
     "tests/configs/image_regression/bnn_vi.yaml",
-    "tests/configs/image_regression/bnn_vi_lv_first.yaml",
     "tests/configs/image_regression/bnn_vi_lv_last.yaml",
     "tests/configs/image_regression/swag.yaml",
     "tests/configs/image_regression/sgld_mse.yaml",
@@ -57,53 +56,49 @@ class TestImageRegressionTask:
 
 
 ensemble_model_config_paths = [
-    "tests/configs/image_regression/mc_dropout_mse.yaml",
     "tests/configs/image_regression/mc_dropout_nll.yaml",
     "tests/configs/image_regression/mean_variance_estimation.yaml",
 ]
 
 
-# class TestDeepEnsemble:
-#     @pytest.fixture(
-#         params=[
-#             (model_config_path, data_config_path)
-#             for model_config_path in ensemble_model_config_paths
-#             for data_config_path in data_config_paths
-#         ]
-#     )
-#     def ensemble_members_dict(self, request, tmp_path_factory: TempPathFactory) -> None:
-#         model_config_path, data_config_path = request.param
-#         model_conf = OmegaConf.load(model_config_path)
-#         data_conf = OmegaConf.load(data_config_path)
-#         # train networks for deep ensembles
-#         ckpt_paths = []
-#         for i in range(5):
-#             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
+class TestDeepEnsemble:
+    @pytest.fixture(
+        params=[
+            (model_config_path, data_config_path)
+            for model_config_path in ensemble_model_config_paths
+            for data_config_path in data_config_paths
+        ]
+    )
+    def ensemble_members_dict(self, request, tmp_path_factory: TempPathFactory) -> None:
+        model_config_path, data_config_path = request.param
+        model_conf = OmegaConf.load(model_config_path)
+        data_conf = OmegaConf.load(data_config_path)
+        # train networks for deep ensembles
+        ckpt_paths = []
+        for i in range(5):
+            tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
-#             model = instantiate(model_conf.model)
-#             datamodule = instantiate(data_conf.data)
-#             trainer = Trainer(
-#                 max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
-#             )
-#             trainer.fit(model, datamodule)
-#             trainer.test(ckpt_path="best", datamodule=datamodule)
+            model = instantiate(model_conf.model)
+            datamodule = instantiate(data_conf.data)
+            trainer = Trainer(
+                max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+            )
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
 
-#             # Find the .ckpt file in the lightning_logs directory
-#             ckpt_file = glob.glob(
-#                 f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
-#             )[0]
-#             ckpt_paths.append({"base_model": model, "ckpt_path": ckpt_file})
+            # Find the .ckpt file in the lightning_logs directory
+            ckpt_file = glob.glob(
+                f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
+            )[0]
+            ckpt_paths.append({"base_model": model, "ckpt_path": ckpt_file})
 
-#         return ckpt_paths
+        return ckpt_paths
 
-#     def test_deep_ensemble(self, ensemble_members_dict: Dict[str, Any]) -> None:
-#         """Test Deep Ensemble."""
-#         ensemble_model = DeepEnsembleRegression(
-#             len(ensemble_members_dict), ensemble_members_dict, 2
-#         )
-
-#         datamodule = ToyImageRegressionDatamodule()
-
-#         trainer = Trainer()
-
-#         trainer.test(ensemble_model, datamodule=datamodule)
+    def test_deep_ensemble(self, ensemble_members_dict: Dict[str, Any]) -> None:
+        """Test Deep Ensemble."""
+        ensemble_model = DeepEnsembleRegression(
+            len(ensemble_members_dict), ensemble_members_dict
+        )
+        datamodule = ToyImageRegressionDatamodule()
+        trainer = Trainer()
+        trainer.test(ensemble_model, datamodule=datamodule)

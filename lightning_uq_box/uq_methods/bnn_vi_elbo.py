@@ -370,7 +370,9 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         Returns:
             nll loss for the task
         """
-        if self.current_epoch < self.hparams.burnin_epochs:
+        if self.current_epoch < self.hparams.burnin_epochs or isinstance(
+            self.criterion, nn.MSELoss
+        ):
             # compute mse loss with output noise scale, is like mse
             loss = torch.nn.functional.mse_loss(self.extract_mean_output(pred), y)
         else:
