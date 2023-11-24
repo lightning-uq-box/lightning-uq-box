@@ -7,7 +7,7 @@ torchmetrics==1.2
 torchvision==0.16
 lightning==2.1.2
 timm==0.9.11
-scikit-learn==1.3
+scikit-learn==1.3.2
 laplace-torch==0.1a2
 gpytorch==1.11
-pandas==1.1.3
+pandas==1.5.3

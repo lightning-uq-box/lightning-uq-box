@@ -47,7 +47,7 @@ dependencies = [
     "pandas>=1.1.3",
     # torch 1.12+ required by torchvision
     "torch>=2.0",
-    # timm 0.4.12 required by segmentation-models-pytorch
+    # timm 
     "timm>=0.9.11",
     # torchmetrics 0.10+ required for binary/multiclass/multilabel classification metrics
     "torchmetrics>=1.2",
