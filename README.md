@@ -17,16 +17,10 @@ To this end, each UQ-Method is essentially nothing more than a [Lightning Module
 ## Installation
 
 ```console
-$ git clone https://github.com/nilsleh/lightning-uq-box.git
+$ git clone https://github.com/lightning-uq-box/lightning-uq-box.git
 $ cd lightning-uq-box
 $ pip install .
 ```
 
 ## Documentation 
 We aim to provide an extensive documentation on all included UQ-methods that provide some theoretical background, as well as tutorials that illustrate these methods on toy datasets. 
-
-## Contribution
-For a basic contribution guide see this [doc](contribution_guide.md).
-
-## Citation
-If you use this software in your work, please cite...
