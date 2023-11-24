@@ -14,4 +14,4 @@ model:
         lr: 0.003
     lr_scheduler:
       class_path: torch.optim.lr_scheduler.ConstantLR
-    burnin_epochs: 5
+    burnin_epochs: 1

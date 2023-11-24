@@ -49,7 +49,7 @@ class TestRegressionTask:
             "--trainer.accelerator",
             "cpu",
             "--trainer.max_epochs",
-            "1",
+            "2",
             "--trainer.log_every_n_steps",
             "1",
             "--trainer.default_root_dir",
