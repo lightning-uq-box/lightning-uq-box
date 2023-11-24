@@ -373,6 +373,8 @@ class DKLClassification(DKLBase):
 
     valid_tasks = ["binary", "multiclass", "multilable"]
 
+    # gp_layer: Callable[[only. the two args that are needed from computation], DKLGPLayer]
+    # similar to optimizer only include the arguments in the callable args section that are missing from conf file
     def __init__(
         self,
         feature_extractor: nn.Module,

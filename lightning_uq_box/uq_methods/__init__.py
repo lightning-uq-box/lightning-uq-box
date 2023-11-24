@@ -19,7 +19,6 @@ from .bnn_vi_elbo import (
     BNN_VI_ELBO_Classification,
     BNN_VI_ELBO_Regression,
 )
-from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
 from .cqr_model import ConformalQR
 from .deep_ensemble import (
     DeepEnsemble,
@@ -58,11 +57,6 @@ __all__ = (
     "DeterministicModel",
     "DeterministicClassification",
     "DeterministicRegression",
-    # CARD Model
-    "CARDBase",
-    "CARDRegression",
-    "CARDClassification",
-    "NoiseScheduler",
     # conformalized Quantile Regression
     "ConformalQR",
     # MC-Dropout

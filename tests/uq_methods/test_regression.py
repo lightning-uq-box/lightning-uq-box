@@ -20,7 +20,6 @@ model_config_paths = [
     "tests/configs/regression/bnn_vi.yaml",
     "tests/configs/regression/bnn_vi_lv_first.yaml",
     "tests/configs/regression/bnn_vi_lv_last.yaml",
-    "tests/configs/regression/card_linear.yaml",
     "tests/configs/regression/swag.yaml",
     "tests/configs/regression/sgld_mse.yaml",
     "tests/configs/regression/sgld_nll.yaml",
