@@ -44,9 +44,11 @@ release = lightning_uq_box.__version__
 exclude_patterns = ["_build"]
 html_theme = "sphinx_book_theme"  # "sphinx_book_theme"
 html_title = "Lightning-UQ-Box"
-# html_logo = "_static/zap.svg"
-# html_favicon = "_static/favicon.png"
+html_logo = "_static/logo.png"
+html_favicon = "_static/logo.png"
 html_static_path = ["_static"]
+html_css_files = ["css/custom.css"]
+
 html_show_sourcelink = False
 html_theme_options = {
     "path_to_docs": "docs",
