@@ -28,3 +28,4 @@ model:
     posterior_mu_init: 0.0
     posterior_rho_init: -6.0
     alpha: 1e-03
+    bayesian_layer_type: flipout
