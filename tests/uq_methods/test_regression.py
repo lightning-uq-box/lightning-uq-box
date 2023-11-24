@@ -1,8 +1,5 @@
 """Test Regression Tasks."""
 
-import glob
-import os
-from itertools import product
 from pathlib import Path
 
 import pytest

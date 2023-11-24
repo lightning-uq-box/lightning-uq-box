@@ -15,5 +15,7 @@ model:
         lr: 0.003
     loss_fn:
       class_path: torch.nn.MSELoss
+    lr_scheduler:
+      class_path: torch.optim.lr_scheduler.ConstantLR
     num_mc_samples: 10
     burnin_epochs: 5

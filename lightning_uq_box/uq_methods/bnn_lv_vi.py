@@ -454,7 +454,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         optimizer = self.optimizer(params)
         optimizer = self.optimizer(self.parameters())
         if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            lr_scheduler = self.lr_scheduler(optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},

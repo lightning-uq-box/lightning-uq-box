@@ -12,4 +12,6 @@ model:
       class_path: torch.optim.SGD
       init_args:
         lr: 0.003
+    lr_scheduler:
+      class_path: torch.optim.lr_scheduler.ConstantLR
     burnin_epochs: 5
