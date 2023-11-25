@@ -22,7 +22,7 @@ from .bnn_vi_elbo import (
     BNN_VI_ELBO_Classification,
     BNN_VI_ELBO_Regression,
 )
-from .cqr_model import ConformalQR
+from .conformal_qr import ConformalQR
 from .deep_ensemble import (
     DeepEnsemble,
     DeepEnsembleClassification,

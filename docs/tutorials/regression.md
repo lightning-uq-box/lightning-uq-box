@@ -13,7 +13,6 @@ regression/laplace
 regression/deep_ensemble
 regression/gp
 regression/mc_dropout
-regression/cards
 regression/bnn_vi_elbo
 regression/bnn_vi
 regression/bnn_vi_lv

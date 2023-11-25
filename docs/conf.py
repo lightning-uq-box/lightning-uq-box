@@ -30,6 +30,7 @@ extensions = [
 
 myst_enable_extensions = ["dollarmath", "colon_fence"]
 master_doc = "index"
+# list of source suffix to include .py for jupytext
 source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 templates_path = ["_templates"]
 
@@ -37,10 +38,11 @@ source_dirs = ["api", "tutorials"]
 
 # General information about the project.
 project = "Lightning-UQ-Box"
-# copyright = "."
+copyright = "2023, lightning-uq-box"
 version = lightning_uq_box.__version__
 release = lightning_uq_box.__version__
 
+# exclude ipynb for jupytext
 exclude_patterns = ["_build"]
 html_theme = "sphinx_book_theme"  # "sphinx_book_theme"
 html_title = "Lightning-UQ-Box"

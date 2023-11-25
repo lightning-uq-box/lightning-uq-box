@@ -74,9 +74,9 @@ class ConformalQR(PosthocBase):
 
         self.quantiles = quantiles
 
-        self.alpha = max(self.hparams.quantiles)
+        self.alpha = min(self.hparams.quantiles)
 
-        self.error_rate = 1 - self.alpha  # 1-alpha is the desired coverage
+        self.desired_coverage = 1 - self.alpha  # 1-alpha is the desired coverage
 
     def adjust_model_output(self, model_output: Tensor) -> Tensor:
         """Conformalize underlying model output.
