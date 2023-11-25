@@ -159,6 +159,9 @@ filterwarnings = [
     "ignore:Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded:RuntimeWarning",
 ]
 
+[tool.env]
+USE_IOMP = "0"
+
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}
 
