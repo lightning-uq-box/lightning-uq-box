@@ -25,18 +25,18 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install apt dependencies (Linux)
-      run: sudo apt-get install unrar
-      if: ${{ runner.os == 'Linux' }}
-    - name: Install brew dependencies (macOS)
-      run: brew install rar
-      if: ${{ runner.os == 'macOS' }}
-    - name: Install pacman dependencies (Windows)
-      shell: cmd
-      run: |
-        set "PATH=%PATH%;c:\msys64\usr\bin"
-        pacman -S --noconfirm --needed unrar
-      if: ${{ runner.os == 'Windows' }}
+    # - name: Install apt dependencies (Linux)
+    #   run: sudo apt-get install unrar
+    #   if: ${{ runner.os == 'Linux' }}
+    # - name: Install brew dependencies (macOS)
+    #   run: brew install rar
+    #   if: ${{ runner.os == 'macOS' }}
+    # - name: Install pacman dependencies (Windows)
+    #   shell: cmd
+    #   run: |
+    #     set "PATH=%PATH%;c:\msys64\usr\bin"
+    #     pacman -S --noconfirm --needed unrar
+    #   if: ${{ runner.os == 'Windows' }}
     - name: Install pip dependencies
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
@@ -46,7 +46,7 @@ jobs:
     - name: Run pytest checks (Ubuntu and macOS)
       shell: bash
       run: |
-        python -m pytest -v tests --cov=lightning_uq_box--cov-report=xml
+        python -m pytest -v tests --cov=lightning_uq_box --cov-report=xml
       if: ${{ runner.os != 'Windows' }}
     - name: Run pytest checks (Windows)
       shell: cmd
