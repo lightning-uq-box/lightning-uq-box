@@ -68,7 +68,7 @@ class MCDropoutBase(DeterministicModel):
         self.dropout_layer_names = dropout_layer_names
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         pass
 
     def training_step(
@@ -144,7 +144,7 @@ class MCDropoutRegression(MCDropoutBase):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -242,7 +242,7 @@ class MCDropoutClassification(MCDropoutBase):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )

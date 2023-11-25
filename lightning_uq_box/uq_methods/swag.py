@@ -75,7 +75,7 @@ class SWAGBase(DeterministicModel):
         self.automatic_optimization = False
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         pass
 
     def training_step(
@@ -364,7 +364,7 @@ class SWAGRegression(SWAGBase):
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -372,7 +372,7 @@ class SWAGRegression(SWAGBase):
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Any:
-        """Prediction step that produces conformalized prediction sets.b
+        """Prediction step that produces conformalized prediction sets.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
@@ -454,7 +454,7 @@ class SWAGClassification(SWAGBase):
         return out
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -468,7 +468,7 @@ class SWAGClassification(SWAGBase):
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Any:
-        """Prediction step that produces conformalized prediction sets.b
+        """Prediction step that produces conformalized prediction sets.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]

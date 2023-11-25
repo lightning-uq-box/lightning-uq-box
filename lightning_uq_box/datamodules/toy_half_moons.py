@@ -1,3 +1,5 @@
+"""Two Moons Toy Classification Datamodule."""
+
 from typing import Optional
 
 import numpy as np
@@ -11,9 +13,7 @@ from .utils import collate_fn_tensordataset
 
 
 class TwoMoonsDataModule(LightningDataModule):
-    """
-    DataModule for PyTorch Lightning that encapsulates the half-moon dataset.
-    """
+    """DataModule for PyTorch Lightning that encapsulates the half-moon dataset."""
 
     def __init__(self, batch_size: int = 32):
         """
@@ -28,7 +28,7 @@ class TwoMoonsDataModule(LightningDataModule):
         self.setup()
 
     def setup(self, stage: Optional[str] = None):
-        """Setup the DataModule.
+        """Set up the DataModule.
 
         Args:
             stage: The stage ('fit' or 'test'). Defaults to None.

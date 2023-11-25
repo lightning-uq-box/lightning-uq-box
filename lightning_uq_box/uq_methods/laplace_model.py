@@ -72,7 +72,7 @@ class LaplaceBase(BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """"""
+        """Set up task."""
         pass
 
     @property
@@ -229,7 +229,7 @@ class LaplaceRegression(LaplaceBase):
         self.loss_fn = torch.nn.MSELoss()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.test_metrics = default_regression_metrics("test")
 
     def predict_step(
@@ -303,7 +303,7 @@ class LaplaceClassification(LaplaceBase):
         assert model.likelihood == "classification"
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.test_metrics = default_classification_metrics(
             "test", self.task, _get_num_outputs(self.model.model)
         )

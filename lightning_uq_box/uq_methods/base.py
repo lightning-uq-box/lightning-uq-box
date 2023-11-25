@@ -80,7 +80,7 @@ class DeterministicModel(BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         raise NotImplementedError
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
@@ -223,7 +223,7 @@ class DeterministicRegression(DeterministicModel):
     pred_file_name = "preds.csv"
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -282,7 +282,7 @@ class DeterministicClassification(DeterministicModel):
         return out
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -295,6 +295,8 @@ class DeterministicClassification(DeterministicModel):
 
 
 class PosthocBase(BaseModule):
+    """Posthoc Base Model for UQ methods."""
+
     def __init__(self, model: Union[LightningModule, nn.Module]) -> None:
         """Initialize a new Post hoc Base Model."""
         super().__init__()

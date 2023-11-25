@@ -105,6 +105,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         self.lr_scheduler = lr_scheduler
 
     def setup_task(self) -> None:
+        """Set up task."""
         pass
 
     def _setup_bnn_with_vi(self) -> None:
@@ -355,7 +356,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -482,7 +483,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )

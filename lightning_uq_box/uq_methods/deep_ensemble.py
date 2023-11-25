@@ -46,7 +46,7 @@ class DeepEnsemble(BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """Setup the task."""
+        """Set up task."""
         pass
 
     def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
@@ -119,15 +119,8 @@ class DeepEnsembleRegression(DeepEnsemble):
     * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
     """
 
-    def __init__(
-        self,
-        n_ensemble_members: int,
-        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
-    ) -> None:
-        super().__init__(n_ensemble_members, ensemble_members)
-
     def setup_task(self) -> None:
-        """Setup the task for regression."""
+        """Set up task for regression."""
         self.test_metrics = default_regression_metrics("test")
 
     # def on_test_batch_end(
@@ -177,13 +170,22 @@ class DeepEnsembleClassification(DeepEnsemble):
         num_classes: int,
         task: str = "multiclass",
     ) -> None:
+        """Initialize a new instance of DeepEnsemble for Classification.
+
+        Args:
+            n_ensemble_members: number of ensemble members
+            ensemble_members: List of dicts where each element specifies the
+                LightningModule class and a path to a checkpoint
+            num_classes: number of classes
+            task: classification task, one of "multiclass", "binary" or "multilabel"
+        """
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = num_classes
         super().__init__(n_ensemble_members, ensemble_members)
 
     def setup_task(self) -> None:
-        """Setup the task for regression."""
+        """Set up task for classification."""
         self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
         )

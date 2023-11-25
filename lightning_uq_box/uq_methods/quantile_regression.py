@@ -54,7 +54,7 @@ class QuantileRegressionBase(DeterministicModel):
         self.median_index = self.quantiles.index(0.5)
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")

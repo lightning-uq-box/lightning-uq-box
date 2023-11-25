@@ -94,7 +94,7 @@ class BNN_VI_Base(DeterministicModel):
         self.pred_file_name = "predictions.csv"
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         pass
 
     def _define_bnn_args(self):
@@ -333,7 +333,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         self.nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")

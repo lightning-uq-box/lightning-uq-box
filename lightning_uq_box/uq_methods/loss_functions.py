@@ -213,6 +213,8 @@ class QuantileLoss(nn.Module):
 
 
 class HuberQLoss(nn.Module):
+    """Huber Quantile Loss function."""
+
     def __init__(self, quantiles: list[float], delta: float = 1.0) -> None:
         """Initialize a new instance of Huberized Quantile Loss."""
         super().__init__()

@@ -15,7 +15,6 @@ from .utils import _get_num_outputs, default_regression_metrics
 class DERLayer(nn.Module):
     """Deep Evidential Regression Layer.
 
-
     Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_. # noqa: E501
     """
 
@@ -86,7 +85,7 @@ class DER(DeterministicModel):
         self.loss_fn = DERLoss(coeff)
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")

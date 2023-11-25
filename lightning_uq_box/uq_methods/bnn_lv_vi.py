@@ -134,7 +134,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         self._setup_bnn_with_vi_lv(latent_net)
 
     def setup_task(self) -> None:
-        """Setup task."""
+        """Set up task."""
         pass
 
     def _setup_bnn_with_vi_lv(self, latent_net: nn.Module) -> None:
@@ -473,7 +473,7 @@ class BNN_LV_VI_Regression(BNN_LV_VI_Base):
     nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
     def setup_task(self) -> None:
-        """Setup task."""
+        """Set up task."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -786,7 +786,7 @@ class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
     nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
     def setup_task(self) -> None:
-        """Setup task."""
+        """Set up task."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")

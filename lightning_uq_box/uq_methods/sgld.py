@@ -28,7 +28,6 @@ from .utils import (
 class SGLD(Optimizer):
     """Stochastic Gradient Langevian Dynamics Optimzer.
 
-
     If you use this optimizer in your research, please cite the following paper:
 
     * https://www.stats.ox.ac.uk/~teh/research/compstats/WelTeh2011a.pdf
@@ -193,7 +192,7 @@ class SGLDRegression(SGLDBase):
         self.burnin_epochs = burnin_epochs
 
     def setup_task(self) -> None:
-        """Setup task specific metrics."""
+        """Set up task specific metrics."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -303,7 +302,7 @@ class SGLDClassification(SGLDBase):
         super().__init__(model, loss_fn, lr, weight_decay, noise_factor, n_sgld_samples)
 
     def setup_task(self) -> None:
-        """Setup task specific metrics."""
+        """Set up task specific metrics."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )

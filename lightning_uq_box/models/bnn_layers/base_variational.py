@@ -162,7 +162,7 @@ class BaseVariationalLayer_(nn.Module):
     def kl_div(
         self, mu_q: Tensor, sigma_q: Tensor, mu_p: Tensor, sigma_p: Tensor
     ) -> Tensor:
-        """Calculates kl divergence between two gaussians (Q || P)
+        """Compute kl divergence between two gaussians (Q || P).
 
         Args:
             mu_q: mu parameter of distribution Q

@@ -90,7 +90,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         raise NotImplementedError
 
     def _fit_initial_lengthscale_and_inducing_points(self) -> None:
@@ -289,14 +289,13 @@ class DKLRegression(DKLBase):
         self.num_targets = num_targets
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
     def _build_model(self) -> None:
         """Build the model ready for training."""
-
         self.gp_layer = DKLGPLayer(
             n_outputs=self.num_targets,
             initial_lengthscale=self.initial_lengthscale,
@@ -423,7 +422,7 @@ class DKLClassification(DKLBase):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
