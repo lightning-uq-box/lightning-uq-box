@@ -52,7 +52,7 @@ jobs:
       shell: cmd
       run: |
         set "PATH=%PATH%;c:\msys64\usr\bin"
-        pytest --cov=torchgeo --cov-report=xml --durations=10
+        pytest --cov=lightning_uq_box --cov-report=xml --durations=10
       if: ${{ runner.os == 'Windows' }}
     - name: Report coverage
       uses: codecov/codecov-action@v3.1.1
