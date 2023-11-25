@@ -59,6 +59,8 @@ dependencies = [
     "gpytorch>=1.11",
     # Laplace Approximation
     "laplace-torch>=0.1a2",
+    # Uncertainty toolbox metrics
+    "uncertainty-toolbox>=0.1.1"
 ]
 dynamic = ["version"]
 
