@@ -164,6 +164,10 @@ target-version = ["py39", "py310"]
 color = true
 skip_magic_trailing_comma = true
 
+[tool.pydocstyle]
+convention = "google"
+match_dir = "(datamodules|datasets|models|lightning_uq_box)"
+
 
 [project.scripts]
 uq-box = "lightning_uq_box.main:main"

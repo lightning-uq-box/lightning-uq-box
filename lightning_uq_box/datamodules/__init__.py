@@ -7,7 +7,6 @@ from .toy_image_classification import ToyImageClassificationDatamodule
 from .toy_image_regression import ToyImageRegressionDatamodule
 from .toy_sine import ToySineDatamodule
 from .toy_uncertainty_gaps import ToyUncertaintyGaps
-from .uci import UCIRegressionDatamodule
 
 __all__ = (
     # toy datamodules
@@ -19,6 +18,4 @@ __all__ = (
     "ToyImageClassificationDatamodule",
     "ToyUncertaintyGaps",
     "ToyDUE",
-    # UCI Data module
-    "UCIRegressionDatamodule",
 )

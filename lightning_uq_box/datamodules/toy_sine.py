@@ -27,6 +27,9 @@ class ToySineDatamodule(LightningDataModule):
                 half of the input interval
             sigma_noise_2: injected sigma noise around the right
                 half of the input interval
+            x_min: minimum value of the input interval
+            x_max: maximum value of the input interval
+            batch_size: batch size for dataloaders
         """
         super().__init__()
 
