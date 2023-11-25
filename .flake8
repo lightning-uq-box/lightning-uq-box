@@ -6,6 +6,7 @@ exclude =
     images/,
     # Docs
     docs/,
+    tutorials/
 
     # Spack
     .spack-env/,

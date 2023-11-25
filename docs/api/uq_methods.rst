@@ -94,7 +94,7 @@ Deep Ensembles
 UQ Calibration Methods
 ----------------------
 
-.. currentmodule:: lightning_uq_box.uq_methods.cqr_model
+.. currentmodule:: lightning_uq_box.uq_methods.conformal_qr
 
 .. autoclass:: ConformalQR
 
