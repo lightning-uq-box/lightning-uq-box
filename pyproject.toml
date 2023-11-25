@@ -131,6 +131,9 @@ filterwarnings = [
     "ignore:The .*dataloader.* does not have many workers which may be a bottleneck:UserWarning:lightning",
     "ignore:The .*dataloader.* does not have many workers which may be a bottleneck:lightning.fabric.utilities.warnings.PossibleUserWarning:lightning",
 
+    # Lightning CLI
+    "ignor:LightningCLI's args parameter is intended to run from within Python like if it were from the command line. To prevent mistakes it is not recommended to provide both args and command line arguments",
+
     # Lightning warns us if TensorBoard is not installed
     "ignore:Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `lightning.pytorch` package:UserWarning",
 
