@@ -10,7 +10,7 @@ on:
     - release**
 jobs:
   style:
-    name: black
+    name: style-checks
     runs-on: ubuntu-latest
     steps:
     - name: Clone repo
@@ -38,7 +38,7 @@ jobs:
       run: isort . --check --diff --profile "black"
     - name: Run pydocstyle checks
       run: pydocstyle
-      
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
