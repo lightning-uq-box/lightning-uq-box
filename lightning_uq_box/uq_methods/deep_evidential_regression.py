@@ -1,6 +1,5 @@
 """Deep Evidential Regression."""
 
-from typing import Any
 
 import numpy as np
 import torch
@@ -17,7 +16,7 @@ class DERLayer(nn.Module):
     """Deep Evidential Regression Layer.
 
 
-    Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_.
+    Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_. # noqa: E501
     """
 
     def __init__(self):
@@ -48,7 +47,8 @@ class DERLayer(nn.Module):
 class DER(DeterministicModel):
     """Deep Evidential Regression Model.
 
-    Following the suggested implementation of `Unreasonable Effectiveness of Deep Evidential Regression <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22`_.
+    Following the suggested implementation of
+    `Unreasonable Effectiveness of Deep Evidential Regression <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22`_. # noqa: E501
 
     If you use this model in your work, please cite:
 

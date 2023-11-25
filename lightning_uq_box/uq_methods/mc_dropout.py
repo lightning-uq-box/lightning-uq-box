@@ -6,8 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from .base import DeterministicModel
 from .utils import (
@@ -28,7 +26,10 @@ def find_dropout_layers(model: nn.Module) -> list[str]:
 
     # if not dropout_layers:
     #     raise UserWarning(
-    #         "No dropout layers found in model, maybe dropout is implemented through nn.fucntional?"
+    #         (
+    #           "No dropout layers found in model, maybe dropout "
+    #           "is implemented through nn.fucntional?"
+    #         )
     #     )
     return dropout_layers
 
@@ -195,8 +196,6 @@ class MCDropoutRegression(MCDropoutBase):
                 [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
-        # TODO: this function is specific to regression
-        # maybe the  name of this should be in the base class and be foreced to be overwritten by the subclasses?
         return process_regression_prediction(preds)
 
 

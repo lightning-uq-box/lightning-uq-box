@@ -1,9 +1,7 @@
 """Implement a Deep Ensemble Model for prediction."""
 
-import os
 from typing import Any, Union
 
-import numpy as np
 import torch
 from lightning import LightningModule
 from torch import Tensor
@@ -14,7 +12,6 @@ from .utils import (
     default_regression_metrics,
     process_classification_prediction,
     process_regression_prediction,
-    save_predictions_to_csv,
 )
 
 
@@ -23,7 +20,7 @@ class DeepEnsemble(BaseModule):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
     """
 
     def __init__(
@@ -87,7 +84,8 @@ class DeepEnsemble(BaseModule):
         out_dict = self.predict_step(batch[self.input_key])
         out_dict["targets"] = batch[self.target_key].detach().squeeze(-1).cpu().numpy()
 
-        # self.log("test_loss", self.loss_fn(out_dict["pred"], batch[self.target_key].squeeze(-1)))  # logging to Logger
+        # self.log("test_loss", self.loss_fn(out_dict["pred"],
+        # batch[self.target_key].squeeze(-1)))
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key])
 
@@ -114,7 +112,12 @@ class DeepEnsemble(BaseModule):
 
 
 class DeepEnsembleRegression(DeepEnsemble):
-    """Deep Ensemble Model for regression."""
+    """Deep Ensemble Model for regression.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
+    """
 
     def __init__(
         self,
@@ -158,7 +161,12 @@ class DeepEnsembleRegression(DeepEnsemble):
 
 
 class DeepEnsembleClassification(DeepEnsemble):
-    """Deep Ensemble Model for classification."""
+    """Deep Ensemble Model for classification.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
+    """
 
     valid_tasks = ["multiclass", "binary", "multilabel"]
 

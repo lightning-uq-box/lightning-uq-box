@@ -1,7 +1,5 @@
 """Laplace Approximation model."""
 
-import copy
-import os
 from typing import Any
 
 import numpy as np
@@ -17,7 +15,6 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    save_predictions_to_csv,
 )
 
 # TODO check whether Laplace fitting procedure can be implemented as working

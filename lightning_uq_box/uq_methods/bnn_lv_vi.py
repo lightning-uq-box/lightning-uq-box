@@ -9,8 +9,6 @@ import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.models.bnnlv.latent_variable_network import LatentVariableNetwork
 from lightning_uq_box.models.bnnlv.utils import (
@@ -30,7 +28,7 @@ from .bnn_vi import BNN_VI_Base
 
 
 class BNN_LV_VI_Base(BNN_VI_Base):
-    """Bayesian Neural Network (BNN) with Latent Variables (LV) trained with Variational Inferece.
+    """Bayesian Neural Network (BNN) with Latent Variables (LV).
 
     If you use this model in your work, please cite:
 
@@ -70,13 +68,13 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         Args:
             model: pytorch model that will be converted into a BNN
             latent_net: latent variable network
-            num_training_points: number of data points contained in the training dataset
-            num_training_points: number of data points contained in the training dataset
+            num_training_points: num of data points contained in the training dataset
+            num_training_points: num of data points contained in the training dataset
             prediction_head: prediction head that will be attached to the model
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
-            latent_variable_intro: whether to introduce the latent variable at the first or
-                last layer of the model
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
+            latent_variable_intro: whether to introduce the latent variable at
+                the first or last layer of the model
             n_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -448,8 +446,8 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         # optimizer_args = getattr(self.optimizer, "keywords")
         # wd = optimizer_args.get("weight_decay", 0.0)
         # TODO this does not work with lightning CLI correctly yet
-        # self.optimizer is not a partial function anymore that can be accessed with keywords
-        # using default weight decay for now
+        # self.optimizer is not a partial function anymore that can be accessed
+        #  with keywords using default weight decay for now
         params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=0.01)
 
         optimizer = self.optimizer(params)
@@ -520,8 +518,8 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             model: pytorch model that will be converted into a BNN
             latent_net: latent variable network
             num_training_points: number of data points contained in the training dataset
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             num_training_points: number of data points contained in the training dataset
             prediction_head: prediction head that will be attached to the model
             stochastic_module_names:
@@ -778,7 +776,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
 
 
 class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
-    """Bayesian Latent Variable Network with Variational Inference Batched for Regression.
+    """Bayesian Latent Variable Network with VI Batched for Regression.
 
     If you use this model in your work, please cite:
 

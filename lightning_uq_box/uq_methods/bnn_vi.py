@@ -1,6 +1,5 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
-import os
 from typing import Any, Optional, Tuple, Union
 
 import einops
@@ -9,10 +8,7 @@ import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
-from lightning_uq_box.eval_utils import compute_quantiles_from_std
 from lightning_uq_box.models.bnn_layers.bnn_utils import convert_deterministic_to_bnn
 from lightning_uq_box.models.bnnlv.utils import (
     get_log_f_hat,
@@ -22,11 +18,7 @@ from lightning_uq_box.models.bnnlv.utils import (
 
 from .base import DeterministicModel
 from .loss_functions import EnergyAlphaDivergence
-from .utils import (
-    default_regression_metrics,
-    map_stochastic_modules,
-    save_predictions_to_csv,
-)
+from .utils import default_regression_metrics, map_stochastic_modules
 
 
 class BNN_VI_Base(DeterministicModel):
@@ -61,8 +53,7 @@ class BNN_VI_Base(DeterministicModel):
         Args:
             model:
             save_dir: directory path to save
-            num_training_points: number of data points contained in the training dataset
-            stochastic_module_names:
+            num_training_points: num of data points contained in the training dataset
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -74,8 +65,8 @@ class BNN_VI_Base(DeterministicModel):
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -248,8 +239,8 @@ class BNN_VI_Base(DeterministicModel):
         # optimizer_args = getattr(self.optimizer, "keywords")
         # wd = optimizer_args.get("weight_decay", 0.0)
         # TODO this does not work with lightning CLI correctly yet
-        # self.optimizer is not a partial function anymore that can be accessed with keywords
-        # using default weight decay for now
+        # self.optimizer is not a partial function anymore that can be accessed with
+        # keywords using default weight decay for now
 
         params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=0.01)
 
@@ -296,9 +287,9 @@ class BNN_VI_Regression(BNN_VI_Base):
         Args:
             model: pytorch model that will be converted into a BNN
             optimizer: optimizer used for training
-            num_training_points: number of data points contained in the training dataset
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
+            num_training_points: num of data points contained in the training dataset
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -309,7 +300,8 @@ class BNN_VI_Regression(BNN_VI_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            bayesian_layer_type: Bayesian bayesian_layer_type type, "reparametrization" or "flipout"
+            bayesian_layer_type: reparameterization layer type,
+                "reparametrization" or "flipout"
             lr_scheduler: learning rate scheduler
 
         Raises:
@@ -469,7 +461,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
 
         Args:
             model: pytorch model that will be converted into a BNN
-            num_training_points: number of data points contained in the training dataset
+            num_training_points: num of data points contained in the training dataset
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -480,9 +472,10 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            bayesian_layer_type: Bayesian bayesian_layer_type type, "reparametrization" or "flipout"
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
+            bayesian_layer_type: reparameterization layer type,
+                "reparametrization" or "flipout"
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
 

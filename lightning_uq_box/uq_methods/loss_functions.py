@@ -106,7 +106,7 @@ class EnergyAlphaDivergence(nn.Module):
 #         """Compute LowRankMultivariateNormal_NLL Loss.
 
 #         Args:
-#           preds: batch_size x (rank + 2) x tager_shape, consisting of mu and Gamma and Psi
+#           preds: batch_size x (rank + 2) x tager_shape, consisting of mu,Gamma and Psi
 #           target: batch_size x target_shape, regression targets
 
 #         Returns:

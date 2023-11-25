@@ -1,8 +1,7 @@
 """Deep Kernel Learning."""
 
-import os
-from functools import partial
-from typing import Any, Callable, Dict, List, Optional
+
+from typing import Any, Dict
 
 import gpytorch
 import numpy as np
@@ -13,7 +12,6 @@ from gpytorch.kernels import MaternKernel, RBFKernel, RQKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood, SoftmaxLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.mlls import VariationalELBO
-from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.utils.grid import ScaleToBounds
 from gpytorch.variational import (
@@ -61,7 +59,8 @@ class DKLBase(gpytorch.Module, BaseModule):
         Args:
             feature_extractor: feature extractor model
             n_inducing_points: number of inducing points
-            gp_kernel: kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            gp_kernel: kernel choice, supports one of
+                ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             elbo_fn: gpytorch elbo function used for optimization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
@@ -268,7 +267,8 @@ class DKLRegression(DKLBase):
             feature_extractor: feature extractor model
             n_inducing_points: number of inducing points
             num_targets: number of targets
-            gp_kernel: kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            gp_kernel: kernel choice, supports one of
+                ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             elbo_fn: gpytorch elbo function used for optimization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
@@ -375,8 +375,11 @@ class DKLClassification(DKLBase):
 
     valid_tasks = ["binary", "multiclass", "multilable"]
 
-    # gp_layer: Callable[[only. the two args that are needed from computation], DKLGPLayer]
-    # similar to optimizer only include the arguments in the callable args section that are missing from conf file
+    # TODO
+    # gp_layer: Callable[[only. the two args that are needed from computation],
+    # DKLGPLayer]
+    # similar to optimizer only include the arguments in the callable args section
+    # that are missing from conf file
     def __init__(
         self,
         feature_extractor: nn.Module,
@@ -391,7 +394,8 @@ class DKLClassification(DKLBase):
 
         Args:
             feature_extractor: feature extractor model
-            gp_kernel: GP kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            gp_kernel: GP kernel choice, supports one of
+                'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             n_inducing_points: number of inducing points
             optimizer: optimizer used for training
             task: classification task, one of ['binary', 'multiclass', 'multilabel']

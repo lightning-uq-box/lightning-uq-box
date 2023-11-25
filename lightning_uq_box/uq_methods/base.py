@@ -1,6 +1,5 @@
 """Base Model for UQ methods."""
 
-import os
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -9,15 +8,12 @@ import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from .utils import (
     _get_num_inputs,
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    save_predictions_to_csv,
 )
 
 
@@ -264,7 +260,8 @@ class DeterministicClassification(DeterministicModel):
         Args:
             model: pytorch model
             loss_fn: loss function used for optimization
-            task: what kind of classification task, choose one of ["binary", "multiclass", "multilabel"]
+            task: what kind of classification task, choose one of
+                ["binary", "multiclass", "multilabel"]
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -341,7 +338,8 @@ class PosthocBase(BaseModule):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call trainer.validate(model, datamodule) first."
+                "Model has not been post hoc fitted, please call "
+                "trainer.validate(model, datamodule) first."
             )
 
         # predict with underlying model

@@ -30,7 +30,7 @@ class SWAGBase(DeterministicModel):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
     """
 
     def __init__(
@@ -53,9 +53,9 @@ class SWAGBase(DeterministicModel):
             num_mc_samples: number of MC samples during prediction
             swag_lr: learning rate for swag
             loss_fn: loss function
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
-            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
+            num_datapoints_for_bn_update: num of datapoints to use for batchnorm update
         """
         super().__init__(model, loss_fn, None, None)
         self.stochastic_module_names = map_stochastic_modules(
@@ -324,7 +324,7 @@ class SWAGRegression(SWAGBase):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
     """
 
     def __init__(
@@ -349,7 +349,7 @@ class SWAGRegression(SWAGBase):
             swag_lr: learning rate for swag
             loss_fn: loss function
             stochastic_module_names: names of modules that are partially stochastic
-            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
+            num_datapoints_for_bn_update: num of datapoints to use for batchnorm update
         """
         super().__init__(
             model,
@@ -395,7 +395,7 @@ class SWAGClassification(SWAGBase):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
     """
 
     valid_tasks = ["binary", "multiclass", "multilable"]
@@ -424,7 +424,7 @@ class SWAGClassification(SWAGBase):
             loss_fn: loss function
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             stochastic_module_names: names of modules that are partially stochastic
-            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
+            num_datapoints_for_bn_update: num of datapoints to use for batchnorm update
         """
         assert task in self.valid_tasks
         self.task = task

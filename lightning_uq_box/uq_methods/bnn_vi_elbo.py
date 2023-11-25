@@ -72,8 +72,8 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -323,8 +323,8 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -445,8 +445,8 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
 

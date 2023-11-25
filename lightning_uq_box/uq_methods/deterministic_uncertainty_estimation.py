@@ -4,8 +4,6 @@ from typing import Dict
 
 import torch
 import torch.nn as nn
-from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
-from gpytorch.models import ApproximateGP
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 
 from .deep_kernel_learning import DKLClassification, DKLRegression
@@ -41,9 +39,11 @@ class DUERegression(DKLRegression):
             feature_extractor: feature extractor model
             n_inducing_points: number of inducing points
             num_targets: number of targets
-            gp_kernel: GP kernel, one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ]
+            gp_kernel: GP kernel choice, supports one of
+                'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             inputs_size: reature input size of data to the model
-            coeff: soft normalization only when sigma larger than coeff should be (0, 1)
+            coeff: soft normalization only when sigma larger than coeff,
+                should be (0, 1)
             n_power_iterations: number of power iterations for spectral normalization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
