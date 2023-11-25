@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Deterministic Model that predicts parameters of Gaussian."""
 
 import numpy as np
@@ -5,8 +8,6 @@ import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from .base import DeterministicModel
 from .loss_functions import NLL
@@ -41,7 +42,7 @@ class MVEBase(DeterministicModel):
         self.loss_fn = NLL()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -113,6 +114,8 @@ class MVERegression(MVEBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             preds = self.model(X)

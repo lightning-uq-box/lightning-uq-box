@@ -1,7 +1,8 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Laplace Approximation model."""
 
-import copy
-import os
 from typing import Any
 
 import numpy as np
@@ -17,7 +18,6 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    save_predictions_to_csv,
 )
 
 # TODO check whether Laplace fitting procedure can be implemented as working
@@ -60,7 +60,7 @@ class LaplaceBase(BaseModule):
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
-            model: initialized Laplace model
+            laplace_model: initialized Laplace model
             tune_precision_lr: learning rate for tuning prior precision
             n_epochs_tune_precision: number of epochs to tune prior precision
         """
@@ -75,7 +75,7 @@ class LaplaceBase(BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """"""
+        """Set up task."""
         pass
 
     @property
@@ -219,7 +219,7 @@ class LaplaceRegression(LaplaceBase):
         """Initialize a new instance of Laplace Model Wrapper for Regression.
 
         Args:
-            model: initialized Laplace model
+            laplace_model: initialized Laplace model
             tune_precision_lr: learning rate for tuning prior precision
             n_epochs_tune_precision: number of epochs to tune prior precision
         """
@@ -232,7 +232,7 @@ class LaplaceRegression(LaplaceBase):
         self.loss_fn = torch.nn.MSELoss()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.test_metrics = default_regression_metrics("test")
 
     def predict_step(
@@ -306,7 +306,7 @@ class LaplaceClassification(LaplaceBase):
         assert model.likelihood == "classification"
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.test_metrics = default_classification_metrics(
             "test", self.task, _get_num_outputs(self.model.model)
         )

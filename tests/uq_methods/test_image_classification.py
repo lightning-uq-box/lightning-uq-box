@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Test Image Classification Tasks."""
 
 import glob
@@ -11,7 +14,6 @@ from omegaconf import OmegaConf
 from pytest import TempPathFactory
 
 from lightning_uq_box.datamodules import ToyImageClassificationDatamodule
-from lightning_uq_box.main import get_uq_box_cli
 from lightning_uq_box.uq_methods import DeepEnsembleClassification
 
 model_config_paths = [

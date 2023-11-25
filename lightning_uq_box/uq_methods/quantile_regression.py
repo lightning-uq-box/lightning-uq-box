@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Implement Quantile Regression Model."""
 
 from typing import Optional
@@ -7,13 +10,11 @@ import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 
 from .base import DeterministicModel
-from .loss_functions import HuberQLoss, QuantileLoss
+from .loss_functions import QuantileLoss
 from .utils import _get_num_outputs, default_regression_metrics
 
 
@@ -46,7 +47,7 @@ class QuantileRegressionBase(DeterministicModel):
         assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
         assert _get_num_outputs(model) == len(
             quantiles
-        ), "The number of desired quantiles should match the number of outputs of the model."
+        ), "The num of desired quantiles should match num_outputs of the model."
 
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
@@ -56,7 +57,7 @@ class QuantileRegressionBase(DeterministicModel):
         self.median_index = self.quantiles.index(0.5)
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")

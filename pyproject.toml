@@ -71,6 +71,11 @@ dev = [
     "pytest-cov>=4",
     # pytest lazy fixture
     "pytest-lazy-fixture>=0.6",
+    # hydra-core
+    "hydra-core>=1.3.2",
+    # omegaconf
+    "omegaconf>=2.3.0",
+
 
     ### Docs ###
     # sphinx
@@ -126,6 +131,9 @@ filterwarnings = [
     "ignore:The .*dataloader.* does not have many workers which may be a bottleneck:UserWarning:lightning",
     "ignore:The .*dataloader.* does not have many workers which may be a bottleneck:lightning.fabric.utilities.warnings.PossibleUserWarning:lightning",
 
+    # Lightning CLI
+    "ignor:LightningCLI's args parameter is intended to run from within Python like if it were from the command line. To prevent mistakes it is not recommended to provide both args and command line arguments",
+
     # Lightning warns us if TensorBoard is not installed
     "ignore:Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `lightning.pytorch` package:UserWarning",
 
@@ -144,6 +152,21 @@ filterwarnings = [
 ]
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}
+
+[tool.isort]
+profile = "black"
+known_first_party = ["docs", "tests", "lightning_uq_box", "train"]
+skip_gitignore = true
+color_output = true
+
+[tool.black]
+target-version = ["py39", "py310"]
+color = true
+skip_magic_trailing_comma = true
+
+[tool.pydocstyle]
+convention = "google"
+match_dir = "(datamodules|datasets|models|lightning_uq_box)"
 
 
 [project.scripts]

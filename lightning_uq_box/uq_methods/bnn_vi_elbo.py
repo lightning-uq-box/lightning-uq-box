@@ -1,7 +1,7 @@
-"""Bayesian Neural Networks with Variational Inference."""
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
 
-# TODO:
-# adapt to new config file scheme
+"""Bayesian Neural Networks with Variational Inference."""
 
 from typing import Any, Optional, Union
 
@@ -72,8 +72,8 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -105,6 +105,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         self.lr_scheduler = lr_scheduler
 
     def setup_task(self) -> None:
+        """Set up task."""
         pass
 
     def _setup_bnn_with_vi(self) -> None:
@@ -323,8 +324,8 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -355,7 +356,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -370,7 +371,9 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         Returns:
             nll loss for the task
         """
-        if self.current_epoch < self.hparams.burnin_epochs:
+        if self.current_epoch < self.hparams.burnin_epochs or isinstance(
+            self.criterion, nn.MSELoss
+        ):
             # compute mse loss with output noise scale, is like mse
             loss = torch.nn.functional.mse_loss(self.extract_mean_output(pred), y)
         else:
@@ -385,6 +388,8 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             preds = torch.stack(
@@ -443,8 +448,8 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
 
@@ -480,7 +485,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -514,6 +519,8 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             preds = torch.stack(

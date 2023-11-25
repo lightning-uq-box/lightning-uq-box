@@ -1,8 +1,10 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Deep Kernel Learning."""
 
-import os
-from functools import partial
-from typing import Any, Callable, Dict, List, Optional
+
+from typing import Any, Dict
 
 import gpytorch
 import numpy as np
@@ -13,7 +15,6 @@ from gpytorch.kernels import MaternKernel, RBFKernel, RQKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood, SoftmaxLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.mlls import VariationalELBO
-from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.utils.grid import ScaleToBounds
 from gpytorch.variational import (
@@ -61,7 +62,8 @@ class DKLBase(gpytorch.Module, BaseModule):
         Args:
             feature_extractor: feature extractor model
             n_inducing_points: number of inducing points
-            gp_kernel: kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            gp_kernel: kernel choice, supports one of
+                ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             elbo_fn: gpytorch elbo function used for optimization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
@@ -91,7 +93,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         raise NotImplementedError
 
     def _fit_initial_lengthscale_and_inducing_points(self) -> None:
@@ -268,7 +270,8 @@ class DKLRegression(DKLBase):
             feature_extractor: feature extractor model
             n_inducing_points: number of inducing points
             num_targets: number of targets
-            gp_kernel: kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            gp_kernel: kernel choice, supports one of
+                ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             elbo_fn: gpytorch elbo function used for optimization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
@@ -289,14 +292,13 @@ class DKLRegression(DKLBase):
         self.num_targets = num_targets
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
     def _build_model(self) -> None:
         """Build the model ready for training."""
-
         self.gp_layer = DKLGPLayer(
             n_outputs=self.num_targets,
             initial_lengthscale=self.initial_lengthscale,
@@ -346,6 +348,8 @@ class DKLRegression(DKLBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         if not self.dkl_model_built:
             self._fit_initial_lengthscale_and_inducing_points()
@@ -375,8 +379,11 @@ class DKLClassification(DKLBase):
 
     valid_tasks = ["binary", "multiclass", "multilable"]
 
-    # gp_layer: Callable[[only. the two args that are needed from computation], DKLGPLayer]
-    # similar to optimizer only include the arguments in the callable args section that are missing from conf file
+    # TODO
+    # gp_layer: Callable[[only. the two args that are needed from computation],
+    # DKLGPLayer]
+    # similar to optimizer only include the arguments in the callable args section
+    # that are missing from conf file
     def __init__(
         self,
         feature_extractor: nn.Module,
@@ -391,10 +398,12 @@ class DKLClassification(DKLBase):
 
         Args:
             feature_extractor: feature extractor model
-            gp_kernel: GP kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             n_inducing_points: number of inducing points
-            optimizer: optimizer used for training
+            gp_kernel: GP kernel choice, supports one of
+                'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            num_classes: number of classes
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         assert task in self.valid_tasks
@@ -419,7 +428,7 @@ class DKLClassification(DKLBase):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -540,6 +549,8 @@ class DKLClassification(DKLBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         if not self.dkl_model_built:
             self._fit_initial_lengthscale_and_inducing_points()

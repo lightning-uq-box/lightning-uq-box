@@ -8,24 +8,6 @@ on:
     - main
   
 jobs:
-  # mypy:
-  #   name: mypy
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: Clone repo
-  #     uses: actions/checkout@v2
-  #   - name: Set up python
-  #     uses: actions/setup-python@v2
-  #     with:
-  #       python-version: '3.9'
-  #   - name: Install pip dependencies
-  #     run: |
-  #       python -m ensurepip
-  #       python -m pip install --upgrade pip
-  #       pip install -r requirements/requirements.txt -r requirements/tests.txt
-  #   - name: Run mypy checks
-  #     shell: bash
-  #     run: mypy .
   pytest:
     name: pytest
     runs-on: ${{ matrix.os }}
@@ -34,8 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: ['3.9', '3.10']
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.9', '3.10', '3.11']
     steps:
     - name: Clone repo
       uses: actions/checkout@v2
@@ -70,7 +52,7 @@ jobs:
       shell: cmd
       run: |
         set "PATH=%PATH%;c:\msys64\usr\bin"
-        pytest --cov=torchgeo --cov-report=xml --durations=10
+        pytest --cov=lightning_uq_box --cov-report=xml --durations=10
       if: ${{ runner.os == 'Windows' }}
     - name: Report coverage
       uses: codecov/codecov-action@v3.1.1

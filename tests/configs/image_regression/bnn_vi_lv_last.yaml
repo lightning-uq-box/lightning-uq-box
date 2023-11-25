@@ -3,11 +3,11 @@ model:
   model:
     _target_: timm.create_model
     model_name: resnet18
-    num_classes: 2
+    num_classes: 1
   latent_net:
     _target_: lightning_uq_box.models.MLP
     n_outputs: 2
-    n_inputs: 51
+    n_inputs: 513
     n_hidden: [10,10]
   optimizer:
     _target_: torch.optim.Adam

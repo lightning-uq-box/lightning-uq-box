@@ -1,7 +1,25 @@
+#    Copyright 2021 GlaxoSmithKline
+
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+
+#        http://www.apache.org/licenses/LICENSE-2.0
+
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+# Changes include:
+# - integrating the functions into pytorch lightning Lightning Module framework
+# - enable selections of stochastic modules
+
 """Stochastic Weight Averaging - Gaussian.
 
 Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/trackers.py (Apache License 2.0) # noqa: E501
-for support of partial stochasticity.
+for support of partial stochasticity and integration to lightning.
 """
 
 import math
@@ -30,7 +48,7 @@ class SWAGBase(DeterministicModel):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
     """
 
     def __init__(
@@ -53,9 +71,9 @@ class SWAGBase(DeterministicModel):
             num_mc_samples: number of MC samples during prediction
             swag_lr: learning rate for swag
             loss_fn: loss function
-            stochastic_module_names: list of module names or indices that should be converted
-                to variational layers
-            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
+            num_datapoints_for_bn_update: num of datapoints to use for batchnorm update
         """
         super().__init__(model, loss_fn, None, None)
         self.stochastic_module_names = map_stochastic_modules(
@@ -75,7 +93,7 @@ class SWAGBase(DeterministicModel):
         self.automatic_optimization = False
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         pass
 
     def training_step(
@@ -324,7 +342,7 @@ class SWAGRegression(SWAGBase):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
     """
 
     def __init__(
@@ -349,7 +367,7 @@ class SWAGRegression(SWAGBase):
             swag_lr: learning rate for swag
             loss_fn: loss function
             stochastic_module_names: names of modules that are partially stochastic
-            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
+            num_datapoints_for_bn_update: num of datapoints to use for batchnorm update
         """
         super().__init__(
             model,
@@ -364,7 +382,7 @@ class SWAGRegression(SWAGBase):
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -372,7 +390,7 @@ class SWAGRegression(SWAGBase):
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Any:
-        """Prediction step that produces conformalized prediction sets.b
+        """Prediction step that produces conformalized prediction sets.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
@@ -395,7 +413,7 @@ class SWAGClassification(SWAGBase):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
     """
 
     valid_tasks = ["binary", "multiclass", "multilable"]
@@ -424,7 +442,7 @@ class SWAGClassification(SWAGBase):
             loss_fn: loss function
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             stochastic_module_names: names of modules that are partially stochastic
-            num_datapoints_for_bn_update: number of datapoints to use for batchnorm update
+            num_datapoints_for_bn_update: num of datapoints to use for batchnorm update
         """
         assert task in self.valid_tasks
         self.task = task
@@ -454,7 +472,7 @@ class SWAGClassification(SWAGBase):
         return out
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -468,7 +486,7 @@ class SWAGClassification(SWAGBase):
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Any:
-        """Prediction step that produces conformalized prediction sets.b
+        """Prediction step that produces conformalized prediction sets.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]

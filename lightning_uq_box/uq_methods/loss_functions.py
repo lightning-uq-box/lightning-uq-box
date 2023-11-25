@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Loss Functions specific to UQ-methods."""
 
 import math
@@ -106,7 +109,7 @@ class EnergyAlphaDivergence(nn.Module):
 #         """Compute LowRankMultivariateNormal_NLL Loss.
 
 #         Args:
-#           preds: batch_size x (rank + 2) x tager_shape, consisting of mu and Gamma and Psi
+#           preds: batch_size x (rank + 2) x tager_shape, consisting of mu,Gamma and Psi
 #           target: batch_size x target_shape, regression targets
 
 #         Returns:
@@ -213,6 +216,8 @@ class QuantileLoss(nn.Module):
 
 
 class HuberQLoss(nn.Module):
+    """Huber Quantile Loss function."""
+
     def __init__(self, quantiles: list[float], delta: float = 1.0) -> None:
         """Initialize a new instance of Huberized Quantile Loss."""
         super().__init__()

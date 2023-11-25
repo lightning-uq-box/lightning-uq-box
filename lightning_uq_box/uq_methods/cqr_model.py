@@ -1,8 +1,9 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """conformalized Quantile Regression Model."""
 
 import math
-import numbers
-import os
 from typing import Any, Union
 
 import numpy as np
@@ -13,16 +14,10 @@ from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
 
 from .base import PosthocBase
-from .utils import (
-    _get_num_inputs,
-    _get_num_outputs,
-    merge_list_of_dictionaries,
-    save_predictions_to_csv,
-)
 
 
 def compute_q_hat_with_cqr(
-    cal_preds: Tensor, cal_labels: Tensor, error_rate: float
+    cal_preds: Tensor, cal_labels: Tensor, alpha: float
 ) -> float:
     """Compute q_hat which is the adjustment factor for quantiles.
 
@@ -31,7 +26,7 @@ def compute_q_hat_with_cqr(
     Args:
         cal_preds: calibration set predictions
         cal_labels: calibration set targets
-        error_rate: desired error rate for quantile
+        alpha: 1 - alpha is desired error rate for quantile
 
     Returns:
         q_hat the computed quantile by which prediction intervals
@@ -48,7 +43,7 @@ def compute_q_hat_with_cqr(
 
     # Get the score quantile
     q_hat = torch.quantile(
-        cal_scores, math.ceil((n + 1) * (1 - error_rate)) / n, interpolation="higher"
+        cal_scores, math.ceil((n + 1) * (1 - alpha)) / n, interpolation="higher"
     )
 
     return q_hat
@@ -59,7 +54,7 @@ class ConformalQR(PosthocBase):
 
     If you use this model, please cite the following paper:
 
-    * https://papers.nips.cc/paper_files/paper/2019/hash/5103c3584b063c431bd1268e9b5e76fb-Abstract.html
+    * https://papers.nips.cc/paper_files/paper/2019/hash/5103c3584b063c431bd1268e9b5e76fb-Abstract.html # noqa: E501
     """
 
     def __init__(
@@ -79,9 +74,9 @@ class ConformalQR(PosthocBase):
 
         self.quantiles = quantiles
 
-        self.error_rate = 1 - max(
-            self.hparams.quantiles
-        )  # 1-alpha is the desired coverage
+        self.alpha = max(self.hparams.quantiles)
+
+        self.error_rate = 1 - self.alpha  # 1-alpha is the desired coverage
 
     def adjust_model_output(self, model_output: Tensor) -> Tensor:
         """Conformalize underlying model output.
@@ -104,7 +99,7 @@ class ConformalQR(PosthocBase):
         return cqr_sets
 
     def on_validation_start(self) -> None:
-        """Before validation epoch starts, create tensors that gather model outputs and labels."""
+        """Init tensors that gather model outputs and labels."""
         # TODO intitialize zero tensors for memory efficiency
         self.model_outputs = []
         self.labels = []
@@ -132,12 +127,12 @@ class ConformalQR(PosthocBase):
             outputs: list of dictionaries containing model outputs and labels
 
         """
-        # `outputs` is a list of dictionaries, each containing 'output' and 'label' from each validation step
         all_outputs = torch.cat(self.model_outputs, dim=0)
         all_labels = torch.cat(self.labels, dim=0)
 
-        # calibration quantiles assume order of outputs corresponds to order of quantiles
-        self.q_hat = compute_q_hat_with_cqr(all_outputs, all_labels, self.error_rate)
+        # calibration quantiles assume order of outputs corresponds
+        # to order of quantiles
+        self.q_hat = compute_q_hat_with_cqr(all_outputs, all_labels, self.alpha)
 
         self.post_hoc_fitted = True
 
@@ -172,7 +167,8 @@ class ConformalQR(PosthocBase):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call trainer.validate(model, datamodule) first."
+                "Model has not been post hoc fitted, "
+                "please call trainer.fit(model, datamodule) first."
             )
 
         cqr_sets = self.forward(X)

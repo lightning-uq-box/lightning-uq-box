@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Mc-Dropout module."""
 
 import numpy as np
@@ -6,8 +9,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from .base import DeterministicModel
 from .utils import (
@@ -28,7 +29,10 @@ def find_dropout_layers(model: nn.Module) -> list[str]:
 
     # if not dropout_layers:
     #     raise UserWarning(
-    #         "No dropout layers found in model, maybe dropout is implemented through nn.fucntional?"
+    #         (
+    #           "No dropout layers found in model, maybe dropout "
+    #           "is implemented through nn.fucntional?"
+    #         )
     #     )
     return dropout_layers
 
@@ -67,7 +71,7 @@ class MCDropoutBase(DeterministicModel):
         self.dropout_layer_names = dropout_layer_names
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         pass
 
     def training_step(
@@ -143,7 +147,7 @@ class MCDropoutRegression(MCDropoutBase):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -195,8 +199,6 @@ class MCDropoutRegression(MCDropoutBase):
                 [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
-        # TODO: this function is specific to regression
-        # maybe the  name of this should be in the base class and be foreced to be overwritten by the subclasses?
         return process_regression_prediction(preds)
 
 
@@ -243,7 +245,7 @@ class MCDropoutClassification(MCDropoutBase):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )

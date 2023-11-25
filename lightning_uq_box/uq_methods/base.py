@@ -1,6 +1,8 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Base Model for UQ methods."""
 
-import os
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -9,15 +11,12 @@ import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from .utils import (
     _get_num_inputs,
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    save_predictions_to_csv,
 )
 
 
@@ -84,7 +83,7 @@ class DeterministicModel(BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         raise NotImplementedError
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
@@ -199,6 +198,8 @@ class DeterministicModel(BaseModule):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             out = self.forward(X)
@@ -227,7 +228,7 @@ class DeterministicRegression(DeterministicModel):
     pred_file_name = "preds.csv"
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -264,7 +265,8 @@ class DeterministicClassification(DeterministicModel):
         Args:
             model: pytorch model
             loss_fn: loss function used for optimization
-            task: what kind of classification task, choose one of ["binary", "multiclass", "multilabel"]
+            task: what kind of classification task, choose one of
+                ["binary", "multiclass", "multilabel"]
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -285,7 +287,7 @@ class DeterministicClassification(DeterministicModel):
         return out
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -298,6 +300,8 @@ class DeterministicClassification(DeterministicModel):
 
 
 class PosthocBase(BaseModule):
+    """Posthoc Base Model for UQ methods."""
+
     def __init__(self, model: Union[LightningModule, nn.Module]) -> None:
         """Initialize a new Post hoc Base Model."""
         super().__init__()
@@ -341,7 +345,8 @@ class PosthocBase(BaseModule):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call trainer.validate(model, datamodule) first."
+                "Model has not been post hoc fitted, please call "
+                "trainer.validate(model, datamodule) first."
             )
 
         # predict with underlying model
