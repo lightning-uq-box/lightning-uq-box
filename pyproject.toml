@@ -152,7 +152,7 @@ version = {attr = "lightning_uq_box.__version__"}
 
 [tool.isort]
 profile = "black"
-known_first_party = ["docs", "tests", "torchgeo", "train"]
+known_first_party = ["docs", "tests", "lightning_uq_box", "train"]
 skip_gitignore = true
 color_output = true
 
