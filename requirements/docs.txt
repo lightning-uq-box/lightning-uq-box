@@ -4,3 +4,4 @@ nbsphinx==0.9.1
 sphinx_book_theme==1.0.1
 myst-parser==2.0
 sphinx-togglebutton==0.3.2
+jupytext==1.15.2
