@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Latent Variable Network."""
 
 import torch
@@ -58,7 +61,7 @@ class LatentVariableNetwork(nn.Module):
         Args:
             net: nn.Module, network that is deterministic,
                 i.e. the latent variable net.
-            num_training_points:
+            num_training_points: num of training points
             lv_prior_mu: Prior mean for latent variables,
                 default: 0.0.
             lv_prior_std: Prior standard deviation for latent variables,

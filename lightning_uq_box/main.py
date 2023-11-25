@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Command-line interface to Lightning-UQ-Box."""
 
 from lightning.pytorch.cli import ArgsType, LightningCLI

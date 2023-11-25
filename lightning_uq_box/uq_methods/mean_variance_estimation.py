@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Deterministic Model that predicts parameters of Gaussian."""
 
 import numpy as np
@@ -111,6 +114,8 @@ class MVERegression(MVEBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             preds = self.model(X)

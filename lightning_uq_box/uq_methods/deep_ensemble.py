@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Implement a Deep Ensemble Model for prediction."""
 
 from typing import Any, Union

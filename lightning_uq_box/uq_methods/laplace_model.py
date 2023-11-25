@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Laplace Approximation model."""
 
 from typing import Any
@@ -57,7 +60,7 @@ class LaplaceBase(BaseModule):
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
-            model: initialized Laplace model
+            laplace_model: initialized Laplace model
             tune_precision_lr: learning rate for tuning prior precision
             n_epochs_tune_precision: number of epochs to tune prior precision
         """
@@ -216,7 +219,7 @@ class LaplaceRegression(LaplaceBase):
         """Initialize a new instance of Laplace Model Wrapper for Regression.
 
         Args:
-            model: initialized Laplace model
+            laplace_model: initialized Laplace model
             tune_precision_lr: learning rate for tuning prior precision
             n_epochs_tune_precision: number of epochs to tune prior precision
         """

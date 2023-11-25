@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Base Model for UQ methods."""
 
 from typing import Any, Optional, Union
@@ -195,6 +198,8 @@ class DeterministicModel(BaseModule):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             out = self.forward(X)

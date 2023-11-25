@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Toy Dataset from DUE repository.
 
 Adapted from: https://github.com/y0ast/DUE/blob/main/toy_regression.ipynb

@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Deep Kernel Learning."""
 
 
@@ -345,6 +348,8 @@ class DKLRegression(DKLBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         if not self.dkl_model_built:
             self._fit_initial_lengthscale_and_inducing_points()
@@ -393,11 +398,12 @@ class DKLClassification(DKLBase):
 
         Args:
             feature_extractor: feature extractor model
+            n_inducing_points: number of inducing points
             gp_kernel: GP kernel choice, supports one of
                 'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
-            n_inducing_points: number of inducing points
-            optimizer: optimizer used for training
+            num_classes: number of classes
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         assert task in self.valid_tasks
@@ -543,6 +549,8 @@ class DKLClassification(DKLBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         if not self.dkl_model_built:
             self._fit_initial_lengthscale_and_inducing_points()

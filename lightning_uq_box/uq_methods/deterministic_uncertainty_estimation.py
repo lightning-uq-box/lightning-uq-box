@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Deterministic Uncertainty Estimation."""
 
 from typing import Dict
@@ -41,7 +44,7 @@ class DUERegression(DKLRegression):
             num_targets: number of targets
             gp_kernel: GP kernel choice, supports one of
                 'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
-            inputs_size: reature input size of data to the model
+            input_size: image input size of data to the model
             coeff: soft normalization only when sigma larger than coeff,
                 should be (0, 1)
             n_power_iterations: number of power iterations for spectral normalization
@@ -91,14 +94,15 @@ class DUEClassification(DKLClassification):
 
         Args:
             feature_extractor: feature extractor model
-            gp_layer: Gaussian Process layer
-            elbo_fn: gpytorch elbo function used for optimization
             n_inducing_points: number of inducing points
-            optimizer: optimizer used for training
-            inputs_size: input size of image data to the model
+            input_size: image input size of data to the model
+            num_classes: number of classes
+            gp_kernel: GP kernel choice, supports one of
+                'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             coeff: soft normalization only when sigma larger than coeff should be (0, 1)
             n_power_iterations: number of power iterations for spectral normalization
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         self.input_size = input_size

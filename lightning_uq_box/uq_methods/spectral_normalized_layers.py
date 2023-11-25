@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Spectral Normalization Layers and conversion tools.
 
 Adapted from https://github.com/y0ast/DUE/tree/main/due/layers
@@ -265,8 +268,8 @@ class SpectralNormConv(SpectralNorm):
         """Call module.
 
         Args:
-            module:
-            inputs:
+            module: module
+            inputs: inputs
         """
         assert (
             inputs[0].shape[1:] == self.input_dim[1:]
@@ -289,12 +292,12 @@ class SpectralNormConv(SpectralNorm):
         """Apply spectral normalization to Conv layer.
 
         Args:
-            module:
+            module: module
             coeff: soft normalization only when sigma larger than coeff
-            input_dim:
-            name:
-            n_power_iterations:
-            eps:
+            input_dim: input dimensions
+            name: name of layer
+            n_power_iterations: number of power iterations
+            eps: epsilon
 
         """
         for k, hook in module._forward_pre_hooks.items():

@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Datamodule for Toy Heteroscedastic Data."""
 
 from typing import Callable, Union

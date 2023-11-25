@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 from typing import Any, Optional, Tuple, Union
@@ -403,6 +406,8 @@ class BNN_VI_Regression(BNN_VI_Base):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         # output from forward: [n_samples, batch_size, outputs]
         with torch.no_grad():
@@ -569,6 +574,8 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         # preds = []
         with torch.no_grad():
