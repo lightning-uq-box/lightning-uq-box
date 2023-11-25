@@ -152,12 +152,13 @@ filterwarnings = [
     "ignore:`training_step` returned `None`. If this was on purpose, ignore this warning...",
 
     # MC-Dropout timm libraries implement dropout as functional an not module
-    "ignore:No dropout layers found in model, maybe dropout is implemented through nn.fucntional?"
+    "ignore:No dropout layers found in model, maybe dropout is implemented through nn.fucntional?",
 
     # MacOS runner issues
     "ignore:Skipping device Apple Paravirtual device that does not support Metal 2.0:UserWarning",
     "ignore:Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded",
 ]
+
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}
 
