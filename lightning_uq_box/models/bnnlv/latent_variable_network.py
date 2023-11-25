@@ -135,7 +135,7 @@ class LatentVariableNetwork(nn.Module):
         # use z_std = torch.log1p(torch.exp(self.z_rho))?
         z_std = (
             self.lv_init_std
-            - F.softplus(x[:, self.lv_latent_dim :]) * self.init_scaling
+            - F.softplus(x[:, self.lv_latent_dim :]) * self.init_scaling  # noqa: E203
         )
         z_std = torch.clamp(z_std, min=1e-3)
 

@@ -169,7 +169,7 @@ class UCIRegressionDataset:
         is_zipped = np.any([z in self.url for z in [".gz", ".zip", ".tar"]])
 
         if is_zipped:
-            download_and_extract_archive(
+            download_and_extract_archive(  # noqa: F821
                 self.url,
                 os.path.dirname(self.datapath),
                 os.path.dirname(os.path.dirname(self.datapath)),

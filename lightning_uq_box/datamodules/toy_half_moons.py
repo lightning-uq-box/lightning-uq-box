@@ -28,8 +28,7 @@ class TwoMoonsDataModule(LightningDataModule):
         self.setup()
 
     def setup(self, stage: Optional[str] = None):
-        """
-        Setup the DataModule (generate the half-moon dataset and split it into training, validation, and test sets).
+        """Setup the DataModule.
 
         Args:
             stage: The stage ('fit' or 'test'). Defaults to None.

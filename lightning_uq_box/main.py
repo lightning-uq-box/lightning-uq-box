@@ -5,7 +5,7 @@ from lightning.pytorch.cli import ArgsType, LightningCLI
 # Allows classes to be referenced using only the class name
 import lightning_uq_box.datamodules  # noqa: F401
 import lightning_uq_box.uq_methods  # noqa: F401
-from lightning_uq_box.models import MLP
+from lightning_uq_box.models import MLP  # noqa: F401
 
 
 def get_uq_box_cli(args: ArgsType = None) -> LightningCLI:
