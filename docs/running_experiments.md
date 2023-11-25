@@ -44,6 +44,8 @@ Then you launch this run via the command line with:
 uq-box fit --config path_to_above_config.yaml
 ```
 
+You can of course also create your own Lightning-CLI setup (check their [docs](https://lightning.ai/docs/pytorch/stable/cli/lightning_cli.html) for additional features).
+
 If you would like to use the instantitated Lightning classes in your code, but still use config files you can do:
 
 ```python
