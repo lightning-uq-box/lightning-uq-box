@@ -150,6 +150,17 @@ filterwarnings = [
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}
 
+[tool.isort]
+profile = "black"
+known_first_party = ["docs", "tests", "torchgeo", "train"]
+skip_gitignore = true
+color_output = true
+
+[tool.black]
+target-version = ["py39", "py310"]
+color = true
+skip_magic_trailing_comma = true
+
 
 [project.scripts]
 uq-box = "lightning_uq_box.main:main"
