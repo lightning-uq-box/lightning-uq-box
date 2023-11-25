@@ -143,5 +143,16 @@ filterwarnings = [
 version = {attr = "lightning_uq_box.__version__"}
 
 
+[tool.black]
+target-version = ["py39", "py310"]
+color = true
+skip_magic_trailing_comma = true
+
+[tool.isort]
+profile = "black"
+known_first_party = ["docs", "tests", "lightning_uq_box"]
+skip_gitignore = true
+color_output = true
+
 [project.scripts]
 uq-box = "lightning_uq_box.main:main"
