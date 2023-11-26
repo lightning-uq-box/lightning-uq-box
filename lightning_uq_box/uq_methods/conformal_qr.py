@@ -4,8 +4,8 @@
 """conformalized Quantile Regression Model."""
 
 import math
-
 from typing import Dict, Union
+
 import torch
 import torch.nn as nn
 from lightning import LightningModule
@@ -96,28 +96,6 @@ class ConformalQR(PosthocBase):
             dim=1,
         )
         return cqr_sets
-
-    def on_validation_start(self) -> None:
-        """Init tensors that gather model outputs and labels."""
-        # TODO intitialize zero tensors for memory efficiency
-        self.model_outputs = []
-        self.labels = []
-
-    def validation_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Single CQR gathering step.
-
-        Args:
-            batch: batch of data
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-
-        Returns:
-            underlying model output and labels
-        """
-        self.model_outputs.append(self.model(batch[self.input_key]))
-        self.labels.append(batch[self.target_key])
 
     def on_validation_epoch_end(self) -> None:
         """Perform CQR computation to obtain q_hat for predictions.
