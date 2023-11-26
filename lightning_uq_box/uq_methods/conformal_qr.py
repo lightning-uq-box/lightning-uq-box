@@ -4,9 +4,8 @@
 """conformalized Quantile Regression Model."""
 
 import math
-from typing import Any, Union
 
-import numpy as np
+from typing import Dict, Union
 import torch
 import torch.nn as nn
 from lightning import LightningModule
@@ -78,7 +77,7 @@ class ConformalQR(PosthocBase):
 
         self.desired_coverage = 1 - self.alpha  # 1-alpha is the desired coverage
 
-    def adjust_model_output(self, model_output: Tensor) -> Tensor:
+    def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Conformalize underlying model output.
 
         Args:
@@ -127,7 +126,7 @@ class ConformalQR(PosthocBase):
             outputs: list of dictionaries containing model outputs and labels
 
         """
-        all_outputs = torch.cat(self.model_outputs, dim=0)
+        all_outputs = torch.cat(self.model_logits, dim=0)
         all_labels = torch.cat(self.labels, dim=0)
 
         # calibration quantiles assume order of outputs corresponds
@@ -138,8 +137,14 @@ class ConformalQR(PosthocBase):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Test step."""
+    ) -> dict[str, Tensor]:
+        """Test step.
+
+        Args:
+            batch: batch of testing data
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
             batch[self.target_key].detach().squeeze(-1).cpu().numpy()
@@ -157,7 +162,7 @@ class ConformalQR(PosthocBase):
             del out_dict["out"]
         return out_dict
 
-    def predict_step(self, X: Tensor) -> Any:
+    def predict_step(self, X: Tensor) -> Dict[str, Tensor]:
         """Prediction step that produces conformalized prediction sets.
 
         Args:

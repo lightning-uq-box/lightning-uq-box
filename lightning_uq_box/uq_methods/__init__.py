@@ -51,6 +51,7 @@ from .spectral_normalized_layers import (
     spectral_normalize_model_layers,
 )
 from .swag import SWAGBase, SWAGClassification, SWAGRegression
+from .temp_scaling import TempScaling
 
 __all__ = (
     # Base Module
@@ -99,6 +100,8 @@ __all__ = (
     "SGLDBase",
     "SGLDRegression",
     "SGLDClassification",
+    # Temperature Scaling
+    "TempScaling",
     # Deep Evidential Regression Model
     "DER",
     # Spectral Normalization Layers

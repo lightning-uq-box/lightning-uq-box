@@ -310,15 +310,58 @@ class PosthocBase(BaseModule):
 
         self.post_hoc_fitted = False
 
+    @property
+    def num_input_features(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        if isinstance(self.model, LightningModule):
+            return _get_num_inputs(self.model.model)
+        else:
+            return _get_num_inputs(self.model)
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of output dimension to model
+        """
+        if isinstance(self.model, LightningModule):
+            return _get_num_outputs(self.model.model)
+        else:
+            return _get_num_outputs(self.model)
+
     def training_step(self, *args: Any, **kwargs: Any):
         """Posthoc Methods do not have a training step."""
         pass
 
+    def on_validation_start(self) -> None:
+        """Initialize objects to track model logits and labels."""
+        # TODO intitialize zero tensors for memory efficiency
+        self.model_logits = []
+        self.labels = []
+
+        # TODO this doesn't do anything right now
+        self.trainer.inference_mode = False
+
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
-        """Postoc Method can use this method to iterate over dataloader."""
-        raise NotImplementedError
+    ) -> None:
+        """Single gathering step of model logits and targets.
+
+        Args:
+            batch: batch of data
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+
+        Returns:
+            underlying model output and labels
+        """
+        self.model_logits.append(self.model(batch[self.input_key]))
+        self.labels.append(batch[self.target_key])
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -326,7 +369,7 @@ class PosthocBase(BaseModule):
         """Test step after running posthoc fitting methodology."""
         raise NotImplementedError
 
-    def adjust_model_output(self, model_output: Tensor) -> Tensor:
+    def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model output according to post-hoc fitting procedure.
 
         Args:
@@ -353,4 +396,8 @@ class PosthocBase(BaseModule):
         with torch.no_grad():
             model_preds: dict[str, np.ndarray] = self.model(X)
 
-        return self.adjust_model_output(model_preds)
+        return self.adjust_model_logits(model_preds)
+
+    def configure_optimizers(self) -> Any:
+        """Configure optimizers for posthoc fitting."""
+        pass
