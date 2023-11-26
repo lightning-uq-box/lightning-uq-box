@@ -1,6 +1,14 @@
-"""Regularized Adaptive Prediction Sets (RAPS)."""
+# MIT License
+# Copyright (c) 2020 Anastasios Angelopoulos
 
-"""Adapted from https://github.com/aangelopoulos/conformal_classification"""
+# Implementation adapted from above
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
+"""Regularized Adaptive Prediction Sets (RAPS).
+
+Adapted from https://github.com/aangelopoulos/conformal_classification
+"""
 
 from functools import partial
 from typing import Union
@@ -13,7 +21,7 @@ from torch import Tensor
 
 from .base import PosthocBase
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
-from .utils import _get_num_outputs, default_classification_metrics
+from .utils import default_classification_metrics
 
 
 class RAPS(PosthocBase):
@@ -86,7 +94,6 @@ class RAPS(PosthocBase):
 
     def compute_q_hat(self, logits: Tensor, targets: Tensor) -> Tensor:
         """Compute q_hat."""
-
         scores = temp_scale_logits(logits, self.temperature)
         I, ordered, cumsum = sort_sum(scores)
 
@@ -221,7 +228,8 @@ def gen_cond_quantile_function(
     if tau == 1.0:
         sizes[:] = cumsum.shape[1]
 
-    # allow the user the option to never have empty sets (will lead to incorrect coverage if 1-alpha < model's top-1 accuracy
+    # allow the user the option to never have empty sets (will lead to incorrect
+    # coverage if 1-alpha < model's top-1 accuracy
     if not allow_zero_sets:
         sizes[sizes == 0] = 1
 
