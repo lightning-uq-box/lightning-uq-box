@@ -232,7 +232,7 @@ def map_stochastic_modules(
 
 
 def _get_input_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:
-    """Retrieve the input layer name and module from a timm model.
+    """Retrieve the input layer name and module from a pytorch model.
 
     Args:
         model: pytorch model
