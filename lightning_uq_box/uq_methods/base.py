@@ -1,22 +1,22 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Base Model for UQ methods."""
 
-import os
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from .utils import (
     _get_num_inputs,
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    save_predictions_to_csv,
 )
 
 
@@ -31,8 +31,6 @@ class BaseModule(LightningModule):
 
     input_key = "input"
     target_key = "target"
-
-    pred_file_name = "predictions.csv"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize a new instance of the Base Module."""
@@ -60,22 +58,19 @@ class BaseModule(LightningModule):
 class DeterministicModel(BaseModule):
     """Deterministic Base Trainer as LightningModule."""
 
-    input_key = "input"
-    target_key = "target"
-
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         loss_fn: nn.Module,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Base Model.
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             loss_fn: loss function used for optimization
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         super().__init__()
@@ -88,7 +83,7 @@ class DeterministicModel(BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         raise NotImplementedError
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
@@ -102,7 +97,7 @@ class DeterministicModel(BaseModule):
         """
         return out[:, 0:1]
 
-    def forward(self, X: Tensor, **kwargs: Any) -> Any:
+    def forward(self, X: Tensor) -> Any:
         """Forward pass of the model.
 
         Args:
@@ -111,7 +106,7 @@ class DeterministicModel(BaseModule):
         Returns:
             output from the model
         """
-        return self.model(X, **kwargs)
+        return self.model(X)
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -203,10 +198,40 @@ class DeterministicModel(BaseModule):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             out = self.forward(X)
         return {"pred": self.extract_mean_output(out)}
+
+    def configure_optimizers(self) -> dict[str, Any]:
+        """Initialize the optimizer and learning rate scheduler.
+
+        Returns:
+            a "lr dict" according to the pytorch lightning documentation
+        """
+        optimizer = self.optimizer(self.parameters())
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}
+
+
+class DeterministicRegression(DeterministicModel):
+    """Deterministic Base Trainer for regression as LightningModule."""
+
+    pred_file_name = "preds.csv"
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.train_metrics = default_regression_metrics("train")
+        self.val_metrics = default_regression_metrics("val")
+        self.test_metrics = default_regression_metrics("test")
 
     # def on_test_batch_end(
     #     self,
@@ -221,33 +246,6 @@ class DeterministicModel(BaseModule):
     #             outputs, os.path.join(self.save_dir, self.pred_file_name)
     # )
 
-    def configure_optimizers(self) -> dict[str, Any]:
-        """Initialize the optimizer and learning rate scheduler.
-
-        Returns:
-            a "lr dict" according to the pytorch lightning documentation --
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
-        """
-        optimizer = self.optimizer(params=self.parameters())
-        if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
-            return {
-                "optimizer": optimizer,
-                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
-            }
-        else:
-            return {"optimizer": optimizer}
-
-
-class DeterministicRegression(DeterministicModel):
-    """Deterministic Base Trainer for regression as LightningModule."""
-
-    def setup_task(self) -> None:
-        """Setup task specific attributes."""
-        self.train_metrics = default_regression_metrics("train")
-        self.val_metrics = default_regression_metrics("val")
-        self.test_metrics = default_regression_metrics("test")
-
 
 class DeterministicClassification(DeterministicModel):
     """Deterministic Base Trainer for classification as LightningModule."""
@@ -257,24 +255,25 @@ class DeterministicClassification(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         loss_fn: nn.Module,
         task: str = "multiclass",
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
-        """Initialize a new Base Model.
+        """Initialize a new Deterministic Classification Model.
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             loss_fn: loss function used for optimization
-            task: what kind of classification task, choose one of ["binary", "multiclass", "multilabel"]
+            task: what kind of classification task, choose one of
+                ["binary", "multiclass", "multilabel"]
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         self.num_classes = _get_num_outputs(model)
         assert task in self.valid_tasks
         self.task = task
-        super().__init__(model, optimizer, loss_fn, lr_scheduler)
+        super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract mean output from model output.
@@ -288,7 +287,7 @@ class DeterministicClassification(DeterministicModel):
         return out
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -301,6 +300,8 @@ class DeterministicClassification(DeterministicModel):
 
 
 class PosthocBase(BaseModule):
+    """Posthoc Base Model for UQ methods."""
+
     def __init__(self, model: Union[LightningModule, nn.Module]) -> None:
         """Initialize a new Post hoc Base Model."""
         super().__init__()
@@ -338,25 +339,13 @@ class PosthocBase(BaseModule):
         pass
 
     def on_validation_start(self) -> None:
-        """Before validation epoch starts, create tensors that gather model outputs and labels."""
+        """Initialize objects to track model logits and labels."""
         # TODO intitialize zero tensors for memory efficiency
         self.model_logits = []
         self.labels = []
 
         # TODO this doesn't do anything right now
         self.trainer.inference_mode = False
-
-    # Memory efficient version
-    # def on_validation_start(self) -> None:
-    #     """Before validation epoch starts, create tensors that gather model outputs and labels."""
-    #     num_validation_samples = len(self.val_dataloader().dataset)
-    #     self.model_logits = torch.zeros(num_validation_samples, device=self.device)
-    #     self.labels = torch.zeros(num_validation_samples, device=self.device)
-    # def validation_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> None:
-    #     start_idx = batch_idx * self.val_dataloader().batch_size
-    #     end_idx = start_idx + len(batch[self.input_key])
-    #     self.model_logits[start_idx:end_idx] = self.model(batch[self.input_key])
-    #     self.labels[start_idx:end_idx] = batch[self.target_key]
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -399,7 +388,8 @@ class PosthocBase(BaseModule):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call trainer.validate(model, datamodule) first."
+                "Model has not been post hoc fitted, please call "
+                "trainer.validate(model, datamodule) first."
             )
 
         # predict with underlying model
@@ -409,4 +399,5 @@ class PosthocBase(BaseModule):
         return self.adjust_model_logits(model_preds)
 
     def configure_optimizers(self) -> Any:
+        """Configure optimizers for posthoc fitting."""
         pass

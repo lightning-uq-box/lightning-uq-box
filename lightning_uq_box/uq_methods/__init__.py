@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """UQ-Methods as Lightning Modules."""
 
 from .base import (
@@ -19,8 +22,7 @@ from .bnn_vi_elbo import (
     BNN_VI_ELBO_Classification,
     BNN_VI_ELBO_Regression,
 )
-from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
-from .cqr_model import ConformalQR
+from .conformal_qr import ConformalQR
 from .deep_ensemble import (
     DeepEnsemble,
     DeepEnsembleClassification,
@@ -50,6 +52,7 @@ from .spectral_normalized_layers import (
     spectral_normalize_model_layers,
 )
 from .swag import SWAGBase, SWAGClassification, SWAGRegression
+from .temp_scaling import TempScaling
 
 __all__ = (
     # Base Module
@@ -59,11 +62,6 @@ __all__ = (
     "DeterministicModel",
     "DeterministicClassification",
     "DeterministicRegression",
-    # CARD Model
-    "CARDBase",
-    "CARDRegression",
-    "CARDClassification",
-    "NoiseScheduler",
     # conformalized Quantile Regression
     "ConformalQR",
     # MC-Dropout
@@ -105,6 +103,8 @@ __all__ = (
     "SGLDClassification",
     # RAPS Model
     "RAPS",
+    # Temperature Scaling
+    "TempScaling",
     # Deep Evidential Regression Model
     "DER",
     # Spectral Normalization Layers

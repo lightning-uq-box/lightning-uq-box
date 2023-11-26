@@ -1,11 +1,13 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Deterministic Uncertainty Estimation."""
+
+from typing import Dict
 
 import torch
 import torch.nn as nn
-from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
-from gpytorch.models import ApproximateGP
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 
 from .deep_kernel_learning import DKLClassification, DKLRegression
 from .spectral_normalized_layers import spectral_normalize_model_layers
@@ -23,14 +25,14 @@ class DUERegression(DKLRegression):
     def __init__(
         self,
         feature_extractor: nn.Module,
-        gp_layer: type[ApproximateGP],
-        elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
-        optimizer: type[Optimizer],
-        input_size: int = None,
+        input_size: int,
+        num_targets: int = 1,
+        gp_kernel: str = "RBF",
         coeff: float = 0.95,
         n_power_iterations: int = 1,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 
@@ -38,18 +40,20 @@ class DUERegression(DKLRegression):
 
         Args:
             feature_extractor: feature extractor model
-            gp_layer: Gaussian Process layer
-            elbo_fn: gpytorch elbo function used for optimization
             n_inducing_points: number of inducing points
-            optimizer: optimizer used for training
-            inputs_size: reature input size of data to the model
-            coeff: soft normalization only when sigma larger than coeff should be (0, 1)
+            num_targets: number of targets
+            gp_kernel: GP kernel choice, supports one of
+                'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            input_size: image input size of data to the model
+            coeff: soft normalization only when sigma larger than coeff,
+                should be (0, 1)
             n_power_iterations: number of power iterations for spectral normalization
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         self.input_size = input_size
 
-        self.input_dimensions = collect_input_sizes(feature_extractor, input_size)
+        self.input_dimensions = collect_input_sizes(feature_extractor, self.input_size)
         # spectral normalize the feature extractor layers
         feature_extractor = spectral_normalize_model_layers(
             feature_extractor, n_power_iterations, self.input_dimensions, coeff
@@ -57,9 +61,9 @@ class DUERegression(DKLRegression):
 
         super().__init__(
             feature_extractor,
-            gp_layer,
-            elbo_fn,
             n_inducing_points,
+            num_targets,
+            gp_kernel,
             optimizer,
             lr_scheduler,
         )
@@ -76,33 +80,34 @@ class DUEClassification(DKLClassification):
     def __init__(
         self,
         feature_extractor: nn.Module,
-        gp_layer: type[ApproximateGP],
-        elbo_fn: type[_ApproximateMarginalLogLikelihood],
         n_inducing_points: int,
-        optimizer: type[Optimizer],
-        input_size: int = None,
+        input_size: int,
+        num_classes: int,
+        gp_kernel: str = "RBF",
         task: str = "multiclass",
         coeff: float = 0.95,
         n_power_iterations: int = 1,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 
         Args:
             feature_extractor: feature extractor model
-            gp_layer: Gaussian Process layer
-            elbo_fn: gpytorch elbo function used for optimization
             n_inducing_points: number of inducing points
-            optimizer: optimizer used for training
-            inputs_size: reature input size of data to the model
+            input_size: image input size of data to the model
+            num_classes: number of classes
+            gp_kernel: GP kernel choice, supports one of
+                'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             coeff: soft normalization only when sigma larger than coeff should be (0, 1)
             n_power_iterations: number of power iterations for spectral normalization
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         self.input_size = input_size
 
-        self.input_dimensions = collect_input_sizes(feature_extractor, input_size)
+        self.input_dimensions = collect_input_sizes(feature_extractor, self.input_size)
         # spectral normalize the feature extractor layers
         feature_extractor = spectral_normalize_model_layers(
             feature_extractor, n_power_iterations, self.input_dimensions, coeff
@@ -110,22 +115,26 @@ class DUEClassification(DKLClassification):
 
         super().__init__(
             feature_extractor,
-            gp_layer,
-            elbo_fn,
             n_inducing_points,
-            optimizer,
+            num_classes,
             task,
+            gp_kernel,
+            optimizer,
             lr_scheduler,
         )
 
 
-def collect_input_sizes(feature_extractor, input_size):
-    """Spectral Normalization needs input sizes to each layer."""
-    try:
-        _, module = _get_input_layer_name_and_module(feature_extractor)
-    except UnboundLocalError:
-        input_dimensions = {}
-        return input_dimensions
+def collect_input_sizes(feature_extractor, input_size) -> Dict[str, torch.Size]:
+    """Spectral Normalization needs input sizes to each layer.
+
+    Args:
+        feature_extractor: feature extractor model
+        input_size: input size of image data to the model
+
+    Returns:
+        input_dimensions: dictionary of input dimensions to each layer
+    """
+    _, module = _get_input_layer_name_and_module(feature_extractor)
 
     if isinstance(module, torch.nn.Linear):
         input_tensor = torch.zeros(1, module.in_features)

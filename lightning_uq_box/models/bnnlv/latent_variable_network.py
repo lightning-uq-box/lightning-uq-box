@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Latent Variable Network."""
 
 import torch
@@ -5,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from lightning_uq_box.models.bnn_layers.utils import calc_log_normalizer
+from lightning_uq_box.models.bnn_layers.bnn_utils import calc_log_normalizer
 
 
 def calc_log_f_hat_z(
@@ -58,7 +61,7 @@ class LatentVariableNetwork(nn.Module):
         Args:
             net: nn.Module, network that is deterministic,
                 i.e. the latent variable net.
-            num_training_points:
+            num_training_points: num of training points
             lv_prior_mu: Prior mean for latent variables,
                 default: 0.0.
             lv_prior_std: Prior standard deviation for latent variables,
@@ -135,7 +138,7 @@ class LatentVariableNetwork(nn.Module):
         # use z_std = torch.log1p(torch.exp(self.z_rho))?
         z_std = (
             self.lv_init_std
-            - F.softplus(x[:, self.lv_latent_dim :]) * self.init_scaling
+            - F.softplus(x[:, self.lv_latent_dim :]) * self.init_scaling  # noqa: E203
         )
         z_std = torch.clamp(z_std, min=1e-3)
 

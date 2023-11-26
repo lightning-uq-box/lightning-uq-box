@@ -1,0 +1,22 @@
+model:
+  class_path: lightning_uq_box.uq_methods.SWAGRegression
+  init_args:
+    model:
+      class_path: lightning_uq_box.uq_methods.MVERegression
+      init_args:
+        model:
+          class_path: lightning_uq_box.models.MLP
+          init_args:
+            n_outputs: 2
+            n_hidden: [50]
+        optimizer:
+          class_path: torch.optim.Adam
+          init_args:
+            lr: 0.003
+        burnin_epochs: 1
+    max_swag_snapshots: 4
+    snapshot_freq: 1
+    num_mc_samples: 10
+    swag_lr: 0.001
+    loss_fn:
+      class_path: lightning_uq_box.uq_methods.NLL

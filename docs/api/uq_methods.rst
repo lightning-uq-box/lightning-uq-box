@@ -7,6 +7,8 @@ lightning_uq_box.uq_methods
 
 .. autoclass:: DeterministicModel
 
+.. autoclass:: PosthocBase
+
 
 Mean Variance Estimation
 ------------------------
@@ -63,7 +65,7 @@ Stochastic Gradient Langevin Dynamics
 
 .. currentmodule:: lightning_uq_box.uq_methods.sgld
 
-.. autoclass:: SGLDModel
+.. autoclass:: SGLD
 
 Deep Kernel Learning
 --------------------
@@ -87,12 +89,18 @@ Deep Ensembles
 
 .. currentmodule:: lightning_uq_box.uq_methods.deep_ensemble
 
-.. autoclass:: DeepEnsembleModel
+.. autoclass:: DeepEnsemble
+.. autoclass:: DeepEnsembleRegression
+.. autoclass:: DeepEnsembleClassification    
 
 UQ Calibration Methods
 ----------------------
 
-.. currentmodule:: lightning_uq_box.uq_methods.cqr_model
+.. currentmodule:: lightning_uq_box.uq_methods.conformal_qr
 
-.. autoclass:: CQR
+.. autoclass:: ConformalQR
+
+.. currentmodule:: lightning_uq_box.uq_methods.temp_scaling
+
+.. autoclass:: TempScaling
 

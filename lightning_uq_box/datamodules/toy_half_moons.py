@@ -1,3 +1,8 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
+"""Two Moons Toy Classification Datamodule."""
+
 from typing import Optional
 
 import numpy as np
@@ -11,13 +16,10 @@ from .utils import collate_fn_tensordataset
 
 
 class TwoMoonsDataModule(LightningDataModule):
-    """
-    DataModule for PyTorch Lightning that encapsulates the half-moon dataset.
-    """
+    """DataModule for PyTorch Lightning that encapsulates the half-moon dataset."""
 
     def __init__(self, batch_size: int = 32):
-        """
-        Initialize the DataModule.
+        """Initialize the DataModule.
 
         Args:
             batch_size: The batch size for the DataLoaders. Defaults to 32.
@@ -28,8 +30,7 @@ class TwoMoonsDataModule(LightningDataModule):
         self.setup()
 
     def setup(self, stage: Optional[str] = None):
-        """
-        Setup the DataModule (generate the half-moon dataset and split it into training, validation, and test sets).
+        """Set up the DataModule.
 
         Args:
             stage: The stage ('fit' or 'test'). Defaults to None.
@@ -60,8 +61,7 @@ class TwoMoonsDataModule(LightningDataModule):
         )
 
     def train_dataloader(self) -> DataLoader:
-        """
-        Create and return a DataLoader for the training set.
+        """Create and return a DataLoader for the training set.
 
         Returns:
             The DataLoader for the training set.
@@ -75,8 +75,7 @@ class TwoMoonsDataModule(LightningDataModule):
         )
 
     def val_dataloader(self) -> DataLoader:
-        """
-        Create and return a DataLoader for the validation set.
+        """Create and return a DataLoader for the validation set.
 
         Returns:
             The DataLoader for the validation set.
@@ -90,8 +89,7 @@ class TwoMoonsDataModule(LightningDataModule):
         )
 
     def test_dataloader(self) -> DataLoader:
-        """
-        Create and return a DataLoader for the test set.
+        """Create and return a DataLoader for the test set.
 
         Returns:
             The DataLoader for the test set.

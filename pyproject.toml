@@ -38,7 +38,7 @@ dependencies = [
     # einops 0.3+ required for einops.repeat
     "einops>=0.3",
     # lightning 2+ required for LightningCLI args + sys.argv support
-    "lightning>=2",
+    "lightning>=2.1.1",
     # matplotlib 3.3.3+ required for Python 3.9 wheels
     "matplotlib>=3.3.3",
     # numpy 1.19.3+ required by Python 3.9 wheels
@@ -47,18 +47,20 @@ dependencies = [
     "pandas>=1.1.3",
     # torch 1.12+ required by torchvision
     "torch>=2.0",
-    # timm 0.4.12 required by segmentation-models-pytorch
-    "timm>=0.4.12",
+    # timm 
+    "timm>=0.9.11",
     # torchmetrics 0.10+ required for binary/multiclass/multilabel classification metrics
     "torchmetrics>=1.2",
     # torchvision 0.13+ required for torchvision.models._api.WeightsEnum
-    "torchvision>=0.16",
+    "torchvision>=0.16.1",
     # scikit-learn
     "scikit-learn>=1.3",
     # for deep kernel learning and other GP models
     "gpytorch>=1.11",
     # Laplace Approximation
     "laplace-torch>=0.1a2",
+    # Uncertainty toolbox metrics
+    "uncertainty-toolbox>=0.1.1"
 ]
 dynamic = ["version"]
 
@@ -71,8 +73,11 @@ dev = [
     "pytest-cov>=4",
     # pytest lazy fixture
     "pytest-lazy-fixture>=0.6",
-    # hydra for tests
+    # hydra-core
     "hydra-core>=1.3.2",
+    # omegaconf
+    "omegaconf>=2.3.0",
+
 
     ### Docs ###
     # sphinx
@@ -85,6 +90,23 @@ dev = [
     "sphinx-book-theme>=1.0.1",
     # Extension for markdown
     "myst-parser>=2.0",
+    # toggle dropdowns
+    "sphinx-togglebutton>=0.3.2",
+    # jupytext notebook creation from .py files
+    "jupytext>=1.15.2",
+
+    ## Style
+    # black 21.8+ required for Jupyter support
+    "black[jupyter]>=21.8",
+    # flake8 3.8+ depends on pyflakes 2.2+, which fixes a bug with mypy error code ignores:
+    # https://github.com/PyCQA/pyflakes/pull/455
+    "flake8>=3.8",
+    # isort 5.8+ required for extend_skip option
+    "isort[colors]>=5.8",
+    # pydocstyle 6.1+ required for pyproject.toml support
+    "pydocstyle[toml]>=6.1",
+    # pyupgrade 2.8+ required for --py39-plus flag
+    "pyupgrade>=2.8",
 ]
 
 
@@ -113,12 +135,51 @@ filterwarnings = [
     "ignore:The .*dataloader.* does not have many workers which may be a bottleneck:UserWarning:lightning",
     "ignore:The .*dataloader.* does not have many workers which may be a bottleneck:lightning.fabric.utilities.warnings.PossibleUserWarning:lightning",
 
+    # Lightning CLI
+    "ignor:LightningCLI's args parameter is intended to run from within Python like if it were from the command line. To prevent mistakes it is not recommended to provide both args and command line arguments",
+
     # Lightning warns us if TensorBoard is not installed
     "ignore:Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `lightning.pytorch` package:UserWarning",
 
-    # using post-hoc methods with .fit() and no optimizers
+    # https://github.com/Lightning-AI/lightning/issues/18545
+    "ignore:LightningCLI's args parameter is intended to run from within Python like if it were from the command line.:UserWarning",
+
+    # MLP has activation_fn as a module that can be changed, we use it in tests
+    "ignore:Unable to serialize instance ReLU()",
+
+    # Post Hoc methods TODO maybe more finegrained control in tests
     "ignore:`LightningModule.configure_optimizers` returned `None`, this fit will run with no optimizer",
-    "ignore:`training_step` returned `None`. If this was on purpose, ignore this warning..."
+    "ignore:`training_step` returned `None`. If this was on purpose, ignore this warning...",
+
+    # MC-Dropout timm libraries implement dropout as functional an not module
+    "ignore:No dropout layers found in model, maybe dropout is implemented through nn.fucntional?",
+
+    # MacOS runner issues
+    "ignore:Skipping device Apple Paravirtual device that does not support Metal 2.0:UserWarning",
+    "ignore:Found Intel OpenMP ('libiomp') and LLVM OpenMP ('libomp') loaded:RuntimeWarning",
 ]
+
+[tool.env]
+USE_IOMP = "0"
+
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}
+
+[tool.isort]
+profile = "black"
+known_first_party = ["docs", "tests", "lightning_uq_box", "train"]
+skip_gitignore = true
+color_output = true
+
+[tool.black]
+target-version = ["py39", "py310"]
+color = true
+skip_magic_trailing_comma = true
+
+[tool.pydocstyle]
+convention = "google"
+match_dir = "(datamodules|datasets|models|lightning_uq_box)"
+
+
+[project.scripts]
+uq-box = "lightning_uq_box.main:main"

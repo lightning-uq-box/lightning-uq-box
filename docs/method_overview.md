@@ -4,7 +4,7 @@
 
 ## Introductory Topics
 
-The introductory topics aim to give an overview of common baseline UQ-Methods. They provide a set of basic UQ tools that are generally easily applicable and can form strong baselines.
+The introductory topics aim to give an overview of common baseline UQ-Methods. They provide a set of basic UQ tools that are generally easily applicable and can form baselines for your experiments.
 
 Additionally, we want to give a rough classification of the different methods to illustrate their common theoretical underpinning and the assumptions they make.
 
@@ -33,3 +33,8 @@ The following aims to give an overview of different UQ-Methods by grouping them 
 ### Ensemble Methods
 
 - Deep Ensembles
+
+### Post-Hoc Calibration methods
+
+- Conformal Quantile Regression
+- Temperature Scaling

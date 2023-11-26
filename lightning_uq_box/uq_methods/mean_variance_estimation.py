@@ -1,13 +1,13 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Deterministic Model that predicts parameters of Gaussian."""
 
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
-
-from lightning_uq_box.eval_utils import compute_quantiles_from_std
 
 from .base import DeterministicModel
 from .loss_functions import NLL
@@ -25,25 +25,24 @@ class MVEBase(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
         burnin_epochs: int,
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instace of Deterministic Gaussian Model.
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             burnin_epochs: number of burnin epochs before switiching to NLL
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
-
         """
-        super().__init__(model, optimizer, None, None)
+        super().__init__(model, None, optimizer, lr_scheduler)
 
         self.loss_fn = NLL()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -85,21 +84,23 @@ class MVERegression(MVEBase):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         burnin_epochs: int,
-        lr_scheduler: type[LRScheduler] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instance of Mean Variance Estimation Model for Regression.
 
         Args:
             model: pytorch model
-            optimizer: optimizer used for training
             burnin_epochs: number of burnin epochs before switiching to NLL
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
         """
-        super().__init__(model, optimizer, burnin_epochs, lr_scheduler)
-        self.save_hyperparameters(ignore=["model", "loss_fn"])
+        super().__init__(model, burnin_epochs, optimizer, lr_scheduler)
+        self.save_hyperparameters(
+            ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
+        )
 
     def extract_mean_output(self, out: Tensor) -> Tensor:
         """Extract mean output from model."""
@@ -113,6 +114,8 @@ class MVERegression(MVEBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             preds = self.model(X)
