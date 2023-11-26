@@ -56,7 +56,7 @@ from .spectral_normalized_layers import (
     SpectralNormFC,
     spectral_normalize_model_layers,
 )
-from .swag import SWAGBase, SWAGClassification, SWAGRegression
+from .swag import SWAGBase, SWAGClassification, SWAGRegression, SWAGSegmentation
 from .temp_scaling import TempScaling
 
 __all__ = (
@@ -104,6 +104,7 @@ __all__ = (
     "SWAGBase",
     "SWAGRegression",
     "SWAGClassification",
+    "SWAGSegmentation",
     # SGLD Model.
     "SGLDBase",
     "SGLDRegression",

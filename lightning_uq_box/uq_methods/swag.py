@@ -16,6 +16,9 @@
 # - integrating the functions into pytorch lightning Lightning Module framework
 # - enable selections of stochastic modules
 
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Stochastic Weight Averaging - Gaussian.
 
 Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/trackers.py (Apache License 2.0) # noqa: E501
@@ -25,7 +28,7 @@ for support of partial stochasticity and integration to lightning.
 import math
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -37,9 +40,11 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    default_segmentation_metrics,
     map_stochastic_modules,
     process_classification_prediction,
     process_regression_prediction,
+    process_segmentation_prediction,
 )
 
 
@@ -380,17 +385,17 @@ class SWAGRegression(SWAGBase):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
-        self.train_metrics = default_regression_metrics("train")
-        self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Any:
-        """Prediction step that produces conformalized prediction sets.
+    ) -> Dict[str, Tensor]:
+        """Prediction step that with SWAG uncertainty.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
 
         Returns:
             prediction dictionary
@@ -470,20 +475,14 @@ class SWAGClassification(SWAGBase):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
-        self.train_metrics = default_classification_metrics(
-            "train", self.task, self.num_classes
-        )
-        self.val_metrics = default_classification_metrics(
-            "val", self.task, self.num_classes
-        )
         self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
         )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Any:
-        """Prediction step that produces conformalized prediction sets.
+    ) -> Dict[str, Tensor]:
+        """Prediction step with SWAG uncertainty.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
@@ -499,6 +498,36 @@ class SWAGClassification(SWAGBase):
         preds = self.sample_predictions(X)
 
         return process_classification_prediction(preds)
+
+
+class SWAGSegmentation(SWAGClassification):
+    """SWAG Model for Segmentation."""
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.test_metrics = default_segmentation_metrics(
+            "test", self.task, self.num_classes
+        )
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Dict[str, Tensor]:
+        """Prediction step with SWAG uncertainty.
+
+        Args:
+            X: prediction batch of shape [batch_size x num_channels x height x width]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+
+        Returns:
+            prediction dictionary
+        """
+        if not self.swag_fitted:
+            raise RuntimeError(
+                "SWAG is not fitted yet, please call trainer.fit() first."
+            )
+        preds = self.sample_predictions(X)
+        return process_segmentation_prediction(preds)
 
 
 # Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501

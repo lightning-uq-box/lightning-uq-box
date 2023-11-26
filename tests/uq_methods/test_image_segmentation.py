@@ -15,7 +15,10 @@ from pytest import TempPathFactory
 from lightning_uq_box.datamodules import ToySegmentationDataModule
 from lightning_uq_box.uq_methods import DeepEnsembleSegmentation
 
-model_config_paths = ["tests/configs/image_segmentation/mc_dropout.yaml"]
+model_config_paths = [
+    "tests/configs/image_segmentation/mc_dropout.yaml",
+    "tests/configs/image_segmentation/swag.yaml",
+]
 
 data_config_paths = ["tests/configs/image_segmentation/toy_segmentation.yaml"]
 
