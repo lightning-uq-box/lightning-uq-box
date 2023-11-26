@@ -15,8 +15,10 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    default_segmentation_metrics,
     process_classification_prediction,
     process_regression_prediction,
+    process_segmentation_prediction,
 )
 
 
@@ -281,38 +283,42 @@ class MCDropoutClassification(MCDropoutBase):
                 dim=-1,
             )  # shape [batch_size, num_outputs, num_samples]
 
+        import pdb
+
+        pdb.set_trace()
         return process_classification_prediction(preds)
 
 
-# class MCDropoutPxRegression(MCDropoutBase):
-#     def __init__(
-#         self,
-#         model: nn.Module,
-#         optimizer: OptimizerCallable = torch.optim.Adam,
-#         num_mc_samples: int,
-#         loss_fn: nn.Module,
-#         burnin_epochs: int = 0,
-#         lr_scheduler: LRSchedulerCallable = None,
-#     ) -> None:
-#         super().__init__(
-#             model, optimizer, num_mc_samples, loss_fn, burnin_epochs, lr_scheduler
-#         )
+class MCDropoutSegmentation(MCDropoutClassification):
+    """MC-Dropout Model for Segmentation."""
 
-#         self.save_hyperparameters(ignore=["model", "loss_fn"])
+    def setup_task(self) -> None:
+        """Set up task specific attributes for segmentation."""
+        self.train_metrics = default_segmentation_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_segmentation_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_segmentation_metrics(
+            "test", self.task, self.num_classes
+        )
 
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Predict steps via Monte Carlo Sampling.
 
-# class MCDropoutSegmentation(MCDropoutBase):
-#     def __init__(
-#         self,
-#         model: nn.Module,
-#         optimizer: OptimizerCallable = torch.optim.Adam,
-#         num_mc_samples: int,
-#         loss_fn: nn.Module,
-#         burnin_epochs: int = 0,
-#         lr_scheduler: LRSchedulerCallable = None,
-#     ) -> None:
-#         super().__init__(
-#             model, optimizer, num_mc_samples, loss_fn, burnin_epochs, lr_scheduler
-#         )
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
 
-#         self.save_hyperparameters(ignore=["model", "loss_fn"])
+        Returns:
+            mean and standard deviation of MC predictions
+        """
+        self.activate_dropout()  # activate dropout during prediction
+        with torch.no_grad():
+            preds = torch.stack(
+                [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
+            )  # shape [batch_size, num_outputs, num_samples]
+
+        return process_segmentation_prediction(preds)

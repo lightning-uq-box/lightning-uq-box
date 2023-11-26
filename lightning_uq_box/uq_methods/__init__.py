@@ -39,7 +39,12 @@ from .deep_kernel_learning import (
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
 from .loss_functions import NLL, DERLoss, HuberQLoss, QuantileLoss
-from .mc_dropout import MCDropoutBase, MCDropoutClassification, MCDropoutRegression
+from .mc_dropout import (
+    MCDropoutBase,
+    MCDropoutClassification,
+    MCDropoutRegression,
+    MCDropoutSegmentation,
+)
 from .mean_variance_estimation import MVEBase, MVERegression
 from .quantile_regression import QuantileRegression, QuantileRegressionBase
 from .sgld import SGLDBase, SGLDClassification, SGLDRegression
@@ -67,6 +72,7 @@ __all__ = (
     "MCDropoutBase",
     "MCDropoutRegression",
     "MCDropoutClassification",
+    "MCDropoutSegmentation",
     # Laplace Approximation
     "LaplaceBase",
     "LaplaceRegression",

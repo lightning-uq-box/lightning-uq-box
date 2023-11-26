@@ -5,9 +5,11 @@
 
 from .toy_image_classification import ToyImageClassificationDataset
 from .toy_image_regression import ToyImageRegressionDataset
+from .toy_image_segmentation import ToySegmentationDataset
 
 __all__ = (
     # Toy Image dataset
     "ToyImageRegressionDataset",
     "ToyImageClassificationDataset",
+    "ToySegmentationDataset",
 )
