@@ -4,8 +4,8 @@
 """conformalized Quantile Regression Model."""
 
 import math
-from typing import Dict, Union
 
+from typing import Dict, Union
 import torch
 import torch.nn as nn
 from lightning import LightningModule
