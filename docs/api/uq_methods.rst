@@ -7,6 +7,8 @@ lightning_uq_box.uq_methods
 
 .. autoclass:: DeterministicModel
 
+.. autoclass:: PosthocBase
+
 
 Mean Variance Estimation
 ------------------------
@@ -97,4 +99,8 @@ UQ Calibration Methods
 .. currentmodule:: lightning_uq_box.uq_methods.conformal_qr
 
 .. autoclass:: ConformalQR
+
+.. currentmodule:: lightning_uq_box.uq_methods.temp_scaling
+
+.. autoclass:: TempScaling
 

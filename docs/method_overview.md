@@ -33,3 +33,8 @@ The following aims to give an overview of different UQ-Methods by grouping them 
 ### Ensemble Methods
 
 - Deep Ensembles
+
+### Post-Hoc Calibration methods
+
+- Conformal Quantile Regression
+- Temperature Scaling
