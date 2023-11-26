@@ -50,7 +50,9 @@ class DER(DeterministicModel):
     """Deep Evidential Regression Model.
 
     Following the suggested implementation of
-    `Unreasonable Effectiveness of Deep Evidential Regression <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22`_. # noqa: E501
+    the `Unreasonable Effectiveness of Deep Evidential Regression
+    <https://github.com/pasteurlabs/unreasonable_effective_der/
+    blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_
 
     If you use this model in your work, please cite:
 

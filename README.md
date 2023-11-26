@@ -4,6 +4,9 @@
 
 The lightning-uq-box is a PyTorch library that provides various Uncertainty Quantification (UQ) techniques for modern neural network architectures. 
 
+We hope to provide the starting point for a collobrative open source effort to make it easier for practicioners to include UQ in their workflows and
+remove possible barriers of entry. Additionally, we hope this can be a pathway to more easily compare methods across UQ frameworks and potentially enhance the development of new UQ methods for neural networks.
+
 *The project is currently under active development, but we nevertheless hope for early feedback, feature requests, or contributions. Please check the "Contribution" section for further information.*
 
 The goal of this library is threefold:

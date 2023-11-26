@@ -40,8 +40,4 @@ In Progress.
 
 ## Earth Observation applications
 
-```{toctree}
-:maxdepth: 1
-
-tutorials/earth_observation
-```
+In Progress.
