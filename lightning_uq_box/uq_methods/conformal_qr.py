@@ -4,9 +4,8 @@
 """conformalized Quantile Regression Model."""
 
 import math
-from typing import Any, Union
+from typing import Dict, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
@@ -138,8 +137,14 @@ class ConformalQR(PosthocBase):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Test step."""
+    ) -> dict[str, Tensor]:
+        """Test step.
+
+        Args:
+            batch: batch of testing data
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
             batch[self.target_key].detach().squeeze(-1).cpu().numpy()
@@ -157,7 +162,7 @@ class ConformalQR(PosthocBase):
             del out_dict["out"]
         return out_dict
 
-    def predict_step(self, X: Tensor) -> Any:
+    def predict_step(self, X: Tensor) -> Dict[str, Tensor]:
         """Prediction step that produces conformalized prediction sets.
 
         Args:
