@@ -10,7 +10,6 @@ import os
 from collections.abc import Iterator
 from typing import Any, Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -249,7 +248,7 @@ class SGLDRegression(SGLDBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Predict step with SGLD, take n_sgld_sampled models, get mean and variance.
 
         Args:

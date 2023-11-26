@@ -74,17 +74,11 @@ html_theme_options = {
 
 # # sphinx.ext.intersphinx
 # # intersphinx_mapping = {
-# #     "kornia": ("https://kornia.readthedocs.io/en/stable/", None),
 # #     "matplotlib": ("https://matplotlib.org/stable/", None),
 # #     "numpy": ("https://numpy.org/doc/stable/", None),
 # #     "python": ("https://docs.python.org/3", None),
 # #     "lightning": ("https://lightning.ai/docs/pytorch/stable/", None),
-# #     "pyvista": ("https://docs.pyvista.org/version/stable/", None),
-# #     "rasterio": ("https://rasterio.readthedocs.io/en/stable/", None),
-# #     "rtree": ("https://rtree.readthedocs.io/en/stable/", None),
-# #     "segmentation_models_pytorch": ("https://smp.readthedocs.io/en/stable/", None),
 # #     "sklearn": ("https://scikit-learn.org/stable/", None),
-# #     "timm": ("https://huggingface.co/docs/timm/main/en/", None),
 # #     "torch": ("https://pytorch.org/docs/stable", None),
 # #     "torchvision": ("https://pytorch.org/vision/stable", None),
 # # }

@@ -5,7 +5,6 @@
 
 from typing import Any, Optional, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
@@ -161,7 +160,7 @@ class DeterministicModel(BaseModule):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
@@ -193,7 +192,7 @@ class DeterministicModel(BaseModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
@@ -235,7 +234,7 @@ class DeterministicRegression(DeterministicModel):
 
     # def on_test_batch_end(
     #     self,
-    #     outputs: dict[str, np.ndarray],
+    #     outputs: dict[str, Tensor],
     #     batch: Any,
     #     batch_idx: int,
     #     dataloader_idx=0,
@@ -365,7 +364,7 @@ class PosthocBase(BaseModule):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step after running posthoc fitting methodology."""
         raise NotImplementedError
 
@@ -394,7 +393,7 @@ class PosthocBase(BaseModule):
 
         # predict with underlying model
         with torch.no_grad():
-            model_preds: dict[str, np.ndarray] = self.model(X)
+            model_preds: dict[str, Tensor] = self.model(X)
 
         return self.adjust_model_logits(model_preds)
 

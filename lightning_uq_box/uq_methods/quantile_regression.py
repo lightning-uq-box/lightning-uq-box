@@ -5,7 +5,6 @@
 
 from typing import Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -106,7 +105,7 @@ class QuantileRegression(QuantileRegressionBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Predict step with Quantile Regression.
 
         Args:

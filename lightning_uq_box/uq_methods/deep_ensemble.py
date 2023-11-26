@@ -13,8 +13,10 @@ from .base import BaseModule
 from .utils import (
     default_classification_metrics,
     default_regression_metrics,
+    default_segmentation_metrics,
     process_classification_prediction,
     process_regression_prediction,
+    process_segmentation_prediction,
 )
 
 
@@ -128,7 +130,7 @@ class DeepEnsembleRegression(DeepEnsemble):
 
     # def on_test_batch_end(
     #     self,
-    #     outputs: dict[str, np.ndarray],
+    #     outputs: dict[str, Tensor],
     #     batch: Any,
     #     batch_idx: int,
     #     dataloader_idx=0,
@@ -208,3 +210,34 @@ class DeepEnsembleClassification(DeepEnsemble):
             preds = self.generate_ensemble_predictions(X)
 
         return process_classification_prediction(preds)
+
+
+class DeepEnsembleSegmentation(DeepEnsembleClassification):
+    """Deep Ensemble Model for segmentation.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
+    """
+
+    def setup_task(self) -> None:
+        """Set up task for segmentation."""
+        self.test_metrics = default_segmentation_metrics(
+            "test", self.task, self.num_classes
+        )
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> Any:
+        """Compute prediction step for a deep ensemble.
+
+        Args:
+            X: input tensor of shape [batch_size, input_di]
+
+        Returns:
+            mean and standard deviation of MC predictions
+        """
+        with torch.no_grad():
+            preds = self.generate_ensemble_predictions(X)
+
+        return process_segmentation_prediction(preds)

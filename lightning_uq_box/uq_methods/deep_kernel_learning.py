@@ -7,7 +7,6 @@
 from typing import Any, Dict
 
 import gpytorch
-import numpy as np
 import torch
 import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
@@ -314,7 +313,7 @@ class DKLRegression(DKLBase):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
@@ -343,7 +342,7 @@ class DKLRegression(DKLBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
@@ -512,7 +511,7 @@ class DKLClassification(DKLBase):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
@@ -544,7 +543,7 @@ class DKLClassification(DKLBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:

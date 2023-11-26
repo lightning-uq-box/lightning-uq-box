@@ -237,7 +237,7 @@ class LaplaceRegression(LaplaceBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Predict step with Laplace Approximation.
 
         Args:
@@ -313,7 +313,7 @@ class LaplaceClassification(LaplaceBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Predict step with Laplace Approximation.
 
         Args:
