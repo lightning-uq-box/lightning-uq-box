@@ -27,6 +27,7 @@ from .deep_ensemble import (
     DeepEnsemble,
     DeepEnsembleClassification,
     DeepEnsembleRegression,
+    DeepEnsembleSegmentation,
 )
 from .deep_evidential_regression import DER
 from .deep_kernel_learning import (
@@ -85,6 +86,7 @@ __all__ = (
     "DeepEnsemble",
     "DeepEnsembleRegression",
     "DeepEnsembleClassification",
+    "DeepEnsembleSegmentation",
     # Mean Variance Estimation Network
     "MVEBase",
     "MVERegression",
