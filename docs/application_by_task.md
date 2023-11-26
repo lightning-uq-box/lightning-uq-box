@@ -13,31 +13,22 @@ While some UQ-Methods like MC-Dropout or Deep Ensembles can be applied across ta
 
 Currently, Lightning-UQ-Box supports the following models and tasks:
 
+- ✅ supported
+- ❌ not designed for this task
+- ⏳ in progress
 
-## Regression 1D targets
-
-```{toctree}
-:maxdepth: 1
-
-tutorials/regression
-```
-
-## Classification
-
-```{toctree}
-:maxdepth: 1
-
-tutorials/classification
-```
-
-## Pixel Wise Regression
-
-In Progress.
-
-## Semantic Segmentation 
-
-In Progress.
-
-## Earth Observation applications
-
-In Progress.
+| UQ-Methods           | Regression            | Classification           | Segmentation             | Pixel Wise Regression      |
+|----------------------|:---------------------:|:------------------------:|:------------------------:|:--------------------------:|
+| BNN_VI_ELBO          |          ✅           |           ✅              |           ✅              |            ⏳            |
+| BNN_VI               |          ✅           |           ⏳              |           ⏳              |            ⏳            |
+| Quantile Regression  |          ✅           |           ❌              |           ❌              |            ⏳            |
+| Deep Evidential      |          ✅           |           ⏳              |           ⏳              |            ⏳            |
+| DKL                  |          ✅           |           ✅              |           ❌              |            ⏳            |
+| DUE                  |          ✅           |           ✅              |           ❌              |            ⏳            |
+| Laplace              |          ✅           |           ✅              |           ❌              |            ⏳            |
+| MC-Dropout           |          ✅           |           ✅              |           ✅              |            ⏳            |
+| MVE                  |          ✅           |           ❌              |           ❌              |            ⏳            |
+| SGLD                 |          ✅           |           ✅              |           ⏳              |            ⏳            |
+| SWAG                 |          ✅           |           ✅              |           ✅              |            ⏳            |
+| Temperature Scaling  |          ❌           |           ✅              |           ⏳              |            ⏳            |
+| Deep Ensemble        |          ✅           |           ✅              |           ✅              |            ⏳            |

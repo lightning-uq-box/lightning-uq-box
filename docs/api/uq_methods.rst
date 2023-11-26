@@ -41,6 +41,7 @@ Monte Carlo Dropout
 .. autoclass:: MCDropoutBase
 .. autoclass:: MCDropoutRegression
 .. autoclass:: MCDropoutClassification
+.. autoclass:: MCDropoutSegmentation
 
 Laplace Approximation
 ---------------------
@@ -59,6 +60,18 @@ Bayesian Neural Networks ELBO
 .. autoclass:: BNN_VI_ELBO_Base
 .. autoclass:: BNN_VI_ELBO_Regression
 .. autoclass:: BNN_VI_ELBO_Classification
+.. autoclass:: BNN_VI_ELBO_Segmentation
+
+
+Stochastic Weight Averaging Gaussian (SWAG)
+-------------------------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.swag
+
+.. autoclass:: SWAGBase
+.. autoclass:: SWAGRegression
+.. autoclass:: SWAGClassification
+.. autoclass:: SWAGSegmentation
 
 Stochastic Gradient Langevin Dynamics
 -------------------------------------
@@ -91,7 +104,8 @@ Deep Ensembles
 
 .. autoclass:: DeepEnsemble
 .. autoclass:: DeepEnsembleRegression
-.. autoclass:: DeepEnsembleClassification    
+.. autoclass:: DeepEnsembleClassification   
+.. autoclass:: DeepEnsembleSegmentation 
 
 UQ Calibration Methods
 ----------------------
