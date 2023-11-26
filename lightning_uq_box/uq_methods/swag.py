@@ -103,6 +103,8 @@ class SWAGBase(DeterministicModel):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
         """
         swag_opt = self.optimizers()
         swag_opt.zero_grad()
@@ -192,9 +194,6 @@ class SWAGBase(DeterministicModel):
         Returns:
             state_dict
         """
-        # PyTorch uses OrderedDicts for state_dict because they can have
-        # attributes. It gives state_dict a _metadata attribute which can
-        # affect how the state_dict is loaded. We have to copy this here.
         full_state_dict = OrderedDict({**state_dict, **self._untracked_state_dict()})
         full_state_dict._metadata = getattr(self.model.state_dict(), "_metadata", None)
 
@@ -203,7 +202,6 @@ class SWAGBase(DeterministicModel):
     def _untracked_state_dict(self) -> dict[str, nn.Parameter]:
         """Return filtered untracked state dict."""
         filtered_state_dict = {}
-        # tracked_keys = {name for name, _ in self.model.named_parameters() }
         for k, v in self.model.state_dict().items():
             if k not in self.model_w_and_b_module_names:
                 filtered_state_dict[k] = v
@@ -222,7 +220,6 @@ class SWAGBase(DeterministicModel):
         # find first param
         for name, param in self.model.named_parameters():
             if name in self.model_w_and_b_module_names:
-                # _, first_param = next(iter(self.model.named_parameters()))
                 K_sample = (
                     Normal(
                         torch.zeros(self.hparams.max_swag_snapshots),
