@@ -5,7 +5,6 @@
 
 from typing import Any, Optional, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -21,9 +20,11 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    default_segmentation_metrics,
     map_stochastic_modules,
     process_classification_prediction,
     process_regression_prediction,
+    process_segmentation_prediction,
 )
 
 
@@ -383,7 +384,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
@@ -514,7 +515,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
@@ -525,6 +526,44 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         with torch.no_grad():
             preds = torch.stack(
                 [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
-            )  # shape [batch_size, num_outputs, num_samples]
+            )  # shape [batch_size, num_classes, num_samples]
 
         return process_classification_prediction(preds)
+
+
+class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
+    """Bayes By Backprop Model with Variational Inference (VI) for Segmentation.
+
+    If you use this model in your work, please cite:
+
+    * https://arxiv.org/abs/1505.05424
+    """
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes for segmentation."""
+        self.train_metrics = default_segmentation_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_segmentation_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_segmentation_metrics(
+            "test", self.task, self.num_classes
+        )
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step for segmentation.
+
+        Args:
+            X: prediction batch of shape [batch_size x num_channels x height x width]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        with torch.no_grad():
+            preds = torch.stack(
+                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+            )  # shape [batch_size, num_classes, height, width, num_samples]
+
+        return process_segmentation_prediction(preds)

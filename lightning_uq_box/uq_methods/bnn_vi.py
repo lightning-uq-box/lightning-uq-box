@@ -387,7 +387,7 @@ class BNN_VI_Regression(BNN_VI_Base):
 
     # def on_test_batch_end(
     #     self,
-    #     outputs: dict[str, np.ndarray],
+    #     outputs: dict[str, Tensor],
     #     batch: Any,
     #     batch_idx: int,
     #     dataloader_idx=0,
@@ -401,7 +401,7 @@ class BNN_VI_Regression(BNN_VI_Base):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:

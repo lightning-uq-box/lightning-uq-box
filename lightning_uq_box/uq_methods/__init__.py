@@ -21,6 +21,7 @@ from .bnn_vi_elbo import (
     BNN_VI_ELBO_Base,
     BNN_VI_ELBO_Classification,
     BNN_VI_ELBO_Regression,
+    BNN_VI_ELBO_Segmentation,
 )
 from .conformal_qr import ConformalQR
 from .deep_ensemble import (
@@ -123,6 +124,7 @@ __all__ = (
     "BNN_VI_ELBO_Base",
     "BNN_VI_ELBO_Regression",
     "BNN_VI_ELBO_Classification",
+    "BNN_VI_ELBO_Segmentation",
     # Bayesian Neural Network trained with Variational Inference
     "BNN_VI_Base",
     "BNN_VI_Regression",

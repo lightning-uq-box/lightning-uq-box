@@ -3,7 +3,6 @@
 
 """Mc-Dropout module."""
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -264,11 +263,13 @@ class MCDropoutClassification(MCDropoutBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Predict steps via Monte Carlo Sampling.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
 
         Returns:
             mean and standard deviation of MC predictions
@@ -283,9 +284,6 @@ class MCDropoutClassification(MCDropoutBase):
                 dim=-1,
             )  # shape [batch_size, num_outputs, num_samples]
 
-        import pdb
-
-        pdb.set_trace()
         return process_classification_prediction(preds)
 
 
@@ -310,7 +308,9 @@ class MCDropoutSegmentation(MCDropoutClassification):
         """Predict steps via Monte Carlo Sampling.
 
         Args:
-            X: prediction batch of shape [batch_size x input_dims]
+            X: prediction batch of shape [batch_size x num_channels x height x width]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
 
         Returns:
             mean and standard deviation of MC predictions

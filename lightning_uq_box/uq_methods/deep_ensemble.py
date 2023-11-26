@@ -130,7 +130,7 @@ class DeepEnsembleRegression(DeepEnsemble):
 
     # def on_test_batch_end(
     #     self,
-    #     outputs: dict[str, np.ndarray],
+    #     outputs: dict[str, Tensor],
     #     batch: Any,
     #     batch_idx: int,
     #     dataloader_idx=0,

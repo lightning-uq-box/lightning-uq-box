@@ -1,0 +1,26 @@
+model:
+  _target_: lightning_uq_box.uq_methods.BNN_VI_ELBO_Segmentation
+  model:
+    _target_: segmentation_models_pytorch.Unet
+    encoder_name: resnet18
+    encoder_weights: imagenet
+    classes: 4
+    in_channels: 3
+  optimizer:
+    _target_: torch.optim.SGD
+    _partial_: true
+    lr: 0.003
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ConstantLR
+    _partial_: true
+  criterion:
+    _target_: torch.nn.CrossEntropyLoss
+  num_training_points: 200
+  num_mc_samples_train: 3
+  num_mc_samples_test: 3
+  prior_mu: 0.0
+  prior_sigma: 1.0
+  posterior_mu_init: 0.0
+  posterior_rho_init: -3.0
+  bayesian_layer_type: "reparameterization"
+  stochastic_module_names: ["decoder.blocks.4.conv1.0", "decoder.blocks.4.conv2.0", "segmentation_head.0"]

@@ -7,7 +7,6 @@ import os
 from collections import OrderedDict, defaultdict
 from typing import Any, Optional, Union
 
-import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -168,7 +167,7 @@ def merge_list_of_dictionaries(list_of_dicts: list[dict[str, Any]]):
     return merged_dict
 
 
-def save_predictions_to_csv(outputs: dict[str, np.ndarray], path: str) -> None:
+def save_predictions_to_csv(outputs: dict[str, Tensor], path: str) -> None:
     """Save model predictions to csv file.
 
     Args:
