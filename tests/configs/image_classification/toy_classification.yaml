@@ -1,0 +1,2 @@
+data:
+  _target_: lightning_uq_box.datamodules.ToyImageClassificationDatamodule

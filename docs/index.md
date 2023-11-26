@@ -8,10 +8,11 @@ Welcome to the lightning-uq-box documentation page. Our goal is to give you both
 :maxdepth: 2
 
 user_guide
-contribute
 tutorial_overview
 method_overview
 application_by_task
+running_experiments
 api/index
-GitHub Repository <https://github.com/nilsleh/lightning-uq-box>
+contribute
+GitHub Repository <https://github.com/lightning-uq-box/lightning-uq-box>
 ```

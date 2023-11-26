@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """UQ-Methods as Lightning Modules."""
 
 from .base import (
@@ -7,15 +10,19 @@ from .base import (
     DeterministicRegression,
     PosthocBase,
 )
+from .bnn_lv_vi import (
+    BNN_LV_VI_Base,
+    BNN_LV_VI_Batched_Base,
+    BNN_LV_VI_Batched_Regression,
+    BNN_LV_VI_Regression,
+)
 from .bnn_vi import BNN_VI_Base, BNN_VI_BatchedRegression, BNN_VI_Regression
 from .bnn_vi_elbo import (
     BNN_VI_ELBO_Base,
     BNN_VI_ELBO_Classification,
     BNN_VI_ELBO_Regression,
 )
-from .bnn_vi_lv import BNN_LV_VI, BNN_LV_VI_Batched
-from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
-from .cqr_model import ConformalQR
+from .conformal_qr import ConformalQR
 from .deep_ensemble import (
     DeepEnsemble,
     DeepEnsembleClassification,
@@ -54,11 +61,6 @@ __all__ = (
     "DeterministicModel",
     "DeterministicClassification",
     "DeterministicRegression",
-    # CARD Model
-    "CARDBase",
-    "CARDRegression",
-    "CARDClassification",
-    "NoiseScheduler",
     # conformalized Quantile Regression
     "ConformalQR",
     # MC-Dropout
@@ -117,8 +119,10 @@ __all__ = (
     "BNN_VI_Regression",
     "BNN_VI_BatchedRegression",
     # BNN with Latent Variables
-    "BNN_LV_VI",
-    "BNN_LV_VI_Batched",
+    "BNN_LV_VI_Base",
+    "BNN_LV_VI_Regression",
+    "BNN_LV_VI_Batched_Base",
+    "BNN_LV_VI_Batched_Regression",
     # Loss Functions
     "NLL",
     "QuantileLoss",

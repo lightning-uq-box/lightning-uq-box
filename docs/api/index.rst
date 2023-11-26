@@ -17,7 +17,6 @@ Primary Interface
    :maxdepth: 2
    :caption: Package Reference
 
-   train_utils
    models
    datamodules
    uq_methods

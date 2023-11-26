@@ -1,18 +1,11 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """UQ-Regression-Box Models."""
 
-from .cards import (
-    ConditionalGuidedConvModel,
-    ConditionalGuidedLinearModel,
-    ConditionalLinear,
-)
 from .mlp import MLP
 
 __all__ = (
-    # custom models
-    # CARDS
-    "ConditionalLinear",
-    "ConditionalGuidedLinearModel",
-    "ConditionalGuidedConvModel",
     # Toy Example architecture
     "MLP",
 )

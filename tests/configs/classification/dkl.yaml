@@ -1,0 +1,18 @@
+model:
+  class_path: lightning_uq_box.uq_methods.DKLClassification
+  init_args:
+    feature_extractor:
+      class_path: lightning_uq_box.models.MLP
+      init_args:
+        n_inputs: 2
+        n_outputs: 10
+        n_hidden: [50]
+    gp_kernel: "RBF"
+    optimizer:
+      class_path: torch.optim.Adam
+      init_args:
+        lr: 0.003
+    lr_scheduler:
+      class_path: torch.optim.lr_scheduler.ConstantLR
+    n_inducing_points: 50
+    num_classes: 2

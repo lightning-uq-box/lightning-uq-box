@@ -11,7 +11,6 @@ from .conv_variational import (
 )
 from .linear_variational import LinearVariational
 from .rnn_layer import LSTMVariational
-from .utils import calc_log_f_hat, calc_log_normalizer
 
 __all__ = (
     "BaseVariationalLayer_",
@@ -26,7 +25,4 @@ __all__ = (
     "ConvTranspose1dVariational",
     "ConvTranspose2dVariational",
     "ConvTranspose3dVariational",
-    # utitlities
-    "calc_log_f_hat",
-    "calc_log_normalizer",
 )

@@ -1,9 +1,10 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Implement a Deep Ensemble Model for prediction."""
 
-import os
 from typing import Any, Union
 
-import numpy as np
 import torch
 from lightning import LightningModule
 from torch import Tensor
@@ -14,7 +15,6 @@ from .utils import (
     default_regression_metrics,
     process_classification_prediction,
     process_regression_prediction,
-    save_predictions_to_csv,
 )
 
 
@@ -23,7 +23,7 @@ class DeepEnsemble(BaseModule):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
     """
 
     def __init__(
@@ -49,7 +49,7 @@ class DeepEnsemble(BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """Setup the task."""
+        """Set up task."""
         pass
 
     def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
@@ -87,7 +87,8 @@ class DeepEnsemble(BaseModule):
         out_dict = self.predict_step(batch[self.input_key])
         out_dict["targets"] = batch[self.target_key].detach().squeeze(-1).cpu().numpy()
 
-        # self.log("test_loss", self.loss_fn(out_dict["pred"], batch[self.target_key].squeeze(-1)))  # logging to Logger
+        # self.log("test_loss", self.loss_fn(out_dict["pred"],
+        # batch[self.target_key].squeeze(-1)))
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key])
 
@@ -114,17 +115,15 @@ class DeepEnsemble(BaseModule):
 
 
 class DeepEnsembleRegression(DeepEnsemble):
-    """Deep Ensemble Model for regression."""
+    """Deep Ensemble Model for regression.
 
-    def __init__(
-        self,
-        n_ensemble_members: int,
-        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
-    ) -> None:
-        super().__init__(n_ensemble_members, ensemble_members)
+    If you use this model in your work, please cite:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
+    """
 
     def setup_task(self) -> None:
-        """Setup the task for regression."""
+        """Set up task for regression."""
         self.test_metrics = default_regression_metrics("test")
 
     # def on_test_batch_end(
@@ -158,7 +157,12 @@ class DeepEnsembleRegression(DeepEnsemble):
 
 
 class DeepEnsembleClassification(DeepEnsemble):
-    """Deep Ensemble Model for classification."""
+    """Deep Ensemble Model for classification.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
+    """
 
     valid_tasks = ["multiclass", "binary", "multilabel"]
 
@@ -169,13 +173,22 @@ class DeepEnsembleClassification(DeepEnsemble):
         num_classes: int,
         task: str = "multiclass",
     ) -> None:
+        """Initialize a new instance of DeepEnsemble for Classification.
+
+        Args:
+            n_ensemble_members: number of ensemble members
+            ensemble_members: List of dicts where each element specifies the
+                LightningModule class and a path to a checkpoint
+            num_classes: number of classes
+            task: classification task, one of "multiclass", "binary" or "multilabel"
+        """
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = num_classes
         super().__init__(n_ensemble_members, ensemble_members)
 
     def setup_task(self) -> None:
-        """Setup the task for regression."""
+        """Set up task for classification."""
         self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
         )

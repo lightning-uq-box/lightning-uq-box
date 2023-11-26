@@ -1,13 +1,14 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Deep Evidential Regression."""
 
-from typing import Any
 
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from .base import DeterministicModel
 from .loss_functions import DERLoss
@@ -17,8 +18,7 @@ from .utils import _get_num_outputs, default_regression_metrics
 class DERLayer(nn.Module):
     """Deep Evidential Regression Layer.
 
-
-    Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_.
+    Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_. # noqa: E501
     """
 
     def __init__(self):
@@ -49,7 +49,10 @@ class DERLayer(nn.Module):
 class DER(DeterministicModel):
     """Deep Evidential Regression Model.
 
-    Following the suggested implementation of `Unreasonable Effectiveness of Deep Evidential Regression <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22`_.
+    Following the suggested implementation of
+    the `Unreasonable Effectiveness of Deep Evidential Regression
+    <https://github.com/pasteurlabs/unreasonable_effective_der/
+    blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_
 
     If you use this model in your work, please cite:
 
@@ -59,22 +62,22 @@ class DER(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
-        lr_scheduler: type[LRScheduler] = None,
         coeff: float = 0.01,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Base Model.
 
         Args:
             model: pytorch model
+            coeff: coefficient for the DER loss
+                from the predictive distribution
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
-            coeff: coefficient for the DER loss
-             from the predictive distribution
         """
-        super().__init__(model, optimizer, None, lr_scheduler)
+        super().__init__(model, None, optimizer, lr_scheduler)
 
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["model", "optimizer", "lr_scheduler"])
 
         # check that output is 4 dimensional
         assert _get_num_outputs(model) == 4, "DER model expects 4 outputs."
@@ -87,18 +90,19 @@ class DER(DeterministicModel):
         self.loss_fn = DERLoss(coeff)
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Any]:
+    ) -> dict[str, Tensor]:
         """Prediction Step Deep Evidential Regression.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+
         Returns:
             dictionary with predictions and uncertainty measures
         """

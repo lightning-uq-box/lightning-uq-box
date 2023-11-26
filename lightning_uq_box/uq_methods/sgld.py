@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Stochastic Gradient Langevin Dynamics (SGLD) model."""
 # TO DO:
 # SGLD with ensembles
@@ -27,7 +30,6 @@ from .utils import (
 # SGLD Optimizer from Izmailov, currently in __init__.py
 class SGLD(Optimizer):
     """Stochastic Gradient Langevian Dynamics Optimzer.
-
 
     If you use this optimizer in your research, please cite the following paper:
 
@@ -98,7 +100,7 @@ class SGLDBase(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        loss_fn: str,
+        loss_fn: nn.Module,
         lr: float,
         weight_decay: float,
         noise_factor: float,
@@ -107,16 +109,15 @@ class SGLDBase(DeterministicModel):
         """Initialize a new instance of SGLD model.
 
         Args:
-            model_class: underlying model class
-            lr: initial learning rate
+            model: pytorch model
             loss_fn: choice of loss function
+            lr: initial learning rate for SGLD optimizer
             weight_decay: weight decay parameter for SGLD optimizer
             noise_factor: parameter denoting how much noise to inject in the SGD update
             burnin_epochs: number of epochs to fit mse loss
             n_sgld_samples: number of sgld samples to collect
-
         """
-        super().__init__(model, None, loss_fn, None)
+        super().__init__(model, loss_fn, None, None)
 
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
@@ -147,7 +148,7 @@ class SGLDBase(DeterministicModel):
         )
         os.makedirs(self.snapshot_dir)
 
-    def on_train_epoch_end(self) -> list:
+    def on_train_epoch_end(self) -> None:
         """Save model ckpts after epoch and log training metrics."""
         # save ckpts for n_sgld_sample epochs before end (max_epochs)
         if self.current_epoch >= (
@@ -172,7 +173,7 @@ class SGLDRegression(SGLDBase):
     def __init__(
         self,
         model: nn.Module,
-        loss_fn: str,
+        loss_fn: nn.Module,
         lr: float,
         weight_decay: float,
         noise_factor: float,
@@ -182,20 +183,19 @@ class SGLDRegression(SGLDBase):
         """Initialize a new instance of SGLD model.
 
         Args:
-            model_class: underlying model class
-            lr: initial learning rate
+            model: pytorch model
             loss_fn: choice of loss function
+            lr: initial learning rate for SGLD optimizer
             weight_decay: weight decay parameter for SGLD optimizer
             noise_factor: parameter denoting how much noise to inject in the SGD update
             burnin_epochs: number of epochs to fit mse loss
             n_sgld_samples: number of sgld samples to collect
-
         """
         super().__init__(model, loss_fn, lr, weight_decay, noise_factor, n_sgld_samples)
         self.burnin_epochs = burnin_epochs
 
     def setup_task(self) -> None:
-        """Setup task specific metrics."""
+        """Set up task specific metrics."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -245,7 +245,7 @@ class SGLDRegression(SGLDBase):
         self.log("train_loss", loss)  # logging to Logger
         self.train_metrics(self.extract_mean_output(out), y)
 
-        return loss
+        # return loss
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -280,7 +280,7 @@ class SGLDClassification(SGLDBase):
     def __init__(
         self,
         model: nn.Module,
-        loss_fn: str,
+        loss_fn: nn.Module,
         lr: float,
         weight_decay: float,
         noise_factor: float,
@@ -290,12 +290,12 @@ class SGLDClassification(SGLDBase):
         """Initialize a new instance of SGLD model.
 
         Args:
-            model_class: underlying model class
-            lr: initial learning rate
+            model: pytorch model to train with SGLD
             loss_fn: choice of loss function
+            lr: initial learning rate
             weight_decay: weight decay parameter for SGLD optimizer
             noise_factor: parameter denoting how much noise to inject in the SGD update
-            burnin_epochs: number of epochs to fit mse loss
+            task: classification task, one of ["multiclass", "binary", "multilabel"]
             n_sgld_samples: number of sgld samples to collect
 
         """
@@ -305,7 +305,7 @@ class SGLDClassification(SGLDBase):
         super().__init__(model, loss_fn, lr, weight_decay, noise_factor, n_sgld_samples)
 
     def setup_task(self) -> None:
-        """Setup task specific metrics."""
+        """Set up task specific metrics."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -361,13 +361,11 @@ class SGLDClassification(SGLDBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Predict step with SGLD, take n_sgld_sampled models, get mean and variance.
 
         Args:
-            self: SGLD class
-            batch_idx: default int=0
-            dataloader_idx: default int=0
+            X: prediction batch of shape [batch_size x input_dims]
 
         Returns:
             output dictionary with uncertainty estimates
