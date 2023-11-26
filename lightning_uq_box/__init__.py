@@ -1,12 +1,12 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the MIT License.
 
-"""UQ-Regression-Box.
+"""Lightning-UQ-Box.
 
-Datasets, UQ-methods, and evaluation utils for Uncertainty in
-Image Regression tasks.
+A toolbox for uncertainty quantification in deep learning.
 
-The :mod:`lightning_uq_box` package consists of several datasets, modern UQ-methods
-support for various models, and common evaluation schemes for uncertainty.
+The :mod:`lightning_uq_box` package consists of various uncertainty quantification
+methods for deep learning models implemented in PyTorch and Lightning.
 """
 
 __author__ = "Nils Lehmann"

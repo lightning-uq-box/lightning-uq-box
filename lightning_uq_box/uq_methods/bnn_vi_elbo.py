@@ -1,18 +1,20 @@
-"""Bayesian Neural Networks with Variational Inference."""
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
 
-# TODO:
-# adapt to new config file scheme
+"""Bayesian Neural Networks with Variational Inference."""
 
 from typing import Any, Optional, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
-from lightning_uq_box.models.bnn_layers.utils import dnn_to_bnn_some, get_kl_loss
+from lightning_uq_box.models.bnn_layers.bnn_utils import (
+    convert_deterministic_to_bnn,
+    get_kl_loss,
+)
 
 from .base import DeterministicModel
 from .utils import (
@@ -36,10 +38,8 @@ class BNN_VI_ELBO_Base(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
         criterion: nn.Module,
         num_training_points: int,
-        part_stoch_module_names: Optional[list[Union[int, str]]] = None,
         beta: float = 100,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
@@ -49,17 +49,16 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         bayesian_layer_type: str = "reparameterization",
-        lr_scheduler: type[torch.optim.lr_scheduler.LRScheduler] = None,
+        stochastic_module_names: Optional[list[Union[int, str]]] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Model instance.
 
         Args:
             model: pytorch model that will be converted into a BNN
-            optimizer: optimizer used for training
             criterion: loss function used for optimization
             num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names: list of module names or indices that should be converted
-                to variational layers
             beta: beta factor for negative elbo loss computation,
                 should be number of weights and biases
             num_mc_samples_train: number of MC samples during training when computing
@@ -73,22 +72,27 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
-        super().__init__(model, optimizer, criterion, lr_scheduler)
+        super().__init__(model, criterion, optimizer, lr_scheduler)
 
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
 
-        self.part_stoch_module_names = map_stochastic_modules(
-            self.model, part_stoch_module_names
+        self.stochastic_module_names = map_stochastic_modules(
+            self.model, stochastic_module_names
         )
 
-        self.save_hyperparameters(ignore=["model", "criterion"])
+        self.save_hyperparameters(
+            ignore=["model", "criterion", "optimizer", "lr_scheduler"]
+        )
         self._setup_bnn_with_vi()
 
         # update hyperparameters
@@ -101,6 +105,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         self.lr_scheduler = lr_scheduler
 
     def setup_task(self) -> None:
+        """Set up task."""
         pass
 
     def _setup_bnn_with_vi(self) -> None:
@@ -113,10 +118,10 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             "layer_type": self.hparams.bayesian_layer_type,
         }
         # convert deterministic model to BNN
-        dnn_to_bnn_some(
+        convert_deterministic_to_bnn(
             self.model,
             self.bnn_args,
-            part_stoch_module_names=self.part_stoch_module_names,
+            stochastic_module_names=self.stochastic_module_names,
         )
 
     def forward(self, X: Tensor) -> Tensor:
@@ -254,16 +259,15 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
-            a "lr dict" according to the pytorch lightning documentation --
-            https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
+            a "lr dict" according to the pytorch lightning documentation
         """
         params = self.exclude_from_wt_decay(
             self.named_parameters(), weight_decay=self.hparams.weight_decay
         )
 
-        optimizer = self.optimizer(params=params)
+        optimizer = self.optimizer(params)
         if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            lr_scheduler = self.lr_scheduler(optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
@@ -283,11 +287,9 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         criterion: nn.Module,
         burnin_epochs: int,
         num_training_points: int,
-        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
         beta: float = 100,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
@@ -297,18 +299,17 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
-        lr_scheduler: type[LRScheduler] = None,
+        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Model instance.
 
         Args:
             model: pytorch model that will be converted into a BNN
-            optimizer: optimizer used for training
             criterion: loss function used for optimization
             burnin_epochs: number of epochs to train before switching to nll loss
             num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names: list of module names or indices that should be converted
-                to variational layers
             num_training_points: number of data points contained in the training dataset
             beta: beta factor for negative elbo loss computation,
                 should be number of weights and biases
@@ -323,8 +324,10 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
-            quantiles: what quantiles to compute during prediction
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -332,10 +335,8 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         """
         super().__init__(
             model,
-            optimizer,
             criterion,
             num_training_points,
-            part_stoch_module_names,
             beta,
             num_mc_samples_train,
             num_mc_samples_test,
@@ -345,13 +346,17 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             posterior_mu_init,
             posterior_rho_init,
             bayesian_layer_type,
+            stochastic_module_names,
+            optimizer,
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["model", "criterion"])
+        self.save_hyperparameters(
+            ignore=["model", "criterion", "optimizer", "lr_scheduler"]
+        )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -366,7 +371,9 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         Returns:
             nll loss for the task
         """
-        if self.current_epoch < self.hparams.burnin_epochs:
+        if self.current_epoch < self.hparams.burnin_epochs or isinstance(
+            self.criterion, nn.MSELoss
+        ):
             # compute mse loss with output noise scale, is like mse
             loss = torch.nn.functional.mse_loss(self.extract_mean_output(pred), y)
         else:
@@ -381,6 +388,8 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             preds = torch.stack(
@@ -403,11 +412,9 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         criterion: nn.Module,
         num_training_points: int,
         task: str = "multiclass",
-        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
         beta: float = 100,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
@@ -417,17 +424,16 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
-        lr_scheduler: type[LRScheduler] = None,
+        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new Model instance.
 
         Args:
             model: pytorch model that will be converted into a BNN
-            optimizer: optimizer used for training
             criterion: loss function used for optimization
             num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names: list of module names or indices that should be converted
-                to variational layers
             num_training_points: number of data points contained in the training dataset
             beta: beta factor for negative elbo loss computation,
                 should be number of weights and biases
@@ -442,7 +448,10 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             lr_scheduler: learning rate scheduler
+            optimizer: optimizer used for training
 
         Raises:
             AssertionError: if ``num_mc_samples_train`` is not positive.
@@ -455,10 +464,8 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
 
         super().__init__(
             model,
-            optimizer,
             criterion,
             num_training_points,
-            part_stoch_module_names,
             beta,
             num_mc_samples_train,
             num_mc_samples_test,
@@ -468,13 +475,17 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             posterior_mu_init,
             posterior_rho_init,
             bayesian_layer_type,
+            stochastic_module_names,
+            optimizer,
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["model", "criterion"])
+        self.save_hyperparameters(
+            ignore=["model", "criterion", "optimizer", "lr_scheduler"]
+        )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -508,6 +519,8 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             preds = torch.stack(

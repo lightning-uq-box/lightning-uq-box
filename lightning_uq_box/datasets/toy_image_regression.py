@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Toy Image Regression Dataset."""
 
 import torch
@@ -12,7 +15,7 @@ class ToyImageRegressionDataset(Dataset):
         """Initialize a new instance of Toy Image Regression Dataset."""
         super().__init__()
 
-        self.num_samples = 6
+        self.num_samples = 10
         self.images = [torch.ones(3, 64, 64) * val for val in range(self.num_samples)]
         self.targets = torch.arange(0, self.num_samples).to(torch.float32)
 

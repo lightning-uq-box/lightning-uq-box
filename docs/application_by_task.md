@@ -37,3 +37,7 @@ In Progress.
 ## Semantic Segmentation 
 
 In Progress.
+
+## Earth Observation applications
+
+In Progress.

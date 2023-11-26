@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Utilities for computing Uncertainties."""
 
 import math
@@ -162,6 +165,7 @@ def compute_test_nll_on_gmm(std: np.ndarray) -> np.ndarray:
     """Compute test negative log-likelihood of GMM.
 
     Args:
+      std: predictive_uq
       mean: prediction of the mean from network,
         shape [num_mc_samples, batch_size, 1]
       sigma^2: preds.

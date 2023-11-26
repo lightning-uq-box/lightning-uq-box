@@ -4,6 +4,11 @@
     max-width: 95%;
 }
 
+img[alt="Logo image"] {
+    width: 100px;  /* or whatever size you want */
+    height: auto;  /* to maintain aspect ratio */
+}
+
 /* body {
     font-family: "Arial", sans-serif;
     font-size: 16px;

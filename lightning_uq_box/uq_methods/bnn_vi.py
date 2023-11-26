@@ -1,18 +1,18 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
-import os
-from typing import Any, Optional, Union
+from typing import Any, Optional, Tuple, Union
 
 import einops
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
-from lightning_uq_box.eval_utils import compute_quantiles_from_std
-from lightning_uq_box.models.bnn_layers.utils import dnn_to_bnn_some
+from lightning_uq_box.models.bnn_layers.bnn_utils import convert_deterministic_to_bnn
 from lightning_uq_box.models.bnnlv.utils import (
     get_log_f_hat,
     get_log_normalizer,
@@ -21,11 +21,7 @@ from lightning_uq_box.models.bnnlv.utils import (
 
 from .base import DeterministicModel
 from .loss_functions import EnergyAlphaDivergence
-from .utils import (
-    default_regression_metrics,
-    map_stochastic_modules,
-    save_predictions_to_csv,
-)
+from .utils import default_regression_metrics, map_stochastic_modules
 
 
 class BNN_VI_Base(DeterministicModel):
@@ -41,9 +37,7 @@ class BNN_VI_Base(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         num_training_points: int,
-        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -52,17 +46,17 @@ class BNN_VI_Base(DeterministicModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
-        layer_type: str = "reparameterization",
-        lr_scheduler: type[LRScheduler] = None,
+        bayesian_layer_type: str = "reparameterization",
+        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instace of BNN VI.
 
         Args:
             model:
-            optimizer:
             save_dir: directory path to save
-            num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names:
+            num_training_points: num of data points contained in the training dataset
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -73,23 +67,29 @@ class BNN_VI_Base(DeterministicModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            type: Bayesian layer_type type, "reparametrization" or "flipout"
+            bayesian_layer_type: `flipout` or `reparameterization`
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
 
         Raises:
             AssertionError: if ``n_mc_samples_train`` is not positive.
             AssertionError: if ``n_mc_samples_test`` is not positive.
         """
-        super().__init__(model, optimizer, None, lr_scheduler)
+        super().__init__(model, None, optimizer, lr_scheduler)
 
         assert n_mc_samples_train > 0, "Need to sample at least once during training."
         assert n_mc_samples_test > 0, "Need to sample at least once during testing."
 
         # update hparams
         self.hparams.weight_decay = 0.0
-        self.save_hyperparameters(ignore=["model", "latent_net"])
+        self.save_hyperparameters(
+            ignore=["model", "optimizer", "lr_scheduler", "latent_net"]
+        )
 
-        self.part_stoch_module_names = map_stochastic_modules(
-            self.model, part_stoch_module_names
+        self.stochastic_module_names = map_stochastic_modules(
+            self.model, stochastic_module_names
         )
 
         self._setup_bnn_with_vi()
@@ -97,7 +97,7 @@ class BNN_VI_Base(DeterministicModel):
         self.pred_file_name = "predictions.csv"
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         pass
 
     def _define_bnn_args(self):
@@ -107,19 +107,14 @@ class BNN_VI_Base(DeterministicModel):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.layer_type,
+            "layer_type": self.hparams.bayesian_layer_type,
         }
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
-        dnn_to_bnn_some(
-            self.model, self._define_bnn_args(), self.part_stoch_module_names
+        convert_deterministic_to_bnn(
+            self.model, self._define_bnn_args(), self.stochastic_module_names
         )
-
-        # need individual nlls of a gaussian, as we first do logsumexp over samples
-        # cannot sum over batch size first as logsumexp is non-linear
-        # TODO: do we support training with aleatoric output noise?
-        self.nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
         self.energy_loss_module = EnergyAlphaDivergence(
             N=self.hparams.num_training_points, alpha=self.hparams.alpha
@@ -178,7 +173,7 @@ class BNN_VI_Base(DeterministicModel):
         energy_loss, mean_output = self.compute_energy_loss(X, y)
 
         self.log("val_loss", energy_loss)  # logging to Logger
-        self.train_metrics(mean_output, y)
+        self.val_metrics(mean_output, y)
 
         return energy_loss
 
@@ -231,12 +226,36 @@ class BNN_VI_Base(DeterministicModel):
             a "lr dict" according to the pytorch lightning documentation --
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer_args = getattr(self.optimizer, "keywords")
-        wd = optimizer_args.get("weight_decay", 0.0)
-        params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=wd)
+        # import inspect
+        # def get_function_args_defaults(func):
+        #     signature = inspect.signature(func)
+        #     args = []
+        #     defaults = {}
+        #     for name, param in signature.parameters.items():
+        #         if param.default is not inspect.Parameter.empty:
+        #             defaults[name] = param.default
+        #         args.append(name)
+        #     return args, defaults
+        # args, defaults = get_function_args_defaults(self.optimizer)
+        # import pdb
+        # pdb.set_trace()
+        # optimizer_args = getattr(self.optimizer, "keywords")
+        # wd = optimizer_args.get("weight_decay", 0.0)
+        # TODO this does not work with lightning CLI correctly yet
+        # self.optimizer is not a partial function anymore that can be accessed with
+        # keywords using default weight decay for now
 
-        optimizer = self.optimizer(params=params)
-        return optimizer
+        params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=0.01)
+
+        optimizer = self.optimizer(params)
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}
 
 
 class BNN_VI_Regression(BNN_VI_Base):
@@ -252,9 +271,7 @@ class BNN_VI_Regression(BNN_VI_Base):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[Optimizer],
         num_training_points: int,
-        part_stoch_module_names: Optional[Union[list[int], list[str]]] = None,
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -263,17 +280,19 @@ class BNN_VI_Regression(BNN_VI_Base):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         alpha: float = 1,
-        layer_type: str = "reparameterization",
-        lr_scheduler: type[LRScheduler] = None,
+        bayesian_layer_type: str = "reparameterization",
+        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instace of BNN VI Regression.
 
         Args:
             model: pytorch model that will be converted into a BNN
             optimizer: optimizer used for training
-            num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names: list of module names or indices that should be converted
-                to variational layers
+            num_training_points: num of data points contained in the training dataset
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -284,7 +303,8 @@ class BNN_VI_Regression(BNN_VI_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            layer_type: Bayesian layer_type type, "reparametrization" or "flipout"
+            bayesian_layer_type: reparameterization layer type,
+                "reparametrization" or "flipout"
             lr_scheduler: learning rate scheduler
 
         Raises:
@@ -294,9 +314,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         """
         super().__init__(
             model,
-            optimizer,
             num_training_points,
-            part_stoch_module_names,
             n_mc_samples_train,
             n_mc_samples_test,
             output_noise_scale,
@@ -305,13 +323,20 @@ class BNN_VI_Regression(BNN_VI_Base):
             posterior_mu_init,
             posterior_rho_init,
             alpha,
-            layer_type,
+            bayesian_layer_type,
+            stochastic_module_names,
+            optimizer,
             lr_scheduler,
         )
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["model", "optimizer", "lr_scheduler"])
+
+        # need individual nlls of a gaussian, as we first do logsumexp over samples
+        # cannot sum over batch size first as logsumexp is non-linear
+        # TODO: do we support training with aleatoric output noise?
+        self.nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -381,6 +406,8 @@ class BNN_VI_Regression(BNN_VI_Base):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         # output from forward: [n_samples, batch_size, outputs]
         with torch.no_grad():
@@ -421,9 +448,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
     def __init__(
         self,
         model: nn.Module,
-        optimizer: type[torch.optim.Optimizer],
         num_training_points: int,
-        part_stoch_module_names: Optional[list[Union[str, int]]] = None,
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -432,17 +457,16 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         alpha: float = 1,
-        layer_type: str = "reparameterization",
-        lr_scheduler: type[LRScheduler] = None,
+        bayesian_layer_type: str = "reparameterization",
+        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instace of BNN VI Batched.
 
         Args:
             model: pytorch model that will be converted into a BNN
-            optimizer: optimizer used for training
-            num_training_points: number of data points contained in the training dataset
-            part_stoch_module_names: list of module names or indices that should be converted
-                to variational layers
+            num_training_points: num of data points contained in the training dataset
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -453,8 +477,12 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            layer_type: Bayesian layer_type type, "reparametrization" or "flipout"
+            bayesian_layer_type: reparameterization layer type,
+                "reparametrization" or "flipout"
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             lr_scheduler: learning rate scheduler
+            optimizer: optimizer used for training
 
         Raises:
             AssertionError: if ``n_mc_samples_train`` is not positive.
@@ -462,9 +490,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         """
         super().__init__(
             model,
-            optimizer,
             num_training_points,
-            part_stoch_module_names,
             n_mc_samples_train,
             n_mc_samples_test,
             output_noise_scale,
@@ -473,11 +499,13 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             posterior_mu_init,
             posterior_rho_init,
             alpha,
-            layer_type,
+            bayesian_layer_type,
+            stochastic_module_names,
+            optimizer,
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["model", "optimizer", "lr_scheduler"])
 
     def _define_bnn_args(self):
         """Define BNN Args."""
@@ -486,14 +514,14 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.layer_type,
+            "layer_type": self.hparams.bayesian_layer_type,
             "batched_samples": True,
             "max_n_samples": max(
                 self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
             ),
         }
 
-    def forward(self, X: Tensor, n_samples: int = 5) -> Tensor:
+    def forward(self, X: Tensor, n_samples: int) -> Tensor:
         """Forward pass BNN+LI.
 
         Args:
@@ -506,7 +534,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         batched_sample_X = einops.repeat(X, "b f -> s b f", s=n_samples)
         return self.model(batched_sample_X)
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -526,9 +554,12 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
         # BUGS here in log_f_hat should be shape [n_samples]
 
+        # batched sampling is implemented for a max amount of samples
+        # however, self.hparams.n_mc_samples_train might be smaller
+        # thus pick those number of sapmles from log_f_hat
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
-            get_log_f_hat([self.model]),
+            get_log_f_hat([self.model])[: self.hparams.n_mc_samples_train],
             get_log_Z_prior([self.model]),
             get_log_normalizer([self.model]),
             log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
@@ -538,20 +569,24 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
-        preds = []
+        # preds = []
         with torch.no_grad():
-            for _ in range(
-                int(self.hparams.n_mc_samples_test / self.hparams.n_mc_samples_train)
-            ):
-                preds.append(self.forward(X).cpu())
+            # TODO why is this not batched?
+            # for _ in range(
+            #     int(self.hparams.n_mc_samples_test / self.hparams.n_mc_samples_train)
+            # ):
+            #     preds.append(self.forward(X).cpu())
+            model_preds = self.forward(X, self.hparams.n_mc_samples_test).cpu()
 
-        model_preds = torch.cat(preds, dim=0)
+        # model_preds = torch.cat(preds, dim=0)
         mean_out = model_preds.mean(dim=0).squeeze()
 
         std_epistemic = model_preds.std(dim=0).squeeze()

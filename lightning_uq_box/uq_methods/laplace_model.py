@@ -1,7 +1,8 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Laplace Approximation model."""
 
-import copy
-import os
 from typing import Any
 
 import numpy as np
@@ -17,7 +18,6 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    save_predictions_to_csv,
 )
 
 # TODO check whether Laplace fitting procedure can be implemented as working
@@ -53,14 +53,14 @@ class LaplaceBase(BaseModule):
 
     def __init__(
         self,
-        model: Laplace,
+        laplace_model: Laplace,
         tune_precision_lr: float = 0.1,
         n_epochs_tune_precision: int = 100,
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
-            model: initialized Laplace model
+            laplace_model: initialized Laplace model
             tune_precision_lr: learning rate for tuning prior precision
             n_epochs_tune_precision: number of epochs to tune prior precision
         """
@@ -68,14 +68,14 @@ class LaplaceBase(BaseModule):
 
         self.save_hyperparameters(ignore=["model"])
 
-        self.model = model
+        self.laplace_model = laplace_model
 
         self.laplace_fitted = False
 
         self.setup_task()
 
     def setup_task(self) -> None:
-        """"""
+        """Set up task."""
         pass
 
     @property
@@ -212,27 +212,27 @@ class LaplaceRegression(LaplaceBase):
 
     def __init__(
         self,
-        model: Laplace,
+        laplace_model: Laplace,
         tune_precision_lr: float = 0.1,
         n_epochs_tune_precision: int = 100,
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper for Regression.
 
         Args:
-            model: initialized Laplace model
+            laplace_model: initialized Laplace model
             tune_precision_lr: learning rate for tuning prior precision
             n_epochs_tune_precision: number of epochs to tune prior precision
         """
-        super().__init__(model, tune_precision_lr, n_epochs_tune_precision)
+        super().__init__(laplace_model, tune_precision_lr, n_epochs_tune_precision)
 
-        assert model.likelihood == "regression"
+        assert laplace_model.likelihood == "regression"
 
-        self.model = model
+        self.model = laplace_model
 
         self.loss_fn = torch.nn.MSELoss()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.test_metrics = default_regression_metrics("test")
 
     def predict_step(
@@ -306,7 +306,7 @@ class LaplaceClassification(LaplaceBase):
         assert model.likelihood == "classification"
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.test_metrics = default_classification_metrics(
             "test", self.task, _get_num_outputs(self.model.model)
         )

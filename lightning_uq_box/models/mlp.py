@@ -1,12 +1,16 @@
-"""Simple MLP for Toy Regression Problems."""
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
 
+"""Simple MLP for Toy Problems."""
+
+from typing import Optional
 
 import torch.nn as nn
 from torch import Tensor
 
 
 class MLP(nn.Module):
-    """Multi-layer perceptron for regression predictions."""
+    """Multi-layer perceptron for predictions."""
 
     def __init__(
         self,
@@ -14,7 +18,7 @@ class MLP(nn.Module):
         n_inputs: int = 1,
         n_hidden: list[int] = [100],
         n_outputs: int = 1,
-        activation_fn: nn.Module = nn.ReLU(),
+        activation_fn: Optional[nn.Module] = None,
     ) -> None:
         """Initialize a new instance of MLP.
 
@@ -28,6 +32,8 @@ class MLP(nn.Module):
           activation_fn: what nonlinearity to include in the network
         """
         super().__init__()
+        if activation_fn is None:
+            activation_fn = nn.ReLU()
         layers = []
         # layer sizes
         layer_sizes = [n_inputs] + n_hidden

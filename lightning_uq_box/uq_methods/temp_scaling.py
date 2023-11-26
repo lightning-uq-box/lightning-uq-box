@@ -1,10 +1,10 @@
-"""Temperature Scaling."""
+"""Temperature Scaling.
 
-"""Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperature_scaling.py."""
+Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperature_scaling.py. # noqa: E501
+"""
 
-from typing import Any, Union
+from typing import Dict, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,7 +13,6 @@ from torch import Tensor
 from torch.optim import LBFGS
 
 from .base import PosthocBase
-from .utils import _get_num_inputs, _get_num_outputs, default_classification_metrics
 
 
 class TempScaling(PosthocBase):
@@ -43,12 +42,6 @@ class TempScaling(PosthocBase):
         self.max_iter = max_iter
         self.criterion = nn.CrossEntropyLoss()
 
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Test step after running posthoc fitting methodology."""
-        raise NotImplementedError
-
     @torch.enable_grad()
     def adjust_model_logits(self, model_logits: Tensor) -> Tensor:
         """Adjust model logits by applying temperature scaling.
@@ -71,7 +64,6 @@ class TempScaling(PosthocBase):
             outputs: list of dictionaries containing model outputs and labels
 
         """
-        # `outputs` is a list of dictionaries, each containing 'output' and 'label' from each validation step
         all_logits = torch.cat(self.model_logits, dim=0).detach()
         all_labels = torch.cat(self.labels, dim=0).detach()
 
@@ -79,7 +71,8 @@ class TempScaling(PosthocBase):
         optimizer = LBFGS([self.temperature], lr=self.optim_lr, max_iter=self.max_iter)
 
         # also lightning automatically disables gradient computation during this stage
-        # but need it for temp scaling optimization so set inference mode to false with context manager
+        # but need it for temp scaling optimization so set inference mode to false with
+        # context manager
         with torch.inference_mode(False):
             all_logits = all_logits.clone().requires_grad_(True)
 
@@ -93,7 +86,7 @@ class TempScaling(PosthocBase):
 
         self.post_hoc_fitted = True
 
-    def predict_step(self, X: Tensor) -> Any:
+    def predict_step(self, X: Tensor) -> Dict[str, Tensor]:
         """Prediction step with applied temperature scaling.
 
         Args:
@@ -101,7 +94,7 @@ class TempScaling(PosthocBase):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call trainer.validate(model, datamodule) first."
+                "Model has not been post hoc fitted, please call trainer.fit(model, datamodule) first."  # noqa: E501
             )
         with torch.no_grad():
             temp_scaled_outputs = self.forward(X)
@@ -115,7 +108,13 @@ class TempScaling(PosthocBase):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
-        """Test step after running posthoc fitting methodology."""
+    ) -> dict[str, Tensor]:
+        """Test step after running posthoc fitting methodology.
+
+        Args:
+            batch: batch of testing data
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
         preds = self.predict_step(batch[self.input_key])
         return preds

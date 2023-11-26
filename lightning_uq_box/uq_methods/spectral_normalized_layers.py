@@ -1,6 +1,10 @@
-"""Spectral Normalization Layers and conversion tools."""
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
 
-"""Adapted from https://github.com/y0ast/DUE/tree/main/due/layers"""
+"""Spectral Normalization Layers and conversion tools.
+
+Adapted from https://github.com/y0ast/DUE/tree/main/due/layers
+"""
 
 from typing import Tuple
 
@@ -29,8 +33,8 @@ def spectral_normalize_model_layers(
     Args:
         model: model to spectral normalize layers for
         n_power_iterations: number of power iterations in spectral norm layers
-        input_dimensions: dictionary holding layer module name and input dimension to that
-            layer, which is necessary for spectral normalized conv layers
+        input_dimensions: dictionary holding layer module name and input
+            dimension to that layer, necessary for spectral normalized conv layers
         coeff: soft normalization only when sigma larger than coeff
     """
     for name, _ in list(model._modules.items()):
@@ -67,15 +71,40 @@ def spectral_normalize_model_layers(
 
 
 class _SpectralBatchNorm(_NormBase):
+    """Spectral Batch Normalization."""
+
     def __init__(
-        self, num_features, coeff, eps=1e-5, momentum=0.01, affine=True
+        self,
+        num_features: int,
+        coeff: float,
+        eps: float = 1e-5,
+        momentum: float = 0.01,
+        affine: bool = True,
     ):  # momentum is 0.01 by default instead of 0.1 of BN which alleviates
         # noisy power iteration
         # Code is based on torch.nn.modules._NormBase
+        """Initialize a new instance of Spectral Batch Normalization.
+
+        Args:
+            num_features: number of features
+            coeff: soft normalization only when sigma larger than coeff
+            eps: a value added to the denominator for numerical stability.
+                Default: 1e-5
+            momentum: the value used for the running_mean and running_var
+                computation. Can be set to ``None`` for cumulative moving average
+                (i.e. simple average).
+            affine: a boolean value that when set to ``True``, this module has
+                learnable affine parameters.
+        """
         super().__init__(num_features, eps, momentum, affine, track_running_stats=True)
         self.coeff = coeff
 
     def forward(self, input: Tensor) -> Tensor:
+        """Forward pass of spectral batch norm.
+
+        Args:
+            input: input tensor
+        """
         self._check_input_dim(input)
 
         # exponential_average_factor is set to self.momentum
@@ -239,8 +268,8 @@ class SpectralNormConv(SpectralNorm):
         """Call module.
 
         Args:
-            module:
-            inputs:
+            module: module
+            inputs: inputs
         """
         assert (
             inputs[0].shape[1:] == self.input_dim[1:]
@@ -263,12 +292,12 @@ class SpectralNormConv(SpectralNorm):
         """Apply spectral normalization to Conv layer.
 
         Args:
-            module:
+            module: module
             coeff: soft normalization only when sigma larger than coeff
-            input_dim:
-            name:
-            n_power_iterations:
-            eps:
+            input_dim: input dimensions
+            name: name of layer
+            n_power_iterations: number of power iterations
+            eps: epsilon
 
         """
         for k, hook in module._forward_pre_hooks.items():
@@ -326,7 +355,8 @@ def spectral_norm_conv(
     Args:
         module (nn.Module): containing convolution module
         input_dim (tuple(int, int, int)): dimension of input to convolution
-        coeff (float, optional): coefficient to normalize to, soft normalization only when sigma larger than coeff
+        coeff (float, optional): coefficient to normalize to, soft normalization
+            only when sigma larger than coeff
         n_power_iterations (int, optional): number of power iterations to
             calculate spectral norm
         name (str, optional): name of weight parameter
