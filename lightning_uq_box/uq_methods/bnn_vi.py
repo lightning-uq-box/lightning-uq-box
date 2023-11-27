@@ -349,8 +349,8 @@ class BNN_VI_Regression(BNN_VI_Base):
             y: target tensor
 
         Returns:
-            energy loss and mean output for logging
-            mean_out: mean output over samples, dim [batch_size, output_dim]
+            energy loss and mean output for logging mean_out: mean output
+                over samples, dim [n_mc_samples_train, output_dim]
         """
         model_preds: list[Tensor] = []
         pred_losses: list[Tensor] = []
@@ -542,9 +542,8 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             y: target tensor
 
         Returns:
-            energy loss and mean output for logging
-            mean_out: mean output over samples,
-                dim [n_mc_samples_train, output_dim]
+            energy loss and mean output for logging mean_out: mean output
+                over samples, dim [n_mc_samples_train, output_dim]
         """
         out = self.forward(
             X, n_samples=self.hparams.n_mc_samples_train
