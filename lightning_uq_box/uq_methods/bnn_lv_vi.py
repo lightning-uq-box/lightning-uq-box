@@ -319,7 +319,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         Returns:
             energy loss and mean output for logging
             mean_out: mean output over samples,
-            dim [n_mc_samples_train, output_dim]
+                dim [n_mc_samples_train, output_dim]
         """
         model_preds = []
         pred_losses = []
@@ -637,7 +637,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         Returns:
             energy loss and mean output for logging
             mean_out: mean output over samples,
-            dim [n_mc_samples_train, output_dim]
+                dim [n_mc_samples_train, output_dim]
         """
         out = self.forward(
             X, y, n_samples=self.hparams.n_mc_samples_train
