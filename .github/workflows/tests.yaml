@@ -40,6 +40,7 @@ jobs:
     - name: Run pytest checks (Windows)
       shell: cmd
       run: |
+        pip install -e .
         pytest --cov=lightning_uq_box --cov-report=xml --durations=10
       if: ${{ runner.os == 'Windows' }}
     - name: Report coverage
