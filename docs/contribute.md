@@ -1,6 +1,6 @@
 # Contribution Guide
 
-We welcome contribution and suggestions to this open-source project. This could be bugs you found, improvements to the documentation or tutorials, as well as new features. The following guide aims to explain the process of contributing to the lightning-uq-box.
+We welcome contributions and suggestions to this open-source project. This could be bugs you found, improvements to the documentation or tutorials, as well as new features and methods. The following guide aims to explain the process of contributing to the lightning-uq-box.
 
 ## Git
 
@@ -31,7 +31,7 @@ $ pytest --cov=lightning_uq_box/uq_methods --cov-report=term-missing tests/uq_me
 We use linters to ensure a codebase that follows [PEP-8](https://peps.python.org/pep-0008/) standards.
 
 * [black](https://black.readthedocs.io/) for code formatting
-* [isort](https://pycqa.github.io/isort/_ for import ordering
+* [isort](https://pycqa.github.io/isort/) for import ordering
 * [flake8](https://flake8.pycqa.org/) for code formatting
 * [pydocstyle](https://www.pydocstyle.org/) for docstrings
 
