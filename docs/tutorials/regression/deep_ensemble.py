@@ -30,7 +30,7 @@
 #     \sigma(x^{\star}) = \sqrt{\frac{1}{N} \sum_{i=1}^N  \left(\mu_{\theta_i}(x^{\star})-  \mu(x^{\star}) \right)^2}.
 # $$
 #
-# ##Deep Ensembles GMM
+# ## Deep Ensembles GMM
 #
 # For the Deep Ensembles GMM model, the predictive mean is given by the mean taken over $N \in \mathbb{N}$ models $f_{\theta_i}(x^{\star}) = (\mu_{\theta_i}(x^{\star}), \sigma_{\theta_i}(x^{\star}))$ with different weights $\{\theta_i\}_{i=1}^N$,
 #

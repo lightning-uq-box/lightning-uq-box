@@ -17,7 +17,7 @@
 # ## Theoretic Foundation
 
 #
-#  Bayesian Neural Networks (BNNs) with variational inference (VI) are an approximate Bayesian method. Here we use the mean-field assumption meaning that the variational distribution can be factorized as a product of individual Gaussian distributions. This method maximizes the evidence lower bound (ELBO) via standard stochastic gradient descent by using the reparameterization trick [Kingma, 2013](https://arxiv.org/abs/1312.6114) to backpropagate through the necessary sampling procedure. This results in a diagonal Gaussian approximation of the posterior distribution over the model parameters.\newline
+#  Bayesian Neural Networks (BNNs) with variational inference (VI) are an approximate Bayesian method. Here we use the mean-field assumption meaning that the variational distribution can be factorized as a product of individual Gaussian distributions. This method maximizes the evidence lower bound (ELBO) via standard stochastic gradient descent by using the reparameterization trick [Kingma, 2013](https://arxiv.org/abs/1312.6114) to backpropagate through the necessary sampling procedure. This results in a diagonal Gaussian approximation of the posterior distribution over the model parameters.
 #
 # The predictive likelihood is given by,
 #
@@ -51,10 +51,10 @@
 #     p(y^{\star}|x^{\star},\mathcal{D}) = \int p(y^{\star} |\theta , x^{\star})  p(\theta|\mathcal{D}) d\theta.
 # $$
 #
-# As the above integral is intractable we approximate by sampling form the approximation $q(\theta)$ in \eqref{eq:postweights} to the posterior distribution in \eqref{eq:posttrue}. The weights are obtained by minimizing the evidence lower bound (ELBO) on the Kullback-Leibler (KL) divergence between the variational approximation and the posterior distribution over the weights. The ELBO is given by,
+# As the above integral is intractable we approximate by sampling form the approximation $q(\theta)$ to the posterior distribution of the weights. The weights are obtained by minimizing the evidence lower bound (ELBO) on the Kullback-Leibler (KL) divergence between the variational approximation and the posterior distribution over the weights. The ELBO is given by,
 #
 # $$
-#     \mathcal{L}(\theta, (x^{star}, y^{star}) ) = \beta D_{KL}(q(\theta) || p(\theta) ) + \frac{1}{2}\text{ln}\left(2\pi\sigma^2\right) + \frac{1}{2\sigma^2}\left(f_{\theta}(x^{\star})-y^{\star}\right)^2 .
+#     \mathcal{L}(\theta, (x^{\star}, y^{\star}) ) = \beta D_{KL}(q(\theta) || p(\theta) ) + \frac{1}{2}\text{ln}\left(2\pi\sigma^2\right) + \frac{1}{2\sigma^2}\left(f_{\theta}(x^{\star})-y^{\star}\right)^2 .
 # $$
 #
 # The KL divergence can be computed analytically as both distributions are assumed to be diagonal Gaussians and the hyperparameter $\beta$ can be used to weight the influence of the variational parameters relative to that of the data. The hyperparameter $\sigma$ can be either fixed or set to be an additional output of the network.
@@ -62,13 +62,13 @@
 # The predictive mean is obtained as the mean of the network output $f_{\theta}$ with $S$ weight samples from the variational approximation $\theta_s \sim q(\theta)$,
 #
 # $$
-#      f_m(x^{\star}) = \frac{1}{S} \sum_{i=1}^S  f_{\theta_s}(x^{\star}).
+#      f_m(x^{\star}) = \frac{1}{S} \sum_{s=1}^S  f_{\theta_s}(x^{\star}).
 # $$
 #
 # The predictive uncertainty is given by the standard deviation thereof,
 #
 # $$
-#     \sigma_p(x^{\star}) = \sqrt{\frac{1}{S} \sum_{i=1}^S  \left(f_{\theta_s}(x^{\star})-  f_m(x^{\star}) \right)^2}.
+#     \sigma_p(x^{\star}) = \sqrt{\frac{1}{S} \sum_{s=1}^S  \left(f_{\theta_s}(x^{\star})-  f_m(x^{\star}) \right)^2}.
 # $$
 #
 

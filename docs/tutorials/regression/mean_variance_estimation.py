@@ -16,7 +16,7 @@
 
 # ## Theoretic Foundation
 
-# The Gaussian model is first studied in [Nix, 1994](https://ieeexplore.ieee.org/abstract/document/374138) and further used in [Sluijterman 2023](https://arxiv.org/abs/2302.08875), this is a deterministic model that predicts the parameters of a Gaussian distribution
+# The Gaussian model, also referred to as Mean Variance Estimation, is first studied in [Nix, 1994](https://ieeexplore.ieee.org/abstract/document/374138) and further used in [Sluijterman 2023](https://arxiv.org/abs/2302.08875), this is a deterministic model that predicts the parameters of a Gaussian distribution
 #
 # $$
 #     f_{\theta}(x^{\star}) = (\mu_{\theta}(x^\star),\sigma_{\theta}(x^\star))
