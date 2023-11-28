@@ -80,9 +80,11 @@
 # $$
 #  p(f_*|X_*,X,Y,\gamma,\sigma^2) = \mathcal{N}(\mathbb{E}[f_*],\text{cov}(f_*)), 
 # $$
+#
 # $$
 #  \mathbb{E}[f_*] = m_{X_*}  + \mathcal{K}_{X_*,X}[\mathcal{K}_{X,X}+\sigma^2 I]^{-1}Y,
 # $$
+#
 # $$
 #  \text{cov}(f_*) &= \mathcal{K}_{X_*,X_*} - \mathcal{K}_{X_*,X}[\mathcal{K}_{X,X}+\sigma^2 I]^{-1}\mathcal{K}_{X,X_*}.
 # $$
