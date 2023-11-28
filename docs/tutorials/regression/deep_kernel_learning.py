@@ -86,7 +86,7 @@
 # $$
 #
 # $$
-#  \text{cov}(f_*) &= \mathcal{K}_{X_*,X_*} - \mathcal{K}_{X_*,X}[\mathcal{K}_{X,X}+\sigma^2 I]^{-1}\mathcal{K}_{X,X_*}.
+#  \text{cov}(f_*) = \mathcal{K}_{X_*,X_*} - \mathcal{K}_{X_*,X}[\mathcal{K}_{X,X}+\sigma^2 I]^{-1}\mathcal{K}_{X,X_*}.
 # $$
 # 
 # Here $m_{X_*}$ is the $K_* \times 1$ mean vector, which is assumed to be zero in the previous case.
@@ -126,7 +126,7 @@
 # $$
 # 
 #
-# This so called deep kernel in \eqref{eqn: deepkernel} is now used as the covariance function of a GP to model data $\mathcal{D} = \{x_i, y_i\}_{i=1}^{K}$. The deep kernel hyperparameters,
+# This so called deep kernel is now used as the covariance function of a GP to model data $\mathcal{D} = \{x_i, y_i\}_{i=1}^{K}$. The deep kernel hyperparameters,
 # $\rho = \{ \gamma,\theta, \sigma^2 \}$, can be jointly learned by maximizing the
 # log marginal likelihood of the GP.
 #
