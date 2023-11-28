@@ -18,7 +18,7 @@ from .utils import _get_num_outputs, default_regression_metrics
 class DERLayer(nn.Module):
     """Deep Evidential Regression Layer.
 
-    Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_. # noqa: E501
+    Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/main/models.py#L34>`_. # noqa: E501
     """
 
     def __init__(self):
