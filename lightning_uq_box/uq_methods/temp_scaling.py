@@ -43,7 +43,6 @@ class TempScaling(PosthocBase):
         self.max_iter = max_iter
         self.criterion = nn.CrossEntropyLoss()
 
-    @torch.enable_grad()
     def adjust_model_logits(self, model_logits: Tensor) -> Tensor:
         """Adjust model logits by applying temperature scaling.
 
@@ -127,7 +126,18 @@ def run_temperature_optimization(
     labels: torch.Tensor,
     criterion: nn.Module,
 ) -> Tensor:
-    """Run temperature optimization."""
+    """Run temperature optimization.
+    
+    Args:
+        optimizer: optimizer class
+        temperature: temperature parameter
+        logits: model output logits of shape [batch_size x num_outputs]
+        labels: labels of shape [batch_size]
+        criterion: loss function
+
+    Returns:
+        optimized temperature parameter
+    """
     optimizer = optimizer([temperature])
 
     with torch.inference_mode(False):
@@ -135,7 +145,6 @@ def run_temperature_optimization(
 
         def eval():
             optimizer.zero_grad()
-            print(temperature)
             loss = criterion(temp_scale_logits(logits, temperature), labels)
             loss.backward()
             return loss

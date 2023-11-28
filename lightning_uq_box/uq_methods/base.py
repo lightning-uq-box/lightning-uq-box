@@ -360,6 +360,9 @@ class PosthocBase(BaseModule):
         Returns:
             underlying model output and labels
         """
+        # needed because we need inference_mode=True for
+        # optimization procedures later on but need fixed model here
+        self.eval()
         self.model_logits.append(self.model(batch[self.input_key]))
         self.labels.append(batch[self.target_key])
 
@@ -381,10 +384,13 @@ class PosthocBase(BaseModule):
         raise NotImplementedError
 
     def forward(self, X: Tensor) -> Tensor:
-        """Forward pass of CQR model.
+        """Forward pass of Posthoc model that adjusts model logits.
 
         Args:
             X: input tensor of shape [batch_size x input_dims]
+
+        Returns:
+            adjusted model output tensor of shape [batch_size x num_outputs]
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
@@ -394,7 +400,7 @@ class PosthocBase(BaseModule):
 
         # predict with underlying model
         with torch.no_grad():
-            model_preds: dict[str, np.ndarray] = self.model(X)
+            model_preds = self.model(X)
 
         return self.adjust_model_logits(model_preds)
 
