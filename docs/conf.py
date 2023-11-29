@@ -88,3 +88,6 @@ intersphinx_mapping = {
     "sklearn": ("https://scikit-learn.org/stable/", None),
     "torch": ("https://pytorch.org/docs/stable", None),
 }
+
+# uncomment if you want to build docs locally without executing notebooks
+# nbsphinx_execute = 'never'

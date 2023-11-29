@@ -39,7 +39,12 @@ Black and isort will automatically change your code, while flake8 and pydocstyle
 
 ## Documentation
 
-The documentation is hosted on [Read the Docs](https://readthedocs.org/). 
+The documentation is hosted on [Read the Docs](https://readthedocs.org/). If you are making changes to the documentation, it can be useful to inspect the changes locally before committing them. You can follow these steps:
+
+1. Move to the `docs` directory
+2. In the `conf.py` file look at the very last line and uncomment if you want to speed up the documentation build. This will not execute the notebooks and just build the rest of the documentation. However, when you are making changes to the notebooks as well, you should leave it uncommented as the notebooks won't be updated with your changes otherwise.
+3. Run `make clean` followed by `make html`
+4. Once that command finishes, there will be a `index.html` file under `docs/_build/html`. Paste the full path to that file into your webbrowser to inspect what the documentation would look like with your changes
 
 ## Tutorials
 
