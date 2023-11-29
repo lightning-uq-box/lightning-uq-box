@@ -144,7 +144,7 @@ network = MLP(n_inputs=1, n_hidden=[50, 50], n_outputs=2, activation_fn=nn.Tanh(
 network
 
 # With an underlying neural network, we can now use our desired UQ-Method as a sort of wrapper. All UQ-Methods are implemented as [LightningModule](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) that allow us to concisely organize the code and remove as much boilerplate code as possible.
-# The BNN_VI_ELBO_Regression model enables us to chose the layers of our network we want to make stochastic via the ```stochastic_module_names``` argument. This can be done by either a list of module names or a list of module numbers. For example, stochastic_module_name= [-1] would only make the last layer stochastic while all other layers remain determinstic.
+# The BNN_VI_ELBO_Regression model enables us to chose the layers of our network we want to make stochastic via the ```stochastic_module_names``` argument. This can be done by either a list of module names or a list of module numbers. For example, stochastic_module_name = [-1] would only make the last layer stochastic while all other layers remain determinstic.
 # The default value of None makes all layers stochastic. If we train with the NLL loss, we can first train with the MSE loss, and only adapt the parameters for the mean prediction, for the number of ```burnin_eochs``` for more stable training. The hyperparemter ```beta``` is set to 100 and can be increased for larger ```num_training_points``` to increase the influence of the stochastic parameters during training.
 
 bbp_model = BNN_VI_ELBO_Regression(
