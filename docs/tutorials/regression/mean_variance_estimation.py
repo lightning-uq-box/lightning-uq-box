@@ -16,7 +16,7 @@
 
 # ## Theoretic Foundation
 
-# The Gaussian model is first studied in [Nix, 1994](https://ieeexplore.ieee.org/abstract/document/374138) and further used in [Sluijterman 2023](https://arxiv.org/abs/2302.08875), this is a deterministic model that predicts the parameters of a Gaussian distribution
+# The Gaussian model, also referred to as Mean Variance Estimation, is first studied in [Nix, 1994](https://ieeexplore.ieee.org/abstract/document/374138) and further used in [Sluijterman 2023](https://arxiv.org/abs/2302.08875), this is a deterministic model that predicts the parameters of a Gaussian distribution
 #
 # $$
 #     f_{\theta}(x^{\star}) = (\mu_{\theta}(x^\star),\sigma_{\theta}(x^\star))
@@ -91,6 +91,7 @@ network = MLP(n_inputs=1, n_hidden=[50, 50, 50], n_outputs=2, activation_fn=nn.T
 network
 
 # With an underlying neural network, we can now use our desired UQ-Method as a sort of wrapper. All UQ-Methods are implemented as [LightningModule](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) that allow us to concisely organize the code and remove as much boilerplate code as possible.
+# If we train with the NLL loss, we can first train with the MSE loss, and only adapt the parameters for the mean prediction, for the number of ```burnin_eochs``` for more stable training. 
 
 mve_model = MVERegression(
     model=network, optimizer=partial(torch.optim.Adam, lr=1e-2), burnin_epochs=50

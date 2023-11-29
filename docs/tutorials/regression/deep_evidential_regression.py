@@ -34,7 +34,13 @@
 #     \mathcal{L}({\theta},(x^{\star}, y^{\star}))=\log\sigma_{\theta}^2(x^{\star})+(1+\lambda\nu_{\theta}(x^{\star}))\frac{(y^{\star}-\gamma_{\theta}(x^{\star}))^2}{\sigma_{\theta}^2(x^{\star})}
 # $$
 #
-# where $\sigma_{\theta}^2(x^{\star})=\beta_{\theta}(x^{\star})/\nu_{\theta}(x^{\star})$. Further following [Meinert, 2022](https://ojs.aaai.org/index.php/AAAI/article/view/26096), we use their reformulation of the uncertainty decomposition. The aleatoric uncertainty is given by
+# where $\sigma_{\theta}^2(x^{\star})=\beta_{\theta}(x^{\star})/\nu_{\theta}(x^{\star})$. The mean prediction is given by
+#
+# $$
+# \mu_{\theta}(x^{\star}) = \gamma_{\theta}(x^{\star})
+# $$
+#
+# Further following [Meinert, 2022](https://ojs.aaai.org/index.php/AAAI/article/view/26096), we use their reformulation of the uncertainty decomposition. The aleatoric uncertainty is given by
 #
 # $$
 #     u_{\text{aleatoric}}(x^{\star})=\sqrt{\frac{\beta(x^{\star})}{\alpha(x^{\star})-1}},

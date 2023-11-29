@@ -40,9 +40,7 @@
 # Then, with the assumed likelihood function and prior, a posterior over the
 # weights $\theta$ and latent variables $z$ is obtained via Bayes' rule:
 # $$
-# p(\theta,z|\mathcal{D}) = \frac{p(Y|\theta,z,X)
-# p(\theta)p(z)}
-# {p(Y|X)}
+# p(\theta,z|\mathcal{D}) = \frac{p(Y|\theta,z,X)p(\theta)p(z)}{p(Y|X)}
 # $$
 #
 # The approximate the posterior is given by
@@ -139,6 +137,8 @@ latent_net = MLP(
 bnn, latent_net
 
 # With an underlying neural network, we can now use our desired UQ-Method as a sort of wrapper. All UQ-Methods are implemented as [LightningModule](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) that allow us to concisely organize the code and remove as much boilerplate code as possible.
+# The BNN_LV_VI_Batched_Regression model enables us to chose the layers of our network we want to make stochastic via the ```stochastic_module_names``` argument. This can be done by either a list of module names or a list of module numbers. For example, stochastic_module_name = [-1] would only make the last layer stochastic while all other layers remain determinstic.
+# The default value of None makes all layers stochastic. The hyperparameter ```alpha``` determines how the Gaussian approximation of the posterior fits the posterior of the weights, see Figure 1, [Depeweg, 2016](https://arxiv.org/abs/1605.07127).
 
 bnn_vi_model = BNN_LV_VI_Batched_Regression(
     bnn,

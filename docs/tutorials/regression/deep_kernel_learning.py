@@ -43,22 +43,22 @@
 #
 # Where $\gamma =( \eta^2, l)$ and $\eta^2$ can be set to $1$ or tuned as a hyperparameter. By default the lengthscale $l=1$ but can also be optimized over. Now the GP, $f (x) \sim GP(m(x), k(x, x'))$, as a distribution over functions can be used to solve a regression problem. Following [Seeger, 2004](https://www.worldscientific.com/doi/abs/10.1142/S0129065704001899), consider the simple special case where the observations are noise free and you have training data $\mathcal{D}_{\mathrm{train}} = \{(x_i, y_i)\}_{i=1}^{K}$ with $X=(x_i)_{i=1}^K$ and $Y=(y_i)_{i=1}^K$. The joint prior distribution of the training outputs, $Y$, and the test outputs $f_*=f_*(X_*)= (f(x_k))_{k=1}^m$ where $X_* = (x_k)_{k=1}^m$ are the test points, according to the prior is
 #
-# $
-# \begin{align}
+# 
+# $$
 #  p(Y,f_*) = \mathcal{N}\bigg(0, \Bigg[ \begin{array}{rr}
 # \mathcal{K}_{X,X} & \mathcal{K}_{X,X_*}  \\
 # \mathcal{K}_{X_*,X} & \mathcal{K}_{X_*,X_*}  \\
 # \end{array} \Bigg] \bigg).
-# \end{align}
-# $
+# $$
+# 
 #
 # Here the mean function is assumed to be $m_X = 0$ and $\mathcal{K}_{X,X_*}$ denotes the $K \times m$ matrix of the covariances evaluated at all pairs of training and test points, and similarly for the other entries $\mathcal{K}_{X,X}$, $\mathcal{K}_{X_*,X_*}$ and $\mathcal{K}_{X_*,X}$. To make predictions based on the knowledge of the training points, conditioning on the prior observations is used and yields,
-# $
-# \begin{align}
+# 
+# $$
 #     p(f_*|X_*, X, Y) & = \mathcal{N}(\mathcal{K}_{X_*,X}\mathcal{K}_{X,X}^{-1}Y, \mathcal{K}_{X_*,X_*}-\mathcal{K}_{X_*,X_*}\mathcal{K}_{X,X}^{-1}\mathcal{K}_{X,X_*})\\
 #     & = \mathcal{N}(m(X,X_*,Y), \tilde{\mathcal{K}}_{X,X_*}).
-# \end{align}
-# $
+# $$
+# 
 #
 # Now to generate function values on test points, one uses samples from the posterior distribution $f_*(X_*) \sim \mathcal{N}(m(X,X_*,Y), \tilde{K}(X, X_*))$.  To illustrate how we can obtain these samples from the posterior distribution, consider a Gaussian with arbitrary mean $m$ and covariance $K$, i.e. $f_* \sim \mathcal{N}(m,K)$. For this one can use a scalar Gaussian generator, which is available in many packages:
 # - Compute the Cholesky decomposition of $K=LL^T$, where $L$ is a lower triangular matrix. This works because $K$ is symmetric by definition.
@@ -76,13 +76,19 @@
 # Then the predictive distribution of the GP evaluated at the
 # $K_*$ test points, $X_*$, is given by
 #
-# $
-# \begin{align}
-#  p(f_*|X_*,X,Y,\gamma,\sigma^2) &= \mathcal{N}(\mathbb{E}[f_*],\text{cov}(f_*)), \\
-#  \mathbb{E}[f_*] &= m_{X_*}  + \mathcal{K}_{X_*,X}[\mathcal{K}_{X,X}+\sigma^2 I]^{-1}Y,\\
-#  \text{cov}(f_*) &= \mathcal{K}_{X_*,X_*} - \mathcal{K}_{X_*,X}[\mathcal{K}_{X,X}+\sigma^2 I]^{-1}\mathcal{K}_{X,X_*}.
-# \end{align}
-# $
+# 
+# $$
+#  p(f_*|X_*,X,Y,\gamma,\sigma^2) = \mathcal{N}(\mathbb{E}[f_*],\text{cov}(f_*)), 
+# $$
+#
+# $$
+#  \mathbb{E}[f_*] = m_{X_*}  + \mathcal{K}_{X_*,X}[\mathcal{K}_{X,X}+\sigma^2 I]^{-1}Y,
+# $$
+#
+# $$
+#  \text{cov}(f_*) = \mathcal{K}_{X_*,X_*} - \mathcal{K}_{X_*,X}[\mathcal{K}_{X,X}+\sigma^2 I]^{-1}\mathcal{K}_{X,X_*}.
+# $$
+# 
 # Here $m_{X_*}$ is the $K_* \times 1$ mean vector, which is assumed to be zero in the previous case.
 #
 # In both cases, with and without additive noise on the function values, the GP is trained by learning interpretable kernel hyperparameters. The log marginal likelihood of the targets $y$ - the probability of the data conditioned only on kernel hyperparameters $\gamma$ - provides a principled probabilistic framework for kernel learning:
@@ -113,14 +119,14 @@
 #
 # where $g(x,\theta)$ is a non-linear mapping given by a deep architecture, such as a deep
 # convolutional network mapping into a feature space of dimension $J$, parametrized by weights $\theta$,
-# $
-# \begin{align}
+# 
+# $$
 #     g(\cdot, \theta): X &\rightarrow \mathbb{R}^J \\
 #     x &\mapsto g(x, \theta).
-# \end{align}
-# $
+# $$
+# 
 #
-# This so called deep kernel in \eqref{eqn: deepkernel} is now used as the covariance function of a GP to model data $\mathcal{D} = \{x_i, y_i\}_{i=1}^{K}$. The deep kernel hyperparameters,
+# This so called deep kernel is now used as the covariance function of a GP to model data $\mathcal{D} = \{x_i, y_i\}_{i=1}^{K}$. The deep kernel hyperparameters,
 # $\rho = \{ \gamma,\theta, \sigma^2 \}$, can be jointly learned by maximizing the
 # log marginal likelihood of the GP.
 #
