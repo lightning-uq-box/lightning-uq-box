@@ -39,7 +39,7 @@ templates_path = ["_templates"]
 # this is needed for jupytext
 nbsphinx_custom_formats = {".py": ["jupytext.reads", {"fmt": "py:light"}]}
 
-source_dirs = ["api", "tutorials"]
+source_dirs = ["api", "tutorials", "noteboo"]
 
 # General information about the project.
 project = "Lightning-UQ-Box"
@@ -48,8 +48,8 @@ version = lightning_uq_box.__version__
 release = lightning_uq_box.__version__
 
 # exclude ipynb for jupytext
-exclude_patterns = ["_build", "**/*.ipynb", "earth_observation/*.ipynb"]
-# exclude_patterns = ["_build"]
+# exclude_patterns = ["_build", "**/*.ipynb", "earth_observation/*.ipynb"]
+exclude_patterns = ["_build"]
 html_theme = "sphinx_book_theme"
 html_title = "Lightning-UQ-Box"
 html_logo = "_static/logo.png"
