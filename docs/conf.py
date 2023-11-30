@@ -39,7 +39,7 @@ templates_path = ["_templates"]
 # this is needed for jupytext
 nbsphinx_custom_formats = {".py": ["jupytext.reads", {"fmt": "py:light"}]}
 
-source_dirs = ["api", "tutorials", "noteboo"]
+source_dirs = ["api", "tutorials"]
 
 # General information about the project.
 project = "Lightning-UQ-Box"
