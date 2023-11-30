@@ -51,9 +51,9 @@ def tune_prior_precision(
 
 
 class LaplaceBase(BaseModule):
-    """Laplace Approximation method for regression.
+    """Laplace Approximation Method.
 
-    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_.
+    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_. # noqa: E501
 
     If you use this model in your research, please cite the following papers:
 
@@ -214,7 +214,7 @@ class LaplaceBase(BaseModule):
 class LaplaceRegression(LaplaceBase):
     """Laplace Approximation Wrapper for regression.
 
-    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_.
+    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_. # noqa: E501
 
     If you use this model in your research, please cite the following papers:
 
@@ -293,7 +293,7 @@ class LaplaceRegression(LaplaceBase):
 class LaplaceClassification(LaplaceBase):
     """Laplace Approximation Wrapper for classification.
 
-    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_.
+    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_. # noqa: E501
 
     If you use this model in your research, please cite the following papers:
 
@@ -303,7 +303,7 @@ class LaplaceClassification(LaplaceBase):
     valid_tasks = ["binary", "multiclass"]
 
     def __init__(self, laplace_model: Laplace, task: str = "multiclass") -> None:
-        """Initialize a new instance of Laplace laplace_model Wrapper for Classification.
+        """Initialize a new instance of Laplace Wrapper for Classification.
 
         Args:
             laplace_model: initialized Laplace model
