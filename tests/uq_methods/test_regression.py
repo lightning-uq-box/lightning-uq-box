@@ -61,7 +61,8 @@ class TestRegressionTask:
         ]
 
         cli = get_uq_box_cli(args)
-        cli.trainer.fit(cli.model, cli.datamodule)
+        if "laplace" not in model_config_path:
+            cli.trainer.fit(cli.model, cli.datamodule)
         cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
         # assert predictions are saved
@@ -118,7 +119,9 @@ class TestDeepEnsemble:
 
         return ckpt_paths
 
-    def test_deep_ensemble(self, ensemble_members_dict: Dict[str, Any]) -> None:
+    def test_deep_ensemble(
+        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+    ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(
             len(ensemble_members_dict), ensemble_members_dict
@@ -126,7 +129,7 @@ class TestDeepEnsemble:
 
         datamodule = ToyHeteroscedasticDatamodule()
 
-        trainer = Trainer()
+        trainer = Trainer(default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
 

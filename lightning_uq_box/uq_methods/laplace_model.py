@@ -51,26 +51,26 @@ def tune_prior_precision(
 
 
 class LaplaceBase(BaseModule):
-    """Laplace Approximation method for regression."""
+    """Laplace Approximation method for regression.
+
+    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_.
+
+    If you use this model in your research, please cite the following papers:
+
+    * https://arxiv.org/abs/2106.14806
+    """
 
     pred_file_name = "preds.csv"
 
-    def __init__(
-        self,
-        laplace_model: Laplace,
-        tune_precision_lr: float = 0.1,
-        n_epochs_tune_precision: int = 100,
-    ) -> None:
+    def __init__(self, laplace_model: Laplace) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
             laplace_model: initialized Laplace model
-            tune_precision_lr: learning rate for tuning prior precision
-            n_epochs_tune_precision: number of epochs to tune prior precision
         """
         super().__init__()
 
-        self.save_hyperparameters(ignore=["model"])
+        self.save_hyperparameters(ignore=["laplace_model"])
 
         self.laplace_model = laplace_model
 
@@ -121,7 +121,7 @@ class LaplaceBase(BaseModule):
         if not self.laplace_fitted:
             self.on_test_start()
 
-        return self.model(X)
+        return self.laplace_model(X)
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
@@ -165,10 +165,10 @@ class LaplaceBase(BaseModule):
             # but need it for laplace so set inference mode to false with cntx manager
             with torch.inference_mode(False):
                 # fit the laplace approximation
-                self.model.fit(self.train_loader)
+                self.laplace_model.fit(self.train_loader)
 
                 # tune the prior precision via Empirical Bayes
-                self.model.optimize_prior_precision(method="marglik")
+                self.laplace_model.optimize_prior_precision(method="marglik")
                 # tune_prior_precision(
                 #     self.model,
                 #     self.hparams.tune_precision_lr,
@@ -212,26 +212,24 @@ class LaplaceBase(BaseModule):
 
 
 class LaplaceRegression(LaplaceBase):
-    """Laplace Approximation Wrapper for regression."""
+    """Laplace Approximation Wrapper for regression.
 
-    def __init__(
-        self,
-        laplace_model: Laplace,
-        tune_precision_lr: float = 0.1,
-        n_epochs_tune_precision: int = 100,
-    ) -> None:
+    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_.
+
+    If you use this model in your research, please cite the following papers:
+
+    * https://arxiv.org/abs/2106.14806
+    """
+
+    def __init__(self, laplace_model: Laplace) -> None:
         """Initialize a new instance of Laplace Model Wrapper for Regression.
 
         Args:
             laplace_model: initialized Laplace model
-            tune_precision_lr: learning rate for tuning prior precision
-            n_epochs_tune_precision: number of epochs to tune prior precision
         """
-        super().__init__(laplace_model, tune_precision_lr, n_epochs_tune_precision)
+        super().__init__(laplace_model)
 
-        assert laplace_model.likelihood == "regression"
-
-        self.model = laplace_model
+        assert self.laplace_model.likelihood == "regression"
 
         self.loss_fn = torch.nn.MSELoss()
 
@@ -264,7 +262,7 @@ class LaplaceRegression(LaplaceBase):
             laplace_mean = laplace_mean.squeeze().detach().cpu().numpy()
             laplace_epistemic = laplace_var.squeeze().sqrt().cpu().numpy()
             laplace_aleatoric = (
-                np.ones_like(laplace_epistemic) * self.model.sigma_noise.item()
+                np.ones_like(laplace_epistemic) * self.laplace_model.sigma_noise.item()
             )
             laplace_predictive = np.sqrt(
                 laplace_epistemic**2 + laplace_aleatoric**2
@@ -293,40 +291,37 @@ class LaplaceRegression(LaplaceBase):
 
 
 class LaplaceClassification(LaplaceBase):
-    """Laplace Approximation Wrapper for classification."""
+    """Laplace Approximation Wrapper for classification.
+
+    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_.
+
+    If you use this model in your research, please cite the following papers:
+
+    * https://arxiv.org/abs/2106.14806
+    """
 
     valid_tasks = ["binary", "multiclass"]
 
-    def __init__(
-        self,
-        model: Laplace,
-        tune_precision_lr: float = 0.1,
-        n_epochs_tune_precision: int = 100,
-        task: str = "multiclass",
-    ) -> None:
-        """Initialize a new instance of Laplace Model Wrapper for Classification.
+    def __init__(self, laplace_model: Laplace, task: str = "multiclass") -> None:
+        """Initialize a new instance of Laplace laplace_model Wrapper for Classification.
 
         Args:
-            model: initialized Laplace model
-            tune_precision_lr: learning rate for tuning prior precision
-            n_epochs_tune_precision: number of epochs to tune prior precision
+            laplace_model: initialized Laplace model
             task: classification task, one of ['binary', 'multiclass']
         """
         assert task in self.valid_tasks
         self.task = task
 
-        super().__init__(model, tune_precision_lr, n_epochs_tune_precision)
+        super().__init__(laplace_model)
 
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
-        self.model = model
-
-        assert model.likelihood == "classification"
+        assert self.laplace_model.likelihood == "classification"
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         self.test_metrics = default_classification_metrics(
-            "test", self.task, _get_num_outputs(self.model.model)
+            "test", self.task, _get_num_outputs(self.laplace_model.model)
         )
 
     def predict_step(

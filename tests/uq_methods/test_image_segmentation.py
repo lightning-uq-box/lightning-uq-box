@@ -79,7 +79,9 @@ class TestDeepEnsemble:
 
         return ckpt_paths
 
-    def test_deep_ensemble(self, ensemble_members_dict: Dict[str, Any]) -> None:
+    def test_deep_ensemble(
+        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+    ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleSegmentation(
             len(ensemble_members_dict), ensemble_members_dict, num_classes=4
@@ -87,6 +89,6 @@ class TestDeepEnsemble:
 
         datamodule = ToySegmentationDataModule()
 
-        trainer = Trainer()
+        trainer = Trainer(default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
