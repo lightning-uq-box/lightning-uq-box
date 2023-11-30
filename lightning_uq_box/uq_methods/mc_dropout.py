@@ -3,6 +3,8 @@
 
 """Mc-Dropout module."""
 
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,6 +20,7 @@ from .utils import (
     process_classification_prediction,
     process_regression_prediction,
     process_segmentation_prediction,
+    save_regression_predictions,
 )
 
 
@@ -90,7 +93,7 @@ class MCDropoutBase(DeterministicModel):
         loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
+        self.train_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
 
@@ -117,6 +120,8 @@ class MCDropoutRegression(MCDropoutBase):
 
     * https://proceedings.mlr.press/v48/gal16.html
     """
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -153,8 +158,8 @@ class MCDropoutRegression(MCDropoutBase):
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model."""
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.."""
         assert out.shape[-1] <= 2, "Ony support single mean or Gaussian output."
         return out[:, 0:1]
 
@@ -173,13 +178,13 @@ class MCDropoutRegression(MCDropoutBase):
 
         if self.current_epoch < self.hparams.burnin_epochs:
             loss = nn.functional.mse_loss(
-                self.extract_mean_output(out), batch[self.target_key]
+                self.adapt_output_for_metrics(out), batch[self.target_key]
             )
         else:
             loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
+        self.train_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
 
@@ -202,6 +207,20 @@ class MCDropoutRegression(MCDropoutBase):
 
         return process_regression_prediction(preds)
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
 
 class MCDropoutClassification(MCDropoutBase):
     """MC-Dropout Model for Classification.
@@ -211,6 +230,7 @@ class MCDropoutClassification(MCDropoutBase):
     * https://proceedings.mlr.press/v48/gal16.html
     """
 
+    pred_file_name = "preds.csv"
     valid_tasks = ["binary", "multiclass", "multilable"]
 
     def __init__(
@@ -257,7 +277,7 @@ class MCDropoutClassification(MCDropoutBase):
             "test", self.task, self.num_classes
         )
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Extract mean output from model."""
         return out
 

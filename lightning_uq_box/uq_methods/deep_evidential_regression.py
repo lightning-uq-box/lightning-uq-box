@@ -3,6 +3,7 @@
 
 """Deep Evidential Regression."""
 
+import os
 
 import numpy as np
 import torch
@@ -12,7 +13,11 @@ from torch import Tensor
 
 from .base import DeterministicModel
 from .loss_functions import DERLoss
-from .utils import _get_num_outputs, default_regression_metrics
+from .utils import (
+    _get_num_outputs,
+    default_regression_metrics,
+    save_regression_predictions,
+)
 
 
 class DERLayer(nn.Module):
@@ -58,6 +63,8 @@ class DER(DeterministicModel):
 
     * https://arxiv.org/abs/2205.10060
     """
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -129,8 +136,8 @@ class DER(DeterministicModel):
             "out": pred,
         }
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean output from 4D model prediction.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from :meth:`self.forward` [batch_size x 4]
@@ -169,3 +176,17 @@ class DER(DeterministicModel):
             Epistemic Uncertainty
         """
         return np.reciprocal(np.sqrt(nu))
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )

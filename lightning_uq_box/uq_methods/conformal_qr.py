@@ -4,6 +4,7 @@
 """conformalized Quantile Regression Model."""
 
 import math
+import os
 from typing import Dict, Union
 
 import torch
@@ -13,6 +14,7 @@ from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
 
 from .base import PosthocBase
+from .utils import save_regression_predictions
 
 
 def compute_q_hat_with_cqr(
@@ -55,6 +57,8 @@ class ConformalQR(PosthocBase):
 
     * https://papers.nips.cc/paper_files/paper/2019/hash/5103c3584b063c431bd1268e9b5e76fb-Abstract.html # noqa: E501
     """
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -166,3 +170,17 @@ class ConformalQR(PosthocBase):
     def configure_optimizers(self) -> OptimizerLRScheduler:
         """No optimizer needed for Conformal QR."""
         pass
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )

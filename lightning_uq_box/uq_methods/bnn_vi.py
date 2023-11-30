@@ -3,6 +3,7 @@
 
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
+import os
 from typing import Any, Optional, Tuple, Union
 
 import einops
@@ -21,7 +22,11 @@ from lightning_uq_box.models.bnnlv.utils import (
 
 from .base import DeterministicModel
 from .loss_functions import EnergyAlphaDivergence
-from .utils import default_regression_metrics, map_stochastic_modules
+from .utils import (
+    default_regression_metrics,
+    map_stochastic_modules,
+    save_regression_predictions,
+)
 
 
 class BNN_VI_Base(DeterministicModel):
@@ -268,6 +273,8 @@ class BNN_VI_Regression(BNN_VI_Base):
     * https://proceedings.mlr.press/v80/depeweg18a
     """
 
+    pred_file_name = "preds.csv"
+
     def __init__(
         self,
         model: nn.Module,
@@ -385,19 +392,20 @@ class BNN_VI_Regression(BNN_VI_Base):
 
         return energy_loss, mean_out.detach()
 
-    # def on_test_batch_end(
-    #     self,
-    #     outputs: dict[str, Tensor],
-    #     batch: Any,
-    #     batch_idx: int,
-    #     dataloader_idx=0,
-    # ):
-    #     """Test batch end save predictions for regression."""
-    #     if self.hparams.save_dir:
-    #         outputs = {key: val for key, val in outputs.items() if key != "samples"}
-    #         save_predictions_to_csv(
-    #             outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
-    #         )
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0

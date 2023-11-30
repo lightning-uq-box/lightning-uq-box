@@ -3,6 +3,7 @@
 
 """Bayesian Neural Networks with Variational Inference."""
 
+import os
 from typing import Any, Optional, Union
 
 import torch
@@ -25,6 +26,7 @@ from .utils import (
     process_classification_prediction,
     process_regression_prediction,
     process_segmentation_prediction,
+    save_regression_predictions,
 )
 
 
@@ -197,7 +199,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             # mean prediction
             pred = self.forward(X)
             pred_losses[i] = self.compute_task_loss(pred, y)
-            model_preds.append(self.extract_mean_output(pred).detach())
+            model_preds.append(self.adapt_output_for_metrics(pred).detach())
 
         mean_pred = torch.stack(model_preds, dim=-1).mean(-1)
         # dimension [batch_size]
@@ -284,6 +286,8 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
 
     * https://arxiv.org/abs/1505.05424
     """
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -376,7 +380,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             self.criterion, nn.MSELoss
         ):
             # compute mse loss with output noise scale, is like mse
-            loss = torch.nn.functional.mse_loss(self.extract_mean_output(pred), y)
+            loss = torch.nn.functional.mse_loss(self.adapt_output_for_metrics(pred), y)
         else:
             # after burnin compute nll with log_sigma
             loss = self.criterion(pred, y)
@@ -399,6 +403,21 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
 
         return process_regression_prediction(preds)
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
 
 class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
     """Bayes By Backprop Model with Variational Inference (VI) for Classification.
@@ -408,6 +427,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
     * https://arxiv.org/abs/1505.05424
     """
 
+    pred_file_name = "preds.csv"
     valid_tasks = ["binary", "multiclass", "multilable"]
 
     def __init__(
@@ -509,8 +529,8 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         """
         return self.criterion(pred, y)
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model output."""
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation."""
         return out
 
     def predict_step(

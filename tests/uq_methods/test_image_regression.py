@@ -4,6 +4,7 @@
 """Test Image Regression Tasks."""
 
 import glob
+import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -56,6 +57,11 @@ class TestImageRegressionTask:
         trainer.fit(model, datamodule)
         trainer.test(ckpt_path="best", datamodule=datamodule)
 
+        # check that predictions are saved
+        assert os.path.exists(
+            os.path.join(trainer.default_root_dir, model.pred_file_name)
+        )
+
 
 ensemble_model_config_paths = [
     "tests/configs/image_regression/mc_dropout_nll.yaml",
@@ -104,3 +110,8 @@ class TestDeepEnsemble:
         datamodule = ToyImageRegressionDatamodule()
         trainer = Trainer()
         trainer.test(ensemble_model, datamodule=datamodule)
+
+        # check that predictions are saved
+        assert os.path.exists(
+            os.path.join(trainer.default_root_dir, ensemble_model.pred_file_name)
+        )

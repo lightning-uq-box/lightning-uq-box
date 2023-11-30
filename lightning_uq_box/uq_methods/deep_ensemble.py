@@ -3,6 +3,7 @@
 
 """Implement a Deep Ensemble Model for prediction."""
 
+import os
 from typing import Any, Union
 
 import torch
@@ -17,6 +18,7 @@ from .utils import (
     process_classification_prediction,
     process_regression_prediction,
     process_segmentation_prediction,
+    save_regression_predictions,
 )
 
 
@@ -124,22 +126,11 @@ class DeepEnsembleRegression(DeepEnsemble):
     * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
     """
 
+    pred_file_name = "preds.csv"
+
     def setup_task(self) -> None:
         """Set up task for regression."""
         self.test_metrics = default_regression_metrics("test")
-
-    # def on_test_batch_end(
-    #     self,
-    #     outputs: dict[str, Tensor],
-    #     batch: Any,
-    #     batch_idx: int,
-    #     dataloader_idx=0,
-    # ):
-    #     """Test batch end save predictions."""
-    #     if self.hparams.save_dir:
-    #         save_predictions_to_csv(
-    #             outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
-    #         )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -157,6 +148,20 @@ class DeepEnsembleRegression(DeepEnsemble):
 
         return process_regression_prediction(preds)
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
 
 class DeepEnsembleClassification(DeepEnsemble):
     """Deep Ensemble Model for classification.
@@ -167,6 +172,7 @@ class DeepEnsembleClassification(DeepEnsemble):
     """
 
     valid_tasks = ["multiclass", "binary", "multilabel"]
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,

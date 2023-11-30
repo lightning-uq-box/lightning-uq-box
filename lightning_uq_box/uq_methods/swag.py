@@ -26,6 +26,7 @@ for support of partial stochasticity and integration to lightning.
 """
 
 import math
+import os
 from collections import OrderedDict
 from copy import deepcopy
 from typing import Any, Dict, Optional, Union
@@ -45,6 +46,7 @@ from .utils import (
     process_classification_prediction,
     process_regression_prediction,
     process_segmentation_prediction,
+    save_regression_predictions,
 )
 
 
@@ -347,6 +349,8 @@ class SWAGRegression(SWAGBase):
     * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
     """
 
+    pred_file_name = "preds.csv"
+
     def __init__(
         self,
         model: nn.Module,
@@ -387,6 +391,20 @@ class SWAGRegression(SWAGBase):
         """Set up task specific attributes."""
         self.test_metrics = default_regression_metrics("test")
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> Dict[str, Tensor]:
@@ -418,6 +436,7 @@ class SWAGClassification(SWAGBase):
     * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
     """
 
+    pred_file_name = "preds.csv"
     valid_tasks = ["binary", "multiclass", "multilable"]
 
     def __init__(
@@ -462,8 +481,8 @@ class SWAGClassification(SWAGBase):
         )
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model output.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from the model
