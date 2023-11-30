@@ -93,7 +93,7 @@ class MCDropoutBase(DeterministicModel):
         loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
+        self.train_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
 
@@ -158,8 +158,8 @@ class MCDropoutRegression(MCDropoutBase):
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model."""
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.."""
         assert out.shape[-1] <= 2, "Ony support single mean or Gaussian output."
         return out[:, 0:1]
 
@@ -178,13 +178,13 @@ class MCDropoutRegression(MCDropoutBase):
 
         if self.current_epoch < self.hparams.burnin_epochs:
             loss = nn.functional.mse_loss(
-                self.extract_mean_output(out), batch[self.target_key]
+                self.adapt_output_for_metrics(out), batch[self.target_key]
             )
         else:
             loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
+        self.train_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
 
@@ -277,7 +277,7 @@ class MCDropoutClassification(MCDropoutBase):
             "test", self.task, self.num_classes
         )
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Extract mean output from model."""
         return out
 

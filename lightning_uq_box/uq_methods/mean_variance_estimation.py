@@ -64,13 +64,13 @@ class MVEBase(DeterministicModel):
 
         if self.current_epoch < self.hparams.burnin_epochs:
             loss = nn.functional.mse_loss(
-                self.extract_mean_output(out), batch[self.target_key]
+                self.adapt_output_for_metrics(out), batch[self.target_key]
             )
         else:
             loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
+        self.train_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
 
@@ -106,8 +106,8 @@ class MVERegression(MVEBase):
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model."""
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation."""
         assert out.shape[-1] <= 2, "Gaussian output."
         return out[:, 0:1]
 

@@ -456,8 +456,8 @@ class DKLClassification(DKLBase):
             "test", self.task, self.num_classes
         )
 
-    def _extract_mean_output(self, output: MultivariateNormal) -> Tensor:
-        """Extract the mean output from the GP."""
+    def _adapt_output_for_metrics(self, output: MultivariateNormal) -> Tensor:
+        """Adapt model output to be compatible for metric computation.."""
         return output.mean
 
     def _build_model(self) -> None:

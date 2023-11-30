@@ -87,8 +87,8 @@ class DeterministicModel(BaseModule):
         """Set up task specific attributes."""
         raise NotImplementedError
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model output.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from the model
@@ -125,7 +125,9 @@ class DeterministicModel(BaseModule):
 
         self.log("train_loss", loss)  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
-            self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
+            self.train_metrics(
+                self.adapt_output_for_metrics(out), batch[self.target_key]
+            )
 
         return loss
 
@@ -151,7 +153,7 @@ class DeterministicModel(BaseModule):
 
         self.log("val_loss", loss)  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
-            self.val_metrics(self.extract_mean_output(out), batch[self.target_key])
+            self.val_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
 
@@ -204,7 +206,7 @@ class DeterministicModel(BaseModule):
         """
         with torch.no_grad():
             out = self.forward(X)
-        return {"pred": self.extract_mean_output(out)}
+        return {"pred": self.adapt_output_for_metrics(out)}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -279,8 +281,8 @@ class DeterministicClassification(DeterministicModel):
         self.task = task
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model output.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from the model

@@ -481,8 +481,8 @@ class SWAGClassification(SWAGBase):
         )
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model output.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from the model

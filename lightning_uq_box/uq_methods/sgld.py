@@ -202,8 +202,8 @@ class SGLDRegression(SGLDBase):
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean output from model prediction.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from :meth:`self.forward` [batch_size x (mu, sigma)]
@@ -234,7 +234,7 @@ class SGLDRegression(SGLDBase):
             """Closure function for optimizer."""
             sgld_opt.zero_grad()
             if self.current_epoch < self.hparams.burnin_epochs:
-                loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
+                loss = nn.functional.mse_loss(self.adapt_output_for_metrics(out), y)
             # after train with nll
             else:
                 loss = self.loss_fn(out, y)
@@ -245,7 +245,7 @@ class SGLDRegression(SGLDBase):
         loss = sgld_opt.step(closure=closure)
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), y)
+        self.train_metrics(self.adapt_output_for_metrics(out), y)
 
         # return loss
 
@@ -332,8 +332,8 @@ class SGLDClassification(SGLDBase):
             "test", self.task, self.num_classes
         )
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean output from model prediction.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from :meth:`self.forward` [batch_size x (mu, sigma)]
@@ -371,7 +371,7 @@ class SGLDClassification(SGLDBase):
         loss = sgld_opt.step(closure=closure)
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), y)
+        self.train_metrics(self.adapt_output_for_metrics(out), y)
 
         return loss
 

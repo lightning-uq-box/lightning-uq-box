@@ -99,8 +99,8 @@ class QuantileRegression(QuantileRegressionBase):
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean/median prediction from quantile regression model.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from :meth:`self.forward` [batch_size x num_outputs]
@@ -125,7 +125,7 @@ class QuantileRegression(QuantileRegressionBase):
             out = self.model(X)  # [batch_size, len(self.quantiles)]
             np_out = out.cpu().numpy()
 
-        median = self.extract_mean_output(out)
+        median = self.adapt_output_for_metrics(out)
         mean, std = compute_sample_mean_std_from_quantile(
             np_out, self.hparams.quantiles
         )

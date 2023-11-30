@@ -199,7 +199,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             # mean prediction
             pred = self.forward(X)
             pred_losses[i] = self.compute_task_loss(pred, y)
-            model_preds.append(self.extract_mean_output(pred).detach())
+            model_preds.append(self.adapt_output_for_metrics(pred).detach())
 
         mean_pred = torch.stack(model_preds, dim=-1).mean(-1)
         # dimension [batch_size]
@@ -380,7 +380,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             self.criterion, nn.MSELoss
         ):
             # compute mse loss with output noise scale, is like mse
-            loss = torch.nn.functional.mse_loss(self.extract_mean_output(pred), y)
+            loss = torch.nn.functional.mse_loss(self.adapt_output_for_metrics(pred), y)
         else:
             # after burnin compute nll with log_sigma
             loss = self.criterion(pred, y)
@@ -529,8 +529,8 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         """
         return self.criterion(pred, y)
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model output."""
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation."""
         return out
 
     def predict_step(

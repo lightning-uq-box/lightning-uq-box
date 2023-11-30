@@ -136,8 +136,8 @@ class DER(DeterministicModel):
             "out": pred,
         }
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean output from 4D model prediction.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from :meth:`self.forward` [batch_size x 4]
