@@ -3,6 +3,8 @@
 
 """Deterministic Model that predicts parameters of Gaussian."""
 
+import os
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,7 +13,7 @@ from torch import Tensor
 
 from .base import DeterministicModel
 from .loss_functions import NLL
-from .utils import default_regression_metrics
+from .utils import default_regression_metrics, save_regression_predictions
 
 
 class MVEBase(DeterministicModel):
@@ -81,6 +83,8 @@ class MVERegression(MVEBase):
     * https://ieeexplore.ieee.org/document/374138
     """
 
+    pred_file_name = "preds.csv"
+
     def __init__(
         self,
         model: nn.Module,
@@ -125,3 +129,17 @@ class MVERegression(MVEBase):
         std = torch.sqrt(eps + np.exp(log_sigma_2))
 
         return {"pred": mean, "pred_uct": std, "aleatoric_uct": std, "out": preds}
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )

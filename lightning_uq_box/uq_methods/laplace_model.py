@@ -3,6 +3,7 @@
 
 """Laplace Approximation model."""
 
+import os
 from typing import Any
 
 import numpy as np
@@ -18,6 +19,7 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    save_regression_predictions,
 )
 
 # TODO check whether Laplace fitting procedure can be implemented as working
@@ -50,6 +52,8 @@ def tune_prior_precision(
 
 class LaplaceBase(BaseModule):
     """Laplace Approximation method for regression."""
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -272,6 +276,20 @@ class LaplaceRegression(LaplaceBase):
             "epistemic_uct": laplace_epistemic,
             "aleatoric_uct": laplace_aleatoric,
         }
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 class LaplaceClassification(LaplaceBase):

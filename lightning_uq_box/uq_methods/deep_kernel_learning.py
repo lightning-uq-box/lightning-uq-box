@@ -4,6 +4,7 @@
 """Deep Kernel Learning."""
 
 
+import os
 from typing import Any, Dict
 
 import gpytorch
@@ -31,6 +32,7 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    save_regression_predictions,
 )
 
 
@@ -90,6 +92,24 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.dkl_model_built = False
 
         self.setup_task()
+
+    @property
+    def num_input_features(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        return _get_num_inputs(self.feature_extractor)
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of output dimension from model
+        """
+        return self.gp_layer.n_outputs
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -198,24 +218,6 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    @property
-    def num_input_features(self) -> int:
-        """Retrieve input dimension to the model.
-
-        Returns:
-            number of input dimension to the model
-        """
-        return _get_num_inputs(self.feature_extractor)
-
-    @property
-    def num_outputs(self) -> int:
-        """Retrieve output dimension to the model.
-
-        Returns:
-            number of output dimension from model
-        """
-        return self.gp_layer.n_outputs
-
     def configure_optimizers(self) -> Dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
@@ -253,6 +255,8 @@ class DKLRegression(DKLBase):
     * https://proceedings.mlr.press/v51/wilson16.html
     * https://arxiv.org/abs/2102.11409
     """
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -334,6 +338,20 @@ class DKLRegression(DKLBase):
             if key not in [self.input_key, self.target_key]:
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
         return out_dict
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""

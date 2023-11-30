@@ -3,6 +3,8 @@
 
 """Mc-Dropout module."""
 
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,6 +20,7 @@ from .utils import (
     process_classification_prediction,
     process_regression_prediction,
     process_segmentation_prediction,
+    save_regression_predictions,
 )
 
 
@@ -118,6 +121,8 @@ class MCDropoutRegression(MCDropoutBase):
     * https://proceedings.mlr.press/v48/gal16.html
     """
 
+    pred_file_name = "preds.csv"
+
     def __init__(
         self,
         model: nn.Module,
@@ -202,6 +207,20 @@ class MCDropoutRegression(MCDropoutBase):
 
         return process_regression_prediction(preds)
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
 
 class MCDropoutClassification(MCDropoutBase):
     """MC-Dropout Model for Classification.
@@ -211,6 +230,7 @@ class MCDropoutClassification(MCDropoutBase):
     * https://proceedings.mlr.press/v48/gal16.html
     """
 
+    pred_file_name = "preds.csv"
     valid_tasks = ["binary", "multiclass", "multilable"]
 
     def __init__(

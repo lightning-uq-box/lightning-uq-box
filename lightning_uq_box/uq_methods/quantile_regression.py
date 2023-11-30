@@ -3,6 +3,7 @@
 
 """Implement Quantile Regression Model."""
 
+import os
 from typing import Optional
 
 import torch
@@ -14,7 +15,11 @@ from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 
 from .base import DeterministicModel
 from .loss_functions import QuantileLoss
-from .utils import _get_num_outputs, default_regression_metrics
+from .utils import (
+    _get_num_outputs,
+    default_regression_metrics,
+    save_regression_predictions,
+)
 
 
 class QuantileRegressionBase(DeterministicModel):
@@ -69,6 +74,8 @@ class QuantileRegression(QuantileRegressionBase):
 
     * https://www.jstor.org/stable/1913643
     """
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -134,6 +141,20 @@ class QuantileRegression(QuantileRegressionBase):
             "upper_quant": np_out[:, -1],
             "aleatoric_uct": std,
         }
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 # class QuantilePxRegression(QuantileRegressionBase):

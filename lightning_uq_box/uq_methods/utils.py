@@ -167,8 +167,8 @@ def merge_list_of_dictionaries(list_of_dicts: list[dict[str, Any]]):
     return merged_dict
 
 
-def save_predictions_to_csv(outputs: dict[str, Tensor], path: str) -> None:
-    """Save model predictions to csv file.
+def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
+    """Save regression predictions to csv file.
 
     Args:
         outputs: metrics and values to be saved
