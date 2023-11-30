@@ -2,6 +2,11 @@
 <img src="docs/_static/lettering.png" alt="Lightning-UQ-Box logo" width="500" height="auto" />
 </p>
 
+[![docs](https://readthedocs.org/projects/lightning-uq-box/badge/?version=latest)](https://lightning-uq-box.readthedocs.io/en/latest/)
+[![style](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/style.yaml/badge.svg)](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/style.yaml)
+[![tests](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/tests.yaml/badge.svg)](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/tests.yaml)
+[![codecov](https://codecov.io/gh/lightning-uq-box/lightning-uq-box/branch/main/graph/badge.svg?token=oa3Z3PMVOg)](https://app.codecov.io/gh/lightning-uq-box/lightning-uq-box)
+
 # lightning-uq-box
 
 The lightning-uq-box is a PyTorch library that provides various Uncertainty Quantification (UQ) techniques for modern neural network architectures. 
