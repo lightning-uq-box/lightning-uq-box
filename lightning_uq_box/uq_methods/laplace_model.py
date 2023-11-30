@@ -51,7 +51,7 @@ def tune_prior_precision(
 
 
 class LaplaceBase(BaseModule):
-    """Laplace Approximation method for regression.
+    """Laplace Approximation Method.
 
     This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_. # noqa: E501
 
