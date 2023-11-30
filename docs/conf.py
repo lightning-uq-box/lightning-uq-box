@@ -37,7 +37,7 @@ source_suffix = [".rst", ".md", ".py"]
 templates_path = ["_templates"]
 
 # this is needed for jupytext
-nbsphinx_custom_formats = {".py": ["jupytext.reads", {"fmt": "py:light"}]}
+# nbsphinx_custom_formats = {".py": ["jupytext.reads", {"fmt": "py:light"}]}
 
 source_dirs = ["api", "tutorials"]
 
