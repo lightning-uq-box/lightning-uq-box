@@ -53,6 +53,7 @@ class TestImageClassificationTask:
 
 ensemble_model_config_paths = ["tests/configs/image_classification/mc_dropout.yaml"]
 
+
 class TestDeepEnsemble:
     @pytest.fixture(
         params=[
@@ -98,7 +99,10 @@ class TestDeepEnsemble:
 
         trainer.test(ensemble_model, datamodule=datamodule)
 
+
 post_hoc_paths = ["tests/configs/image_classification/temp_scaling.yaml"]
+
+
 class TestPostHoc:
     @pytest.mark.parametrize("model_config_path", post_hoc_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
@@ -115,5 +119,3 @@ class TestPostHoc:
         )
         trainer.validate(model, datamodule.val_dataloader())
         trainer.test(ckpt_path="best", datamodule=datamodule)
-
-

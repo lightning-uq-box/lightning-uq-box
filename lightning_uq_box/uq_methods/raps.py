@@ -57,6 +57,8 @@ class RAPS(PosthocBase):
             alpha: 1 - alpha is the desired coverage
             kreg: regularization param (smaller kreg leads to smaller sets)
             lamda_param: regularization param (larger lamda leads to smaller sets)
+                (any value of kreg and lambda will lead to coverage, but will yield
+                different set sizes)
             randomized: whether to use randomized version of conformal prediction
             allow_zero_sets: whether to allow sets of size zero
             pct_param_tune: fraction of calibration data to use for parameter tuning
@@ -98,7 +100,14 @@ class RAPS(PosthocBase):
         sorted_score_indices, ordered, cumsum = sort_sum(scores)
 
         E = gen_inverse_quantile_function(
-            scores, targets, sorted_score_indices, ordered, cumsum, self.penalties, True, True
+            scores,
+            targets,
+            sorted_score_indices,
+            ordered,
+            cumsum,
+            self.penalties,
+            True,
+            True,
         )
 
         Qhat = torch.quantile(E, 1 - self.alpha, interpolation="higher")
@@ -173,7 +182,14 @@ class RAPS(PosthocBase):
 
 
 def gen_inverse_quantile_function(
-    scores, targets, sorted_score_indices, ordered, cumsum, penalties, randomized, allow_zero_sets
+    scores,
+    targets,
+    sorted_score_indices,
+    ordered,
+    cumsum,
+    penalties,
+    randomized,
+    allow_zero_sets,
 ) -> Tensor:
     """Generalized inverse quantile conformity score function.
 
@@ -198,27 +214,33 @@ def gen_inverse_quantile_function(
 
 
 def gen_cond_quantile_function(
-    scores: Tensor, tau: Tensor, sorted_score_indices: Tensor, ordered: Tensor, cumsum: Tensor, penalties: Tensor, randomized: bool, allow_zero_sets: bool
+    scores: Tensor,
+    tau: Tensor,
+    sorted_score_indices: Tensor,
+    ordered: Tensor,
+    cumsum: Tensor,
+    penalties: Tensor,
+    randomized: bool,
+    allow_zero_sets: bool,
 ) -> list[Tensor]:
-    # TODO why only one tau and not one per batch sample
     """Generalized conditional quantile function.
-    
+
     Args:
         scores: shape [batch_size x num_classes]
-        tau: no shape should become Q_hat?
+        tau: no shape, uses Q_hat
         sorted_score_indices: shape [batch_size x num_classes]
         ordered: shape [batch_size x num_classes]
         cumsum: shape [batch_size x num_classes]
         penalties: shape [1 x num_classes]
         randomized: whether to use randomized version of conformal prediction
         allow_zero_sets: whether to allow sets of size zero
-    
+
     Returns:
         prediction sets
     """
     penalties = penalties.to(scores.device)
     tau = tau.to(scores.device)
-  
+
     penalties_cumsum = torch.cumsum(penalties, dim=1)
     sizes_base = ((cumsum + penalties_cumsum) <= tau).sum(dim=1).to(scores.device) + 1
     sizes_base = torch.minimum(
@@ -259,9 +281,17 @@ def gen_cond_quantile_function(
     return pred_sets
 
 
-def get_single_tau(target, sorted_score_indices, ordered, cumsum, penalty, randomized, allow_zero_sets: bool) -> Tensor:
+def get_single_tau(
+    target,
+    sorted_score_indices,
+    ordered,
+    cumsum,
+    penalty,
+    randomized,
+    allow_zero_sets: bool,
+) -> Tensor:
     """Get tau for one example.
-    
+
     Args:
         target:
         sorted_score_indices:
@@ -297,9 +327,9 @@ def get_single_tau(target, sorted_score_indices, ordered, cumsum, penalty, rando
 
 def sort_sum(scores: Tensor) -> tuple[Tensor, Tensor, Tensor]:
     """Sort and sum scores.
-    
+
     Args:
-        scores:
+        scores: model scores [batch_size x num_classes]
 
     Returns:
         sorted_score_indices, ordered, cumsum

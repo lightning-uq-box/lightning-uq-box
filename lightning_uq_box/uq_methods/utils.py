@@ -29,6 +29,26 @@ from lightning_uq_box.eval_utils import (
 )
 
 
+def compute_coverage_and_set_size(pred_set: list[Tensor], targets: Tensor) -> tuple[float, float]:
+    """Compute the coverage and size of the predictions sets.
+    
+    Args:
+        pred_set: List of tensors of predicted labels for each sample in the batch
+            with class labels
+        targets: Tensor of true labels shape [batch_size, num_classes]
+
+    Returns:
+        coverage of the prediction sets and the average size of the prediction sets
+    """
+    covered = 0
+    size = 0
+    for i in range(targets.shape[0]):
+        if targets[i].item() in pred_set[i]:
+            covered += 1
+        size = size + pred_set[i].shape[0]
+    return float(covered) / targets.shape[0], size / targets.shape[0]
+
+
 def default_regression_metrics(prefix: str):
     """Return a set of default regression metrics."""
     return MetricCollection(

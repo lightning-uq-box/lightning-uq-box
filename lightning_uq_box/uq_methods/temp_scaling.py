@@ -127,7 +127,7 @@ def run_temperature_optimization(
     criterion: nn.Module,
 ) -> Tensor:
     """Run temperature optimization.
-    
+
     Args:
         optimizer: optimizer class
         temperature: temperature parameter
