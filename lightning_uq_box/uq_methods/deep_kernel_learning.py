@@ -315,6 +315,11 @@ class DKLRegression(DKLBase):
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
 
+        # put gpytorch modules on cuda
+        if self.device.type == "cuda":
+            self.gp_layer = self.gp_layer.cuda()
+            self.likelihood = self.likelihood.cuda()
+
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
@@ -475,6 +480,11 @@ class DKLClassification(DKLBase):
         self.elbo_fn = VariationalELBO(
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
+
+        # put gpytorch modules on cuda
+        if self.device.type == "cuda":
+            self.gp_layer = self.gp_layer.cuda()
+            self.likelihood = self.likelihood.cuda()
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
