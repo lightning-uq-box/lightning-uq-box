@@ -22,7 +22,7 @@ class TestTempScaling:
         model = instantiate(conf.det_method)
         datamodule = TwoMoonsDataModule()
         trainer = Trainer(log_every_n_steps=1, max_epochs=1)
-        trainer.fit(model, datamodule)
+        trainer.validate(model, datamodule.val_dataloader())
 
         return model
 

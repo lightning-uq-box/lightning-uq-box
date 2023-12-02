@@ -95,10 +95,10 @@ class RAPS(PosthocBase):
     def compute_q_hat(self, logits: Tensor, targets: Tensor) -> Tensor:
         """Compute q_hat."""
         scores = temp_scale_logits(logits, self.temperature)
-        I, ordered, cumsum = sort_sum(scores)
+        sorted_score_indices, ordered, cumsum = sort_sum(scores)
 
         E = gen_inverse_quantile_function(
-            scores, targets, I, ordered, cumsum, self.penalties, True, True
+            scores, targets, sorted_score_indices, ordered, cumsum, self.penalties, True, True
         )
 
         Qhat = torch.quantile(E, 1 - self.alpha, interpolation="higher")
@@ -144,12 +144,12 @@ class RAPS(PosthocBase):
             adjusted model logits tensor of shape [batch_size x num_outputs]
         """
         scores = temp_scale_logits(model_logits, self.temperature)
-        I, ordered, cumsum = sort_sum(scores)
+        sorted_score_indices, ordered, cumsum = sort_sum(scores)
 
         return gen_cond_quantile_function(
             scores,
             self.Qhat,
-            I,
+            sorted_score_indices,
             ordered,
             cumsum,
             self.penalties,
@@ -173,7 +173,7 @@ class RAPS(PosthocBase):
 
 
 def gen_inverse_quantile_function(
-    scores, targets, I, ordered, cumsum, penalties, randomized, allow_zero_sets
+    scores, targets, sorted_score_indices, ordered, cumsum, penalties, randomized, allow_zero_sets
 ) -> Tensor:
     """Generalized inverse quantile conformity score function.
 
@@ -186,7 +186,7 @@ def gen_inverse_quantile_function(
     for i in range(scores.shape[0]):
         E[i] = get_single_tau(
             targets[i].item(),
-            I[i : i + 1, :],
+            sorted_score_indices[i : i + 1, :],
             ordered[i : i + 1, :],
             cumsum[i : i + 1, :],
             penalties[0, :],
@@ -198,19 +198,20 @@ def gen_inverse_quantile_function(
 
 
 def gen_cond_quantile_function(
-    scores, tau, I, ordered, cumsum, penalties, randomized: bool, allow_zero_sets: bool
-):
+    scores: Tensor, tau: Tensor, sorted_score_indices: Tensor, ordered: Tensor, cumsum: Tensor, penalties: Tensor, randomized: bool, allow_zero_sets: bool
+) -> list[Tensor]:
+    # TODO why only one tau and not one per batch sample
     """Generalized conditional quantile function.
     
     Args:
-        scores:
-        tau:
-        I:
-        ordered:
-        cumsum:
-        penalties:
-        randomized:
-        allow_zero_sets:
+        scores: shape [batch_size x num_classes]
+        tau: no shape should become Q_hat?
+        sorted_score_indices: shape [batch_size x num_classes]
+        ordered: shape [batch_size x num_classes]
+        cumsum: shape [batch_size x num_classes]
+        penalties: shape [1 x num_classes]
+        randomized: whether to use randomized version of conformal prediction
+        allow_zero_sets: whether to allow sets of size zero
     
     Returns:
         prediction sets
@@ -250,21 +251,20 @@ def gen_cond_quantile_function(
     if not allow_zero_sets:
         sizes[sizes == 0] = 1
 
-    S = list()
-
     # Construct S from equation (5)
-    for i in range(I.shape[0]):
-        S = S + [I[i, 0 : sizes[i]]]
+    pred_sets: list[Tensor] = []
+    for i in range(sorted_score_indices.shape[0]):
+        pred_sets.append(sorted_score_indices[i, 0 : sizes[i]])
 
-    return S
+    return pred_sets
 
 
-def get_single_tau(target, I, ordered, cumsum, penalty, randomized, allow_zero_sets: bool) -> Tensor:
+def get_single_tau(target, sorted_score_indices, ordered, cumsum, penalty, randomized, allow_zero_sets: bool) -> Tensor:
     """Get tau for one example.
     
     Args:
         target:
-        I:
+        sorted_score_indices:
         ordered:
         cumsum:
         penalty:
@@ -274,7 +274,7 @@ def get_single_tau(target, I, ordered, cumsum, penalty, randomized, allow_zero_s
     Returns:
         single tau
     """
-    idx = torch.where(I == target)
+    idx = torch.where(sorted_score_indices == target)
     tau_nonrandom = cumsum[idx]
 
     if not randomized:
@@ -302,9 +302,9 @@ def sort_sum(scores: Tensor) -> tuple[Tensor, Tensor, Tensor]:
         scores:
 
     Returns:
-        I, ordered, cumsum
+        sorted_score_indices, ordered, cumsum
     """
-    I = torch.argsort(scores, dim=1, descending=True)
+    sorted_score_indices = torch.argsort(scores, dim=1, descending=True)
     ordered = torch.sort(scores, dim=1, descending=True).values
     cumsum = torch.cumsum(ordered, dim=1)
-    return I, ordered, cumsum
+    return sorted_score_indices, ordered, cumsum
