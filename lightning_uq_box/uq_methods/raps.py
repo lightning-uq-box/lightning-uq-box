@@ -198,17 +198,34 @@ def gen_inverse_quantile_function(
 
 
 def gen_cond_quantile_function(
-    scores, tau, I, ordered, cumsum, penalties, randomized, allow_zero_sets
+    scores, tau, I, ordered, cumsum, penalties, randomized: bool, allow_zero_sets: bool
 ):
-    """Generalized conditional quantile function."""
+    """Generalized conditional quantile function.
+    
+    Args:
+        scores:
+        tau:
+        I:
+        ordered:
+        cumsum:
+        penalties:
+        randomized:
+        allow_zero_sets:
+    
+    Returns:
+        prediction sets
+    """
+    penalties = penalties.to(scores.device)
+    tau = tau.to(scores.device)
+  
     penalties_cumsum = torch.cumsum(penalties, dim=1)
-    sizes_base = ((cumsum + penalties_cumsum) <= tau).sum(dim=1) + 1
+    sizes_base = ((cumsum + penalties_cumsum) <= tau).sum(dim=1).to(scores.device) + 1
     sizes_base = torch.minimum(
         sizes_base, torch.ones_like(sizes_base) * scores.shape[1]
     )
 
     if randomized:
-        V = torch.zeros(sizes_base.shape)
+        V = torch.zeros_like(sizes_base)
         for i in range(sizes_base.shape[0]):
             V[i] = (
                 1
@@ -242,8 +259,21 @@ def gen_cond_quantile_function(
     return S
 
 
-def get_single_tau(target, I, ordered, cumsum, penalty, randomized, allow_zero_sets):
-    """Get tau for one example."""
+def get_single_tau(target, I, ordered, cumsum, penalty, randomized, allow_zero_sets: bool) -> Tensor:
+    """Get tau for one example.
+    
+    Args:
+        target:
+        I:
+        ordered:
+        cumsum:
+        penalty:
+        randomized:
+        allow_zero_sets:
+
+    Returns:
+        single tau
+    """
     idx = torch.where(I == target)
     tau_nonrandom = cumsum[idx]
 
@@ -266,7 +296,14 @@ def get_single_tau(target, I, ordered, cumsum, penalty, randomized, allow_zero_s
 
 
 def sort_sum(scores: Tensor) -> tuple[Tensor, Tensor, Tensor]:
-    """Sort and sum scores."""
+    """Sort and sum scores.
+    
+    Args:
+        scores:
+
+    Returns:
+        I, ordered, cumsum
+    """
     I = torch.argsort(scores, dim=1, descending=True)
     ordered = torch.sort(scores, dim=1, descending=True).values
     cumsum = torch.cumsum(ordered, dim=1)
