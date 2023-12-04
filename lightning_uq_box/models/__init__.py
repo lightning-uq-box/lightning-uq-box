@@ -3,9 +3,15 @@
 
 """UQ-Regression-Box Models."""
 
+from .cards import ConditionalGuidedLinearModel, ConditionalGuidedConvModel, ConditionalLinear, DiffusionSequential
 from .mlp import MLP
 
 __all__ = (
     # Toy Example architecture
     "MLP",
+    # CARDS architecture
+    "ConditionalLinear",
+    "ConditionalGuidedLinearModel",
+    "ConditionalGuidedConvModel",
+    "DiffusionSequential",
 )

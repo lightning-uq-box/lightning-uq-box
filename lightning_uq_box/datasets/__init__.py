@@ -3,6 +3,8 @@
 
 """UQ-Regression-Box Datasets."""
 
+from .toy_circle import ToyCircleDataset
+from .toy_8_gaussians import Toy8GaussiansDataset
 from .toy_image_classification import ToyImageClassificationDataset
 from .toy_image_regression import ToyImageRegressionDataset
 from .toy_image_segmentation import ToySegmentationDataset
@@ -12,4 +14,9 @@ __all__ = (
     "ToyImageRegressionDataset",
     "ToyImageClassificationDataset",
     "ToySegmentationDataset",
+    # Toy 8 Gaussians dataset
+    "Toy8GaussiansDataset",
+    # Toy Circle dataset
+    "ToyCircleDataset"
+    
 )

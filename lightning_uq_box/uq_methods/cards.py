@@ -19,7 +19,7 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    save_predictions_to_csv,
+    save_regression_predictions,
 )
 
 
@@ -554,7 +554,7 @@ class CARDRegression(CARDBase):
             "pred": mean_pred,
             "pred_uct": std_pred,
             "aleatoric_uct": std_pred,
-            "out": y_tile_seq,
+            "samples": y_tile_seq,
         }
 
     # def on_test_batch_end(
