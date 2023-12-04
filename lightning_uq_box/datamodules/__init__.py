@@ -3,8 +3,9 @@
 
 """UQ-Regression-Box Datamodules."""
 
-from .toy_circle import ToyCircleDataModule
+from .toy_gaussian_sideways import ToyGaussianSideWaysDataModule
 from .toy_due import ToyDUE
+from .toy_donut import ToyDonutDataModule
 from .toy_half_moons import TwoMoonsDataModule
 from .toy_heteroscedastic import ToyHeteroscedasticDatamodule
 from .toy_image_classification import ToyImageClassificationDatamodule
@@ -26,5 +27,6 @@ __all__ = (
     "ToyUncertaintyGaps",
     "ToyDUE",
     "Toy8GaussiansDataModule",
-    "ToyCircleDataModule",
+    "ToyGaussianSideWaysDataModule",
+    "ToyDonutDataModule"
 )

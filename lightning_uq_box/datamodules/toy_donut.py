@@ -3,10 +3,10 @@
 
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader
-from lightning_uq_box.datasets import ToyCircleDataset
+from lightning_uq_box.datasets import ToyDonut
 
-class ToyCircleDataModule(LightningDataModule):
-    """DataModule for CircleDataset."""
+class ToyDonutDataModule(LightningDataModule):
+    """DataModule for Toy Donut."""
 
     def __init__(self, batch_size: int = 64):
         """Initialize the DataModule.
@@ -17,11 +17,11 @@ class ToyCircleDataModule(LightningDataModule):
         super().__init__()
         self.batch_size = batch_size
 
-        self.train_dataset = ToyCircleDataset(n_samples=800, random_state=42)
+        self.train_dataset = ToyDonut(n_samples=2000)
         self.X_train, self.y_train = self.train_dataset.X, self.train_dataset.y
-        self.val_dataset = ToyCircleDataset(n_samples=200, random_state=43)
+        self.val_dataset = ToyDonut(n_samples=200)
         self.X_val, self.y_val = self.val_dataset.X, self.val_dataset.y
-        self.test_dataset = ToyCircleDataset(n_samples=200, random_state=44)
+        self.test_dataset = ToyDonut(n_samples=800)
         self.X_test, self.y_test = self.test_dataset.X, self.test_dataset.y
 
     def train_dataloader(self):
