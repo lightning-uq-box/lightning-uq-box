@@ -9,6 +9,7 @@ regression/mean_variance_estimation
 regression/deep_evidential_regression
 regression/quantile_regression
 regression/gp
+regression/card
 regression/laplace
 regression/mc_dropout
 regression/bnn_vi_elbo

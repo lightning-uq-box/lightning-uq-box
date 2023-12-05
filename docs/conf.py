@@ -90,4 +90,4 @@ intersphinx_mapping = {
 }
 
 # some notebooks require GPU
-nbsphinx_execute = 'never'
+# nbsphinx_execute = 'never'
