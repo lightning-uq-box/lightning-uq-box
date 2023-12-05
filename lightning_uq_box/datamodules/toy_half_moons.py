@@ -18,7 +18,7 @@ from .utils import collate_fn_tensordataset
 class TwoMoonsDataModule(LightningDataModule):
     """DataModule for PyTorch Lightning that encapsulates the half-moon dataset."""
 
-    def __init__(self, batch_size: int = 32):
+    def __init__(self, batch_size: int = 32, n_samples: int = 1000):
         """Initialize the DataModule.
 
         Args:
@@ -26,6 +26,7 @@ class TwoMoonsDataModule(LightningDataModule):
         """
         super().__init__()
         self.batch_size = batch_size
+        self.n_samples = n_samples
 
         self.setup()
 
@@ -36,7 +37,7 @@ class TwoMoonsDataModule(LightningDataModule):
             stage: The stage ('fit' or 'test'). Defaults to None.
         """
         # Generate the half-moon dataset
-        X, y = make_moons(n_samples=1000, noise=0.1)
+        X, y = make_moons(n_samples=self.n_samples, noise=0.1)
 
         # Convert the numpy arrays to PyTorch tensors
         X_tensor = torch.tensor(X, dtype=torch.float32)
@@ -66,7 +67,7 @@ class TwoMoonsDataModule(LightningDataModule):
         Returns:
             The DataLoader for the training set.
         """
-        train_dataset = TensorDataset(self.X_train, self.y_train)
+        train_dataset = TensorDataset(self.X_train.float(), self.y_train.unsqueeze(-1))
         return DataLoader(
             train_dataset,
             batch_size=self.batch_size,
@@ -80,7 +81,7 @@ class TwoMoonsDataModule(LightningDataModule):
         Returns:
             The DataLoader for the validation set.
         """
-        val_dataset = TensorDataset(self.X_val, self.y_val)
+        val_dataset = TensorDataset(self.X_val.float(), self.y_val.unsqueeze(-1))
         return DataLoader(
             val_dataset,
             batch_size=self.batch_size,
@@ -94,7 +95,7 @@ class TwoMoonsDataModule(LightningDataModule):
         Returns:
             The DataLoader for the test set.
         """
-        test_dataset = TensorDataset(self.X_test, self.y_test)
+        test_dataset = TensorDataset(self.X_test.float(), self.y_test.unsqueeze(-1))
         return DataLoader(
             test_dataset,
             batch_size=self.batch_size,
