@@ -31,6 +31,7 @@ model_config_paths = [
     "tests/configs/image_regression/dkl.yaml",
     "tests/configs/image_regression/due.yaml",
     "tests/configs/image_regression/laplace.yaml",
+    "tests/configs/image_regression/cards.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_regression/toy_image_regression.yaml"]

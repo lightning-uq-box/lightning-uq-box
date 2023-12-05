@@ -3,6 +3,7 @@
 
 """CARDS Model Utilities."""
 
+from typing import Optional
 import torch
 from torch import Tensor
 import torch.nn as nn
@@ -69,7 +70,7 @@ class DiffusionSequential(nn.Sequential):
 
 class ConditionalGuidedLinearModel(nn.Module):
     """Conditional Guided Model."""
-    def __init__(self, n_steps: int, x_dim: int, y_dim: int, n_hidden: list[int] = [64, 64], n_outputs: int = 1, cat_x: bool = False, cat_y_pred: bool = False, activation_fn: nn.Module=nn.Softplus()) -> None:
+    def __init__(self, n_steps: int, x_dim: int, y_dim: int, n_hidden: list[int] = [64, 64], n_outputs: int = 1, cat_x: bool = False, cat_y_pred: bool = False, activation_fn: Optional[nn.Module] = None) -> None:
         """Initialize a new instance of Conditional Guided Model.
         
         Args:
@@ -86,6 +87,9 @@ class ConditionalGuidedLinearModel(nn.Module):
             activation_fn: activation function between conditional linear layers
         """
         super().__init__()
+
+        if activation_fn is None:
+            activation_fn = nn.Softplus()
         self.n_steps = n_steps
         self.x_dim = x_dim
         self.y_dim = y_dim

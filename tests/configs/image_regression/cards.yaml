@@ -1,4 +1,4 @@
-uq_method:
+model:
   _target_: lightning_uq_box.uq_methods.CARDRegression
   cond_mean_model:
     _target_: timm.create_model # timm.create_model for timm models

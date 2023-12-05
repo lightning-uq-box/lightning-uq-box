@@ -36,6 +36,7 @@ class CARDBase(BaseModule):
     * https://arxiv.org/abs/2206.07275
     """
 
+    pred_file_name = "predictions.csv"
     def __init__(
         self,
         cond_mean_model: nn.Module,
@@ -158,8 +159,6 @@ class CARDBase(BaseModule):
             validation loss
         """
         val_loss, y_t_sample = self.diffusion_process(batch)
-        import pdb
-        pdb.set_trace()
         self.log("val_loss", val_loss)
         return val_loss
 
@@ -184,10 +183,10 @@ class CARDBase(BaseModule):
         return test_loss
 
 
-    def on_test_epoch_end(self):
-        """Log epoch-level test metrics."""
-        self.log_dict(self.test_metrics.compute())
-        self.test_metrics.reset()
+    # def on_test_epoch_end(self):
+    #     """Log epoch-level test metrics."""
+    #     self.log_dict(self.test_metrics.compute())
+    #     self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -547,18 +546,18 @@ class CARDRegression(CARDBase):
             "samples": y_tile_seq,
         }
 
-    # def on_test_batch_end(
-    #     self,
-    #     outputs: dict[str, np.ndarray],
-    #     batch: Any,
-    #     batch_idx: int,
-    #     dataloader_idx=0,
-    # ):
-    #     """Test batch end save predictions."""
-    #     if self.save_dir:
-    #         save_predictions_to_csv(
-    #             outputs, os.path.join(self.save_dir, self.pred_file_name)
-    #         )
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, np.ndarray],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx=0,
+    ):
+        """Test batch end save predictions."""
+        del outputs["samples"]
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 class CARDClassification(CARDBase):
