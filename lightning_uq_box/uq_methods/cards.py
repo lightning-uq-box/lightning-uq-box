@@ -7,6 +7,7 @@ Based on official PyTorch implementation from https://github.com/XzwHan/CARD # n
 import math
 import os
 from typing import Any, Optional
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 
 import numpy as np
 import torch
@@ -121,7 +122,7 @@ class CARDBase(BaseModule):
         # use the same noise sample e during training to compute loss
         loss = (e - guidance_output).square().mean()
 
-        return loss
+        return loss, y_t_sample
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -134,7 +135,8 @@ class CARDBase(BaseModule):
         Returns:
             training loss
         """
-        train_loss = self.diffusion_process(batch)
+        train_loss, y_t_sample = self.diffusion_process(batch)
+        
         self.log("train_loss", train_loss)
         return train_loss
 
@@ -155,7 +157,9 @@ class CARDBase(BaseModule):
         Returns:
             validation loss
         """
-        val_loss = self.diffusion_process(batch)
+        val_loss, y_t_sample = self.diffusion_process(batch)
+        import pdb
+        pdb.set_trace()
         self.log("val_loss", val_loss)
         return val_loss
 
@@ -164,10 +168,26 @@ class CARDBase(BaseModule):
     #     self.log_dict(self.val_metrics.compute())
     #     self.val_metrics.reset()
 
-    # def on_test_epoch_end(self):
-    #     """Log epoch-level test metrics."""
-    #     self.log_dict(self.test_metrics.compute())
-    #     self.test_metrics.reset()
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute and return the validation loss.
+        
+        Args:
+            batch: the output of your DataLoader
+
+        Returns:
+            validation loss
+        """
+        test_loss, y_t_sample = self.diffusion_process(batch)
+        self.log("test_loss", test_loss)
+        return test_loss
+
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -240,7 +260,7 @@ class CARDBase(BaseModule):
         reverse diffusion process.
 
         Args:
-            x: input
+            x: input features
             y: sampled y at time step t, y_t.
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
@@ -594,10 +614,10 @@ class CARDClassification(CARDBase):
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
-        self.val_metrics = default_regression_metrics(
+        self.val_metrics = default_classification_metrics(
             "val", self.task, self.num_classes
         )
-        self.test_metrics = default_regression_metrics(
+        self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
         )
 
