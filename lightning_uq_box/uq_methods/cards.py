@@ -233,19 +233,19 @@ class CARDBase(BaseModule):
     def p_sample(self, x: Tensor, y: Tensor, y_0_hat: Tensor, y_T_mean: Tensor, t: int, alphas: Tensor, one_minus_alphas_bar_sqrt: Tensor):
         """Reverse diffusion process sampling, one time step.
 
-        This is the process of generating a sample from the model's prior distribution and then evolving it through the diffusion process. It starts from the final time step and goes backwards to the initial time step. At each time step, a noise variable is sampled and the state is updated according to the reverse diffusion process.
-
-        We replace y_0_hat with y_T_mean in the forward process posterior mean computation, emphasizing that
-        guidance model prediction y_0_hat = f_phi(x) is part of the input to eps_theta network, while
-        in paper we also choose to set the prior mean at timestep T y_T_mean = f_phi(x).
+        This is the process of generating a sample from the model's prior distribution
+        and then evolving it through the diffusion process. It starts from the final
+        time step and goes backwards to the initial time step. At each time step,
+        a noise variable is sampled and the state is updated according to the
+        reverse diffusion process.
 
         Args:
-            x:
+            x: input
             y: sampled y at time step t, y_t.
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
             t: time step
-            alphas:
+            alphas: 
             one_minus_alphas_bar_sqrt:
 
         Returns:
@@ -347,10 +347,10 @@ class CARDBase(BaseModule):
             x:
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
-            n_steps:
-            alphas:
-            one_minus_alphas_bar_sqrt:
-            only_last_sample:
+            n_steps: number of diffusion steps
+            alphas: noise schedule alpha
+            one_minus_alphas_bar_sqrt: noise schedule one minus alpha
+            only_last_sample: whether to only return the last sample
 
         Returns:
             list of samples for each diffusion time step
@@ -397,7 +397,11 @@ class CARDBase(BaseModule):
         """Q sampling process.
 
 
-        This is the process of approximating the posterior distribution of the latent variables given the observed data. It starts from the initial time step and goes forward to the final time step. At each time step, a noise variable is sampled and the state is updated according to the forward diffusion process.
+        This is the process of approximating the posterior distribution of the
+        latent variables given the observed data. It starts from the initial
+        time step and goes forward to the final time step. At each time step,
+        a noise variable is sampled and the state is updated according to the
+        forward diffusion process.
 
         Args:
             y: sampled y at time step t, y_t.
@@ -421,15 +425,15 @@ class CARDBase(BaseModule):
         return y_t
 
     def extract(self, input: Tensor, t: int, x: Tensor) -> Tensor:
-        """Extract and return output shape.
+        """Extract noise level at time step t from schedule
 
         Args:
-            input: 
-            t:
-            x:
+            input: noise input
+            t: time step
+            x: tensor to make noisy version of
 
         Returns:
-            tensor
+            noisy version of x
         """
         shape = x.shape
         out = torch.gather(input, 0, t)
@@ -461,40 +465,6 @@ class CARDRegression(CARDBase):
 
     * https://arxiv.org/abs/2206.07275
     """
-
-    # def __init__(
-    #     self,
-    #     cond_mean_model: nn.Module,
-    #     guidance_model: nn.Module,
-    #     n_steps: int = 1000,
-    #     beta_schedule: str = "linear",
-    #     beta_start: float = 0.00001,
-    #     beta_end: float = 0.01,
-    #     n_z_samples: int = 100,
-    #     guidance_optim: OptimizerCallable = torch.optim.Adam,
-    #     lr_scheduler: LRSchedulerCallable = None,
-    # ) -> None:
-    #     super().__init__(
-    #         cond_mean_model,
-    #         guidance_model,
-    #         n_steps,
-    #         beta_schedule,
-    #         beta_start,
-    #         beta_end,
-    #         n_z_samples,
-    #         guidance_optim,
-    #         lr_scheduler,
-    #     )
-
-    #     self.save_hyperparameters(
-    #         ignore=[
-    #             "cond_mean_model",
-    #             "guidance_model",
-    #             "guidance_optim",
-    #             "lr_scheduler",
-    #         ]
-    #     )
-
     def setup_task(self) -> None:
         """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
