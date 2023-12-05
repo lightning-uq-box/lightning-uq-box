@@ -17,9 +17,9 @@ from torch import Tensor
 from .base import BaseModule
 from .utils import (
     _get_num_outputs,
-    process_classification_prediction,
     default_classification_metrics,
     default_regression_metrics,
+    process_classification_prediction,
     save_regression_predictions,
 )
 
@@ -37,6 +37,7 @@ class CARDBase(BaseModule):
     """
 
     pred_file_name = "predictions.csv"
+
     def __init__(
         self,
         cond_mean_model: nn.Module,
@@ -141,7 +142,7 @@ class CARDBase(BaseModule):
             training loss
         """
         train_loss, y_t_sample = self.diffusion_process(batch)
-        
+
         self.log("train_loss", train_loss)
         return train_loss
 
@@ -175,7 +176,7 @@ class CARDBase(BaseModule):
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
         """Compute and return the validation loss.
-        
+
         Args:
             batch: the output of your DataLoader
 
@@ -186,12 +187,10 @@ class CARDBase(BaseModule):
         self.log("test_loss", test_loss)
         return test_loss
 
-
     # def on_test_epoch_end(self):
     #     """Log epoch-level test metrics."""
     #     self.log_dict(self.test_metrics.compute())
     #     self.test_metrics.reset()
-
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -212,7 +211,9 @@ class CARDBase(BaseModule):
                 # TODO: This works for Vector 1D Regression with the tiling
                 # obtain y samples through reverse diffusion -- some pytorch version might not have torch.tile, run through the entire chain
                 # y_0_tile = torch.tile(y, (n_z_samples, 1))
-                y_0_hat_tile = torch.tile(y_0_hat, (self.n_z_samples, 1)).to(self.device)
+                y_0_hat_tile = torch.tile(y_0_hat, (self.n_z_samples, 1)).to(
+                    self.device
+                )
                 test_x_tile = torch.tile(X, (self.n_z_samples, 1)).to(self.device)
 
                 z = torch.randn_like(y_0_hat_tile).to(self.device)
@@ -232,7 +233,8 @@ class CARDBase(BaseModule):
 
                 # put in shape [n_z_samples, batch_size, output_dimension]
                 y_tile_seq = [
-                    arr.reshape(self.n_z_samples, X.shape[0], y_t.shape[-1]) for arr in y_tile_seq
+                    arr.reshape(self.n_z_samples, X.shape[0], y_t.shape[-1])
+                    for arr in y_tile_seq
                 ]
 
                 final_recoverd = y_tile_seq[-1]
@@ -255,7 +257,16 @@ class CARDBase(BaseModule):
 
         return final_recoverd, y_tile_seq
 
-    def p_sample(self, x: Tensor, y: Tensor, y_0_hat: Tensor, y_T_mean: Tensor, t: int, alphas: Tensor, one_minus_alphas_bar_sqrt: Tensor):
+    def p_sample(
+        self,
+        x: Tensor,
+        y: Tensor,
+        y_0_hat: Tensor,
+        y_T_mean: Tensor,
+        t: int,
+        alphas: Tensor,
+        one_minus_alphas_bar_sqrt: Tensor,
+    ):
         """Reverse diffusion process sampling, one time step.
 
         This is the process of generating a sample from the model's prior distribution
@@ -270,7 +281,7 @@ class CARDBase(BaseModule):
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
             t: time step
-            alphas: 
+            alphas:
             one_minus_alphas_bar_sqrt:
 
         Returns:
@@ -324,7 +335,12 @@ class CARDBase(BaseModule):
 
     # Reverse function -- sample y_0 given y_1
     def p_sample_t_1to0(
-        self, x: Tensor, y: Tensor, y_0_hat: Tensor, y_T_mean: Tensor, one_minus_alphas_bar_sqrt: Tensor
+        self,
+        x: Tensor,
+        y: Tensor,
+        y_0_hat: Tensor,
+        y_T_mean: Tensor,
+        one_minus_alphas_bar_sqrt: Tensor,
     ) -> Tensor:
         """Reverse sample function, sample y_0 given y_1.
 
@@ -359,7 +375,7 @@ class CARDBase(BaseModule):
     def p_sample_loop(
         self,
         x: Tensor,
-        y_0_hat : Tensor,
+        y_0_hat: Tensor,
         y_T_mean: Tensor,
         n_steps: int,
         alphas: Tensor,
@@ -447,7 +463,7 @@ class CARDBase(BaseModule):
         sqrt_one_minus_alpha_bar_t = self.extract(one_minus_alphas_bar_sqrt, t, y)
         # q(y_t | y_0, x)
         # add feature dimension for proper broadcasting
-        
+
         y_t = (
             sqrt_alpha_bar_t * y
             + (1 - sqrt_alpha_bar_t) * y_0_hat
@@ -496,6 +512,7 @@ class CARDRegression(CARDBase):
 
     * https://arxiv.org/abs/2206.07275
     """
+
     def setup_task(self) -> None:
         """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
@@ -653,6 +670,7 @@ class CARDClassification(CARDBase):
         pred_dict["out"] = y_tile_seq
 
         return pred_dict
+
 
 class NoiseScheduler:
     """Noise Scheduler for Diffusion Training."""

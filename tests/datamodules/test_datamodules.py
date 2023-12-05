@@ -2,14 +2,26 @@
 # Licensed under the MIT License.
 
 import pytest
-from lightning import Trainer
 import torch.nn as nn
+from lightning import Trainer
+
+from lightning_uq_box.datamodules import (
+    Toy8GaussiansDataModule,
+    ToyDonutDataModule,
+    ToyGaussianSideWaysDataModule,
+    ToySineDatamodule,
+)
 from lightning_uq_box.models import MLP
 from lightning_uq_box.uq_methods import DeterministicRegression
-from lightning_uq_box.datamodules import ToyGaussianSideWaysDataModule, ToyDonutDataModule, Toy8GaussiansDataModule, ToySineDatamodule
 
 # List of toy regression datasets
-toy_datamodules = [ToySineDatamodule, ToyDonutDataModule, Toy8GaussiansDataModule, ToyGaussianSideWaysDataModule]  # replace with actual dataset names
+toy_datamodules = [
+    ToySineDatamodule,
+    ToyDonutDataModule,
+    Toy8GaussiansDataModule,
+    ToyGaussianSideWaysDataModule,
+]  # replace with actual dataset names
+
 
 @pytest.mark.parametrize("datamodule", toy_datamodules)
 def test_deterministic_regression_on_toy_datasets(datamodule):
@@ -18,8 +30,7 @@ def test_deterministic_regression_on_toy_datasets(datamodule):
 
     # Initialize the model
     model = DeterministicRegression(
-        model=MLP(n_inputs=1, n_outputs=1),
-        loss_fn=nn.MSELoss(),
+        model=MLP(n_inputs=1, n_outputs=1), loss_fn=nn.MSELoss()
     )
 
     # Initialize the trainer

@@ -3,9 +3,9 @@
 
 """UQ-Regression-Box Datasets."""
 
+from .toy_8_gaussians import Toy8GaussiansDataset
 from .toy_donut import ToyDonut
 from .toy_gaussian_sideways import ToyGaussianSideWays
-from .toy_8_gaussians import Toy8GaussiansDataset
 from .toy_image_classification import ToyImageClassificationDataset
 from .toy_image_regression import ToyImageRegressionDataset
 from .toy_image_segmentation import ToySegmentationDataset
@@ -21,5 +21,4 @@ __all__ = (
     "ToyGaussianSideWays"
     # Toy Donut dataset
     "ToyDonut",
-    
 )

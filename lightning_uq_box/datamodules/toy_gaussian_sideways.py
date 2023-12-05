@@ -3,7 +3,9 @@
 
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader
+
 from lightning_uq_box.datasets import ToyGaussianSideWays
+
 
 class ToyGaussianSideWaysDataModule(LightningDataModule):
     """DataModule for CircleDataset."""
@@ -19,9 +21,13 @@ class ToyGaussianSideWaysDataModule(LightningDataModule):
 
         self.train_dataset = ToyGaussianSideWays(n_samples=n_samples, random_state=42)
         self.X_train, self.y_train = self.train_dataset.X, self.train_dataset.y
-        self.val_dataset = ToyGaussianSideWays(n_samples=int(n_samples*0.2), random_state=43)
+        self.val_dataset = ToyGaussianSideWays(
+            n_samples=int(n_samples * 0.2), random_state=43
+        )
         self.X_val, self.y_val = self.val_dataset.X, self.val_dataset.y
-        self.test_dataset = ToyGaussianSideWays(n_samples=int(n_samples*0.4), random_state=44)
+        self.test_dataset = ToyGaussianSideWays(
+            n_samples=int(n_samples * 0.4), random_state=44
+        )
         self.X_test, self.y_test = self.test_dataset.X, self.test_dataset.y
 
     def train_dataloader(self):

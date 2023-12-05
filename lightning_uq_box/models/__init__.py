@@ -3,7 +3,12 @@
 
 """UQ-Regression-Box Models."""
 
-from .cards import ConditionalGuidedLinearModel, ConditionalGuidedConvModel, ConditionalLinear, DiffusionSequential
+from .cards import (
+    ConditionalGuidedConvModel,
+    ConditionalGuidedLinearModel,
+    ConditionalLinear,
+    DiffusionSequential,
+)
 from .mlp import MLP
 
 __all__ = (

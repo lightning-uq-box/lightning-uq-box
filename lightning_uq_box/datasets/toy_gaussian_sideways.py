@@ -3,13 +3,20 @@
 
 import numpy as np
 import torch
-from torch.utils.data import Dataset
 from sklearn.preprocessing import StandardScaler
+from torch.utils.data import Dataset
+
 
 class ToyGaussianSideWays(Dataset):
     """Gaussian Sideways for Regression."""
 
-    def __init__(self, radius: float =1.0, n_samples: int=1000, noise: float=0.1, random_state: bool=None):
+    def __init__(
+        self,
+        radius: float = 1.0,
+        n_samples: int = 1000,
+        noise: float = 0.1,
+        random_state: bool = None,
+    ):
         """Initialize a new instance of the dataset.
 
         Args:

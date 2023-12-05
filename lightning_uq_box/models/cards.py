@@ -4,22 +4,25 @@
 """CARDS Model Utilities."""
 
 from typing import Optional
+
 import torch
-from torch import Tensor
 import torch.nn as nn
+from torch import Tensor
+
 from lightning_uq_box.uq_methods.utils import _get_output_layer_name_and_module
-    
+
 
 class ConditionalLinear(nn.Module):
     """Conditional Linear Layer."""
+
     def __init__(self, n_inputs: int, n_outputs: int, n_steps: int) -> None:
         """Initialize a new instance of the layer.
-        
+
         Args:
             n_inputs: number of inputs to the layer
             n_outputs: number of outputs from the layer
             n_steps: number of diffusion steps in embedding
-        
+
         """
         super(ConditionalLinear, self).__init__()
         self.n_outputs = n_outputs
@@ -29,7 +32,7 @@ class ConditionalLinear(nn.Module):
 
     def forward(self, x: Tensor, t: Tensor) -> Tensor:
         """Forward pass of conditional linear layer.
-        
+
         Args:
             x: input of shape [N, n_inputs]
             t: input of shape [1]
@@ -45,9 +48,10 @@ class ConditionalLinear(nn.Module):
 
 class DiffusionSequential(nn.Sequential):
     """My Sequential to accept multiple inputs."""
+
     def forward(self, input: Tensor, t: Tensor):
         """Forward pass.
-        
+
         Args:
             input: input tensor to model shape [n, feature_dim]
             t: time steps shape [1]
@@ -60,13 +64,25 @@ class DiffusionSequential(nn.Sequential):
                 input = module(input, t)
             else:
                 input = module(input)
-        return input   
+        return input
+
 
 class ConditionalGuidedLinearModel(nn.Module):
     """Conditional Guided Model."""
-    def __init__(self, n_steps: int, x_dim: int, y_dim: int, n_hidden: list[int] = [64, 64], n_outputs: int = 1, cat_x: bool = False, cat_y_pred: bool = False, activation_fn: Optional[nn.Module] = None) -> None:
+
+    def __init__(
+        self,
+        n_steps: int,
+        x_dim: int,
+        y_dim: int,
+        n_hidden: list[int] = [64, 64],
+        n_outputs: int = 1,
+        cat_x: bool = False,
+        cat_y_pred: bool = False,
+        activation_fn: Optional[nn.Module] = None,
+    ) -> None:
         """Initialize a new instance of Conditional Guided Model.
-        
+
         Args:
             n_steps:
             x_dim: feature dimension of the x input data
@@ -99,8 +115,8 @@ class ConditionalGuidedLinearModel(nn.Module):
         layers = []
         for idx in range(1, len(layer_sizes)):
             layers += [
-                ConditionalLinear(layer_sizes[idx-1], layer_sizes[idx], n_steps),
-                activation_fn
+                ConditionalLinear(layer_sizes[idx - 1], layer_sizes[idx], n_steps),
+                activation_fn,
             ]
         # final output layer is standard layer
         # layers += [nn.Linear(layer_sizes[-1], n_outputs)]
@@ -109,10 +125,10 @@ class ConditionalGuidedLinearModel(nn.Module):
 
     def forward(self, x: Tensor, y_t: Tensor, y_0_hat: Tensor, t: Tensor) -> Tensor:
         """Forward pass of the Conditional Guided Model.
-        
+
         Args:
             x: input data
-            y: target data 
+            y: target data
             y_0_hat:
             t: time step
         """
@@ -127,14 +143,16 @@ class ConditionalGuidedLinearModel(nn.Module):
             else:
                 eps_pred = y_t
         return self.model(eps_pred, t)
-    
+
 
 class ConditionalGuidedConvModel(nn.Module):
     """Conditional Guidance Model for Image tasks."""
 
-    def __init__(self, encoder: nn.Module, cond_guide_model: ConditionalGuidedLinearModel) -> None:
+    def __init__(
+        self, encoder: nn.Module, cond_guide_model: ConditionalGuidedLinearModel
+    ) -> None:
         """Initialize a new instance of Conditional Guided Conv Model.
-        
+
         Args:
             encoder: encoder model acting like a feature extractor before
                 a conditional linear guidance model
@@ -157,27 +175,27 @@ class ConditionalGuidedConvModel(nn.Module):
         self.cond_guide_model = cond_guide_model
         self.n_steps = cond_guide_model.n_steps
 
-        
         _, module = _get_output_layer_name_and_module(self.encoder)
         encoder_out_features = module.out_features
 
-        assert encoder_out_features == cond_guide_model.x_dim, "Encoder output features has to match the x_dim of the guide model"
+        assert (
+            encoder_out_features == cond_guide_model.x_dim
+        ), "Encoder output features has to match the x_dim of the guide model"
         self.norm = nn.BatchNorm1d(encoder_out_features)
 
         # "connection" modules
         self.connect_module = DiffusionSequential(
             ConditionalLinear(encoder_out_features, encoder_out_features, self.n_steps),
             nn.BatchNorm1d(encoder_out_features, encoder_out_features),
-            nn.Softplus()
+            nn.Softplus(),
         )
-
 
     def forward(self, x: Tensor, y_t: Tensor, y_0_hat: Tensor, t: Tensor) -> Tensor:
         """Forward pass of the Conditional Guided Conv Model.
-        
+
         Args:
             x: input data
-            y: target data 
+            y: target data
             y_0_hat:
             t: time step
         """

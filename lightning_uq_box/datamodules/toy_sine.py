@@ -8,6 +8,7 @@ from typing import Union
 import torch
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader, TensorDataset
+
 from .utils import collate_fn_tensordataset
 
 
@@ -72,18 +73,24 @@ class ToySineDatamodule(LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         """Return train dataloader."""
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size, collate_fn=collate_fn_tensordataset
+            TensorDataset(self.X_train, self.y_train),
+            batch_size=self.batch_size,
+            collate_fn=collate_fn_tensordataset,
         )
 
     def val_dataloader(self) -> DataLoader:
         """Return val dataloader."""
         # TODO Validation data
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size, collate_fn=collate_fn_tensordataset
+            TensorDataset(self.X_train, self.y_train),
+            batch_size=self.batch_size,
+            collate_fn=collate_fn_tensordataset,
         )
 
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""
         return DataLoader(
-            TensorDataset(self.X_test, self.y_test), batch_size=self.batch_size, collate_fn=collate_fn_tensordataset
+            TensorDataset(self.X_test, self.y_test),
+            batch_size=self.batch_size,
+            collate_fn=collate_fn_tensordataset,
         )
