@@ -1,3 +1,6 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """CARDS Model Utilities."""
 
 from typing import Optional
@@ -21,7 +24,7 @@ class ConditionalLinear(nn.Module):
             n_steps: number of diffusion steps in embedding
 
         """
-        super().__init__()
+        super(ConditionalLinear, self).__init__()
         self.n_outputs = n_outputs
         self.lin = nn.Linear(n_inputs, n_outputs)
         self.embed = nn.Embedding(n_steps, n_outputs)
@@ -41,12 +44,6 @@ class ConditionalLinear(nn.Module):
         gamma = self.embed(t)
         out = gamma.view(-1, self.n_outputs) * out
         return out
-
-    # def extra_repr(self) -> str:
-    #     """Representation when printing out Layer."""
-    #     return "in_features={}, out_features={}, ".format(
-    #         self.n_inputs, self.out_features, self.bias is not None, self.is_frozen
-    #     )
 
 
 class DiffusionSequential(nn.Sequential):
@@ -100,6 +97,7 @@ class ConditionalGuidedLinearModel(nn.Module):
             activation_fn: activation function between conditional linear layers
         """
         super().__init__()
+
         if activation_fn is None:
             activation_fn = nn.Softplus()
         self.n_steps = n_steps
@@ -121,7 +119,8 @@ class ConditionalGuidedLinearModel(nn.Module):
                 activation_fn,
             ]
         # final output layer is standard layer
-        layers += [nn.Linear(layer_sizes[-1], n_outputs)]
+        # layers += [nn.Linear(layer_sizes[-1], n_outputs)]
+        layers += [nn.Linear(layer_sizes[-1], y_dim)]
         self.model = DiffusionSequential(*layers)
 
     def forward(self, x: Tensor, y_t: Tensor, y_0_hat: Tensor, t: Tensor) -> Tensor:
@@ -164,13 +163,13 @@ class ConditionalGuidedConvModel(nn.Module):
             Assertionerror for misconfigurations between encoder
                 and cond_guide_model
         """
-        super().__init__()
+        super(ConditionalGuidedConvModel, self).__init__()
 
         # TODO assertion checks between the configs of the encoder and cond guidance model
         # TODO assert that cat_x and cat_y_pred are false, but maybe you can as well?
         # no I think cat_x has to be false because cannot input the image and y_0_hat would be the feature extraction
         assert cond_guide_model.cat_x is False, "Cannot concatenate x"
-        assert cond_guide_model.cat_y_pred is False, "Cannot concatenate y"
+        # assert cond_guide_model.cat_y_pred is False, "Cannot concatenate y"
 
         self.encoder = encoder
         self.cond_guide_model = cond_guide_model
@@ -180,8 +179,8 @@ class ConditionalGuidedConvModel(nn.Module):
         encoder_out_features = module.out_features
 
         assert (
-            encoder_out_features * 2 == cond_guide_model.y_dim
-        ), "Encoder output features * 2 has to match the y_dim of the guide model because of conditional concatenation"
+            encoder_out_features == cond_guide_model.x_dim
+        ), "Encoder output features has to match the x_dim of the guide model"
         self.norm = nn.BatchNorm1d(encoder_out_features)
 
         # "connection" modules
@@ -206,8 +205,9 @@ class ConditionalGuidedConvModel(nn.Module):
 
         x = self.connect_module(x, t)
 
-        y = torch.cat([y_t, y_0_hat], dim=-1)
+        # TODO not sure about this concatentation
+        # y = torch.cat([y_t, y_0_hat], dim=-1)
+        # y = x * y
+        # y = x * y_t
 
-        y = x * y
-
-        return self.cond_guide_model(x=None, y_t=y, y_0_hat=None, t=t)
+        return self.cond_guide_model(x=None, y_t=y_t, y_0_hat=y_0_hat, t=t)

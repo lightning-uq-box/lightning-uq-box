@@ -7,8 +7,8 @@
 
 classification/due
 classification/dkl
+classification/card
 classification/swag
 classification/mc_dropout
-classification/laplace_model
 classification/bnn_vi_elbo
 ```

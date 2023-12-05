@@ -1,4 +1,7 @@
-"""Simple MLP for Toy Regression Problems."""
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
+"""Simple MLP for Toy Problems."""
 
 from typing import Optional
 
@@ -7,7 +10,7 @@ from torch import Tensor
 
 
 class MLP(nn.Module):
-    """Multi-layer perceptron for regression predictions."""
+    """Multi-layer perceptron for predictions."""
 
     def __init__(
         self,

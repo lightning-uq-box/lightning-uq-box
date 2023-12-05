@@ -1,11 +1,13 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Deep Kernel Learning."""
 
+
 import os
-from functools import partial
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict
 
 import gpytorch
-import numpy as np
 import torch
 import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
@@ -13,7 +15,6 @@ from gpytorch.kernels import MaternKernel, RBFKernel, RQKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood, SoftmaxLikelihood
 from gpytorch.means import ConstantMean
 from gpytorch.mlls import VariationalELBO
-from gpytorch.mlls._approximate_mll import _ApproximateMarginalLogLikelihood
 from gpytorch.models import ApproximateGP
 from gpytorch.utils.grid import ScaleToBounds
 from gpytorch.variational import (
@@ -28,8 +29,10 @@ from torch import Tensor
 from .base import BaseModule
 from .utils import (
     _get_num_inputs,
+    _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    save_regression_predictions,
 )
 
 
@@ -60,7 +63,8 @@ class DKLBase(gpytorch.Module, BaseModule):
         Args:
             feature_extractor: feature extractor model
             n_inducing_points: number of inducing points
-            gp_kernel: kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            gp_kernel: kernel choice, supports one of
+                ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             elbo_fn: gpytorch elbo function used for optimization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
@@ -89,8 +93,26 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         self.setup_task()
 
+    @property
+    def num_input_features(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        return _get_num_inputs(self.feature_extractor)
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of output dimension from model
+        """
+        return self.gp_layer.n_outputs
+
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         raise NotImplementedError
 
     def _fit_initial_lengthscale_and_inducing_points(self) -> None:
@@ -187,6 +209,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
         self.log("val_loss", loss)  # logging to Logger
+
         self.val_metrics(y_pred.mean, y.squeeze(-1))
         return loss
 
@@ -194,24 +217,6 @@ class DKLBase(gpytorch.Module, BaseModule):
         """Log epoch level validation metrics."""
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
-
-    @property
-    def num_input_features(self) -> int:
-        """Retrieve input dimension to the model.
-
-        Returns:
-            number of input dimension to the model
-        """
-        return _get_num_inputs(self.feature_extractor)
-
-    @property
-    def num_outputs(self) -> int:
-        """Retrieve output dimension to the model.
-
-        Returns:
-            number of output dimension from model
-        """
-        return self.gp_layer.n_outputs
 
     def configure_optimizers(self) -> Dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -233,7 +238,7 @@ class DKLBase(gpytorch.Module, BaseModule):
             ]
         )
         if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            lr_scheduler = self.lr_scheduler(optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
@@ -251,6 +256,8 @@ class DKLRegression(DKLBase):
     * https://arxiv.org/abs/2102.11409
     """
 
+    pred_file_name = "preds.csv"
+
     def __init__(
         self,
         feature_extractor: nn.Module,
@@ -266,7 +273,8 @@ class DKLRegression(DKLBase):
             feature_extractor: feature extractor model
             n_inducing_points: number of inducing points
             num_targets: number of targets
-            gp_kernel: kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            gp_kernel: kernel choice, supports one of
+                ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             elbo_fn: gpytorch elbo function used for optimization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
@@ -287,14 +295,13 @@ class DKLRegression(DKLBase):
         self.num_targets = num_targets
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
     def _build_model(self) -> None:
         """Build the model ready for training."""
-
         self.gp_layer = DKLGPLayer(
             n_outputs=self.num_targets,
             initial_lengthscale=self.initial_lengthscale,
@@ -308,9 +315,14 @@ class DKLRegression(DKLBase):
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
 
+        # put gpytorch modules on cuda
+        if self.device.type == "cuda":
+            self.gp_layer = self.gp_layer.cuda()
+            self.likelihood = self.likelihood.cuda()
+
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
@@ -332,6 +344,20 @@ class DKLRegression(DKLBase):
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
         return out_dict
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""
         self.log_dict(self.test_metrics.compute())
@@ -339,11 +365,13 @@ class DKLRegression(DKLBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         if not self.dkl_model_built:
             self._fit_initial_lengthscale_and_inducing_points()
@@ -373,8 +401,11 @@ class DKLClassification(DKLBase):
 
     valid_tasks = ["binary", "multiclass", "multilable"]
 
-    # gp_layer: Callable[[only. the two args that are needed from computation], DKLGPLayer]
-    # similar to optimizer only include the arguments in the callable args section that are missing from conf file
+    # TODO
+    # gp_layer: Callable[[only. the two args that are needed from computation],
+    # DKLGPLayer]
+    # similar to optimizer only include the arguments in the callable args section
+    # that are missing from conf file
     def __init__(
         self,
         feature_extractor: nn.Module,
@@ -389,21 +420,20 @@ class DKLClassification(DKLBase):
 
         Args:
             feature_extractor: feature extractor model
-            gp_kernel: GP kernel choice, supports one of ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             n_inducing_points: number of inducing points
-            optimizer: optimizer used for training
+            gp_kernel: GP kernel choice, supports one of
+                'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
+            num_classes: number of classes
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
-        if task not in self.valid_tasks:
-            import pdb
-
-            pdb.set_trace()
         assert task in self.valid_tasks
         self.task = task
 
         self.num_classes = num_classes
-        self.num_features = _get_num_inputs(feature_extractor)
+        # number of latent features of the feature extractor
+        self.num_features = _get_num_outputs(feature_extractor)
 
         super().__init__(
             feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
@@ -420,7 +450,7 @@ class DKLClassification(DKLBase):
         )
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -431,14 +461,14 @@ class DKLClassification(DKLBase):
             "test", self.task, self.num_classes
         )
 
-    def _extract_mean_output(self, output: MultivariateNormal) -> Tensor:
-        """Extract the mean output from the GP."""
+    def _adapt_output_for_metrics(self, output: MultivariateNormal) -> Tensor:
+        """Adapt model output to be compatible for metric computation.."""
         return output.mean
 
     def _build_model(self) -> None:
         """Build the model ready for training."""
         self.gp_layer = DKLGPLayer(
-            n_outputs=self.num_classes,
+            n_outputs=self.num_features,
             initial_lengthscale=self.initial_lengthscale,
             initial_inducing_points=self.initial_inducing_points,
             kernel=self.gp_kernel,
@@ -451,9 +481,65 @@ class DKLClassification(DKLBase):
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
 
+        # put gpytorch modules on cuda
+        if self.device.type == "cuda":
+            self.gp_layer = self.gp_layer.cuda()
+            self.likelihood = self.likelihood.cuda()
+
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute and return the training loss.
+
+        Args:
+            batch: the output of your DataLoader
+
+        Returns:
+            training loss
+        """
+        X, y = batch[self.input_key], batch[self.target_key]
+
+        y_pred = self.forward(X)
+        loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
+
+        self.log("train_loss", loss)  # logging to Logger
+        scores = self.likelihood(y_pred).probs.mean(0)
+        self.train_metrics(scores, y.squeeze(-1))
+        return loss
+
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute validation loss and log example predictions.
+
+        Args:
+            batch: the output of your DataLoader
+            batch_idx: the index of this batch
+
+        Returns:
+            validation loss
+        """
+        X, y = batch[self.input_key], batch[self.target_key]
+
+        # in sanity checking GPPYtorch is not in eval
+        # and we get a device error
+        if self.trainer.sanity_checking:
+            self.scale_to_bounds.train()
+            y_pred = self.forward(X)
+            self.scale_to_bounds.eval()
+        else:
+            y_pred = self.forward(X)
+
+        loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
+
+        self.log("val_loss", loss)  # logging to Logger
+        scores = self.likelihood(y_pred).probs.mean(0)
+        self.val_metrics(scores, y.squeeze(-1))
+        return loss
+
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
@@ -465,7 +551,10 @@ class DKLClassification(DKLBase):
             -self.elbo_fn(out_dict["out"], batch[self.target_key].squeeze(-1)),
         )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
-            self.test_metrics(out_dict["out"].mean, batch[self.target_key].squeeze(-1))
+            self.test_metrics(
+                self.likelihood(out_dict["out"]).probs.mean(0),
+                batch[self.target_key].squeeze(-1),
+            )
 
         del out_dict["out"]
 
@@ -482,11 +571,13 @@ class DKLClassification(DKLBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         if not self.dkl_model_built:
             self._fit_initial_lengthscale_and_inducing_points()
@@ -500,7 +591,7 @@ class DKLClassification(DKLBase):
         ), gpytorch.settings.fast_pred_var(state=False):
             gp_dist = self.forward(X)
             output = self.likelihood(gp_dist)
-            mean = output.logits.mean(0).cpu()  # take mean over sampling dimension
+            mean = output.probs.mean(0).cpu()  # take mean over sampling dimension
             entropy = output.entropy().mean(0).cpu()
         return {"pred": mean, "pred_uct": entropy, "out": gp_dist}
 
@@ -523,7 +614,7 @@ class DKLGPLayer(ApproximateGP):
         """Initialize a new instance of the Gaussian Process Layer.
 
         Args:
-            n_outpus: number of target outputs
+            n_outpus: number of latent output features of the GP
             initial_lengthscale: initial lengthscale to use
             initial_inducing_points: initial inducing points to use
             kernel: kernel choice, supports one of

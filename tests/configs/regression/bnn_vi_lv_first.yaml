@@ -1,5 +1,5 @@
 model:
-  class_path: lightning_uq_box.uq_methods.BNN_LV_VI_Regression
+  class_path: lightning_uq_box.uq_methods.BNN_LV_VI_Batched_Regression
   init_args:
     model:
       class_path: lightning_uq_box.models.MLP
@@ -16,6 +16,8 @@ model:
       class_path: torch.optim.Adam
       init_args:
         lr: 0.003
+    lr_scheduler:
+      class_path: torch.optim.lr_scheduler.ConstantLR
     num_training_points: 200
     n_mc_samples_train: 4
     n_mc_samples_test: 5

@@ -1,4 +1,39 @@
-"""Utility functions for BNN Layers."""
+# BSD 3-Clause License
+
+# Copyright (c) 2023, Intel Labs
+# All rights reserved.
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+
+# 3. Neither the name of the copyright holder nor the names of its
+#    contributors may be used to endorse or promote products derived from
+#    this software without specific prior written permission.
+
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+"""Utility functions for BNN Layers.
+
+These are based on the Bayesian-torch library
+https://github.com/IntelLabs/bayesian-torch (BSD-3 clause) but
+adjusted to be trained with the Energy Loss and support batched inputs.
+"""
 
 import math
 from typing import Any, Union
@@ -143,7 +178,10 @@ def calc_log_f_hat(w: Tensor, m_W: Tensor, std_W: Tensor, prior_sigma: float) ->
     out = ((v_W - prior_sigma) / (2 * prior_sigma * v_W)) * (w**2) + (m_W / v_W) * w
     # sum out over all dimension except first
 
-    return torch.sum(out, dim=tuple(range(1, out.ndim)))
+    # this does not support both linear anc conv layers
+    # conv layers have number of filters in first dimension
+    # return torch.sum(out, dim=tuple(range(1, out.ndim)))
+    return torch.atleast_1d(torch.sum(out))  # keep dimension 0
 
 
 def calc_log_normalizer(m_W: Tensor, std_W: Tensor) -> Tensor:

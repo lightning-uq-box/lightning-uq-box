@@ -12,6 +12,8 @@ model:
       class_path: torch.optim.Adam
       init_args:
         lr: 0.003
+    lr_scheduler:
+      class_path: torch.optim.lr_scheduler.ConstantLR
     loss_fn:
       class_path: torch.nn.CrossEntropyLoss
     num_mc_samples: 10

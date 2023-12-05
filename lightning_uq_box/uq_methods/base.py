@@ -1,23 +1,23 @@
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
 """Base Model for UQ methods."""
 
 import os
 from typing import Any, Optional, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LRScheduler
 
 from .utils import (
     _get_num_inputs,
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    save_predictions_to_csv,
+    save_regression_predictions,
 )
 
 
@@ -84,11 +84,11 @@ class DeterministicModel(BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         raise NotImplementedError
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model output.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from the model
@@ -125,7 +125,9 @@ class DeterministicModel(BaseModule):
 
         self.log("train_loss", loss)  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
-            self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
+            self.train_metrics(
+                self.adapt_output_for_metrics(out), batch[self.target_key]
+            )
 
         return loss
 
@@ -151,7 +153,7 @@ class DeterministicModel(BaseModule):
 
         self.log("val_loss", loss)  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
-            self.val_metrics(self.extract_mean_output(out), batch[self.target_key])
+            self.val_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
 
@@ -162,7 +164,7 @@ class DeterministicModel(BaseModule):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
@@ -194,15 +196,17 @@ class DeterministicModel(BaseModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             out = self.forward(X)
-        return {"pred": self.extract_mean_output(out)}
+        return {"pred": self.adapt_output_for_metrics(out)}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -212,7 +216,7 @@ class DeterministicModel(BaseModule):
         """
         optimizer = self.optimizer(self.parameters())
         if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            lr_scheduler = self.lr_scheduler(optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
@@ -227,27 +231,30 @@ class DeterministicRegression(DeterministicModel):
     pred_file_name = "preds.csv"
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
-    # def on_test_batch_end(
-    #     self,
-    #     outputs: dict[str, np.ndarray],
-    #     batch: Any,
-    #     batch_idx: int,
-    #     dataloader_idx=0,
-    # ):
-    #     """Test batch end save predictions."""
-    #     if self.save_dir:
-    #         save_predictions_to_csv(
-    #             outputs, os.path.join(self.save_dir, self.pred_file_name)
-    # )
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 class DeterministicClassification(DeterministicModel):
     """Deterministic Base Trainer for classification as LightningModule."""
+
+    pred_file_name = "preds.csv"
 
     valid_tasks = ["binary", "multiclass", "multilable"]
 
@@ -264,7 +271,8 @@ class DeterministicClassification(DeterministicModel):
         Args:
             model: pytorch model
             loss_fn: loss function used for optimization
-            task: what kind of classification task, choose one of ["binary", "multiclass", "multilabel"]
+            task: what kind of classification task, choose one of
+                ["binary", "multiclass", "multilabel"]
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -273,8 +281,8 @@ class DeterministicClassification(DeterministicModel):
         self.task = task
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model output.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from the model
@@ -285,7 +293,7 @@ class DeterministicClassification(DeterministicModel):
         return out
 
     def setup_task(self) -> None:
-        """Setup task specific attributes."""
+        """Set up task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -298,6 +306,8 @@ class DeterministicClassification(DeterministicModel):
 
 
 class PosthocBase(BaseModule):
+    """Posthoc Base Model for UQ methods."""
+
     def __init__(self, model: Union[LightningModule, nn.Module]) -> None:
         """Initialize a new Post hoc Base Model."""
         super().__init__()
@@ -306,23 +316,66 @@ class PosthocBase(BaseModule):
 
         self.post_hoc_fitted = False
 
+    @property
+    def num_input_features(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        if isinstance(self.model, LightningModule):
+            return _get_num_inputs(self.model.model)
+        else:
+            return _get_num_inputs(self.model)
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of output dimension to model
+        """
+        if isinstance(self.model, LightningModule):
+            return _get_num_outputs(self.model.model)
+        else:
+            return _get_num_outputs(self.model)
+
     def training_step(self, *args: Any, **kwargs: Any):
         """Posthoc Methods do not have a training step."""
         pass
 
+    def on_validation_start(self) -> None:
+        """Initialize objects to track model logits and labels."""
+        # TODO intitialize zero tensors for memory efficiency
+        self.model_logits = []
+        self.labels = []
+
+        # TODO this doesn't do anything right now
+        self.trainer.inference_mode = False
+
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
-        """Postoc Method can use this method to iterate over dataloader."""
-        raise NotImplementedError
+    ) -> None:
+        """Single gathering step of model logits and targets.
+
+        Args:
+            batch: batch of data
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+
+        Returns:
+            underlying model output and labels
+        """
+        self.model_logits.append(self.model(batch[self.input_key]))
+        self.labels.append(batch[self.target_key])
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step after running posthoc fitting methodology."""
         raise NotImplementedError
 
-    def adjust_model_output(self, model_output: Tensor) -> Tensor:
+    def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model output according to post-hoc fitting procedure.
 
         Args:
@@ -341,11 +394,16 @@ class PosthocBase(BaseModule):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call trainer.validate(model, datamodule) first."
+                "Model has not been post hoc fitted, please call "
+                "trainer.validate(model, datamodule) first."
             )
 
         # predict with underlying model
         with torch.no_grad():
-            model_preds: dict[str, np.ndarray] = self.model(X)
+            model_preds: dict[str, Tensor] = self.model(X)
 
-        return self.adjust_model_output(model_preds)
+        return self.adjust_model_logits(model_preds)
+
+    def configure_optimizers(self) -> Any:
+        """Configure optimizers for posthoc fitting."""
+        pass
