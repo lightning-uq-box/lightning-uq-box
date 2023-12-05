@@ -18,7 +18,7 @@ __all__ = (
     # Toy 8 Gaussians dataset
     "Toy8GaussiansDataset",
     # Toy Gaussian dataset
-    "ToyGaussianSideWays"
+    "ToyGaussianSideWays",
     # Toy Donut dataset
     "ToyDonut",
 )

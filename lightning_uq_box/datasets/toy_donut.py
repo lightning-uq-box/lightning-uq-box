@@ -1,6 +1,8 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the MIT License.
 
+"""Toy Donut Dataset."""
+
 import numpy as np
 import torch
 from torch import Tensor

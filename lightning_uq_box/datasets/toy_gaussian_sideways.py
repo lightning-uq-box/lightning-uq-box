@@ -1,6 +1,8 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the MIT License.
 
+"""Toy Gaussian Sideway Datamodule."""
+
 import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
@@ -20,10 +22,10 @@ class ToyGaussianSideWays(Dataset):
         """Initialize a new instance of the dataset.
 
         Args:
-            radius: The radius of the circle. Defaults to 1.0.
-            n_samples: The total number of samples in the dataset. Defaults to 1000.
-            noise: Standard deviation of Gaussian noise added to the data. Defaults to 0.1.
-            random_state: Determines random number generation for dataset creation. Defaults to None.
+            radius: The radius of the circle
+            n_samples: The total number of samples in the dataset
+            noise: Standard deviation of Gaussian noise added to the data
+            random_state: Determines random number generation for dataset creation
         """
         self.radius = radius
         self.n_samples = n_samples

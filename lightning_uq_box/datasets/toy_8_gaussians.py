@@ -1,6 +1,7 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the MIT License.
 
+"""8 Gaussians Toy Dataset."""
 
 import numpy as np
 import torch
@@ -23,6 +24,7 @@ class Toy8GaussiansDataset(Dataset):
 
         Args:
             n_samples: The total number of samples in the dataset
+            radius: The radius of the circle in which the Gaussians are placed around
             std_dev: The standard deviation of the Gaussians. Defaults to 0.2
             seed: The seed for the random number generator
         """

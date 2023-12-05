@@ -1,6 +1,8 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the MIT License.
 
+"""Toy Gaussian Sideways Datamodule."""
+
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader
 
@@ -14,7 +16,8 @@ class ToyGaussianSideWaysDataModule(LightningDataModule):
         """Initialize the DataModule.
 
         Args:
-            batch_size: The batch size for the DataLoader. Defaults to 64.
+            batch_size: The batch size for the DataLoader
+            n_samples: The total number of samples in the dataset
         """
         super().__init__()
         self.batch_size = batch_size

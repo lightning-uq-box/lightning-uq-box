@@ -22,7 +22,8 @@ class TwoMoonsDataModule(LightningDataModule):
         """Initialize the DataModule.
 
         Args:
-            batch_size: The batch size for the DataLoaders. Defaults to 32.
+            batch_size: The batch size for the DataLoaders
+            n_samples: The total number of samples in the dataset
         """
         super().__init__()
         self.batch_size = batch_size

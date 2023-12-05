@@ -16,7 +16,8 @@ class Toy8GaussiansDataModule(LightningDataModule):
         """Initialize the DataModule.
 
         Args:
-            batch_size: The batch size for the DataLoader. Defaults to 64.
+            batch_size: The batch size for the DataLoader
+            n_samples: The total number of samples in the dataset
         """
         super().__init__()
         self.batch_size = batch_size

@@ -76,7 +76,6 @@ class ConditionalGuidedLinearModel(nn.Module):
         x_dim: int,
         y_dim: int,
         n_hidden: list[int] = [64, 64],
-        n_outputs: int = 1,
         cat_x: bool = False,
         cat_y_pred: bool = False,
         activation_fn: Optional[nn.Module] = None,
@@ -84,11 +83,10 @@ class ConditionalGuidedLinearModel(nn.Module):
         """Initialize a new instance of Conditional Guided Model.
 
         Args:
-            n_steps:
+            n_steps: number of diffusion steps
             x_dim: feature dimension of the x input data
             y_dim: output dimension of conditional mean model
             n_hidden: number of Conditional Linear Layers with dimension
-            n_outputs: number of desired outputs from conditional guided model
             cat_x: whether to condition on the input x throught concatenation
                 p_sample_loop would pass x to each diffusion step through concatenation
                 and that improves sample quality
@@ -128,8 +126,8 @@ class ConditionalGuidedLinearModel(nn.Module):
 
         Args:
             x: input data
-            y: target data
-            y_0_hat:
+            y_t: target data
+            y_0_hat: y_0_hat
             t: time step
         """
         if self.cat_x:
@@ -165,9 +163,11 @@ class ConditionalGuidedConvModel(nn.Module):
         """
         super(ConditionalGuidedConvModel, self).__init__()
 
-        # TODO assertion checks between the configs of the encoder and cond guidance model
+        # TODO assertion checks between the configs of the encoder and cond guidance
+        # model
         # TODO assert that cat_x and cat_y_pred are false, but maybe you can as well?
-        # no I think cat_x has to be false because cannot input the image and y_0_hat would be the feature extraction
+        # no I think cat_x has to be false because cannot input the image and y_0_hat
+        # would be the feature extraction
         assert cond_guide_model.cat_x is False, "Cannot concatenate x"
         # assert cond_guide_model.cat_y_pred is False, "Cannot concatenate y"
 
@@ -195,9 +195,12 @@ class ConditionalGuidedConvModel(nn.Module):
 
         Args:
             x: input data
-            y: target data
+            y_t: target data
             y_0_hat:
             t: time step
+
+        Returns:
+            output of the conditional guided convolutional model
         """
         # encoding
         x = self.encoder(x)

@@ -209,7 +209,6 @@ class CARDBase(BaseModule):
 
             if X.dim() == 2:
                 # TODO: This works for Vector 1D Regression with the tiling
-                # obtain y samples through reverse diffusion -- some pytorch version might not have torch.tile, run through the entire chain
                 # y_0_tile = torch.tile(y, (n_z_samples, 1))
                 y_0_hat_tile = torch.tile(y_0_hat, (self.n_z_samples, 1)).to(
                     self.device
