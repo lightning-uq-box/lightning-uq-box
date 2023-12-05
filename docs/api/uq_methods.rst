@@ -92,6 +92,32 @@ Laplace Classification
 .. autoclass:: LaplaceClassification
 
 
+Classification and Regression Diffusion (CARD)
+==============================================
+
+.. currentmodule:: lightning_uq_box.uq_methods.cards
+
+CARD Base
+---------
+
+.. autoclass:: CARDBase
+
+CARD Regression
+---------------
+
+.. autoclass:: CARDRegression
+
+CARD Classification
+-------------------
+
+.. autoclass:: CARDClassification
+
+Noise Scheduler
+---------------
+
+.. autoclass:: NoiseScheduler
+
+
 Bayesian Neural Networks ELBO
 =============================
 

@@ -89,5 +89,5 @@ intersphinx_mapping = {
     "torch": ("https://pytorch.org/docs/stable", None),
 }
 
-# uncomment if you want to build docs locally without executing notebooks
+# some notebooks require GPU
 # nbsphinx_execute = 'never'
