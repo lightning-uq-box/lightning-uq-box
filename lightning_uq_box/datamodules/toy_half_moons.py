@@ -67,7 +67,7 @@ class TwoMoonsDataModule(LightningDataModule):
         Returns:
             The DataLoader for the training set.
         """
-        train_dataset = TensorDataset(self.X_train.float(), self.y_train.unsqueeze(-1))
+        train_dataset = TensorDataset(self.X_train.float(), self.y_train)
         return DataLoader(
             train_dataset,
             batch_size=self.batch_size,
@@ -81,7 +81,7 @@ class TwoMoonsDataModule(LightningDataModule):
         Returns:
             The DataLoader for the validation set.
         """
-        val_dataset = TensorDataset(self.X_val.float(), self.y_val.unsqueeze(-1))
+        val_dataset = TensorDataset(self.X_val.float(), self.y_val)
         return DataLoader(
             val_dataset,
             batch_size=self.batch_size,
@@ -95,7 +95,7 @@ class TwoMoonsDataModule(LightningDataModule):
         Returns:
             The DataLoader for the test set.
         """
-        test_dataset = TensorDataset(self.X_test.float(), self.y_test.unsqueeze(-1))
+        test_dataset = TensorDataset(self.X_test.float(), self.y_test)
         return DataLoader(
             test_dataset,
             batch_size=self.batch_size,

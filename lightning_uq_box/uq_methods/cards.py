@@ -119,6 +119,10 @@ class CARDBase(BaseModule):
 
         guidance_output = self.guidance_model(x, y_t_sample, y_0_hat, ant_samples_t)
 
+        # in classification y usually don't have target dimension
+        # but in regression they do so for broadcasting align them
+        if e.dim() == 1:
+            e = e.unsqueeze(-1)
         # TODO does this change?
         # use the same noise sample e during training to compute loss
         loss = (e - guidance_output).square().mean()
@@ -433,11 +437,17 @@ class CARDBase(BaseModule):
             noise: optional noise tensor
 
         """
+        if y.dim() == 1:
+            y = y.unsqueeze(-1)
         if noise is None:
             noise = torch.randn_like(y)
+        elif noise.shape != y.shape:
+            noise = noise.unsqueeze(-1)
         sqrt_alpha_bar_t = self.extract(alphas_bar_sqrt, t, y)
         sqrt_one_minus_alpha_bar_t = self.extract(one_minus_alphas_bar_sqrt, t, y)
         # q(y_t | y_0, x)
+        # add feature dimension for proper broadcasting
+        
         y_t = (
             sqrt_alpha_bar_t * y
             + (1 - sqrt_alpha_bar_t) * y_0_hat
