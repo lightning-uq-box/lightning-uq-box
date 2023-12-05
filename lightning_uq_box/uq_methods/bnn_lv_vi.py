@@ -1,10 +1,6 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 import math
-import os
 from typing import Any, Optional, Tuple, Union
 
 import einops
@@ -13,6 +9,8 @@ import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 from lightning_uq_box.models.bnnlv.latent_variable_network import LatentVariableNetwork
 from lightning_uq_box.models.bnnlv.utils import (
@@ -26,14 +24,13 @@ from lightning_uq_box.uq_methods.utils import (
     _get_input_layer_name_and_module,
     _get_output_layer_name_and_module,
     default_regression_metrics,
-    save_regression_predictions,
 )
 
 from .bnn_vi import BNN_VI_Base
 
 
 class BNN_LV_VI_Base(BNN_VI_Base):
-    """Bayesian Neural Network (BNN) with Latent Variables (LV).
+    """Bayesian Neural Network (BNN) with Latent Variables (LV) trained with Variational Inferece.
 
     If you use this model in your work, please cite:
 
@@ -73,13 +70,13 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         Args:
             model: pytorch model that will be converted into a BNN
             latent_net: latent variable network
-            num_training_points: num of data points contained in the training dataset
-            num_training_points: num of data points contained in the training dataset
+            num_training_points: number of data points contained in the training dataset
+            num_training_points: number of data points contained in the training dataset
             prediction_head: prediction head that will be attached to the model
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
-            latent_variable_intro: whether to introduce the latent variable at
-                the first or last layer of the model
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
+            latent_variable_intro: whether to introduce the latent variable at the first or
+                last layer of the model
             n_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -139,7 +136,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         self._setup_bnn_with_vi_lv(latent_net)
 
     def setup_task(self) -> None:
-        """Set up task."""
+        """Setup task."""
         pass
 
     def _setup_bnn_with_vi_lv(self, latent_net: nn.Module) -> None:
@@ -205,7 +202,6 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                 feature_output = self.model(test_x)
 
             _, lv_input_module = _get_input_layer_name_and_module(latent_net)
-
             assert (
                 lv_input_module.in_features
                 == last_module_args["out_features"] + feature_output.shape[-1]
@@ -319,8 +315,9 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             y: target tensor
 
         Returns:
-            energy loss and mean output for logging mean_out: mean output
-                over samples, dim [n_mc_samples_train, output_dim]
+            energy loss and mean output for logging
+            mean_out: mean output over samples,
+            dim [n_mc_samples_train, output_dim]
         """
         model_preds = []
         pred_losses = []
@@ -450,14 +447,14 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         # optimizer_args = getattr(self.optimizer, "keywords")
         # wd = optimizer_args.get("weight_decay", 0.0)
         # TODO this does not work with lightning CLI correctly yet
-        # self.optimizer is not a partial function anymore that can be accessed
-        #  with keywords using default weight decay for now
+        # self.optimizer is not a partial function anymore that can be accessed with keywords
+        # using default weight decay for now
         params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=0.01)
 
         optimizer = self.optimizer(params)
         optimizer = self.optimizer(self.parameters())
         if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer)
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
@@ -476,28 +473,11 @@ class BNN_LV_VI_Regression(BNN_LV_VI_Base):
 
     nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
-    pred_file_name = "preds.csv"
-
     def setup_task(self) -> None:
-        """Set up task."""
+        """Setup task."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
-
-    def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Test batch end save predictions.
-
-        Args:
-            outputs: dictionary of model outputs and aux variables
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
-        save_regression_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
-        )
 
 
 class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
@@ -539,8 +519,8 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             model: pytorch model that will be converted into a BNN
             latent_net: latent variable network
             num_training_points: number of data points contained in the training dataset
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
             num_training_points: number of data points contained in the training dataset
             prediction_head: prediction head that will be attached to the model
             stochastic_module_names:
@@ -599,7 +579,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             "prior_sigma": self.hparams.prior_sigma,
             "posterior_mu_init": self.hparams.posterior_mu_init,
             "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.bayesian_layer_type,
+            "bayesian_layer_type": self.hparams.bayesian_layer_type,
             "batched_samples": True,
             "max_n_samples": max(
                 self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
@@ -653,8 +633,9 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             y: target tensor
 
         Returns:
-            energy loss and mean output for logging mean_out: mean output
-                over samples, dim [n_mc_samples_train, output_dim]
+            energy loss and mean output for logging
+            mean_out: mean output over samples,
+            dim [n_mc_samples_train, output_dim]
         """
         out = self.forward(
             X, y, n_samples=self.hparams.n_mc_samples_train
@@ -665,9 +646,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
 
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
-            get_log_f_hat([self.model, self.prediction_head])[
-                : self.hparams.n_mc_samples_train
-            ],  # noqa: E203
+            get_log_f_hat([self.model, self.prediction_head]),
             get_log_Z_prior([self.model, self.prediction_head]),
             get_log_normalizer([self.model, self.prediction_head]),
             log_normalizer_z=self.lv_net.log_normalizer_z,  # log_normalizer_z
@@ -796,7 +775,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
 
 
 class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
-    """Bayesian Latent Variable Network with VI Batched for Regression.
+    """Bayesian Latent Variable Network with Variational Inference Batched for Regression.
 
     If you use this model in your work, please cite:
 
@@ -805,25 +784,8 @@ class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
 
     nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
-    pred_file_name = "preds.csv"
-
     def setup_task(self) -> None:
-        """Set up task."""
+        """Setup task."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
-
-    def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Test batch end save predictions.
-
-        Args:
-            outputs: dictionary of model outputs and aux variables
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
-        save_regression_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
-        )

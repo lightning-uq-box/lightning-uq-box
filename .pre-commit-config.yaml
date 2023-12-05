@@ -24,7 +24,6 @@ repos:
         rev: 6.0.0
         hooks:
         -   id: flake8
-            exclude: (docs)
             args: [--max-line-length=88]
 
     -   repo: https://github.com/pycqa/pydocstyle

@@ -1,6 +1,3 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 import os
@@ -12,7 +9,10 @@ import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
+from lightning_uq_box.eval_utils import compute_quantiles_from_std
 from lightning_uq_box.models.bnn_layers.bnn_utils import convert_deterministic_to_bnn
 from lightning_uq_box.models.bnnlv.utils import (
     get_log_f_hat,
@@ -25,7 +25,7 @@ from .loss_functions import EnergyAlphaDivergence
 from .utils import (
     default_regression_metrics,
     map_stochastic_modules,
-    save_regression_predictions,
+    save_predictions_to_csv,
 )
 
 
@@ -61,7 +61,8 @@ class BNN_VI_Base(DeterministicModel):
         Args:
             model:
             save_dir: directory path to save
-            num_training_points: num of data points contained in the training dataset
+            num_training_points: number of data points contained in the training dataset
+            stochastic_module_names:
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -73,8 +74,8 @@ class BNN_VI_Base(DeterministicModel):
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -102,7 +103,7 @@ class BNN_VI_Base(DeterministicModel):
         self.pred_file_name = "predictions.csv"
 
     def setup_task(self) -> None:
-        """Set up task specific attributes."""
+        """Setup task specific attributes."""
         pass
 
     def _define_bnn_args(self):
@@ -247,14 +248,14 @@ class BNN_VI_Base(DeterministicModel):
         # optimizer_args = getattr(self.optimizer, "keywords")
         # wd = optimizer_args.get("weight_decay", 0.0)
         # TODO this does not work with lightning CLI correctly yet
-        # self.optimizer is not a partial function anymore that can be accessed with
-        # keywords using default weight decay for now
+        # self.optimizer is not a partial function anymore that can be accessed with keywords
+        # using default weight decay for now
 
         params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=0.01)
 
         optimizer = self.optimizer(params)
         if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer)
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
@@ -272,8 +273,6 @@ class BNN_VI_Regression(BNN_VI_Base):
 
     * https://proceedings.mlr.press/v80/depeweg18a
     """
-
-    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -297,9 +296,9 @@ class BNN_VI_Regression(BNN_VI_Base):
         Args:
             model: pytorch model that will be converted into a BNN
             optimizer: optimizer used for training
-            num_training_points: num of data points contained in the training dataset
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
+            num_training_points: number of data points contained in the training dataset
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -310,8 +309,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            bayesian_layer_type: reparameterization layer type,
-                "reparametrization" or "flipout"
+            bayesian_layer_type: Bayesian bayesian_layer_type type, "reparametrization" or "flipout"
             lr_scheduler: learning rate scheduler
 
         Raises:
@@ -343,7 +341,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         self.nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
     def setup_task(self) -> None:
-        """Set up task specific attributes."""
+        """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -356,8 +354,8 @@ class BNN_VI_Regression(BNN_VI_Base):
             y: target tensor
 
         Returns:
-            energy loss and mean output for logging mean_out: mean output
-                over samples, dim [n_mc_samples_train, output_dim]
+            energy loss and mean output for logging
+            mean_out: mean output over samples, dim [batch_size, output_dim]
         """
         model_preds: list[Tensor] = []
         pred_losses: list[Tensor] = []
@@ -392,30 +390,27 @@ class BNN_VI_Regression(BNN_VI_Base):
 
         return energy_loss, mean_out.detach()
 
-    def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Test batch end save predictions.
-
-        Args:
-            outputs: dictionary of model outputs and aux variables
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
-        save_regression_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
-        )
+    # def on_test_batch_end(
+    #     self,
+    #     outputs: dict[str, np.ndarray],
+    #     batch: Any,
+    #     batch_idx: int,
+    #     dataloader_idx=0,
+    # ):
+    #     """Test batch end save predictions for regression."""
+    #     if self.hparams.save_dir:
+    #         outputs = {key: val for key, val in outputs.items() if key != "samples"}
+    #         save_predictions_to_csv(
+    #             outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+    #         )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
+    ) -> dict[str, np.ndarray]:
         """Prediction step.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
-            batch_idx: batch index
-            dataloader_idx: dataloader index
         """
         # output from forward: [n_samples, batch_size, outputs]
         with torch.no_grad():
@@ -474,7 +469,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
 
         Args:
             model: pytorch model that will be converted into a BNN
-            num_training_points: num of data points contained in the training dataset
+            num_training_points: number of data points contained in the training dataset
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -485,10 +480,9 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
-            bayesian_layer_type: reparameterization layer type,
-                "reparametrization" or "flipout"
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
+            bayesian_layer_type: Bayesian bayesian_layer_type type, "reparametrization" or "flipout"
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
 
@@ -513,7 +507,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             lr_scheduler,
         )
 
-        self.save_hyperparameters(ignore=["model", "optimizer", "lr_scheduler"])
+        self.save_hyperparameters(ignore=["model"])
 
     def _define_bnn_args(self):
         """Define BNN Args."""
@@ -529,7 +523,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             ),
         }
 
-    def forward(self, X: Tensor, n_samples: int) -> Tensor:
+    def forward(self, X: Tensor, n_samples: int = 5) -> Tensor:
         """Forward pass BNN+LI.
 
         Args:
@@ -550,8 +544,9 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             y: target tensor
 
         Returns:
-            energy loss and mean output for logging mean_out: mean output
-                over samples, dim [n_mc_samples_train, output_dim]
+            energy loss and mean output for logging
+            mean_out: mean output over samples,
+                dim [n_mc_samples_train, output_dim]
         """
         out = self.forward(
             X, n_samples=self.hparams.n_mc_samples_train
@@ -561,12 +556,9 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
         # BUGS here in log_f_hat should be shape [n_samples]
 
-        # batched sampling is implemented for a max amount of samples
-        # however, self.hparams.n_mc_samples_train might be smaller
-        # thus pick those number of sapmles from log_f_hat
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
-            get_log_f_hat([self.model])[: self.hparams.n_mc_samples_train],
+            get_log_f_hat([self.model]),
             get_log_Z_prior([self.model]),
             get_log_normalizer([self.model]),
             log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z
@@ -581,19 +573,15 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
-            batch_idx: batch index
-            dataloader_idx: dataloader index
         """
-        # preds = []
+        preds = []
         with torch.no_grad():
-            # TODO why is this not batched?
-            # for _ in range(
-            #     int(self.hparams.n_mc_samples_test / self.hparams.n_mc_samples_train)
-            # ):
-            #     preds.append(self.forward(X).cpu())
-            model_preds = self.forward(X, self.hparams.n_mc_samples_test).cpu()
+            for _ in range(
+                int(self.hparams.n_mc_samples_test / self.hparams.n_mc_samples_train)
+            ):
+                preds.append(self.forward(X).cpu())
 
-        # model_preds = torch.cat(preds, dim=0)
+        model_preds = torch.cat(preds, dim=0)
         mean_out = model_preds.mean(dim=0).squeeze()
 
         std_epistemic = model_preds.std(dim=0).squeeze()

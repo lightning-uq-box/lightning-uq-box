@@ -1,24 +1,32 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """UQ-Regression-Box Datasets."""
 
-from .toy_8_gaussians import Toy8GaussiansDataset
-from .toy_donut import ToyDonut
-from .toy_gaussian_sideways import ToyGaussianSideWays
+# from .reforesTree import ReforesTreeRegression
+from .card_regression import (
+    CircleDatasetWithOneX,
+    LogLinearDatasetWithOneX,
+    SinusoidDatasetWithOneX,
+)
 from .toy_image_classification import ToyImageClassificationDataset
 from .toy_image_regression import ToyImageRegressionDataset
-from .toy_image_segmentation import ToySegmentationDataset
+from .uci import UCIRegressionDataset
+from .uci_boston import UCIBoston
+from .uci_concrete import UCIConcrete
+from .uci_energy import UCIEnergy
+from .uci_naval import UCINaval
+from .uci_yacht import UCIYacht
 
 __all__ = (
+    "SinusoidDatasetWithOneX",
+    "LogLinearDatasetWithOneX",
+    "CircleDatasetWithOneX",
     # Toy Image dataset
     "ToyImageRegressionDataset",
     "ToyImageClassificationDataset",
-    "ToySegmentationDataset",
-    # Toy 8 Gaussians dataset
-    "Toy8GaussiansDataset",
-    # Toy Gaussian dataset
-    "ToyGaussianSideWays"
-    # Toy Donut dataset
-    "ToyDonut",
+    # UCI Datasets
+    "UCIRegressionDataset",
+    "UCIBoston",
+    "UCIEnergy",
+    "UCIConcrete",
+    "UCINaval",
+    "UCIYacht",
 )

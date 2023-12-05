@@ -1,6 +1,3 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Toy Image Classification Datamodule."""
 
 from lightning import LightningDataModule
@@ -18,12 +15,12 @@ class ToyImageClassificationDatamodule(LightningDataModule):
 
     def train_dataloader(self) -> DataLoader:
         """Return Train Dataloader."""
-        return DataLoader(ToyImageClassificationDataset(), batch_size=10)
+        return DataLoader(ToyImageClassificationDataset(), batch_size=2)
 
     def val_dataloader(self) -> DataLoader:
         """Return Val Dataloader."""
-        return DataLoader(ToyImageClassificationDataset(), batch_size=10)
+        return DataLoader(ToyImageClassificationDataset(), batch_size=2)
 
     def test_dataloader(self) -> DataLoader:
         """Return Test Dataloader."""
-        return DataLoader(ToyImageClassificationDataset(), batch_size=10)
+        return DataLoader(ToyImageClassificationDataset(), batch_size=2)

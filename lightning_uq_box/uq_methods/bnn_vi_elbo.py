@@ -1,11 +1,11 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Bayesian Neural Networks with Variational Inference."""
 
-import os
+# TODO:
+# adapt to new config file scheme
+
 from typing import Any, Optional, Union
 
+import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -21,12 +21,9 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    default_segmentation_metrics,
     map_stochastic_modules,
     process_classification_prediction,
     process_regression_prediction,
-    process_segmentation_prediction,
-    save_regression_predictions,
 )
 
 
@@ -75,8 +72,8 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -108,7 +105,6 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         self.lr_scheduler = lr_scheduler
 
     def setup_task(self) -> None:
-        """Set up task."""
         pass
 
     def _setup_bnn_with_vi(self) -> None:
@@ -199,7 +195,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             # mean prediction
             pred = self.forward(X)
             pred_losses[i] = self.compute_task_loss(pred, y)
-            model_preds.append(self.adapt_output_for_metrics(pred).detach())
+            model_preds.append(self.extract_mean_output(pred).detach())
 
         mean_pred = torch.stack(model_preds, dim=-1).mean(-1)
         # dimension [batch_size]
@@ -270,7 +266,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
 
         optimizer = self.optimizer(params)
         if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer)
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
@@ -286,8 +282,6 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
 
     * https://arxiv.org/abs/1505.05424
     """
-
-    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -329,8 +323,8 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -361,7 +355,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         )
 
     def setup_task(self) -> None:
-        """Set up task specific attributes."""
+        """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -376,11 +370,9 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         Returns:
             nll loss for the task
         """
-        if self.current_epoch < self.hparams.burnin_epochs or isinstance(
-            self.criterion, nn.MSELoss
-        ):
+        if self.current_epoch < self.hparams.burnin_epochs:
             # compute mse loss with output noise scale, is like mse
-            loss = torch.nn.functional.mse_loss(self.adapt_output_for_metrics(pred), y)
+            loss = torch.nn.functional.mse_loss(self.extract_mean_output(pred), y)
         else:
             # after burnin compute nll with log_sigma
             loss = self.criterion(pred, y)
@@ -388,13 +380,11 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
+    ) -> dict[str, np.ndarray]:
         """Prediction step.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
-            batch_idx: batch index
-            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             preds = torch.stack(
@@ -402,21 +392,6 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             )  # shape [batch_size, num_outputs, num_samples]
 
         return process_regression_prediction(preds)
-
-    def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Test batch end save predictions.
-
-        Args:
-            outputs: dictionary of model outputs and aux variables
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
-        save_regression_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
-        )
 
 
 class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
@@ -427,7 +402,6 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
     * https://arxiv.org/abs/1505.05424
     """
 
-    pred_file_name = "preds.csv"
     valid_tasks = ["binary", "multiclass", "multilable"]
 
     def __init__(
@@ -469,8 +443,8 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             bayesian_layer_type: `flipout` or `reparameterization`
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
+            stochastic_module_names: list of module names or indices that should be converted
+                to variational layers
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
 
@@ -506,7 +480,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         )
 
     def setup_task(self) -> None:
-        """Set up task specific attributes."""
+        """Setup task specific attributes."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -529,61 +503,21 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         """
         return self.criterion(pred, y)
 
-    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
-        """Adapt model output to be compatible for metric computation."""
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract mean output from model output."""
         return out
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
+    ) -> dict[str, np.ndarray]:
         """Prediction step.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
-            batch_idx: batch index
-            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             preds = torch.stack(
                 [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
-            )  # shape [batch_size, num_classes, num_samples]
+            )  # shape [batch_size, num_outputs, num_samples]
 
         return process_classification_prediction(preds)
-
-
-class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
-    """Bayes By Backprop Model with Variational Inference (VI) for Segmentation.
-
-    If you use this model in your work, please cite:
-
-    * https://arxiv.org/abs/1505.05424
-    """
-
-    def setup_task(self) -> None:
-        """Set up task specific attributes for segmentation."""
-        self.train_metrics = default_segmentation_metrics(
-            "train", self.task, self.num_classes
-        )
-        self.val_metrics = default_segmentation_metrics(
-            "val", self.task, self.num_classes
-        )
-        self.test_metrics = default_segmentation_metrics(
-            "test", self.task, self.num_classes
-        )
-
-    def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
-        """Prediction step for segmentation.
-
-        Args:
-            X: prediction batch of shape [batch_size x num_channels x height x width]
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        with torch.no_grad():
-            preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
-            )  # shape [batch_size, num_classes, height, width, num_samples]
-
-        return process_segmentation_prediction(preds)

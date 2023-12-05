@@ -14,10 +14,11 @@ build:
 python:
    install:
    - requirements: requirements/docs.txt
+   - requirements: docs/requirements.txt
    - method: pip
      path: .
 
 # Configuration for Sphinx documentation
 sphinx:
    configuration: docs/conf.py
-  #  fail_on_warning: true
+   fail_on_warning: true

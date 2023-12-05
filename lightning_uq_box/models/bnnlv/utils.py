@@ -1,6 +1,3 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Utility functions for BNN+VI/LV implementation."""
 
 import inspect
@@ -15,7 +12,6 @@ def get_log_normalizer(models: list[nn.Module]):
 
     Args:
         model: bnn with lvs model.
-
     Returns:
         log_normalizer: (3.18) in [1].
         [1]: Depeweg, Stefan. Modeling epistemic and aleatoric uncertainty
@@ -38,7 +34,6 @@ def get_log_f_hat(models: list[nn.Module]):
 
     Args:
         model: bnn with lvs model.
-
     Returns:
         log_f_hat: log of (3.16) in [1].
         [1]: Depeweg, Stefan. Modeling epistemic and aleatoric uncertainty
@@ -53,6 +48,7 @@ def get_log_f_hat(models: list[nn.Module]):
                     log_f_hat = layer.log_f_hat()
                 else:
                     log_f_hat += layer.log_f_hat()
+
     return log_f_hat
 
 
@@ -61,7 +57,6 @@ def get_log_Z_prior(models: list[nn.Module]):
 
     Args:
         model: bnn with lvs model.
-
     Returns:
         summed log_Z_prior.
     """

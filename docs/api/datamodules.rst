@@ -12,4 +12,7 @@ Toy Datamodules
 Image Regression Datamodules
 ----------------------------
 
-.. autoclass:: ToyImageRegressionDatamodule
+Tabular Regression Datamodules
+------------------------------
+
+.. autoclass:: UCIRegressionDatamodule

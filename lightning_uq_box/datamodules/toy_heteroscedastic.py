@@ -1,6 +1,3 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Datamodule for Toy Heteroscedastic Data."""
 
 from typing import Callable, Union
@@ -62,8 +59,6 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         regression-1-quickstart-plot-heteroscedastic-1d-data-py)
 
         Args:
-            x_min: Minimum value of x range
-            x_max: Maximum value of x range
             n_train : Number of training samples, by default  200.
             n_true: Number of test samples, by default 1000.
             sigma: Standard deviation of noise, by default 0.1

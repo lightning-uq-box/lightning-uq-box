@@ -1,6 +1,3 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Stochastic Gradient Langevin Dynamics (SGLD) model."""
 # TO DO:
 # SGLD with ensembles
@@ -10,6 +7,7 @@ import os
 from collections.abc import Iterator
 from typing import Any, Optional
 
+import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -23,13 +21,13 @@ from .utils import (
     default_regression_metrics,
     process_classification_prediction,
     process_regression_prediction,
-    save_regression_predictions,
 )
 
 
 # SGLD Optimizer from Izmailov, currently in __init__.py
 class SGLD(Optimizer):
     """Stochastic Gradient Langevian Dynamics Optimzer.
+
 
     If you use this optimizer in your research, please cite the following paper:
 
@@ -170,8 +168,6 @@ class SGLDBase(DeterministicModel):
 class SGLDRegression(SGLDBase):
     """Stochastic Gradient Langevin Dynamics method for regression."""
 
-    pred_file_name = "preds.csv"
-
     def __init__(
         self,
         model: nn.Module,
@@ -197,13 +193,13 @@ class SGLDRegression(SGLDBase):
         self.burnin_epochs = burnin_epochs
 
     def setup_task(self) -> None:
-        """Set up task specific metrics."""
+        """Setup task specific metrics."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
-    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
-        """Adapt model output to be compatible for metric computation.
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract the mean output from model prediction.
 
         Args:
             out: output from :meth:`self.forward` [batch_size x (mu, sigma)]
@@ -234,7 +230,7 @@ class SGLDRegression(SGLDBase):
             """Closure function for optimizer."""
             sgld_opt.zero_grad()
             if self.current_epoch < self.hparams.burnin_epochs:
-                loss = nn.functional.mse_loss(self.adapt_output_for_metrics(out), y)
+                loss = nn.functional.mse_loss(self.extract_mean_output(out), y)
             # after train with nll
             else:
                 loss = self.loss_fn(out, y)
@@ -245,13 +241,13 @@ class SGLDRegression(SGLDBase):
         loss = sgld_opt.step(closure=closure)
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.adapt_output_for_metrics(out), y)
+        self.train_metrics(self.extract_mean_output(out), y)
 
         # return loss
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
+    ) -> dict[str, np.ndarray]:
         """Predict step with SGLD, take n_sgld_sampled models, get mean and variance.
 
         Args:
@@ -273,20 +269,6 @@ class SGLDRegression(SGLDBase):
 
         return process_regression_prediction(preds)
 
-    def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Test batch end save predictions.
-
-        Args:
-            outputs: dictionary of model outputs and aux variables
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        save_regression_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
-        )
-
 
 class SGLDClassification(SGLDBase):
     """Stochastic Gradient Langevin Dynamics method for classification."""
@@ -306,12 +288,12 @@ class SGLDClassification(SGLDBase):
         """Initialize a new instance of SGLD model.
 
         Args:
-            model: pytorch model to train with SGLD
-            loss_fn: choice of loss function
+            model_class: underlying model class
             lr: initial learning rate
+            loss_fn: choice of loss function
             weight_decay: weight decay parameter for SGLD optimizer
             noise_factor: parameter denoting how much noise to inject in the SGD update
-            task: classification task, one of ["multiclass", "binary", "multilabel"]
+            burnin_epochs: number of epochs to fit mse loss
             n_sgld_samples: number of sgld samples to collect
 
         """
@@ -321,7 +303,7 @@ class SGLDClassification(SGLDBase):
         super().__init__(model, loss_fn, lr, weight_decay, noise_factor, n_sgld_samples)
 
     def setup_task(self) -> None:
-        """Set up task specific metrics."""
+        """Setup task specific metrics."""
         self.train_metrics = default_classification_metrics(
             "train", self.task, self.num_classes
         )
@@ -332,8 +314,8 @@ class SGLDClassification(SGLDBase):
             "test", self.task, self.num_classes
         )
 
-    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
-        """Adapt model output to be compatible for metric computation.
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract the mean output from model prediction.
 
         Args:
             out: output from :meth:`self.forward` [batch_size x (mu, sigma)]
@@ -371,7 +353,7 @@ class SGLDClassification(SGLDBase):
         loss = sgld_opt.step(closure=closure)
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.adapt_output_for_metrics(out), y)
+        self.train_metrics(self.extract_mean_output(out), y)
 
         return loss
 

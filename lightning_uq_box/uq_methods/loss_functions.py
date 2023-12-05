@@ -1,7 +1,6 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Loss Functions specific to UQ-methods."""
+
+import math
 
 import torch
 import torch.nn as nn
@@ -87,51 +86,50 @@ class EnergyAlphaDivergence(nn.Module):
         return loss * one_over_N
 
 
-# TODO to be addded for pixel wise regression
-# class LowRankMultivariateNormal_NLL(nn.Module):
-#     """Negative Log Likelihood loss."""
+class LowRankMultivariateNormal_NLL(nn.Module):
+    """Negative Log Likelihood loss."""
 
-#     def __init__(self, rank=10, eps=1e-8):
-#         """Initialize a new instance of LowRankMultivariateNormal_NLL.
+    def __init__(self, rank=10, eps=1e-8):
+        """Initialize a new instance of LowRankMultivariateNormal_NLL.
 
-#         Args:
-#           rank: rank (=number of columns) of covariance matrix factor matrix.
-#           eps: eps-value for strictly positive diagonal Psi
+        Args:
+          rank: rank (=number of columns) of covariance matrix factor matrix.
+          eps: eps-value for strictly positive diagonal Psi
 
-#         """
-#         super().__init__()
-#         self.rank = rank
-#         self.eps = eps
+        """
+        super().__init__()
+        self.rank = rank
+        self.eps = eps
 
-#     def forward(self, preds: Tensor, target: Tensor):
-#         """Compute LowRankMultivariateNormal_NLL Loss.
+    def forward(self, preds: Tensor, target: Tensor):
+        """Compute LowRankMultivariateNormal_NLL Loss.
 
-#         Args:
-#           preds: batch_size x (rank + 2) x tager_shape, consisting of mu,Gamma and Psi
-#           target: batch_size x target_shape, regression targets
+        Args:
+          preds: batch_size x (rank + 2) x tager_shape, consisting of mu and Gamma and Psi
+          target: batch_size x target_shape, regression targets
 
-#         Returns:
-#           computed loss for the entire batch
-#         """
+        Returns:
+          computed loss for the entire batch
+        """
 
-#         mu, gamma, psi = (
-#             preds[:, 0:1],
-#             preds[:, 1 : self.rank + 1],
-#             preds[:, self.tran + 1].exp() + self.eps,
-#         )
+        mu, gamma, psi = (
+            preds[:, 0:1],
+            preds[:, 1 : self.rank + 1],
+            preds[:, self.tran + 1].exp() + self.eps,
+        )
 
-#         [b, w, h] = target.shape
+        [b, w, h] = target.shape
 
-#         gamma = gamma.reshape([b, w * h, self.rank])
-#         psi = torch.diag(psi, diagonal=-1)
+        gamma = gamma.reshape([b, w * h, self.rank])
+        psi = torch.diag(psi, diagonal=-1)
 
-#         lowrank_norm = torch.distributions.LowRankMultivariateNormal(
-#             loc=mu, cov_factor=gamma, cov_diag=psi
-#         )
+        lowrank_norm = torch.distributions.LowRankMultivariateNormal(
+            loc=mu, cov_factor=gamma, cov_diag=psi
+        )
 
-#         loss = -lowrank_norm.log_prob(target)
-#         loss = torch.mean(loss, dim=0)
-#         return loss
+        loss = -lowrank_norm.log_prob(target)
+        loss = torch.mean(loss, dim=0)
+        return loss
 
 
 class NLL(nn.Module):
@@ -157,6 +155,29 @@ class NLL(nn.Module):
         )
         loss = torch.mean(loss, dim=0)
         return loss
+
+
+class TheirNLL(nn.Module):
+    """NLL Loss from Wilson papers.
+
+    https://github.com/wjmaddox/drbayes/blob/0c0c32edade51f1ec471753b7bf258f40bf8fdd6/subspace_inference/losses.py#L4
+
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize a new instance."""
+        super().__init__(*args, **kwargs)
+
+    def forward(self, preds: Tensor, target: Tensor):
+        """Compute loss."""
+        mean = preds[:, 0].view_as(target)
+        var = preds[:, 1].view_as(target)
+
+        mse = torch.nn.functional.mse_loss(mean, target, reduction="none")
+        mean_portion = mse / (2 * var)
+        var_portion = 0.5 * torch.log(var)
+        loss = mean_portion + var_portion
+        return loss.mean()
 
 
 class QuantileLoss(nn.Module):
@@ -214,8 +235,6 @@ class QuantileLoss(nn.Module):
 
 
 class HuberQLoss(nn.Module):
-    """Huber Quantile Loss function."""
-
     def __init__(self, quantiles: list[float], delta: float = 1.0) -> None:
         """Initialize a new instance of Huberized Quantile Loss."""
         super().__init__()
@@ -249,14 +268,11 @@ class HuberQLoss(nn.Module):
 class DERLoss(nn.Module):
     """Deep Evidential Regression Loss.
 
-    Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/main/models.py#L61>`_. # noqa: E501
+    Taken from: https://github.com/pasteurlabs/unreasonable_effective_der/blob/
+    4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L46
 
-    This implements the loss corresponding to equation 12
-    from the `paper <https://arxiv.org/abs/2205.10060>`_.
+    This implements the loss corresponding to equation ...
 
-    If you use this model in your work, please cite:
-
-    * https://arxiv.org/abs/2205.10060
     """
 
     def __init__(self, coeff: float = 0.01) -> None:
@@ -268,19 +284,26 @@ class DERLoss(nn.Module):
         super().__init__()
         self.coeff = coeff
 
-    def forward(self, logits: Tensor, y_true: Tensor):
+    def forward(self, y_pred: Tensor, y_true: Tensor):
         """DER Loss.
 
         Args:
-          logits: predicted tensor from model [batch_size x 4]
+          y_pred: predicted tensor from model [batch_size x 4]
           y_true: true regression target of shape [batch_size x 1]
 
         Returns:
           DER loss
         """
         y_true = y_true.squeeze(-1)
-        gamma, nu, _, beta = logits[:, 0], logits[:, 1], logits[:, 2], logits[:, 3]
+        gamma, nu, alpha, beta = y_pred[:, 0], y_pred[:, 1], y_pred[:, 2], y_pred[:, 3]
         error = gamma - y_true
-        var = beta / nu
+        omega = 2.0 * beta * (1.0 + nu)
 
-        return torch.mean(torch.log(var) + (1.0 + self.coeff * nu) * error**2 / var)
+        return torch.mean(
+            0.5 * torch.log(math.pi / nu)
+            - alpha * torch.log(omega)
+            + (alpha + 0.5) * torch.log(error**2 * nu + omega)
+            + torch.lgamma(alpha)
+            - torch.lgamma(alpha + 0.5)
+            + self.coeff * torch.abs(error) * (2.0 * nu + alpha)
+        )

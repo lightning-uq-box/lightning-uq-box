@@ -1,6 +1,3 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Datamodule for Toy Sinusoidal example."""
 
 from typing import Union
@@ -8,8 +5,6 @@ from typing import Union
 import torch
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader, TensorDataset
-
-from .utils import collate_fn_tensordataset
 
 
 class ToySineDatamodule(LightningDataModule):
@@ -32,9 +27,6 @@ class ToySineDatamodule(LightningDataModule):
                 half of the input interval
             sigma_noise_2: injected sigma noise around the right
                 half of the input interval
-            x_min: minimum value of the input interval
-            x_max: maximum value of the input interval
-            batch_size: batch size for dataloaders
         """
         super().__init__()
 
@@ -73,24 +65,18 @@ class ToySineDatamodule(LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         """Return train dataloader."""
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train),
-            batch_size=self.batch_size,
-            collate_fn=collate_fn_tensordataset,
+            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size
         )
 
     def val_dataloader(self) -> DataLoader:
         """Return val dataloader."""
         # TODO Validation data
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train),
-            batch_size=self.batch_size,
-            collate_fn=collate_fn_tensordataset,
+            TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size
         )
 
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""
         return DataLoader(
-            TensorDataset(self.X_test, self.y_test),
-            batch_size=self.batch_size,
-            collate_fn=collate_fn_tensordataset,
+            TensorDataset(self.X_test, self.y_test), batch_size=self.batch_size
         )

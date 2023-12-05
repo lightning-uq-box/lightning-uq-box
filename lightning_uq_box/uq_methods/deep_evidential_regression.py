@@ -1,9 +1,6 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Deep Evidential Regression."""
 
-import os
+from typing import Any
 
 import numpy as np
 import torch
@@ -13,17 +10,14 @@ from torch import Tensor
 
 from .base import DeterministicModel
 from .loss_functions import DERLoss
-from .utils import (
-    _get_num_outputs,
-    default_regression_metrics,
-    save_regression_predictions,
-)
+from .utils import _get_num_outputs, default_regression_metrics
 
 
 class DERLayer(nn.Module):
     """Deep Evidential Regression Layer.
 
-    Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/main/models.py#L34>`_. # noqa: E501
+
+    Taken from `here <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_.
     """
 
     def __init__(self):
@@ -54,17 +48,12 @@ class DERLayer(nn.Module):
 class DER(DeterministicModel):
     """Deep Evidential Regression Model.
 
-    Following the suggested implementation of
-    the `Unreasonable Effectiveness of Deep Evidential Regression
-    <https://github.com/pasteurlabs/unreasonable_effective_der/
-    blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22>`_
+    Following the suggested implementation of `Unreasonable Effectiveness of Deep Evidential Regression <https://github.com/pasteurlabs/unreasonable_effective_der/blob/4631afcde895bdc7d0927b2682224f9a8a181b2c/models.py#L22`_.
 
     If you use this model in your work, please cite:
 
     * https://arxiv.org/abs/2205.10060
     """
-
-    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -97,7 +86,7 @@ class DER(DeterministicModel):
         self.loss_fn = DERLoss(coeff)
 
     def setup_task(self) -> None:
-        """Set up task specific attributes."""
+        """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -136,8 +125,8 @@ class DER(DeterministicModel):
             "out": pred,
         }
 
-    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
-        """Adapt model output to be compatible for metric computation.
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract the mean output from 4D model prediction.
 
         Args:
             out: output from :meth:`self.forward` [batch_size x 4]
@@ -176,17 +165,3 @@ class DER(DeterministicModel):
             Epistemic Uncertainty
         """
         return np.reciprocal(np.sqrt(nu))
-
-    def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Test batch end save predictions.
-
-        Args:
-            outputs: dictionary of model outputs and aux variables
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        save_regression_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
-        )

@@ -11,8 +11,6 @@ model:
       class_path: torch.optim.SGD
       init_args:
         lr: 0.003
-    lr_scheduler:
-      class_path: torch.optim.lr_scheduler.ConstantLR
     criterion:
       class_path: torch.nn.CrossEntropyLoss
     num_training_points: 200

@@ -1,11 +1,9 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Implement a Deep Ensemble Model for prediction."""
 
 import os
 from typing import Any, Union
 
+import numpy as np
 import torch
 from lightning import LightningModule
 from torch import Tensor
@@ -14,11 +12,9 @@ from .base import BaseModule
 from .utils import (
     default_classification_metrics,
     default_regression_metrics,
-    default_segmentation_metrics,
     process_classification_prediction,
     process_regression_prediction,
-    process_segmentation_prediction,
-    save_regression_predictions,
+    save_predictions_to_csv,
 )
 
 
@@ -27,7 +23,7 @@ class DeepEnsemble(BaseModule):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
     """
 
     def __init__(
@@ -53,7 +49,7 @@ class DeepEnsemble(BaseModule):
         self.setup_task()
 
     def setup_task(self) -> None:
-        """Set up task."""
+        """Setup the task."""
         pass
 
     def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
@@ -91,8 +87,7 @@ class DeepEnsemble(BaseModule):
         out_dict = self.predict_step(batch[self.input_key])
         out_dict["targets"] = batch[self.target_key].detach().squeeze(-1).cpu().numpy()
 
-        # self.log("test_loss", self.loss_fn(out_dict["pred"],
-        # batch[self.target_key].squeeze(-1)))
+        # self.log("test_loss", self.loss_fn(out_dict["pred"], batch[self.target_key].squeeze(-1)))  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key])
 
@@ -119,18 +114,31 @@ class DeepEnsemble(BaseModule):
 
 
 class DeepEnsembleRegression(DeepEnsemble):
-    """Deep Ensemble Model for regression.
+    """Deep Ensemble Model for regression."""
 
-    If you use this model in your work, please cite:
-
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
-
-    pred_file_name = "preds.csv"
+    def __init__(
+        self,
+        n_ensemble_members: int,
+        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
+    ) -> None:
+        super().__init__(n_ensemble_members, ensemble_members)
 
     def setup_task(self) -> None:
-        """Set up task for regression."""
+        """Setup the task for regression."""
         self.test_metrics = default_regression_metrics("test")
+
+    # def on_test_batch_end(
+    #     self,
+    #     outputs: dict[str, np.ndarray],
+    #     batch: Any,
+    #     batch_idx: int,
+    #     dataloader_idx=0,
+    # ):
+    #     """Test batch end save predictions."""
+    #     if self.hparams.save_dir:
+    #         save_predictions_to_csv(
+    #             outputs, os.path.join(self.hparams.save_dir, self.pred_file_name)
+    #         )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -148,31 +156,11 @@ class DeepEnsembleRegression(DeepEnsemble):
 
         return process_regression_prediction(preds)
 
-    def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Test batch end save predictions.
-
-        Args:
-            outputs: dictionary of model outputs and aux variables
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        save_regression_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
-        )
-
 
 class DeepEnsembleClassification(DeepEnsemble):
-    """Deep Ensemble Model for classification.
-
-    If you use this model in your work, please cite:
-
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
+    """Deep Ensemble Model for classification."""
 
     valid_tasks = ["multiclass", "binary", "multilabel"]
-    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -181,22 +169,13 @@ class DeepEnsembleClassification(DeepEnsemble):
         num_classes: int,
         task: str = "multiclass",
     ) -> None:
-        """Initialize a new instance of DeepEnsemble for Classification.
-
-        Args:
-            n_ensemble_members: number of ensemble members
-            ensemble_members: List of dicts where each element specifies the
-                LightningModule class and a path to a checkpoint
-            num_classes: number of classes
-            task: classification task, one of "multiclass", "binary" or "multilabel"
-        """
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = num_classes
         super().__init__(n_ensemble_members, ensemble_members)
 
     def setup_task(self) -> None:
-        """Set up task for classification."""
+        """Setup the task for regression."""
         self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
         )
@@ -216,34 +195,3 @@ class DeepEnsembleClassification(DeepEnsemble):
             preds = self.generate_ensemble_predictions(X)
 
         return process_classification_prediction(preds)
-
-
-class DeepEnsembleSegmentation(DeepEnsembleClassification):
-    """Deep Ensemble Model for segmentation.
-
-    If you use this model in your work, please cite:
-
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
-
-    def setup_task(self) -> None:
-        """Set up task for segmentation."""
-        self.test_metrics = default_segmentation_metrics(
-            "test", self.task, self.num_classes
-        )
-
-    def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Any:
-        """Compute prediction step for a deep ensemble.
-
-        Args:
-            X: input tensor of shape [batch_size, input_di]
-
-        Returns:
-            mean and standard deviation of MC predictions
-        """
-        with torch.no_grad():
-            preds = self.generate_ensemble_predictions(X)
-
-        return process_segmentation_prediction(preds)

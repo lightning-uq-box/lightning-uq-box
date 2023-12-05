@@ -1,19 +1,16 @@
-# Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
-
 """Deterministic Model that predicts parameters of Gaussian."""
-
-import os
 
 import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 
 from .base import DeterministicModel
 from .loss_functions import NLL
-from .utils import default_regression_metrics, save_regression_predictions
+from .utils import default_regression_metrics
 
 
 class MVEBase(DeterministicModel):
@@ -44,7 +41,7 @@ class MVEBase(DeterministicModel):
         self.loss_fn = NLL()
 
     def setup_task(self) -> None:
-        """Set up task specific attributes."""
+        """Setup task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
@@ -64,13 +61,13 @@ class MVEBase(DeterministicModel):
 
         if self.current_epoch < self.hparams.burnin_epochs:
             loss = nn.functional.mse_loss(
-                self.adapt_output_for_metrics(out), batch[self.target_key]
+                self.extract_mean_output(out), batch[self.target_key]
             )
         else:
             loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
+        self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
 
         return loss
 
@@ -82,8 +79,6 @@ class MVERegression(MVEBase):
 
     * https://ieeexplore.ieee.org/document/374138
     """
-
-    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -106,20 +101,18 @@ class MVERegression(MVEBase):
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )
 
-    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
-        """Adapt model output to be compatible for metric computation."""
+    def extract_mean_output(self, out: Tensor) -> Tensor:
+        """Extract mean output from model."""
         assert out.shape[-1] <= 2, "Gaussian output."
         return out[:, 0:1]
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
+    ) -> dict[str, np.ndarray]:
         """Prediction step.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
-            batch_idx: batch index
-            dataloader_idx: dataloader index
         """
         with torch.no_grad():
             preds = self.model(X)
@@ -129,17 +122,3 @@ class MVERegression(MVEBase):
         std = torch.sqrt(eps + np.exp(log_sigma_2))
 
         return {"pred": mean, "pred_uct": std, "aleatoric_uct": std, "out": preds}
-
-    def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Test batch end save predictions.
-
-        Args:
-            outputs: dictionary of model outputs and aux variables
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        save_regression_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
-        )
