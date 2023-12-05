@@ -21,7 +21,6 @@ model:
       x_dim: 2 # encoder output dim * 2
       y_dim: 2
       n_hidden: [20, 20]
-      n_outputs: 2
       cat_x: false
       cat_y_pred: false
   guidance_optim:

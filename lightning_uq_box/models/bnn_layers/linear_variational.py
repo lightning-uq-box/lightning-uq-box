@@ -65,7 +65,7 @@ class LinearVariational(BaseVariationalLayer_):
     ):
         """Initialize a new instance of LinearVariational layer.
 
-        Parameters:
+        Args:
             in_features: size of each input sample,
             out_features: size of each output sample,
             prior_mu: mean of the prior arbitrary

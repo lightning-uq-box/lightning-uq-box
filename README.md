@@ -67,6 +67,13 @@ The following sections aims to give an overview of different UQ-Methods by group
 | SWAG                 |          ✅           |           ✅              |           ✅              |            ⏳            |
 | Deep Ensemble        |          ✅           |           ✅              |           ✅              |            ⏳            |
 
+### Generative Models
+
+| UQ-Method            | Regression            | Classification            | Segmentation              | Pixel Wise Regression      |
+|----------------------|:---------------------:|:-------------------------:|:-------------------------:|:--------------------------:|
+| CARD                 |          ✅           |           ✅              |           ❌              |            ❌            |
+
+
 ### Post-Hoc Calibration methods
 
 | UQ-Method            | Regression            | Classification            | Segmentation              | Pixel Wise Regression      |

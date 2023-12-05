@@ -1,5 +1,7 @@
-"""CARD Regression Diffusion Model.
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
 
+"""CARD Regression Diffusion Model.
 
 Based on official PyTorch implementation from https://github.com/XzwHan/CARD # noqa: E501
 """
@@ -436,7 +438,6 @@ class CARDBase(BaseModule):
     ) -> Tensor:
         """Q sampling process.
 
-
         This is the process of approximating the posterior distribution of the
         latent variables given the observed data. It starts from the initial
         time step and goes forward to the final time step. At each time step,
@@ -446,11 +447,13 @@ class CARDBase(BaseModule):
         Args:
             y: sampled y at time step t, y_t.
             y_0_hat: prediction of pre-trained guidance model.
-            alphas_bar_sqrt:
-            one_minus_alphas_bar_sqrt:
-            t:
+            alphas_bar_sqrt: noise schedule alpha bar
+            one_minus_alphas_bar_sqrt: noise schedule one minus alpha bar
+            t: time step
             noise: optional noise tensor
 
+        Returns:
+            q sample at time step t
         """
         if y.dim() == 1:
             y = y.unsqueeze(-1)
@@ -471,7 +474,7 @@ class CARDBase(BaseModule):
         return y_t
 
     def extract(self, input: Tensor, t: int, x: Tensor) -> Tensor:
-        """Extract noise level at time step t from schedule
+        """Extract noise level at time step t from schedule.
 
         Args:
             input: noise input
@@ -558,9 +561,12 @@ class CARDRegression(CARDBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
 
+        Returns:
+            prediction dictionary with uncertainty estimates and samples
         """
-
         final_recoverd, y_tile_seq = super().predict_step(X, batch_idx, dataloader_idx)
 
         # momenet matching
@@ -611,6 +617,21 @@ class CARDClassification(CARDBase):
         guidance_optim: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
+        """Initialize a new instance of the CARD Classification.
+
+        Args:
+            cond_mean_model: conditional mean model, should be
+                pretrained model that estimates $E[y|x]$
+            guidance_model: guidance diffusion model
+            n_steps: number of diffusion steps
+            beta_schedule: what type of noise scheduling to conduct
+            beta_start: start value of beta scheduling
+            beta_end: end value of beta scheduling
+            n_z_samples: number of samples during prediction
+            task: classification task, either `binary` or `multiclass`
+            guidance_optim: optimizer for the guidance model
+            lr_scheduler: learning rate scheduler
+        """
         assert task in self.valid_tasks
         self.task = task
 
@@ -659,7 +680,6 @@ class CARDClassification(CARDBase):
         Returns:
             predictions
         """
-
         final_recoverd, y_tile_seq = super().predict_step(X, batch_idx, dataloader_idx)
         # change from [num_samples, ...] to shape [batch_size, num_classes, num_samples]
         final_recoverd = final_recoverd.permute(1, 2, 0).cpu()
@@ -694,7 +714,7 @@ class NoiseScheduler:
         """Initialize a new instance of the noise scheduler.
 
         Args:
-            schedule:
+            schedule: type of noise schedule
             n_steps: number of diffusion time steps
             beta_start: beta noise start value
             beta_end: beta noise end value
