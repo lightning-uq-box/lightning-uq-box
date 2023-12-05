@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 
 class ToyDonut(Dataset):
     """Toy Donut for Regression."""
-    def __init__(self, inner_radius: float = 0.8, outer_radius: float = 1.0, n_samples: int = 1000, noise=0.1):
+    def __init__(self, inner_radius: float = 8.0, outer_radius: float = 10.0, n_samples: int = 1000, noise=0.1):
         """Initialize a new instance of the dataset.
 
         Args:
@@ -30,7 +30,9 @@ class ToyDonut(Dataset):
 
         # Generate the x and y values
         self.X = (self.radii + self.noise * torch.randn(n_samples)).float() * torch.cos(self.theta)
+        self.X = self.X.unsqueeze(-1)
         self.y = (self.radii + self.noise * torch.randn(n_samples)).float() * torch.sin(self.theta)
+        self.y = self.y.unsqueeze(-1)
 
     def __len__(self) -> int:
         """Return the length of the dataset."""
@@ -46,8 +48,8 @@ class ToyDonut(Dataset):
             A dictionary containing the input and target values.
         """
         return {
-            "input": torch.atleast_1d(self.X[idx]),
-            "target": torch.atleast_1d(self.y[idx]),
+            "input": self.X[idx],
+            "target": self.y[idx],
         }
     
     

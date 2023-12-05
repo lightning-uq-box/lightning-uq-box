@@ -12,7 +12,7 @@ from torch.utils.data import Dataset
 
 class Toy8GaussiansDataset(Dataset):
     """8 Gaussians Toy Dataset."""
-    def __init__(self, n_samples: int = 1000, split='train', std_dev: float = 0.2, seed: int = 0):
+    def __init__(self, n_samples: int = 1000, radius: float = 3.0, std_dev: float = 0.1, seed: int = 0):
         """Initialize a new instance of the dataset.
 
         Args:
@@ -22,18 +22,18 @@ class Toy8GaussiansDataset(Dataset):
         """
         self.seed = seed
         self.n_samples = n_samples
-        self.split = split
+        self.radius = radius
         self.points_per_gaussian = int(n_samples / 8)
         self.std_dev = std_dev
         self.data = self._generate_data()
 
     def __len__(self):
         """Get the length of the dataset."""
-        return self.n_samples
+        return self.X.shape[0]
 
     def __getitem__(self, idx) -> dict[str, Tensor]:
         """Get a single sample from the dataset."""
-        return {"input": torch.atleast_1d(self.data[idx][0]), "target": torch.atleast_1d(self.data[idx][1])}
+        return {"input": self.X[idx], "target": self.y[idx]}
 
     def _generate_data(self) -> list[Tensor]:
         """Generate the dataset.
@@ -42,7 +42,6 @@ class Toy8GaussiansDataset(Dataset):
             The generated dataset.
         """
         np.random.seed(self.seed)
-        scale = 2.
         centers = [
             (1,0),
             (-1,0),
@@ -53,7 +52,7 @@ class Toy8GaussiansDataset(Dataset):
             (-1./np.sqrt(2), 1./np.sqrt(2)),
             (-1./np.sqrt(2), -1./np.sqrt(2))
         ]
-        centers = [(scale*x,scale*y) for x,y in centers]
+        centers = [(self.radius*x,self.radius*y) for x,y in centers]
         dataset = []
         for _ in range(self.points_per_gaussian):
             for i in range(8):
@@ -71,8 +70,8 @@ class Toy8GaussiansDataset(Dataset):
         dataset = scaler.fit_transform(dataset)
 
         # Convert the 2D numpy array back to a list of tensors
-        self.X = torch.tensor([point[0] for point in dataset], dtype=torch.float32)
-        self.y = torch.tensor([point[1] for point in dataset], dtype=torch.float32)
+        self.X = torch.tensor([point[0] for point in dataset], dtype=torch.float32).unsqueeze(-1)
+        self.y = torch.tensor([point[1] for point in dataset], dtype=torch.float32).unsqueeze(-1)
 
         # Convert the 2D numpy array back to a list of tensors
         return [torch.tensor(point, dtype=torch.float32) for point in dataset]

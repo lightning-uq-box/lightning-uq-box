@@ -8,7 +8,7 @@ from lightning_uq_box.datasets import ToyDonut
 class ToyDonutDataModule(LightningDataModule):
     """DataModule for Toy Donut."""
 
-    def __init__(self, batch_size: int = 64):
+    def __init__(self, batch_size: int = 64, n_samples: int = 10000):
         """Initialize the DataModule.
 
         Args:
@@ -17,11 +17,11 @@ class ToyDonutDataModule(LightningDataModule):
         super().__init__()
         self.batch_size = batch_size
 
-        self.train_dataset = ToyDonut(n_samples=2000)
+        self.train_dataset = ToyDonut(n_samples=n_samples)
         self.X_train, self.y_train = self.train_dataset.X, self.train_dataset.y
-        self.val_dataset = ToyDonut(n_samples=200)
+        self.val_dataset = ToyDonut(n_samples=int(n_samples*0.2))
         self.X_val, self.y_val = self.val_dataset.X, self.val_dataset.y
-        self.test_dataset = ToyDonut(n_samples=800)
+        self.test_dataset = ToyDonut(n_samples=int(n_samples*0.4))
         self.X_test, self.y_test = self.test_dataset.X, self.test_dataset.y
 
     def train_dataloader(self):

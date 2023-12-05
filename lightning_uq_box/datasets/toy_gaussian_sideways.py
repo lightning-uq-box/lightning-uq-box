@@ -32,7 +32,7 @@ class ToyGaussianSideWays(Dataset):
 
     def __getitem__(self, idx):
         """Get a single sample from the dataset."""
-        return {"input": torch.atleast_1d(self.X[idx]), "target": torch.atleast_1d(self.y[idx])}
+        return {"input": self.X[idx], "target": self.y[idx]}
 
     def _generate_data(self):
         """Generate the dataset.
@@ -57,6 +57,6 @@ class ToyGaussianSideWays(Dataset):
 
         # Convert to tensors
         X = torch.from_numpy(X).float()
-        y = torch.from_numpy(angles).float()
+        y = torch.from_numpy(angles).float().unsqueeze(-1)
 
         return X, y

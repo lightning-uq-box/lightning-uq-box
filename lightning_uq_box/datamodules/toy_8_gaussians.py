@@ -10,7 +10,7 @@ from lightning_uq_box.datasets import Toy8GaussiansDataset
 class Toy8GaussiansDataModule(LightningDataModule):
     """DataModule for Toy8GaussiansDataset."""
 
-    def __init__(self, batch_size: int = 64):
+    def __init__(self, batch_size: int = 64, n_samples: int = 10000):
         """Initialize the DataModule.
 
         Args:
@@ -18,12 +18,12 @@ class Toy8GaussiansDataModule(LightningDataModule):
         """
         super().__init__()
         self.batch_size = batch_size
-
-        self.train_dataset = Toy8GaussiansDataset(n_samples=1000, split='train')
+        self.n_samples = n_samples
+        self.train_dataset = Toy8GaussiansDataset(n_samples=n_samples)
         self.X_train, self.y_train = self.train_dataset.X, self.train_dataset.y
-        self.val_dataset = Toy8GaussiansDataset(n_samples=200, split='val')
+        self.val_dataset = Toy8GaussiansDataset(n_samples=int(0.2*n_samples))
         self.X_val, self.y_val = self.val_dataset.X, self.val_dataset.y
-        self.test_dataset = Toy8GaussiansDataset(n_samples=400, split='test')
+        self.test_dataset = Toy8GaussiansDataset(n_samples=int(0.4*n_samples))
         self.X_test, self.y_test = self.test_dataset.X, self.test_dataset.y
 
     def train_dataloader(self):
