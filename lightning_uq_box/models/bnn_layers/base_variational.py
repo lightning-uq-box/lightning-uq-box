@@ -247,6 +247,13 @@ class BaseConvLayer_(BaseVariationalLayer_):
         """Initialize a new instance of BaseConvLayer.
 
         Args:
+            in_channels: number of channels in the input image
+            out_channels: number of channels produced by the convolution
+            kernel_size: size of the convolving kernel
+            stride: stride of the convolution
+            padding: padding added
+            dilation: spacing between kernel elements
+            groups: controls connections between inputs and outputs
             prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
             prior_sigma: variance of the prior arbitrary

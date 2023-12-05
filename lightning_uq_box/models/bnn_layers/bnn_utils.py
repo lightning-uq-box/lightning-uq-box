@@ -99,14 +99,8 @@ def convert_deterministic_to_bnn(
     """Replace linear and conv. layers with stochastic layers.
 
     Args:
-        m: nn.module
-        bnn_prior_parameter: dictionary,
-            prior_mu: prior mean value for bayesian layer
-            prior_sigma: prior variance value for bayesian layer
-            posterior_mu_init: mean initialization value for approximate posterior
-            posterior_rho_init: variance initialization value for approximate posterior
-                through softplus σ = log(1 + exp(ρ))
-            bayesian_layer_type: `flipout` or `reparameterization
+        deterministic_model: nn.module
+        bnn_prior_parameters: dictionary of bnn layer parameters
         stochastic_module_names: list of module names that should become stochastic
     """
     for name in stochastic_module_names:

@@ -60,7 +60,7 @@ class LSTMVariational(BaseVariationalLayer_):
     ):
         """Initialize a new instance of LSTM Variational Layer.
 
-        Parameters:
+        Args:
             prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
             prior_sigma: variance of the prior
@@ -72,7 +72,7 @@ class LSTMVariational(BaseVariationalLayer_):
             in_features: size of each input sample,
             out_features: size of each output sample,
             bias: if set to False, the layer will not learn an additive bias.
-            type: reparameterization trick with
+            layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
         super().__init__(
@@ -129,8 +129,6 @@ class LSTMVariational(BaseVariationalLayer_):
     def log_f_hat(self):
         """Compute log_f_hat for energy functional.
 
-        Args:
-            self.
         Returns:
             log_f_hat.
         """
@@ -141,8 +139,6 @@ class LSTMVariational(BaseVariationalLayer_):
     def log_normalizer(self):
         """Compute log terms for energy functional.
 
-        Args:
-            self.
         Returns:
             log_normalizer.
         """
@@ -151,11 +147,12 @@ class LSTMVariational(BaseVariationalLayer_):
 
         return log_normalizer_ih + log_normalizer_hh
 
-    def forward(self, X, hidden_states=None):
+    def forward(self, X: Tensor, hidden_states=None):
         """Forward pass through layer.
 
-        Args: self: layer.
+        Args:
             x: input.
+
         Returns:
             outputs of layer.
         """

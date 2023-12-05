@@ -24,7 +24,7 @@ class ConditionalLinear(nn.Module):
             n_steps: number of diffusion steps in embedding
 
         """
-        super(ConditionalLinear, self).__init__()
+        super().__init__()
         self.n_outputs = n_outputs
         self.lin = nn.Linear(n_inputs, n_outputs)
         self.embed = nn.Embedding(n_steps, n_outputs)
@@ -161,7 +161,7 @@ class ConditionalGuidedConvModel(nn.Module):
             Assertionerror for misconfigurations between encoder
                 and cond_guide_model
         """
-        super(ConditionalGuidedConvModel, self).__init__()
+        super().__init__()
 
         # TODO assertion checks between the configs of the encoder and cond guidance
         # model
