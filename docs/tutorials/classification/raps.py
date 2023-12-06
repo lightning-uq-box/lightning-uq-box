@@ -25,8 +25,6 @@ import pandas as pd
 plt.rcParams["figure.figsize"] = [14, 5]
 
 
-torch.set_float32_matmul_precision("medium")
-
 
 def compute_empirical_coverage(S: list[Sequence[int]], y: list[int]) -> float:
     """Compute the empirical coverage of the predictions.
@@ -38,8 +36,6 @@ def compute_empirical_coverage(S: list[Sequence[int]], y: list[int]) -> float:
     coverage = np.mean([y[i].item() in S[i] for i in range(len(y))])
     return coverage
 
-
-seed_everything(0)
 my_temp_dir = "."
 
 from torch.utils.data import DataLoader, random_split
@@ -83,8 +79,8 @@ cal_size = len(dataset) - val_size
 val_dataset, cal_dataset = random_split(dataset, [val_size, cal_size])
 
 # Create the DataLoaders
-batch_size = 256
-num_workers = 12
+batch_size = 512
+num_workers = 24
 val_dataloader = DataLoader(
     val_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False
 )
@@ -106,16 +102,6 @@ their_val_loader = DataLoader(
     shuffle=False,
     collate_fn=collate_fn,
 )
-
-# ## Model
-# Specify the device
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-# timm_model = timm.create_model('resnet18', pretrained=True)
-# timm_model = timm_model.to(device)
-import torchvision
-
-timm_model = torchvision.models.resnet18(pretrained=True, progress=True).cuda()
 
 
 # THE ORIGINAL RAPS IMPLEMENTATION
@@ -165,8 +151,8 @@ def fit_my_raps(orig_model: torch.nn.Module):
     raps = raps.to(device)
     top1 = AverageMeter("top1")
     top5 = AverageMeter("top5")
-    coverage = AverageMeter("RAPS coverage")
-    size = AverageMeter("RAPS size")
+    coverage = AverageMeter("coverage")
+    size = AverageMeter("size")
     # evaluate on full validation set
     for batch in tqdm(val_dataloader):
         image = batch["image"].to(device)
@@ -195,27 +181,67 @@ def fit_my_raps(orig_model: torch.nn.Module):
         "temperature": raps.temperature.detach().item(),
     }
 
+def run_seed(seed, device):
+    print(f"RUNNING SEED {seed} ON {device}")
+    seed_everything(seed)
+    result_dict = {}
+    model_names = ["ResNet18", "ResNet50", "ResNet101", "ResNet152"]
+
+    torch.set_float32_matmul_precision("medium")
+
+    for name in model_names:
+        print("now running model",name)
+        result_dict[name] = {}
+        model = get_model(name)
+
+        # set device
+        device = torch.device(device)
+        model = model.to(device)
+
+        conformal_model, orig_metrics = fit_original_raps(model)
+        print(orig_metrics)
+        raps, metrics = fit_my_raps(conformal_model)
+        result_dict[name]["orig"] = orig_metrics
+        result_dict[name]["my"] = metrics
+
+    df = pd.DataFrame(result_dict)
+    df = df.stack()
+    df = df.apply(pd.Series)
+    df = df.swaplevel(0, 1).sort_index()
+    df.reset_index(inplace=True)
+    df.rename(columns={"level_0": "model", "level_1": "version"}, inplace=True)
+    df.to_csv(os.path.join("results", f"imagenet_results_{seed}.csv"), index=False)
+
+# if __name__ == "__main__":
+#     # ...
+
+#     num_seeds = 10
+#     devices = ["cuda:0", "cuda:1", "cuda:2", "cuda:3", "cuda:4"]
+
+#     processes = []
+#     for i in tqdm(range(num_seeds), desc="Running seeds"):
+#         device = devices[i % len(devices)]
+#         p = mp.Process(target=run_seed, args=(i, device))
+#         import pdb
+#         pdb.set_trace()
+#         p.start()
+#         processes.append(p)
+
+#     for p in processes:
+#         p.join()
 
 if __name__ == "__main__":
+
+    # ## Model
+    # Specify the device
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    # timm_model = timm.create_model('resnet18', pretrained=True)
+    # timm_model = timm_model.to(device)
+    import torchvision
+
+    timm_model = torchvision.models.resnet18(pretrained=True, progress=True).cuda()
     num_seeds = 10
     for i in tqdm(range(num_seeds)):
-        print(f"RUNING SEED {i}")
-        seed_everything(i)
-        result_dict = {}
-        model_names = ["ResNet18", "ResNet50", "ResNet101", "ResNet152"]
-
-        for name in model_names:
-            result_dict[name] = {}
-            model = get_model(name)
-
-            conformal_model, orig_metrics = fit_original_raps(model)
-
-            raps, metrics = fit_my_raps(conformal_model)
-            result_dict[name]["orig"] = orig_metrics
-            result_dict[name]["my"] = metrics
-
-        df = pd.DataFrame(result_dict)
-        df = df.stack()
-        df = df.apply(pd.Series)
-        df = df.swaplevel(0, 1).sort_index()
-        df.to_csv(os.path.join("results", f"imagenet_results_{i}.csv"), index=False)
+        run_seed(i, device)
