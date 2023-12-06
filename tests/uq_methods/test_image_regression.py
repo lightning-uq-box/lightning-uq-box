@@ -4,6 +4,7 @@
 """Test Image Regression Tasks."""
 
 import glob
+import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -29,6 +30,8 @@ model_config_paths = [
     "tests/configs/image_regression/sgld_mse.yaml",
     "tests/configs/image_regression/dkl.yaml",
     "tests/configs/image_regression/due.yaml",
+    "tests/configs/image_regression/laplace.yaml",
+    "tests/configs/image_regression/cards.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_regression/toy_image_regression.yaml"]
@@ -53,8 +56,17 @@ class TestImageRegressionTask:
         trainer = Trainer(
             max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
         )
-        trainer.fit(model, datamodule)
-        trainer.test(ckpt_path="best", datamodule=datamodule)
+        # laplace only uses test
+        if "laplace" not in model_config_path:
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
+        else:
+            trainer.test(model, datamodule=datamodule)
+
+        # check that predictions are saved
+        assert os.path.exists(
+            os.path.join(trainer.default_root_dir, model.pred_file_name)
+        )
 
 
 ensemble_model_config_paths = [
@@ -96,11 +108,18 @@ class TestDeepEnsemble:
 
         return ckpt_paths
 
-    def test_deep_ensemble(self, ensemble_members_dict: Dict[str, Any]) -> None:
+    def test_deep_ensemble(
+        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+    ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(
             len(ensemble_members_dict), ensemble_members_dict
         )
         datamodule = ToyImageRegressionDatamodule()
-        trainer = Trainer()
+        trainer = Trainer(default_root_dir=str(tmp_path))
         trainer.test(ensemble_model, datamodule=datamodule)
+
+        # check that predictions are saved
+        assert os.path.exists(
+            os.path.join(trainer.default_root_dir, ensemble_model.pred_file_name)
+        )

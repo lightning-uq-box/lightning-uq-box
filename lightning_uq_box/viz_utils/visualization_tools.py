@@ -14,6 +14,7 @@ def plot_training_metrics(save_dir: str, metric: str) -> plt.figure:
 
     Args:
         save_dir: path to save directory of CSVLogger
+        metric: metric to plot
     """
     latest_version = sorted(os.listdir(save_dir))[-1]
     metrics_path = os.path.join(save_dir, latest_version, "metrics.csv")
@@ -55,8 +56,7 @@ def plot_toy_regression_data(
 def plot_two_moons_data(
     X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray
 ) -> None:
-    """
-    Plot the two moons dataset.
+    """Plot the two moons dataset.
 
     Args:
         X_train: Training data features.
@@ -86,15 +86,14 @@ def plot_predictions_classification(
     test_grid_points,
     pred_uct: np.ndarray = None,
 ) -> None:
-    """
-    Plot the classification results and the associated uncertainty.
+    """Plot the classification results and the associated uncertainty.
 
     Args:
-        X: The input features.
-        y: The true labels.
+        X_test: The input features.
+        y_test: The true labels.
         y_pred: The predicted labels.
-        pred_uct: The uncertainty of the predictions.
         test_grid_points: The grid of test points.
+        pred_uct: The uncertainty of the predictions.
     """
     if pred_uct is None:
         num_cols = 2
@@ -146,15 +145,18 @@ def plot_predictions_regression(
     """Plot predictive uncertainty as well as epistemic and aleatoric separately.
 
     Args:
-      X_train: training inputs
-      y_train: training targets
-      X_test: testing inputs
-      y_test: testing targets
-      y_pred: predicted targets
-      pred_std: predicted standard deviation
-      pred_quantiles: predicted quantiles
-      epistemic: epistemic uncertainy
-      aleatoric: aleatoric uncertainty
+        X_train: training inputs
+        y_train: training targets
+        X_test: testing inputs
+        y_test: testing targets
+        y_pred: predicted targets
+        pred_std: predicted standard deviation
+        pred_quantiles: predicted quantiles
+        epistemic: epistemic uncertainy
+        aleatoric: aleatoric uncertainty
+        samples: samples from posterior
+        title: title of plot
+        show_bands: show uncertainty bands
     """
     y_pred = y_pred.squeeze(-1)
     # fig, ax = plt.subplots(ncols=2)

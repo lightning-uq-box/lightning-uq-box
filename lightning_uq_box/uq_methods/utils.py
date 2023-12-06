@@ -7,7 +7,6 @@ import os
 from collections import OrderedDict, defaultdict
 from typing import Any, Optional, Union
 
-import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -15,6 +14,7 @@ from torch import Tensor
 from torchmetrics import (
     Accuracy,
     F1Score,
+    JaccardIndex,
     MeanAbsoluteError,
     MeanSquaredError,
     MetricCollection,
@@ -29,9 +29,11 @@ from lightning_uq_box.eval_utils import (
 )
 
 
-def compute_coverage_and_set_size(pred_set: list[Tensor], targets: Tensor) -> tuple[float, float]:
+def compute_coverage_and_set_size(
+    pred_set: list[Tensor], targets: Tensor
+) -> tuple[float, float]:
     """Compute the coverage and size of the predictions sets.
-    
+
     Args:
         pred_set: List of tensors of predicted labels for each sample in the batch
             with class labels
@@ -66,7 +68,17 @@ def default_classification_metrics(prefix: str, task: str, num_classes: int):
     return MetricCollection(
         {
             "Acc": Accuracy(task=task, num_classes=num_classes),
-            # "CalibErr": CalibrationError(task),
+            "F1Score": F1Score(task, num_classes=num_classes),
+        },
+        prefix=prefix,
+    )
+
+
+def default_segmentation_metrics(prefix: str, task: str, num_classes: int):
+    """Return a set of default segmentation metrics."""
+    return MetricCollection(
+        {
+            "Jaccard": JaccardIndex(task=task, num_classes=num_classes),
             "F1Score": F1Score(task, num_classes=num_classes),
         },
         prefix=prefix,
@@ -75,7 +87,7 @@ def default_classification_metrics(prefix: str, task: str, num_classes: int):
 
 def process_regression_prediction(
     preds: Tensor, quantiles: Optional[list[float]] = None
-) -> dict[str, np.ndarray]:
+) -> dict[str, Tensor]:
     """Process regression predictions that could be mse or nll predictions.
 
     Args:
@@ -123,7 +135,7 @@ def process_regression_prediction(
     return pred_dict
 
 
-def process_classification_prediction(preds: Tensor) -> dict[str, np.ndarray]:
+def process_classification_prediction(preds: Tensor) -> dict[str, Tensor]:
     """Process classification predictions.
 
     Applies softmax to logit and computes mean over the samples and entropy.
@@ -132,11 +144,31 @@ def process_classification_prediction(preds: Tensor) -> dict[str, np.ndarray]:
         preds: prediction logits tensor of shape [batch_size, num_classes, num_samples]
 
     Returns:
-        dictionary with mean and predictive uncertainty
+        dictionary with mean [batch_size, num_classes]
+            and predictive uncertainty [batch_size]
     """
     mean = nn.functional.softmax(preds.mean(-1), dim=-1)
     entropy = -(mean * mean.log()).sum(dim=-1)
 
+    return {"pred": mean, "pred_uct": entropy}
+
+
+def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
+    """Process segmentation predictions.
+
+    Applies softmax to logit and computes mean over the samples and entropy.
+
+    Args:
+        preds: prediction logits tensor of shape
+            [batch_size, num_classes, height, width, num_samples]
+
+    Returns:
+        dictionary with mean [batch_size, num_classes, height, width]
+            and predictive uncertainty [batch_size, height, width]
+    """
+    # dim=1 is the expected num classes dimension
+    mean = nn.functional.softmax(preds.mean(-1), dim=1)
+    entropy = -(mean * mean.log()).sum(dim=1)
     return {"pred": mean, "pred_uct": entropy}
 
 
@@ -157,8 +189,8 @@ def merge_list_of_dictionaries(list_of_dicts: list[dict[str, Any]]):
     return merged_dict
 
 
-def save_predictions_to_csv(outputs: dict[str, np.ndarray], path: str) -> None:
-    """Save model predictions to csv file.
+def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
+    """Save regression predictions to csv file.
 
     Args:
         outputs: metrics and values to be saved
@@ -222,7 +254,7 @@ def map_stochastic_modules(
 
 
 def _get_input_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]:
-    """Retrieve the input layer name and module from a timm model.
+    """Retrieve the input layer name and module from a pytorch model.
 
     Args:
         model: pytorch model
@@ -262,9 +294,16 @@ def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]
     return key, module
 
 
-def _get_num_inputs(module):
-    """Get the number of inputs for a module."""
-    _, module = _get_input_layer_name_and_module(module)
+def _get_num_inputs(model: nn.Module) -> int:
+    """Get the number of inputs for a module.
+
+    Args:
+        model: pytorch model
+
+    Returns:
+        number of inputs to the model
+    """
+    _, module = _get_input_layer_name_and_module(model)
     if hasattr(module, "in_features"):  # Linear Layer
         num_inputs = module.in_features
     elif hasattr(module, "in_channels"):  # Conv Layer
@@ -274,13 +313,23 @@ def _get_num_inputs(module):
     return num_inputs
 
 
-def _get_num_outputs(module: nn.Module) -> int:
-    """Get the number of outputs for a module."""
-    _, module = _get_output_layer_name_and_module(module)
+def _get_num_outputs(model: nn.Module) -> int:
+    """Get the number of outputs for a module.
+
+    Args:
+        model: pytorch model
+
+    Returns:
+        number of outputs from the model
+    """
+    _, module = _get_output_layer_name_and_module(model)
     if hasattr(module, "out_features"):  # Linear Layer
         num_outputs = module.out_features
     elif hasattr(module, "out_channels"):  # Conv Layer
         num_outputs = module.out_channels
+    elif "segmentation_models_pytorch" in str(type(model)):
+        _, seg_module = _get_input_layer_name_and_module(model.segmentation_head)
+        num_outputs = seg_module.out_channels
     else:
         raise ValueError(f"Module {module} does not have out_features or out_channels.")
     return num_outputs

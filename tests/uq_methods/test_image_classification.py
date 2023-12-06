@@ -23,6 +23,8 @@ model_config_paths = [
     "tests/configs/image_classification/sgld.yaml",
     "tests/configs/image_classification/dkl.yaml",
     "tests/configs/image_classification/due.yaml",
+    "tests/configs/image_classification/laplace.yaml",
+    "tests/configs/image_classification/card.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_classification/toy_classification.yaml"]
@@ -47,8 +49,12 @@ class TestImageClassificationTask:
         trainer = Trainer(
             max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
         )
-        trainer.fit(model, datamodule)
-        trainer.test(ckpt_path="best", datamodule=datamodule)
+        # laplace only uses test
+        if "laplace" not in model_config_path:
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
+        else:
+            trainer.test(model, datamodule=datamodule)
 
 
 posthoc_config_paths = [
@@ -110,7 +116,9 @@ class TestDeepEnsemble:
 
         return ckpt_paths
 
-    def test_deep_ensemble(self, ensemble_members_dict: Dict[str, Any]) -> None:
+    def test_deep_ensemble(
+        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+    ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(
             len(ensemble_members_dict), ensemble_members_dict, 2
@@ -118,6 +126,6 @@ class TestDeepEnsemble:
 
         datamodule = ToyImageClassificationDatamodule()
 
-        trainer = Trainer()
+        trainer = Trainer(default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)

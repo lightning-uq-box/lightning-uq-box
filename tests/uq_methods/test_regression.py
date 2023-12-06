@@ -4,6 +4,7 @@
 """Test Regression Tasks."""
 
 import glob
+import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -33,6 +34,7 @@ model_config_paths = [
     "tests/configs/regression/sgld_nll.yaml",
     "tests/configs/regression/dkl.yaml",
     "tests/configs/regression/due.yaml",
+    "tests/configs/regression/cards.yaml",
 ]
 
 data_config_paths = ["tests/configs/regression/toy_regression.yaml"]
@@ -60,8 +62,14 @@ class TestRegressionTask:
         ]
 
         cli = get_uq_box_cli(args)
-        cli.trainer.fit(cli.model, cli.datamodule)
+        if "laplace" not in model_config_path:
+            cli.trainer.fit(cli.model, cli.datamodule)
         cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
+
+        # assert predictions are saved
+        assert os.path.exists(
+            os.path.join(cli.trainer.default_root_dir, cli.model.pred_file_name)
+        )
 
 
 ensemble_model_config_paths = [
@@ -112,7 +120,9 @@ class TestDeepEnsemble:
 
         return ckpt_paths
 
-    def test_deep_ensemble(self, ensemble_members_dict: Dict[str, Any]) -> None:
+    def test_deep_ensemble(
+        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+    ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(
             len(ensemble_members_dict), ensemble_members_dict
@@ -120,6 +130,10 @@ class TestDeepEnsemble:
 
         datamodule = ToyHeteroscedasticDatamodule()
 
-        trainer = Trainer()
+        trainer = Trainer(default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
+
+        assert os.path.exists(
+            os.path.join(trainer.default_root_dir, ensemble_model.pred_file_name)
+        )

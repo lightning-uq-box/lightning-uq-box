@@ -4,10 +4,10 @@
 """Deep Kernel Learning."""
 
 
+import os
 from typing import Any, Dict
 
 import gpytorch
-import numpy as np
 import torch
 import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
@@ -32,6 +32,7 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    save_regression_predictions,
 )
 
 
@@ -91,6 +92,24 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.dkl_model_built = False
 
         self.setup_task()
+
+    @property
+    def num_input_features(self) -> int:
+        """Retrieve input dimension to the model.
+
+        Returns:
+            number of input dimension to the model
+        """
+        return _get_num_inputs(self.feature_extractor)
+
+    @property
+    def num_outputs(self) -> int:
+        """Retrieve output dimension to the model.
+
+        Returns:
+            number of output dimension from model
+        """
+        return self.gp_layer.n_outputs
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -199,24 +218,6 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    @property
-    def num_input_features(self) -> int:
-        """Retrieve input dimension to the model.
-
-        Returns:
-            number of input dimension to the model
-        """
-        return _get_num_inputs(self.feature_extractor)
-
-    @property
-    def num_outputs(self) -> int:
-        """Retrieve output dimension to the model.
-
-        Returns:
-            number of output dimension from model
-        """
-        return self.gp_layer.n_outputs
-
     def configure_optimizers(self) -> Dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
@@ -254,6 +255,8 @@ class DKLRegression(DKLBase):
     * https://proceedings.mlr.press/v51/wilson16.html
     * https://arxiv.org/abs/2102.11409
     """
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -312,9 +315,14 @@ class DKLRegression(DKLBase):
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
 
+        # put gpytorch modules on cuda
+        if self.device.type == "cuda":
+            self.gp_layer = self.gp_layer.cuda()
+            self.likelihood = self.likelihood.cuda()
+
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
@@ -336,6 +344,20 @@ class DKLRegression(DKLBase):
                 out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
         return out_dict
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""
         self.log_dict(self.test_metrics.compute())
@@ -343,7 +365,7 @@ class DKLRegression(DKLBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
@@ -439,8 +461,8 @@ class DKLClassification(DKLBase):
             "test", self.task, self.num_classes
         )
 
-    def _extract_mean_output(self, output: MultivariateNormal) -> Tensor:
-        """Extract the mean output from the GP."""
+    def _adapt_output_for_metrics(self, output: MultivariateNormal) -> Tensor:
+        """Adapt model output to be compatible for metric computation.."""
         return output.mean
 
     def _build_model(self) -> None:
@@ -458,6 +480,11 @@ class DKLClassification(DKLBase):
         self.elbo_fn = VariationalELBO(
             self.likelihood, self.gp_layer, num_data=self.n_train_points
         )
+
+        # put gpytorch modules on cuda
+        if self.device.type == "cuda":
+            self.gp_layer = self.gp_layer.cuda()
+            self.likelihood = self.likelihood.cuda()
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -512,7 +539,7 @@ class DKLClassification(DKLBase):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
@@ -544,7 +571,7 @@ class DKLClassification(DKLBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:

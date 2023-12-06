@@ -61,7 +61,7 @@ class Conv1dVariational(BaseConvLayer_):
     ):
         """Initialize a new instance of Conv1dVariational layer.
 
-        Parameters:
+        Args:
             in_channels: number of channels in the input image,
             out_channels: number of channels produced by the convolution,
             kernel_size: size of the convolving kernel,
@@ -126,7 +126,7 @@ class Conv2dVariational(BaseConvLayer_):
     ):
         """Initialize a new instance of Conv2dVariational layer.
 
-        Parameters:
+        Args:
             in_channels: number of channels in the input image,
             out_channels: number of channels produced by the convolution,
             kernel_size: size of the convolving kernel,
@@ -190,7 +190,7 @@ class Conv3dVariational(BaseConvLayer_):
     ):
         """Initialize a new instance of Conv3dVariational layer.
 
-        Parameters:
+        Args:
             in_channels: number of channels in the input image,
             out_channels: number of channels produced by the convolution,
             kernel_size: size of the convolving kernel,
@@ -257,7 +257,7 @@ class ConvTranspose1dVariational(BaseConvLayer_):
     ):
         """Initialize a new instance of ConvTranspose1dVariational layer.
 
-        Parameters:
+        Args:
             in_channels: number of channels in the input image,
             out_channels: number of channels produced by the convolution,
             kernel_size: size of the convolving kernel,
@@ -321,7 +321,7 @@ class ConvTranspose2dVariational(BaseConvLayer_):
     ):
         """Initialize a new instance of ConvTranspose2dVariational layer.
 
-        Parameters:
+        Args:
             in_channels: number of channels in the input image,
             out_channels: number of channels produced by the convolution,
             kernel_size: size of the convolving kernel,
@@ -385,7 +385,7 @@ class ConvTranspose3dVariational(BaseConvLayer_):
     ):
         """Initialize a new instance of ConvTranspose3dVariational layer.
 
-        Parameters:
+        Args:
             in_channels: number of channels in the input image,
             out_channels: number of channels produced by the convolution,
             kernel_size: size of the convolving kernel,

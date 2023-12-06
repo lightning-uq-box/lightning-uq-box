@@ -23,6 +23,7 @@ model_config_paths = [
     "tests/configs/classification/sgld.yaml",
     "tests/configs/classification/dkl.yaml",
     "tests/configs/classification/due.yaml",
+    "tests/configs/classification/card.yaml",
 ]
 
 data_config_paths = ["tests/configs/classification/toy_classification.yaml"]
@@ -134,7 +135,9 @@ class TestDeepEnsemble:
 
         return ckpt_paths
 
-    def test_deep_ensemble(self, ensemble_members_dict: Dict[str, Any]) -> None:
+    def test_deep_ensemble(
+        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+    ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(
             len(ensemble_members_dict), ensemble_members_dict, 2
@@ -142,6 +145,6 @@ class TestDeepEnsemble:
 
         datamodule = TwoMoonsDataModule()
 
-        trainer = Trainer()
+        trainer = Trainer(default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)

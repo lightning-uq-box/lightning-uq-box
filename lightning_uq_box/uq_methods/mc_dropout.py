@@ -3,7 +3,8 @@
 
 """Mc-Dropout module."""
 
-import numpy as np
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,8 +16,11 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    default_segmentation_metrics,
     process_classification_prediction,
     process_regression_prediction,
+    process_segmentation_prediction,
+    save_regression_predictions,
 )
 
 
@@ -89,7 +93,7 @@ class MCDropoutBase(DeterministicModel):
         loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
+        self.train_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
 
@@ -116,6 +120,8 @@ class MCDropoutRegression(MCDropoutBase):
 
     * https://proceedings.mlr.press/v48/gal16.html
     """
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -152,8 +158,8 @@ class MCDropoutRegression(MCDropoutBase):
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model."""
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.."""
         assert out.shape[-1] <= 2, "Ony support single mean or Gaussian output."
         return out[:, 0:1]
 
@@ -172,13 +178,13 @@ class MCDropoutRegression(MCDropoutBase):
 
         if self.current_epoch < self.hparams.burnin_epochs:
             loss = nn.functional.mse_loss(
-                self.extract_mean_output(out), batch[self.target_key]
+                self.adapt_output_for_metrics(out), batch[self.target_key]
             )
         else:
             loss = self.loss_fn(out, batch[self.target_key])
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
+        self.train_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
 
@@ -201,6 +207,20 @@ class MCDropoutRegression(MCDropoutBase):
 
         return process_regression_prediction(preds)
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
 
 class MCDropoutClassification(MCDropoutBase):
     """MC-Dropout Model for Classification.
@@ -210,6 +230,7 @@ class MCDropoutClassification(MCDropoutBase):
     * https://proceedings.mlr.press/v48/gal16.html
     """
 
+    pred_file_name = "preds.csv"
     valid_tasks = ["binary", "multiclass", "multilable"]
 
     def __init__(
@@ -256,17 +277,19 @@ class MCDropoutClassification(MCDropoutBase):
             "test", self.task, self.num_classes
         )
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Extract mean output from model."""
         return out
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Predict steps via Monte Carlo Sampling.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
 
         Returns:
             mean and standard deviation of MC predictions
@@ -284,35 +307,38 @@ class MCDropoutClassification(MCDropoutBase):
         return process_classification_prediction(preds)
 
 
-# class MCDropoutPxRegression(MCDropoutBase):
-#     def __init__(
-#         self,
-#         model: nn.Module,
-#         optimizer: OptimizerCallable = torch.optim.Adam,
-#         num_mc_samples: int,
-#         loss_fn: nn.Module,
-#         burnin_epochs: int = 0,
-#         lr_scheduler: LRSchedulerCallable = None,
-#     ) -> None:
-#         super().__init__(
-#             model, optimizer, num_mc_samples, loss_fn, burnin_epochs, lr_scheduler
-#         )
+class MCDropoutSegmentation(MCDropoutClassification):
+    """MC-Dropout Model for Segmentation."""
 
-#         self.save_hyperparameters(ignore=["model", "loss_fn"])
+    def setup_task(self) -> None:
+        """Set up task specific attributes for segmentation."""
+        self.train_metrics = default_segmentation_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_segmentation_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_segmentation_metrics(
+            "test", self.task, self.num_classes
+        )
 
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Predict steps via Monte Carlo Sampling.
 
-# class MCDropoutSegmentation(MCDropoutBase):
-#     def __init__(
-#         self,
-#         model: nn.Module,
-#         optimizer: OptimizerCallable = torch.optim.Adam,
-#         num_mc_samples: int,
-#         loss_fn: nn.Module,
-#         burnin_epochs: int = 0,
-#         lr_scheduler: LRSchedulerCallable = None,
-#     ) -> None:
-#         super().__init__(
-#             model, optimizer, num_mc_samples, loss_fn, burnin_epochs, lr_scheduler
-#         )
+        Args:
+            X: prediction batch of shape [batch_size x num_channels x height x width]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
 
-#         self.save_hyperparameters(ignore=["model", "loss_fn"])
+        Returns:
+            mean and standard deviation of MC predictions
+        """
+        self.activate_dropout()  # activate dropout during prediction
+        with torch.no_grad():
+            preds = torch.stack(
+                [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
+            )  # shape [batch_size, num_outputs, num_samples]
+
+        return process_segmentation_prediction(preds)

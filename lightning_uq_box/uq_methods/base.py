@@ -3,9 +3,9 @@
 
 """Base Model for UQ methods."""
 
+import os
 from typing import Any, Optional, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
@@ -17,6 +17,7 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    save_regression_predictions,
 )
 
 
@@ -86,8 +87,8 @@ class DeterministicModel(BaseModule):
         """Set up task specific attributes."""
         raise NotImplementedError
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model output.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from the model
@@ -124,7 +125,9 @@ class DeterministicModel(BaseModule):
 
         self.log("train_loss", loss)  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
-            self.train_metrics(self.extract_mean_output(out), batch[self.target_key])
+            self.train_metrics(
+                self.adapt_output_for_metrics(out), batch[self.target_key]
+            )
 
         return loss
 
@@ -150,7 +153,7 @@ class DeterministicModel(BaseModule):
 
         self.log("val_loss", loss)  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
-            self.val_metrics(self.extract_mean_output(out), batch[self.target_key])
+            self.val_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
 
@@ -161,7 +164,7 @@ class DeterministicModel(BaseModule):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = (
@@ -193,7 +196,7 @@ class DeterministicModel(BaseModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
@@ -203,7 +206,7 @@ class DeterministicModel(BaseModule):
         """
         with torch.no_grad():
             out = self.forward(X)
-        return {"pred": self.extract_mean_output(out)}
+        return {"pred": self.adapt_output_for_metrics(out)}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -233,22 +236,25 @@ class DeterministicRegression(DeterministicModel):
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
-    # def on_test_batch_end(
-    #     self,
-    #     outputs: dict[str, np.ndarray],
-    #     batch: Any,
-    #     batch_idx: int,
-    #     dataloader_idx=0,
-    # ):
-    #     """Test batch end save predictions."""
-    #     if self.save_dir:
-    #         save_predictions_to_csv(
-    #             outputs, os.path.join(self.save_dir, self.pred_file_name)
-    # )
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 class DeterministicClassification(DeterministicModel):
     """Deterministic Base Trainer for classification as LightningModule."""
+
+    pred_file_name = "preds.csv"
 
     valid_tasks = ["binary", "multiclass", "multilable"]
 
@@ -275,8 +281,8 @@ class DeterministicClassification(DeterministicModel):
         self.task = task
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract mean output from model output.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from the model
@@ -368,7 +374,7 @@ class PosthocBase(BaseModule):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Test step after running posthoc fitting methodology."""
         raise NotImplementedError
 
@@ -400,7 +406,7 @@ class PosthocBase(BaseModule):
 
         # predict with underlying model
         with torch.no_grad():
-            model_preds = self.model(X)
+            model_preds: dict[str, Tensor] = self.model(X)
 
         return self.adjust_model_logits(model_preds)
 

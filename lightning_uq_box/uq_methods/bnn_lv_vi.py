@@ -4,6 +4,7 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 import math
+import os
 from typing import Any, Optional, Tuple, Union
 
 import einops
@@ -25,6 +26,7 @@ from lightning_uq_box.uq_methods.utils import (
     _get_input_layer_name_and_module,
     _get_output_layer_name_and_module,
     default_regression_metrics,
+    save_regression_predictions,
 )
 
 from .bnn_vi import BNN_VI_Base
@@ -317,9 +319,8 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             y: target tensor
 
         Returns:
-            energy loss and mean output for logging
-            mean_out: mean output over samples,
-            dim [n_mc_samples_train, output_dim]
+            energy loss and mean output for logging mean_out: mean output
+                over samples, dim [n_mc_samples_train, output_dim]
         """
         model_preds = []
         pred_losses = []
@@ -475,11 +476,28 @@ class BNN_LV_VI_Regression(BNN_LV_VI_Base):
 
     nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
+    pred_file_name = "preds.csv"
+
     def setup_task(self) -> None:
         """Set up task."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
@@ -635,9 +653,8 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             y: target tensor
 
         Returns:
-            energy loss and mean output for logging
-            mean_out: mean output over samples,
-            dim [n_mc_samples_train, output_dim]
+            energy loss and mean output for logging mean_out: mean output
+                over samples, dim [n_mc_samples_train, output_dim]
         """
         out = self.forward(
             X, y, n_samples=self.hparams.n_mc_samples_train
@@ -788,8 +805,25 @@ class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
 
     nll_loss = nn.GaussianNLLLoss(reduction="none", full=True)
 
+    pred_file_name = "preds.csv"
+
     def setup_task(self) -> None:
         """Set up task."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )

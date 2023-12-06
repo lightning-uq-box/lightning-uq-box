@@ -3,9 +3,9 @@
 
 """Implement Quantile Regression Model."""
 
+import os
 from typing import Optional
 
-import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -15,7 +15,11 @@ from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 
 from .base import DeterministicModel
 from .loss_functions import QuantileLoss
-from .utils import _get_num_outputs, default_regression_metrics
+from .utils import (
+    _get_num_outputs,
+    default_regression_metrics,
+    save_regression_predictions,
+)
 
 
 class QuantileRegressionBase(DeterministicModel):
@@ -71,6 +75,8 @@ class QuantileRegression(QuantileRegressionBase):
     * https://www.jstor.org/stable/1913643
     """
 
+    pred_file_name = "preds.csv"
+
     def __init__(
         self,
         model: nn.Module,
@@ -93,8 +99,8 @@ class QuantileRegression(QuantileRegressionBase):
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )
 
-    def extract_mean_output(self, out: Tensor) -> Tensor:
-        """Extract the mean/median prediction from quantile regression model.
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
 
         Args:
             out: output from :meth:`self.forward` [batch_size x num_outputs]
@@ -106,7 +112,7 @@ class QuantileRegression(QuantileRegressionBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> dict[str, Tensor]:
         """Predict step with Quantile Regression.
 
         Args:
@@ -119,7 +125,7 @@ class QuantileRegression(QuantileRegressionBase):
             out = self.model(X)  # [batch_size, len(self.quantiles)]
             np_out = out.cpu().numpy()
 
-        median = self.extract_mean_output(out)
+        median = self.adapt_output_for_metrics(out)
         mean, std = compute_sample_mean_std_from_quantile(
             np_out, self.hparams.quantiles
         )
@@ -135,6 +141,20 @@ class QuantileRegression(QuantileRegressionBase):
             "upper_quant": np_out[:, -1],
             "aleatoric_uct": std,
         }
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 # class QuantilePxRegression(QuantileRegressionBase):
