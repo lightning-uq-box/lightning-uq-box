@@ -259,8 +259,7 @@ def gen_cond_quantile_function(
                     - penalties_cumsum[0, sizes_base[i] - 1]
                 )
             )  # -1 since sizes_base \in {1,...,1000}.
-
-        sizes = sizes_base - (torch.rand(V.shape) >= V).int()
+            sizes = sizes_base - (torch.rand(V.shape).to(scores.device) >= V).int()
     else:
         sizes = sizes_base
 
