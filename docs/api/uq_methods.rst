@@ -292,3 +292,10 @@ Temperature TempScaling
 
 .. autoclass:: TempScaling
 
+Regularized Adaptive Prediction Sets (RAPS)
+-------------------------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.raps
+
+.. autoclass:: RAPS
+
