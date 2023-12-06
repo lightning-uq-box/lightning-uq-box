@@ -1,5 +1,5 @@
 model:
-  class_path: lightning_uq_box.uq_methods.TempScaling
+  class_path: lightning_uq_box.uq_methods.RAPS
   init_args:
     model:
       class_path: lightning_uq_box.models.MLP
@@ -7,7 +7,4 @@ model:
         n_inputs: 2
         n_outputs: 2
         n_hidden: [50]
-    optim_lr: 1e-3
-    max_iter: 20
-    
-  
+    kreg: 1

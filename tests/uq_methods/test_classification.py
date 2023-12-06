@@ -54,6 +54,41 @@ class TestClassificationTask:
         cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
 
+posthoc_config_paths = [
+    "tests/configs/classification/temp_scaling.yaml",
+    "tests/configs/classification/raps.yaml",
+]
+
+
+class TestPosthoc:
+    @pytest.mark.parametrize("model_config_path", posthoc_config_paths)
+    @pytest.mark.parametrize("data_config_path", data_config_paths)
+    def test_trainer(
+        self, model_config_path: str, data_config_path: str, tmp_path: Path
+    ) -> None:
+        args = [
+            "--config",
+            model_config_path,
+            "--config",
+            data_config_path,
+            "--trainer.accelerator",
+            "cpu",
+            "--trainer.max_epochs",
+            "1",
+            "--trainer.log_every_n_steps",
+            "1",
+            "--trainer.default_root_dir",
+            str(tmp_path),
+            "--trainer.inference_mode",
+            "False",
+        ]
+
+        cli = get_uq_box_cli(args)
+        model = cli.model
+        cli.trainer.validate(model, cli.datamodule.val_dataloader())
+        cli.trainer.test(model, datamodule=cli.datamodule)
+
+
 ensemble_model_config_paths = ["tests/configs/classification/mc_dropout.yaml"]
 
 

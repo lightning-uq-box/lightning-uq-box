@@ -40,7 +40,7 @@ class RAPS(PosthocBase):
         optim_lr: float = 0.01,
         max_iter: int = 50,
         alpha: float = 0.1,
-        kreg: float = 5,
+        kreg: int = 5,
         lamda_param: float = 0.01,
         randomized: bool = False,
         allow_zero_sets: bool = False,
@@ -86,7 +86,9 @@ class RAPS(PosthocBase):
         self.lamda_param = lamda_param
 
         self.penalties = torch.zeros((1, self.num_classes))
-        self.penalties[:, kreg:] += lamda_param
+        self.penalties[:, int(kreg) :] += lamda_param  # noqa: E203
+
+        self.setup_task()
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
@@ -193,7 +195,8 @@ def gen_inverse_quantile_function(
 ) -> Tensor:
     """Generalized inverse quantile conformity score function.
 
-    E from equation (7) in Romano, Sesia, Candes.  Find the minimum tau in [0, 1] such that the correct label enters.
+    E from equation (7) in Romano, Sesia, Candes.  Find the minimum tau in [0, 1]
+    such that the correct label enters.
 
     Returns:
         E: generalized inverse quantile conformity score
@@ -202,10 +205,10 @@ def gen_inverse_quantile_function(
     for i in range(scores.shape[0]):
         E[i] = get_single_tau(
             targets[i].item(),
-            sorted_score_indices[i : i + 1, :],
-            ordered[i : i + 1, :],
-            cumsum[i : i + 1, :],
-            penalties[0, :],
+            sorted_score_indices[i : i + 1, :],  # noqa: E203
+            ordered[i : i + 1, :],  # noqa: E203
+            cumsum[i : i + 1, :],  # noqa: E203
+            penalties[0, :],  # noqa: E203
             randomized=randomized,
             allow_zero_sets=allow_zero_sets,
         )
@@ -275,7 +278,7 @@ def gen_cond_quantile_function(
     # Construct S from equation (5)
     pred_sets: list[Tensor] = []
     for i in range(sorted_score_indices.shape[0]):
-        pred_sets.append(sorted_score_indices[i, 0 : sizes[i]])
+        pred_sets.append(sorted_score_indices[i, 0 : sizes[i]])  # noqa: E203
 
     return pred_sets
 
@@ -320,7 +323,7 @@ def get_single_tau(
         return (
             U * ordered[idx]
             + cumsum[(idx[0], idx[1] - 1)]
-            + (penalty[0 : (idx[1][0] + 1)]).sum()
+            + (penalty[0 : (idx[1][0] + 1)]).sum()  # noqa: E203
         )
 
 
