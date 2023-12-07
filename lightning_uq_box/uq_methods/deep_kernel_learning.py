@@ -734,6 +734,7 @@ def compute_initial_values(
 
             if torch.cuda.is_available():
                 X_sample = X_sample.cuda()
+                y_sample = y_sample.cuda()
                 feature_extractor = feature_extractor.cuda()
             X_sample = augmentation({input_key: X_sample, target_key: y_sample})
             f_X_samples.append(feature_extractor(X_sample).cpu())

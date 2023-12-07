@@ -42,7 +42,6 @@ class BNN_VI_Base(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        num_training_points: int,
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -59,9 +58,7 @@ class BNN_VI_Base(DeterministicModel):
         """Initialize a new instace of BNN VI.
 
         Args:
-            model:
-            save_dir: directory path to save
-            num_training_points: num of data points contained in the training dataset
+            model: pytorch model that will be converted into a BNN
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -83,7 +80,6 @@ class BNN_VI_Base(DeterministicModel):
             AssertionError: if ``n_mc_samples_test`` is not positive.
         """
         super().__init__(model, None, optimizer, lr_scheduler)
-
         assert n_mc_samples_train > 0, "Need to sample at least once during training."
         assert n_mc_samples_test > 0, "Need to sample at least once during testing."
 
@@ -121,10 +117,6 @@ class BNN_VI_Base(DeterministicModel):
             self.model, self._define_bnn_args(), self.stochastic_module_names
         )
 
-        self.energy_loss_module = EnergyAlphaDivergence(
-            N=self.hparams.num_training_points, alpha=self.hparams.alpha
-        )
-
         # TODO how to best configure this parameter
         # why do we use homoscedastic noise?
         self.log_aleatoric_std = nn.Parameter(
@@ -141,6 +133,15 @@ class BNN_VI_Base(DeterministicModel):
             bnn output
         """
         return self.model(X)
+
+    def on_fit_start(self) -> None:
+        """Before fitting compute number of training points."""
+        self.num_training_points = len(
+            self.trainer.datamodule.train_dataloader().dataset
+        )
+        self.energy_loss_module = EnergyAlphaDivergence(
+            N=self.num_training_points, alpha=self.hparams.alpha
+        )
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -278,7 +279,6 @@ class BNN_VI_Regression(BNN_VI_Base):
     def __init__(
         self,
         model: nn.Module,
-        num_training_points: int,
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -297,9 +297,6 @@ class BNN_VI_Regression(BNN_VI_Base):
         Args:
             model: pytorch model that will be converted into a BNN
             optimizer: optimizer used for training
-            num_training_points: num of data points contained in the training dataset
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -310,8 +307,11 @@ class BNN_VI_Regression(BNN_VI_Base):
             posterior_rho_init: variance initialization value for approximate posterior
                 through softplus σ = log(1 + exp(ρ))
             alpha: alpha divergence parameter
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             bayesian_layer_type: reparameterization layer type,
                 "reparametrization" or "flipout"
+            optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
         Raises:
@@ -321,7 +321,6 @@ class BNN_VI_Regression(BNN_VI_Base):
         """
         super().__init__(
             model,
-            num_training_points,
             n_mc_samples_train,
             n_mc_samples_test,
             output_noise_scale,
@@ -456,7 +455,6 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
     def __init__(
         self,
         model: nn.Module,
-        num_training_points: int,
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
         output_noise_scale: float = 1.3,
@@ -474,7 +472,6 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
 
         Args:
             model: pytorch model that will be converted into a BNN
-            num_training_points: num of data points contained in the training dataset
             n_mc_samples_train: number of MC samples during training when computing
                 the energy loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -498,7 +495,6 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         """
         super().__init__(
             model,
-            num_training_points,
             n_mc_samples_train,
             n_mc_samples_test,
             output_noise_scale,

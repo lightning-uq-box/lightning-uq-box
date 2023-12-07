@@ -15,7 +15,6 @@ model:
     _partial_: true
   criterion:
     _target_: torch.nn.CrossEntropyLoss
-  num_training_points: 200
   num_mc_samples_train: 3
   num_mc_samples_test: 3
   prior_mu: 0.0

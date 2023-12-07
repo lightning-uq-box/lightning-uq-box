@@ -12,7 +12,6 @@ model:
         lr: 0.003
     lr_scheduler:
       class_path: torch.optim.lr_scheduler.ConstantLR
-    num_training_points: 200
     n_mc_samples_train: 4
     n_mc_samples_test: 5
     output_noise_scale: 1.3

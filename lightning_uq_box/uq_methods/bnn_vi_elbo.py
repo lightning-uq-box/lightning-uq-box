@@ -42,7 +42,6 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         self,
         model: nn.Module,
         criterion: nn.Module,
-        num_training_points: int,
         beta: float = 100,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
@@ -61,7 +60,6 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         Args:
             model: pytorch model that will be converted into a BNN
             criterion: loss function used for optimization
-            num_training_points: number of data points contained in the training dataset
             beta: beta factor for negative elbo loss computation,
                 should be number of weights and biases
             num_mc_samples_train: number of MC samples during training when computing
@@ -138,6 +136,12 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         """
         return self.model(X)
 
+    def on_fit_start(self) -> None:
+        """Before fitting compute number of training points."""
+        self.num_training_points = len(
+            self.trainer.datamodule.train_dataloader().dataset
+        )
+
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -211,7 +215,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         mean_kl = get_kl_loss(self.model)
 
         negative_beta_elbo = (
-            self.hparams.num_training_points * mean_pred_nll_loss + self.beta * mean_kl
+            self.num_training_points * mean_pred_nll_loss + self.beta * mean_kl
         )
 
         return negative_beta_elbo, mean_pred
@@ -294,7 +298,6 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         model: nn.Module,
         criterion: nn.Module,
         burnin_epochs: int,
-        num_training_points: int,
         beta: float = 100,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
@@ -314,8 +317,6 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             model: pytorch model that will be converted into a BNN
             criterion: loss function used for optimization
             burnin_epochs: number of epochs to train before switching to nll loss
-            num_training_points: number of data points contained in the training dataset
-            num_training_points: number of data points contained in the training dataset
             beta: beta factor for negative elbo loss computation,
                 should be number of weights and biases
             num_mc_samples_train: number of MC samples during training when computing
@@ -341,7 +342,6 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         super().__init__(
             model,
             criterion,
-            num_training_points,
             beta,
             num_mc_samples_train,
             num_mc_samples_test,
@@ -434,7 +434,6 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         self,
         model: nn.Module,
         criterion: nn.Module,
-        num_training_points: int,
         task: str = "multiclass",
         beta: float = 100,
         num_mc_samples_train: int = 10,
@@ -454,8 +453,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         Args:
             model: pytorch model that will be converted into a BNN
             criterion: loss function used for optimization
-            num_training_points: number of data points contained in the training dataset
-            num_training_points: number of data points contained in the training dataset
+            task: classification task, one of `binary`, `multiclass`, `multilabel`
             beta: beta factor for negative elbo loss computation,
                 should be number of weights and biases
             num_mc_samples_train: number of MC samples during training when computing
@@ -486,7 +484,6 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         super().__init__(
             model,
             criterion,
-            num_training_points,
             beta,
             num_mc_samples_train,
             num_mc_samples_test,
