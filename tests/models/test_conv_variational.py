@@ -54,7 +54,7 @@ class TestConvVariational:
             in_channels=7,
             out_channels=3,
             kernel_size=(3,),
-            bias=True,
+            bias=bias,
             layer_type=layer_type,
         )
 
@@ -77,7 +77,7 @@ class TestConvVariational:
             in_channels=3,
             out_channels=7,
             kernel_size=(3, 3),
-            bias=True,
+            bias=bias,
             layer_type=layer_type,
         )
 
@@ -100,7 +100,7 @@ class TestConvVariational:
             in_channels=7,
             out_channels=3,
             kernel_size=(3, 3),
-            bias=True,
+            bias=bias,
             layer_type=layer_type,
         )
 
@@ -123,7 +123,7 @@ class TestConvVariational:
             in_channels=3,
             out_channels=7,
             kernel_size=(3, 3, 3),
-            bias=True,
+            bias=bias,
             layer_type=layer_type,
         )
 
@@ -146,7 +146,7 @@ class TestConvVariational:
             in_channels=7,
             out_channels=3,
             kernel_size=(3, 3, 3),
-            bias=True,
+            bias=bias,
             layer_type=layer_type,
         )
 
