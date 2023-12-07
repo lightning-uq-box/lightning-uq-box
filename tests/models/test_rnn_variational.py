@@ -23,9 +23,6 @@ class TestLSTMVariational:
         # batch_size, sequence length, input size
         x = torch.randn(3, 5, 1)
         hidden, _ = lstm_variational_layer(x)
-        import pdb
-
-        pdb.set_trace()
         assert isinstance(hidden, torch.Tensor)
         assert hidden.shape[0] == 3  # batch size
         assert hidden.shape[1] == 5  # sequence length
