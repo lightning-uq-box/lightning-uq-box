@@ -185,9 +185,9 @@ class LinearVariational(BaseVariationalLayer_):
         # forward pass with chosen layer type
         if self.layer_type == "reparameterization":
             # sample weight via reparameterization trick
-            output = x.matmul((self.mu_weight + delta_weight).transpose(-1, -2)) + (
-                (self.mu_bias + delta_bias).unsqueeze(1)
-            )
+            output = x.matmul((self.mu_weight + delta_weight).transpose(-1, -2))
+            if self.bias:
+                output = output + (self.mu_bias + delta_bias).unsqueeze(1)
         else:
             # linear outputs
             out = F.linear(x, self.mu_weight, self.mu_bias)
