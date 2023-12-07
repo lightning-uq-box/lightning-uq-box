@@ -109,9 +109,9 @@ class LinearVariational(BaseVariationalLayer_):
             self.max_n_samples = 1
 
         # creat and initialize bayesian parameters
-        self.define_bayesian_parameters()
+        self.define_bayesian_weight_params()
 
-    def define_bayesian_parameters(self) -> None:
+    def define_bayesian_weight_params(self) -> None:
         """Define Bayesian parameters."""
         self.mu_weight = Parameter(torch.Tensor(self.out_features, self.in_features))
         self.rho_weight = Parameter(torch.Tensor(self.out_features, self.in_features))

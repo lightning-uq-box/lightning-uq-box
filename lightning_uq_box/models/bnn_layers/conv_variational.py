@@ -37,7 +37,7 @@ adjusted to be trained with the Energy Loss.
 
 import torch.nn.functional as F
 
-from .base_variational import BaseConvLayer_
+from .base_variational import BaseConvLayer_, BaseTransposeConvLayer_
 
 
 class Conv1dVariational(BaseConvLayer_):
@@ -236,7 +236,7 @@ class Conv3dVariational(BaseConvLayer_):
 # Convoluational Transpose Layers
 
 
-class ConvTranspose1dVariational(BaseConvLayer_):
+class ConvTranspose1dVariational(BaseTransposeConvLayer_):
     """Convolutional 1D Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -248,6 +248,7 @@ class ConvTranspose1dVariational(BaseConvLayer_):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
+        output_padding: int = 0,
         prior_mu: float = 0.0,
         prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
@@ -266,6 +267,7 @@ class ConvTranspose1dVariational(BaseConvLayer_):
             dilation: spacing between kernel elements. Default: 1,
             groups: number of blocked connections
                 from input channels to output channels,
+            output_padding: additional size added to one side of the output shape
             prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
             prior_sigma: variance of the prior arbitrary
@@ -289,6 +291,7 @@ class ConvTranspose1dVariational(BaseConvLayer_):
             padding,
             dilation,
             groups,
+            output_padding,
             prior_mu,
             prior_sigma,
             posterior_mu_init,
@@ -300,7 +303,7 @@ class ConvTranspose1dVariational(BaseConvLayer_):
         self.conv_function = F.conv_transpose1d
 
 
-class ConvTranspose2dVariational(BaseConvLayer_):
+class ConvTranspose2dVariational(BaseTransposeConvLayer_):
     """Convolutional 2D Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -312,6 +315,7 @@ class ConvTranspose2dVariational(BaseConvLayer_):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
+        output_padding: int = 0,
         prior_mu: float = 0.0,
         prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
@@ -330,6 +334,7 @@ class ConvTranspose2dVariational(BaseConvLayer_):
             dilation: spacing between kernel elements. Default: 1,
             groups: number of blocked connections
                 from input channels to output channels,
+            output_padding: additional size added to one side of the output shape
             prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
             prior_sigma: variance of the prior arbitrary
@@ -353,6 +358,7 @@ class ConvTranspose2dVariational(BaseConvLayer_):
             padding,
             dilation,
             groups,
+            output_padding,
             prior_mu,
             prior_sigma,
             posterior_mu_init,
@@ -364,7 +370,7 @@ class ConvTranspose2dVariational(BaseConvLayer_):
         self.conv_function = F.conv_transpose2d
 
 
-class ConvTranspose3dVariational(BaseConvLayer_):
+class ConvTranspose3dVariational(BaseTransposeConvLayer_):
     """Convolutional 3D Variational Layer adapted for Alpha Divergence."""
 
     def __init__(
@@ -376,6 +382,7 @@ class ConvTranspose3dVariational(BaseConvLayer_):
         padding: int = 0,
         dilation: int = 1,
         groups: int = 1,
+        output_padding: int = 0,
         prior_mu: float = 0.0,
         prior_sigma: float = 1.0,
         posterior_mu_init: float = 0.0,
@@ -394,6 +401,7 @@ class ConvTranspose3dVariational(BaseConvLayer_):
             dilation: spacing between kernel elements. Default: 1,
             groups: number of blocked connections
                 from input channels to output channels,
+            output_padding: additional size added to one side of the output shape
             prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
             prior_sigma: variance of the prior arbitrary
@@ -417,6 +425,7 @@ class ConvTranspose3dVariational(BaseConvLayer_):
             padding,
             dilation,
             groups,
+            output_padding,
             prior_mu,
             prior_sigma,
             posterior_mu_init,

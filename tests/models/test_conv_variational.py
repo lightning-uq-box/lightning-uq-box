@@ -11,6 +11,9 @@ from lightning_uq_box.models.bnn_layers import (
     Conv1dVariational,
     Conv2dVariational,
     Conv3dVariational,
+    ConvTranspose1dVariational,
+    ConvTranspose2dVariational,
+    ConvTranspose3dVariational,
 )
 
 
@@ -42,6 +45,33 @@ class TestConvVariational:
 
     @pytest.fixture(
         params=[
+            (ConvTranspose1dVariational, "reparameterization"),
+            (ConvTranspose1dVariational, "flipout"),
+        ]
+    )
+    def convtranspose1d_layer(self, request: SubRequest) -> ConvTranspose1dVariational:
+        """Initialize a variational layer."""
+        conv_layer, layer_type = request.param
+        return conv_layer(
+            in_channels=7,
+            out_channels=3,
+            kernel_size=(3,),
+            bias=True,
+            layer_type=layer_type,
+        )
+
+    def test_forward_convtranspose1d_layer(
+        self, convtranspose1d_layer: ConvTranspose1dVariational
+    ) -> None:
+        """Test forward pass of ConvTranspose Variational."""
+        x = torch.randn(5, 3, 32)
+        out = convtranspose1d_layer(x)
+        assert isinstance(out, torch.Tensor)
+        assert out.shape[0] == 5
+        assert out.shape[1] == convtranspose1d_layer.in_channels
+
+    @pytest.fixture(
+        params=[
             (Conv2dVariational, "reparameterization"),
             (Conv2dVariational, "flipout"),
         ]
@@ -67,6 +97,33 @@ class TestConvVariational:
 
     @pytest.fixture(
         params=[
+            (ConvTranspose2dVariational, "reparameterization"),
+            (ConvTranspose2dVariational, "flipout"),
+        ]
+    )
+    def convtranspose2d_layer(self, request: SubRequest) -> ConvTranspose2dVariational:
+        """Initialize a variational layer."""
+        conv_layer, layer_type = request.param
+        return conv_layer(
+            in_channels=7,
+            out_channels=3,
+            kernel_size=(3, 3),
+            bias=True,
+            layer_type=layer_type,
+        )
+
+    def test_forward_convtranspose2d_layer(
+        self, convtranspose2d_layer: ConvTranspose2dVariational
+    ) -> None:
+        """Test forward pass of ConvTranspose Variational."""
+        x = torch.randn(5, 3, 32, 32)
+        out = convtranspose2d_layer(x)
+        assert isinstance(out, torch.Tensor)
+        assert out.shape[0] == 5
+        assert out.shape[1] == convtranspose2d_layer.in_channels
+
+    @pytest.fixture(
+        params=[
             (Conv3dVariational, "reparameterization"),
             (Conv3dVariational, "flipout"),
         ]
@@ -89,3 +146,30 @@ class TestConvVariational:
         assert isinstance(out, torch.Tensor)
         assert out.shape[0] == 5
         assert out.shape[1] == conv3d_layer.out_channels
+
+    @pytest.fixture(
+        params=[
+            (ConvTranspose3dVariational, "reparameterization"),
+            (ConvTranspose3dVariational, "flipout"),
+        ]
+    )
+    def convtranspose3d_layer(self, request: SubRequest) -> ConvTranspose3dVariational:
+        """Initialize a variational layer."""
+        conv_layer, layer_type = request.param
+        return conv_layer(
+            in_channels=7,
+            out_channels=3,
+            kernel_size=(3, 3, 3),
+            bias=True,
+            layer_type=layer_type,
+        )
+
+    def test_forward_convtranspose3d_layer(
+        self, convtranspose3d_layer: ConvTranspose3dVariational
+    ) -> None:
+        """Test forward pass of ConvTranspose Variational."""
+        x = torch.randn(5, 3, 32, 32, 32)
+        out = convtranspose3d_layer(x)
+        assert isinstance(out, torch.Tensor)
+        assert out.shape[0] == 5
+        assert out.shape[1] == convtranspose3d_layer.in_channels

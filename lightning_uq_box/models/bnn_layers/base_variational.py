@@ -91,7 +91,7 @@ class BaseVariationalLayer_(nn.Module):
         self.layer_type = layer_type
         self.is_frozen = False
 
-    def define_bayesian_parameters(self):
+    def define_bayesian_weight_params(self):
         """Define Bayesian parameters."""
         raise NotImplementedError
 
@@ -289,11 +289,12 @@ class BaseConvLayer_(BaseVariationalLayer_):
         self.dilation = dilation
         self.groups = groups
 
-        # define the bayesian parameters
-        self.define_bayesian_parameters()
+        # define the bayesian weight and bias parameters
+        self.define_bayesian_weight_params()
+        self.define_bayesian_bias_params()
 
-    def define_bayesian_parameters(self):
-        """Define Bayesian Parameters."""
+    def define_bayesian_weight_params(self):
+        """Define Bayesian Weight Parameters."""
         self.mu_weight = Parameter(
             torch.Tensor(
                 self.out_channels, self.in_channels // self.groups, *self.kernel_size
@@ -326,6 +327,8 @@ class BaseConvLayer_(BaseVariationalLayer_):
             persistent=False,
         )
 
+    def define_bayesian_bias_params(self):
+        """Define Bayesian Bias Parameters."""
         if self.bias:
             self.mu_bias = Parameter(torch.Tensor(self.out_channels))
             self.rho_bias = Parameter(torch.Tensor(self.out_channels))
@@ -382,19 +385,11 @@ class BaseConvLayer_(BaseVariationalLayer_):
 
         if self.layer_type == "reparameterization":
             weight = self.mu_weight + delta_weight
-            out = self.conv_function(
-                x, weight, bias, self.stride, self.padding, self.dilation, self.groups
-            )
+            out = self.apply_convolution(x, weight=weight, bias=bias)
         else:
             # linear outputs
-            outputs = self.conv_function(
-                x,
-                weight=self.mu_weight,
-                bias=self.mu_bias,
-                stride=self.stride,
-                padding=self.padding,
-                dilation=self.dilation,
-                groups=self.groups,
+            outputs = self.apply_convolution(
+                x, weight=self.mu_weight, bias=self.mu_bias
             )
 
             # sampling perturbation signs
@@ -405,14 +400,8 @@ class BaseConvLayer_(BaseVariationalLayer_):
 
             # perturbed feedforward
             perturbed_outputs = (
-                self.conv_function(
-                    x * sign_input,
-                    bias=delta_bias,
-                    weight=delta_weight,
-                    stride=self.stride,
-                    padding=self.padding,
-                    dilation=self.dilation,
-                    groups=self.groups,
+                self.apply_convolution(
+                    x * sign_input, bias=delta_bias, weight=delta_weight
                 )
                 * sign_output
             )
@@ -420,6 +409,18 @@ class BaseConvLayer_(BaseVariationalLayer_):
             # returning outputs + perturbations
             out = outputs + perturbed_outputs
         return out
+
+    def apply_convolution(self, x: Tensor, weight: Tensor, bias: Tensor) -> Tensor:
+        """Apply convolution."""
+        return self.conv_function(
+            x,
+            weight,
+            bias,
+            stride=self.stride,
+            padding=self.padding,
+            dilation=self.dilation,
+            groups=self.groups,
+        )
 
     def extra_repr(self):
         """Representation when printing out layer."""
@@ -436,3 +437,101 @@ class BaseConvLayer_(BaseVariationalLayer_):
         if self.bias is None:
             s += ", bias=False"
         return s.format(**self.__dict__)
+
+
+class BaseTransposeConvLayer_(BaseConvLayer_):
+    """Base Transpose Convolutional Layer."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: tuple[int],
+        stride: int = 1,
+        padding: int = 0,
+        dilation: int = 1,
+        groups: int = 1,
+        output_padding: int = 0,
+        prior_mu: float = 0,
+        prior_sigma: float = 1,
+        posterior_mu_init: float = 0,
+        posterior_rho_init: float = -3,
+        bias: bool = True,
+        layer_type: str = "reparameterization",
+    ) -> None:
+        """Initialize a new instance of BaseConvLayer.
+
+        Args:
+            in_channels: number of channels in the input image
+            out_channels: number of channels produced by the convolution
+            kernel_size: size of the convolving kernel
+            stride: stride of the convolution
+            padding: padding added
+            dilation: spacing between kernel elements
+            groups: controls connections between inputs and outputs
+            output_padding: additional size added to one side of the output shape
+            prior_mu: mean of the prior arbitrary
+                distribution to be used on the complexity cost,
+            prior_sigma: variance of the prior arbitrary
+                distribution to be used on the complexity cost,
+            posterior_mu_init: init trainable mu parameter
+                representing mean of the approximate posterior,
+            posterior_rho_init: init trainable rho parameter
+                representing the sigma of the approximate
+                posterior through softplus function,
+            bias: if set to False, the layer will not learn an additive bias.
+            layer_type: reparameterization trick with
+                "reparameterization" or "flipout".
+        """
+        super().__init__(
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            padding,
+            dilation,
+            groups,
+            prior_mu,
+            prior_sigma,
+            posterior_mu_init,
+            posterior_rho_init,
+            bias,
+            layer_type,
+        )
+        self.output_padding = output_padding
+
+    def define_bayesian_bias_params(self):
+        """Definie Bayesian Bias Parameters for Transpose Conv."""
+        if self.bias:
+            self.mu_bias = Parameter(torch.Tensor(self.in_channels))
+            self.rho_bias = Parameter(torch.Tensor(self.in_channels))
+            self.register_buffer(
+                "eps_bias", torch.randn(self.in_channels), persistent=False
+            )
+            self.register_buffer(
+                "prior_bias_mu", torch.Tensor(self.in_channels), persistent=False
+            )
+            self.register_buffer(
+                "prior_bias_sigma", torch.Tensor(self.in_channels), persistent=False
+            )
+        else:
+            self.register_parameter("mu_bias", None)
+            self.register_parameter("rho_bias", None)
+            self.register_buffer("eps_bias", None)
+            self.register_buffer("prior_bias_mu", None, persistent=False)
+            self.register_buffer("prior_bias_sigma", None, persistent=False)
+
+        super().init_parameters()
+
+    def apply_convolution(self, x: Tensor, weight: Tensor, bias: Tensor) -> Tensor:
+        """Apply convolution."""
+        return self.conv_function(
+            x,
+            weight,
+            bias,
+            stride=self.stride,
+            padding=self.padding,
+            output_padding=self.output_padding,
+            dilation=self.dilation,
+            groups=self.groups,
+        )

@@ -109,7 +109,7 @@ class LSTMVariational(BaseVariationalLayer_):
             layer_type=layer_type,
         )
 
-    def define_bayesian_parameters(self):
+    def define_bayesian_weight_params(self):
         """Define Bayesian parameters."""
         pass
 
