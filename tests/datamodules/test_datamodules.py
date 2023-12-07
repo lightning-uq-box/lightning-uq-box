@@ -8,6 +8,7 @@ from lightning import Trainer
 from lightning_uq_box.datamodules import (
     Toy8GaussiansDataModule,
     ToyDonutDataModule,
+    ToyDUE,
     ToyGaussianSideWaysDataModule,
     ToySineDatamodule,
 )
@@ -20,6 +21,7 @@ toy_datamodules = [
     ToyDonutDataModule,
     Toy8GaussiansDataModule,
     ToyGaussianSideWaysDataModule,
+    ToyDUE,
 ]  # replace with actual dataset names
 
 
