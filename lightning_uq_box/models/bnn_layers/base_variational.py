@@ -428,10 +428,8 @@ class BaseConvLayer_(BaseVariationalLayer_):
             "{in_channels}, {out_channels}, kernel_size={kernel_size}"
             ", stride={stride}, is_frozen={is_frozen}"
         )
-        if self.padding != (0,) * len(self.padding):
-            s += ", padding={padding}"
-        if self.dilation != (1,) * len(self.dilation):
-            s += ", dilation={dilation}"
+        s += ", padding={padding}"
+        s += ", dilation={dilation}"
         if self.groups != 1:
             s += ", groups={groups}"
         if self.bias is None:
