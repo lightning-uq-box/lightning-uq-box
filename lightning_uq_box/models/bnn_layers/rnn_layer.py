@@ -119,12 +119,15 @@ class LSTMVariational(BaseVariationalLayer_):
         Returns:
             tensor of shape 0
         """
-        n_params = (
-            self.hh.mu_weight.numel()
-            + self.hh.mu_bias.numel()
-            + self.ih.mu_bias.numel()
-            + self.ih.mu_bias.numel()
-        )
+        if self.bias:
+            n_params = (
+                self.hh.mu_weight.numel()
+                + self.hh.mu_bias.numel()
+                + self.ih.mu_weight.numel()
+                + self.ih.mu_bias.numel()
+            )
+        else:
+            n_params = self.hh.mu_weight.numel() + self.ih.mu_weight.numel()
         return torch.tensor(0.5 * n_params * math.log(self.prior_sigma * 2 * math.pi))
 
     def log_f_hat(self):
