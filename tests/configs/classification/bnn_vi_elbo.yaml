@@ -15,7 +15,6 @@ model:
       class_path: torch.optim.lr_scheduler.ConstantLR
     criterion:
       class_path: torch.nn.CrossEntropyLoss
-    num_training_points: 200
     num_mc_samples_train: 3
     num_mc_samples_test: 3
     prior_mu: 0.0

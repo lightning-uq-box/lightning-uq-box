@@ -12,6 +12,8 @@ import torch
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader, TensorDataset
 
+from .utils import collate_fn_tensordataset
+
 
 class ToyDUE(LightningDataModule):
     """Toy Dataset from DUE repository."""
@@ -61,6 +63,7 @@ class ToyDUE(LightningDataModule):
             TensorDataset(self.X_train, self.y_train),
             batch_size=self.batch_size,
             shuffle=True,
+            collate_fn=collate_fn_tensordataset,
         )
 
     def val_dataloader(self) -> DataLoader:
@@ -70,6 +73,7 @@ class ToyDUE(LightningDataModule):
             TensorDataset(self.X_train, self.y_train),
             batch_size=self.batch_size,
             shuffle=False,
+            collate_fn=collate_fn_tensordataset,
         )
 
     def test_dataloader(self) -> DataLoader:
@@ -78,4 +82,5 @@ class ToyDUE(LightningDataModule):
             TensorDataset(self.X_test, self.y_test),
             batch_size=self.X_test.shape[0],
             shuffle=False,
+            collate_fn=collate_fn_tensordataset,
         )
