@@ -96,10 +96,7 @@ def plot_predictions_classification(
         test_grid_points: The grid of test points.
         pred_uct: The uncertainty of the predictions.
     """
-    if pred_uct is None:
-        num_cols = 2
-    else:
-        num_cols = 3
+    num_cols = 3 if pred_uct is not None else 2
 
     fig, axs = plt.subplots(1, num_cols, figsize=(num_cols * 6, 6))
     cm = plt.cm.viridis
