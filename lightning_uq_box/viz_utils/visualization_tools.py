@@ -1,4 +1,7 @@
-"""Visualization utils for Regression Uncertainty."""
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the MIT License.
+
+"""Visualization utils for Lightning-UQ-Box."""
 
 import os
 from typing import Optional
@@ -36,7 +39,7 @@ def plot_training_metrics(save_dir: str, metric: str) -> plt.figure:
 
 def plot_toy_regression_data(
     X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
-):
+) -> plt.Figure:
     """Plot the toy data.
 
     Args:
@@ -50,12 +53,12 @@ def plot_toy_regression_data(
     ax.scatter(X_train, y_train, color="blue", label="train_data")
     plt.title("Toy Regression Dataset.")
     plt.legend()
-    plt.show()
+    return fig
 
 
 def plot_two_moons_data(
     X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray
-) -> None:
+) -> plt.Figure:
     """Plot the two moons dataset.
 
     Args:
@@ -64,19 +67,17 @@ def plot_two_moons_data(
         X_val: Validation data features.
         y_val: Validation data labels.
     """
-    plt.figure(figsize=(10, 5))
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
     # Plot training data
-    plt.subplot(1, 2, 1)
-    plt.scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap="viridis")
-    plt.title("Training Set")
+    axs[0].scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap="viridis")
+    axs[0].set_title("Training Set")
 
     # Plot validation data
-    plt.subplot(1, 2, 2)
-    plt.scatter(X_val[:, 0], X_val[:, 1], c=y_val, cmap="viridis")
-    plt.title("Validation Set")
+    axs[1].scatter(X_val[:, 0], X_val[:, 1], c=y_val, cmap="viridis")
+    axs[1].set_title("Validation Set")
 
-    plt.show()
+    return fig
 
 
 def plot_predictions_classification(
@@ -85,7 +86,7 @@ def plot_predictions_classification(
     y_pred: np.ndarray,
     test_grid_points,
     pred_uct: np.ndarray = None,
-) -> None:
+) -> plt.Figure:
     """Plot the classification results and the associated uncertainty.
 
     Args:
@@ -125,7 +126,7 @@ def plot_predictions_classification(
         axs[2].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm)
         axs[2].set_title("Uncertainty")
 
-    plt.show()
+    return fig
 
 
 def plot_predictions_regression(
@@ -141,7 +142,7 @@ def plot_predictions_regression(
     samples: Optional[np.ndarray] = None,
     title: str = None,
     show_bands: bool = True,
-) -> None:
+) -> plt.Figure:
     """Plot predictive uncertainty as well as epistemic and aleatoric separately.
 
     Args:
@@ -268,7 +269,7 @@ def plot_predictions_regression(
 
 def plot_calibration_uq_toolbox(
     y_pred: np.ndarray, pred_std: np.ndarray, y_test: np.ndarray, x_test: np.ndarray
-) -> None:
+) -> plt.Figure:
     """Plot calibration from uq_toolbox.
 
     Taken from https://github.com/uncertainty-toolbox/uncertainty-toolbox/
@@ -308,4 +309,4 @@ def plot_calibration_uq_toolbox(
 
     axs[2].set_title(f"MACE: {mace:.4f}, RMSCE: {rmsce:.4f}, MA: {ma:.4f}")
 
-    plt.show()
+    return fig
