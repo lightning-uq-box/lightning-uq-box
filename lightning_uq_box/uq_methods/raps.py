@@ -145,7 +145,7 @@ class RAPS(PosthocBase):
         with torch.no_grad():
             # TODO (nils): check if the underlying model is a lightning module
             # and has a predict step, because then RAPs should be applied on top of that
-            if hasattr(self.model, 'predict_step'):
+            if hasattr(self.model, "predict_step"):
                 logits = self.model.predict_step(X)["logits"]
             else:
                 logits = self.model(X)

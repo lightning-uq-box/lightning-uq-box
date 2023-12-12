@@ -35,6 +35,7 @@ def compute_empirical_coverage(S: list[Sequence[int]], y: list[int]) -> float:
     coverage = np.mean([y[i].item() in S[i] for i in range(len(y))])
     return coverage
 
+
 my_temp_dir = "."
 
 from torch.utils.data import DataLoader, random_split
@@ -133,7 +134,13 @@ def fit_original_raps(model: torch.nn.Module):
 
 
 def fit_my_raps(orig_model: torch.nn.Module):
-    raps = RAPS(orig_model.model, lamda_param=orig_model.lamda, kreg=orig_model.kreg, randomized=True, allow_zero_sets=False)
+    raps = RAPS(
+        orig_model.model,
+        lamda_param=orig_model.lamda,
+        kreg=orig_model.kreg,
+        randomized=True,
+        allow_zero_sets=False,
+    )
     raps.input_key = "image"
     raps.target_key = "label"
 
@@ -180,6 +187,7 @@ def fit_my_raps(orig_model: torch.nn.Module):
         "temperature": raps.temperature.detach().item(),
     }
 
+
 def run_seed(seed, device):
     print(f"RUNNING SEED {seed} ON {device}")
     seed_everything(seed)
@@ -189,7 +197,7 @@ def run_seed(seed, device):
     torch.set_float32_matmul_precision("medium")
 
     for name in model_names:
-        print("now running model",name)
+        print("now running model", name)
         result_dict[name] = {}
         model = get_model(name)
 
@@ -210,6 +218,7 @@ def run_seed(seed, device):
     df.reset_index(inplace=True)
     df.rename(columns={"level_0": "model", "level_1": "version"}, inplace=True)
     df.to_csv(os.path.join("results", f"imagenet_results_{seed}.csv"), index=False)
+
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
