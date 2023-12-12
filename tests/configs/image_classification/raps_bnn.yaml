@@ -1,0 +1,24 @@
+model:
+  _target_: lightning_uq_box.uq_methods.RAPS
+  model:
+    _target_: lightning_uq_box.uq_methods.BNN_VI_ELBO_Classification
+    model:
+      _target_: timm.create_model
+      model_name: resnet18
+      num_classes: 2
+    optimizer:
+      _target_: torch.optim.SGD
+      _partial_: true
+      lr: 0.003
+    lr_scheduler:
+      _target_: torch.optim.lr_scheduler.ConstantLR
+      _partial_: true
+    criterion:
+      _target_: torch.nn.CrossEntropyLoss
+    num_mc_samples_train: 3
+    num_mc_samples_test: 3
+    prior_mu: 0.0
+    prior_sigma: 1.0
+    posterior_mu_init: 0.0
+    posterior_rho_init: -3.0
+    bayesian_layer_type: "reparameterization"
