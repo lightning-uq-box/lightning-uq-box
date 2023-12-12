@@ -61,6 +61,8 @@ class LSTMVariational(BaseVariationalLayer_):
         """Initialize a new instance of LSTM Variational Layer.
 
         Args:
+            in_features: size of each input sample,
+            out_features: size of each output sample,
             prior_mu: mean of the prior arbitrary
                 distribution to be used on the complexity cost,
             prior_sigma: variance of the prior
@@ -69,15 +71,11 @@ class LSTMVariational(BaseVariationalLayer_):
                 sampled from N(0, posterior_mu_init),
             posterior_rho_init: init std for the trainable rho parameter,
                 sampled from N(0, posterior_rho_init),
-            in_features: size of each input sample,
-            out_features: size of each output sample,
             bias: if set to False, the layer will not learn an additive bias.
             layer_type: reparameterization trick with
                 "reparameterization" or "flipout".
         """
         super().__init__(
-            in_features,
-            out_features,
             prior_mu,
             prior_sigma,
             posterior_mu_init,
@@ -85,6 +83,9 @@ class LSTMVariational(BaseVariationalLayer_):
             bias,
             layer_type,
         )
+
+        self.in_features = in_features
+        self.out_features = out_features
 
         self.ih = LinearVariational(
             prior_mu=prior_mu,
@@ -108,7 +109,7 @@ class LSTMVariational(BaseVariationalLayer_):
             layer_type=layer_type,
         )
 
-    def define_bayesian_parameters(self):
+    def define_bayesian_weight_params(self):
         """Define Bayesian parameters."""
         pass
 
@@ -118,12 +119,15 @@ class LSTMVariational(BaseVariationalLayer_):
         Returns:
             tensor of shape 0
         """
-        n_params = (
-            self.hh.mu_weight.numel()
-            + self.hh.mu_bias.numel()
-            + self.ih.mu_bias.numel()
-            + self.ih.mu_bias.numel()
-        )
+        if self.bias:
+            n_params = (
+                self.hh.mu_weight.numel()
+                + self.hh.mu_bias.numel()
+                + self.ih.mu_weight.numel()
+                + self.ih.mu_bias.numel()
+            )
+        else:
+            n_params = self.hh.mu_weight.numel() + self.ih.mu_weight.numel()
         return torch.tensor(0.5 * n_params * math.log(self.prior_sigma * 2 * math.pi))
 
     def log_f_hat(self):

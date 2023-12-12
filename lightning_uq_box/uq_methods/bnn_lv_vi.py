@@ -49,7 +49,6 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         latent_net: nn.Module,
         num_training_points: int,
         prediction_head: Optional[nn.Module] = None,
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
         latent_variable_intro: str = "first",
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
@@ -65,6 +64,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         lv_prior_std: float = 1.0,
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
+        stochastic_module_names: Optional[list[Union[str, int]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -74,10 +74,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             model: pytorch model that will be converted into a BNN
             latent_net: latent variable network
             num_training_points: num of data points contained in the training dataset
-            num_training_points: num of data points contained in the training dataset
             prediction_head: prediction head that will be attached to the model
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
             latent_variable_intro: whether to introduce the latent variable at
                 the first or last layer of the model
             n_mc_samples_train: number of MC samples during training when computing
@@ -96,6 +93,8 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             lv_prior_std: prior std for latent variable network
             lv_latent_dim: number of latent dimension
             init_scaling: init scaling factor for q(z) in latent variable network
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -105,7 +104,6 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         """
         super().__init__(
             model,
-            num_training_points,
             n_mc_samples_train,
             n_mc_samples_test,
             output_noise_scale,
@@ -514,7 +512,6 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         latent_net: nn.Module,
         num_training_points: int,
         prediction_head: Optional[nn.Module] = None,
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
         latent_variable_intro: str = "first",
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
@@ -530,6 +527,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         lv_prior_std: float = 1,
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
+        stochastic_module_names: Optional[list[Union[str, int]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -539,12 +537,9 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             model: pytorch model that will be converted into a BNN
             latent_net: latent variable network
             num_training_points: number of data points contained in the training dataset
-            stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
             num_training_points: number of data points contained in the training dataset
             prediction_head: prediction head that will be attached to the model
-            stochastic_module_names:
-            latent_variable_intro:
+            latent_variable_intro: whether to introcde the LV at `first` or `last` layer
             n_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
             n_mc_samples_test: number of MC samples during test and prediction
@@ -559,6 +554,8 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             lv_prior_mu: prior mean for latent variable network
             lv_prior_std: prior std for latent variable network
             lv_latent_dim: number of latent dimension
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -572,7 +569,6 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             latent_net,
             num_training_points,
             prediction_head,
-            stochastic_module_names,
             latent_variable_intro,
             n_mc_samples_train,
             n_mc_samples_test,
@@ -588,6 +584,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             lv_prior_std,
             lv_latent_dim,
             init_scaling,
+            stochastic_module_names,
             optimizer,
             lr_scheduler,
         )

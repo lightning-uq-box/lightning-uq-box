@@ -13,7 +13,6 @@ from .toy_image_classification import ToyImageClassificationDatamodule
 from .toy_image_regression import ToyImageRegressionDatamodule
 from .toy_image_segmentation import ToySegmentationDataModule
 from .toy_sine import ToySineDatamodule
-from .toy_uncertainty_gaps import ToyUncertaintyGaps
 
 __all__ = (
     # toy datamodules
@@ -24,7 +23,6 @@ __all__ = (
     "ToyImageClassificationDatamodule",
     "ToyImageRegressionDatamodule",
     "ToySegmentationDataModule",
-    "ToyUncertaintyGaps",
     "ToyDUE",
     "Toy8GaussiansDataModule",
     "ToyGaussianSideWaysDataModule",

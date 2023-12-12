@@ -17,6 +17,7 @@ from lightning_uq_box.uq_methods import DeepEnsembleSegmentation
 
 model_config_paths = [
     "tests/configs/image_segmentation/bnn_vi_elbo.yaml",
+    "tests/configs/image_segmentation/bnn_vi_elbo_part_stoch.yaml",
     "tests/configs/image_segmentation/mc_dropout.yaml",
     "tests/configs/image_segmentation/swag.yaml",
 ]

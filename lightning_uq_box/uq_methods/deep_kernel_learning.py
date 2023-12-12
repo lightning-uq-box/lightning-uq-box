@@ -8,6 +8,7 @@ import os
 from typing import Any, Dict
 
 import gpytorch
+import numpy as np
 import torch
 import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
@@ -25,6 +26,7 @@ from gpytorch.variational import (
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from sklearn import cluster
 from torch import Tensor
+from torch.utils.data import Dataset
 
 from .base import BaseModule
 from .utils import (
@@ -692,22 +694,22 @@ class DKLGPLayer(ApproximateGP):
 
 
 def compute_initial_values(
-    train_dataset,
-    feature_extractor,
-    n_inducing_points,
+    train_dataset: Dataset,
+    feature_extractor: nn.Module,
+    n_inducing_points: int,
     augmentation,
-    input_key,
-    target_key,
+    input_key: str,
+    target_key: str,
 ) -> tuple[Tensor]:
     """Compute the inital values.
 
     Args:
         train_dataset: training dataset to compute the initial values on
-        feature_extractor:
-        n_inducing_points:
-        augmentation:
-        input_key:
-        target_key:
+        feature_extractor: feature extractor with which to compute the initial values
+        n_inducing_points: number of inducing points
+        augmentation: augmentation function applied to the dataset samples
+        input_key: input key of dictionary that gets returned by dataset
+        target_key: target key of dictionary that gets returned by dataset
 
     Returns:
         initial inducing points and initial lengthscale
@@ -715,9 +717,10 @@ def compute_initial_values(
     steps = 10
     idx = torch.randperm(len(train_dataset))[:1000].chunk(steps)
     f_X_samples = []
-
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # TODO find a universal solution for the dataset key
     with torch.no_grad():
+        feature_extractor = feature_extractor.to(device)
         for i in range(steps):
             random_indices = idx[i].tolist()
 
@@ -732,9 +735,9 @@ def compute_initial_values(
                 X_sample = torch.stack([train_dataset[j][0] for j in random_indices])
                 y_sample = torch.stack([train_dataset[j][1] for j in random_indices])
 
-            if torch.cuda.is_available():
-                X_sample = X_sample.cuda()
-                feature_extractor = feature_extractor.cuda()
+            X_sample = X_sample.to(device)
+            y_sample = y_sample.to(device)
+
             X_sample = augmentation({input_key: X_sample, target_key: y_sample})
             f_X_samples.append(feature_extractor(X_sample).cpu())
 
@@ -747,12 +750,14 @@ def compute_initial_values(
     return initial_inducing_points.to(torch.float), initial_lengthscale.to(torch.float)
 
 
-def _get_initial_inducing_points(f_X_sample, n_inducing_points) -> Tensor:
+def _get_initial_inducing_points(
+    f_X_sample: np.ndarray, n_inducing_points: int
+) -> Tensor:
     """Compute the initial number of inducing points.
 
     Args:
-        f_X_sample:
-        n_inducing_points:
+        f_X_sample: feature extractor output samples
+        n_inducing_points: number of inducing points
 
     Returns:
         initial inducing points
@@ -766,17 +771,17 @@ def _get_initial_inducing_points(f_X_sample, n_inducing_points) -> Tensor:
     return initial_inducing_points
 
 
-def _get_initial_lengthscale(f_X_samples) -> Tensor:
+def _get_initial_lengthscale(f_X_samples: Tensor) -> Tensor:
     """Compute the initial lengthscale.
 
     Args:
-        f_X_samples:
+        f_X_samples: feature extractor output samples
 
     Returns:
         length scale tensor
     """
-    if torch.cuda.is_available():
-        f_X_samples = f_X_samples.cuda()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    f_X_samples = f_X_samples.to(device)
 
     initial_lengthscale = torch.pdist(f_X_samples).mean()
 
