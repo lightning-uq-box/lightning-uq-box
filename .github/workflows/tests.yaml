@@ -36,11 +36,11 @@ jobs:
       shell: bash
       run: |
         python -m pytest -v tests --cov=lightning_uq_box --cov-report=xml
-      env:
-        MKL_THREADING_LAYER: TBB
       if: ${{ runner.os != 'Windows' }}
     - name: Run pytest checks (Windows)
       shell: cmd
+      env:
+        MKL_THREADING_LAYER: TBB
       run: |
         pip install -e .
         pytest --cov=lightning_uq_box --cov-report=xml --durations=10
