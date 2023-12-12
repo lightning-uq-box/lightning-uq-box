@@ -40,7 +40,7 @@ jobs:
     - name: Run pytest checks (Windows)
       shell: cmd
       env:
-        MKL_THREADING_LAYER: TBB
+        OMP_NUM_THREADS: 1
       run: |
         pip install -e .
         pytest --cov=lightning_uq_box --cov-report=xml --durations=10
