@@ -35,6 +35,8 @@ jobs:
     - name: Run pytest checks (Ubuntu and macOS)
       shell: bash
       env:
+        MKL_THREADING_LAYER: TBB
+        OMP_NUM_THREADS: 1
         KMP_DUPLICATE_LIB_OK: true
       run: |
         python -m pytest -v tests --cov=lightning_uq_box --cov-report=xml
