@@ -32,15 +32,24 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements/requirements.txt -r requirements/tests.txt
         pip install numpy scipy
-    - name: Run pytest checks (Ubuntu and macOS)
+    - name: Run pytest checks (Ubuntu)
       shell: bash
-      env:
-        MKL_THREADING_LAYER: TBB
-        OMP_NUM_THREADS: 1
-        KMP_DUPLICATE_LIB_OK: true
       run: |
         python -m pytest -v tests --cov=lightning_uq_box --cov-report=xml
-      if: ${{ runner.os != 'Windows' }}
+      if: ${{ runner.os == 'Ubuntu' }}
+    - name: Run pytest checks (MacOS)
+      shell: bash
+      # env:
+      #   MKL_THREADING_LAYER: TBB
+      #   OMP_NUM_THREADS: 1
+      #   KMP_DUPLICATE_LIB_OK: true
+      run: |
+        unset MKL_THREADING_LAYER
+        unset OMP_NUM_THREADS
+        python -m pytest -v tests --cov=lightning_uq_box --cov-report=xml
+      if: ${{ runner.os == 'macos' }}
+
+    
     - name: Run pytest checks (Windows)
       shell: cmd
       run: |
