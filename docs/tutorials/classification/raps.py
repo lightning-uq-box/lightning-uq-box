@@ -25,7 +25,6 @@ import pandas as pd
 plt.rcParams["figure.figsize"] = [14, 5]
 
 
-
 def compute_empirical_coverage(S: list[Sequence[int]], y: list[int]) -> float:
     """Compute the empirical coverage of the predictions.
 
@@ -134,7 +133,7 @@ def fit_original_raps(model: torch.nn.Module):
 
 
 def fit_my_raps(orig_model: torch.nn.Module):
-    raps = RAPS(orig_model.model, lamda_param=orig_model.lamda, kreg=orig_model.kreg)
+    raps = RAPS(orig_model.model, lamda_param=orig_model.lamda, kreg=orig_model.kreg, randomized=True, allow_zero_sets=False)
     raps.input_key = "image"
     raps.target_key = "label"
 
@@ -212,36 +211,9 @@ def run_seed(seed, device):
     df.rename(columns={"level_0": "model", "level_1": "version"}, inplace=True)
     df.to_csv(os.path.join("results", f"imagenet_results_{seed}.csv"), index=False)
 
-# if __name__ == "__main__":
-#     # ...
-
-#     num_seeds = 10
-#     devices = ["cuda:0", "cuda:1", "cuda:2", "cuda:3", "cuda:4"]
-
-#     processes = []
-#     for i in tqdm(range(num_seeds), desc="Running seeds"):
-#         device = devices[i % len(devices)]
-#         p = mp.Process(target=run_seed, args=(i, device))
-#         import pdb
-#         pdb.set_trace()
-#         p.start()
-#         processes.append(p)
-
-#     for p in processes:
-#         p.join()
-
 if __name__ == "__main__":
-
-    # ## Model
-    # Specify the device
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    # timm_model = timm.create_model('resnet18', pretrained=True)
-    # timm_model = timm_model.to(device)
-    import torchvision
-
-    timm_model = torchvision.models.resnet18(pretrained=True, progress=True).cuda()
-    num_seeds = 10
+    num_seeds = 5
     for i in tqdm(range(num_seeds)):
         run_seed(i, device)

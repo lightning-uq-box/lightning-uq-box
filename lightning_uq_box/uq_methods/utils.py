@@ -146,11 +146,12 @@ def process_classification_prediction(preds: Tensor) -> dict[str, Tensor]:
     Returns:
         dictionary with mean [batch_size, num_classes]
             and predictive uncertainty [batch_size]
+            and logits [batch_size, num_classes]
     """
     mean = nn.functional.softmax(preds.mean(-1), dim=-1)
     entropy = -(mean * mean.log()).sum(dim=-1)
 
-    return {"pred": mean, "pred_uct": entropy}
+    return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
 
 
 def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:

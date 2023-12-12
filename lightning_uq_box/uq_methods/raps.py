@@ -120,6 +120,8 @@ class RAPS(PosthocBase):
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
         """Test step after running posthoc fitting methodology."""
+        # need to set manually because of inference mode
+        self.eval()
         pred_dict = self.predict_step(batch[self.input_key])
 
         # logging metrics
@@ -130,7 +132,7 @@ class RAPS(PosthocBase):
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
-        """Predict steps via Monte Carlo Sampling.
+        """Predict step with RAPS applie.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
@@ -138,8 +140,15 @@ class RAPS(PosthocBase):
         Returns:
             logits and conformalized prediction sets
         """
+        # need to set manually because of inference mode
+        self.eval()
         with torch.no_grad():
-            logits = self.model(X)
+            # TODO (nils): check if the underlying model is a lightning module
+            # and has a predict step, because then RAPs should be applied on top of that
+            if hasattr(self.model, 'predict_step'):
+                logits = self.model.predict_step(X)["logits"]
+            else:
+                logits = self.model(X)
             scores = temp_scale_logits(logits, self.temperature)
             S = self.adjust_model_logits(logits)
 
