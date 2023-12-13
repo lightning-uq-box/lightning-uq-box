@@ -246,7 +246,6 @@ class DeterministicRegression(DeterministicModel):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        outputs = {k: v.cpu().numpy() for k, v in outputs.items()}
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )

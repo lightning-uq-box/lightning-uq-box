@@ -258,17 +258,18 @@ class LaplaceRegression(LaplaceBase):
             input = X.clone().requires_grad_()
 
             laplace_mean, laplace_var = self.forward(input)
-            laplace_mean = laplace_mean.squeeze().detach().cpu().numpy()
-            laplace_epistemic = laplace_var.squeeze().sqrt().cpu().numpy()
+            laplace_mean = laplace_mean.squeeze().detach()
+            laplace_epistemic = laplace_var.squeeze().sqrt()
             laplace_aleatoric = (
-                np.ones_like(laplace_epistemic) * self.laplace_model.sigma_noise.item()
+                torch.ones_like(laplace_epistemic)
+                * self.laplace_model.sigma_noise.item()
             )
-            laplace_predictive = np.sqrt(
+            laplace_predictive = torch.sqrt(
                 laplace_epistemic**2 + laplace_aleatoric**2
             )
 
         return {
-            "pred": torch.from_numpy(laplace_mean).to(self.device),
+            "pred": laplace_mean,
             "pred_uct": laplace_predictive,
             "epistemic_uct": laplace_epistemic,
             "aleatoric_uct": laplace_aleatoric,
