@@ -209,6 +209,22 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
     else:  # create new csv
         df.to_csv(path, index=False)
 
+def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> None:
+    """Save classification predictions to csv file.
+    
+    Args:
+        outputs: metrics and values to be saved
+        path: path where csv should be saved
+    """
+    import pdb
+    pdb.set_trace()
+    df = pd.DataFrame.from_dict(outputs)
+
+    if os.path.exists(path):
+        df.to_csv(path, mode="a", index=False, header=False)
+    else:
+        df.to_csv(path, index=False)
+
 
 def map_stochastic_modules(
     model: nn.Module, stochastic_module_names: Union[None, list[str, int]]

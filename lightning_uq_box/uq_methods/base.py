@@ -18,6 +18,7 @@ from .utils import (
     default_classification_metrics,
     default_regression_metrics,
     save_regression_predictions,
+    save_classification_predictions
 )
 
 
@@ -302,6 +303,20 @@ class DeterministicClassification(DeterministicModel):
         )
         self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
+        )
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
 
 
