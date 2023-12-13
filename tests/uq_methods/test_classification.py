@@ -4,6 +4,7 @@
 """Test Classification Tasks."""
 
 import glob
+import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -53,6 +54,11 @@ class TestClassificationTask:
         cli = get_uq_box_cli(args)
         cli.trainer.fit(cli.model, cli.datamodule)
         cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
+
+        # assert predictions are saved
+        assert os.path.exists(
+            os.path.join(cli.trainer.default_root_dir, cli.model.pred_file_name)
+        )
 
 
 posthoc_config_paths = [
