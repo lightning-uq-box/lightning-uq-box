@@ -41,7 +41,7 @@ from .deep_kernel_learning import (
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
-from .loss_functions import NLL, DERLoss, HuberQLoss, QuantileLoss
+from .loss_functions import NLL, DERLoss, HuberQLoss, PinballLoss, QuantileLoss
 from .mc_dropout import (
     MCDropoutBase,
     MCDropoutClassification,
@@ -145,4 +145,5 @@ __all__ = (
     "QuantileLoss",
     "DERLoss",
     "HuberQLoss",
+    "PinballLoss",
 )
