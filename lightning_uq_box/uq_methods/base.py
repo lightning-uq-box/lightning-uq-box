@@ -305,6 +305,20 @@ class DeterministicClassification(DeterministicModel):
             "test", self.task, self.num_classes
         )
 
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        with torch.no_grad():
+            out = self.forward(X)
+        return {"pred": self.adapt_output_for_metrics(out), "logits": out}
+
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> None:
