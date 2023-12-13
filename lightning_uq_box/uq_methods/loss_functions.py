@@ -213,6 +213,52 @@ class QuantileLoss(nn.Module):
         return loss.mean()
 
 
+class PinballLoss(nn.Module):
+    """Pinball Loss for quantile regression."""
+
+    def __init__(self, quantiles: list[float]):
+        """Initialize a new instance of Pinball Loss.
+
+        Args:
+            quantiles: List of quantiles for which to compute the loss.
+        """
+        super().__init__()
+        self.quantiles = quantiles
+
+    def pinball_loss(self, y_pred: Tensor, y_true: Tensor, tau: float) -> Tensor:
+        """Compute the Pinball Loss for a single quantile.
+
+        Args:
+            y_pred: Predicted values.
+            y_true: True values.
+            tau: The quantile for which to compute the loss.
+
+        Returns:
+            The computed Pinball Loss for the given quantile.
+        """
+        err = y_true - y_pred
+        loss = torch.where(err >= 0, tau * err, (tau - 1) * err)
+        return torch.mean(loss)
+
+    def forward(self, preds: Tensor, target: Tensor) -> Tensor:
+        """Compute the Pinball Loss for all quantiles.
+
+        Args:
+            preds: Predicted values for all quantiles.
+            target: True values.
+
+        Returns:
+            The mean Pinball Loss for all quantiles.
+        """
+        loss = torch.stack(
+            [
+                self.pinball_loss(preds[:, idx], target.squeeze(), tau)
+                for idx, tau in enumerate(self.quantiles)
+            ]
+        )
+        return loss.mean()
+
+
 class HuberQLoss(nn.Module):
     """Huber Quantile Loss function."""
 
