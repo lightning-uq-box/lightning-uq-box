@@ -3,6 +3,7 @@
 Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperature_scaling.py. # noqa: E501
 """
 
+import os
 from functools import partial
 from typing import Dict, Union
 
@@ -14,6 +15,7 @@ from torch import Tensor
 from torch.optim import LBFGS
 
 from .base import PosthocBase
+from .utils import save_classification_predictions
 
 
 class TempScaling(PosthocBase):
@@ -23,6 +25,8 @@ class TempScaling(PosthocBase):
 
     * https://arxiv.org/abs/1706.04599
     """
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -90,7 +94,11 @@ class TempScaling(PosthocBase):
             dim=1,
         )
 
-        return {"pred": temp_scaled_outputs, "pred_uct": entropy}
+        return {
+            "pred": temp_scaled_outputs,
+            "pred_uct": entropy,
+            "logits": temp_scaled_outputs,
+        }
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -104,6 +112,20 @@ class TempScaling(PosthocBase):
         """
         preds = self.predict_step(batch[self.input_key])
         return preds
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 def temp_scale_logits(logits: torch.Tensor, temperature: torch.Tensor) -> torch.Tensor:

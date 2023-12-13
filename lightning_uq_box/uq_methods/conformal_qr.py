@@ -128,17 +128,15 @@ class ConformalQR(PosthocBase):
             dataloader_idx: dataloader index
         """
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = (
-            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
-        )
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
 
         # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         # save metadata
         for key, val in batch.items():
             if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                out_dict[key] = val.detach().squeeze(-1).cpu()
 
         if "out" in out_dict:
             del out_dict["out"]

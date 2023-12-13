@@ -327,9 +327,7 @@ class DKLRegression(DKLBase):
     ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = (
-            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
-        )
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
 
         self.log(
             "test_loss",
@@ -343,7 +341,7 @@ class DKLRegression(DKLBase):
         # save metadata
         for key, val in batch.items():
             if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                out_dict[key] = val.detach().squeeze(-1).cpu()
         return out_dict
 
     def on_test_batch_end(
@@ -544,9 +542,7 @@ class DKLClassification(DKLBase):
     ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = (
-            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
-        )
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
 
         self.log(
             "test_loss",
@@ -563,7 +559,7 @@ class DKLClassification(DKLBase):
         # save metadata
         for key, val in batch.items():
             if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                out_dict[key] = val.detach().squeeze(-1).cpu()
         return out_dict
 
     def on_test_epoch_end(self):

@@ -23,6 +23,7 @@ from .utils import (
     default_regression_metrics,
     process_classification_prediction,
     process_regression_prediction,
+    save_classification_predictions,
     save_regression_predictions,
 )
 
@@ -292,6 +293,7 @@ class SGLDClassification(SGLDBase):
     """Stochastic Gradient Langevin Dynamics method for classification."""
 
     valid_tasks = ["multiclass", "binary", "multilabel"]
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -396,3 +398,17 @@ class SGLDClassification(SGLDBase):
         # shape [batch_size, num_outputs, n_sgld_samples]
 
         return process_classification_prediction(preds)
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )

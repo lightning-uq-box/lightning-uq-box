@@ -5,7 +5,6 @@
 
 import os
 
-import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -115,14 +114,8 @@ class DER(DeterministicModel):
         """
         with torch.no_grad():
             pred = self.model(X)  # [batch_size x 4]
-            pred_np = pred.cpu().numpy()
 
-        gamma, nu, alpha, beta = (
-            pred[:, 0:1],
-            pred_np[:, 1],
-            pred_np[:, 2],
-            pred_np[:, 3],
-        )
+        gamma, nu, alpha, beta = (pred[:, 0:1], pred[:, 1], pred[:, 2], pred[:, 3])
 
         epistemic_uct = self.compute_epistemic_uct(nu)
         aleatoric_uct = self.compute_aleatoric_uct(beta, alpha, nu)
@@ -147,9 +140,7 @@ class DER(DeterministicModel):
         """
         return out[:, 0:1]
 
-    def compute_aleatoric_uct(
-        self, beta: np.ndarray, alpha: np.ndarray, nu: np.ndarray
-    ) -> Tensor:
+    def compute_aleatoric_uct(self, beta: Tensor, alpha: Tensor, nu: Tensor) -> Tensor:
         """Compute the aleatoric uncertainty for DER model.
 
         Equation 10:
@@ -163,9 +154,9 @@ class DER(DeterministicModel):
             Aleatoric Uncertainty
         """
         # Equation 10 from the above paper
-        return np.sqrt(np.divide(beta * (1 + nu), alpha * nu))
+        return torch.sqrt(torch.div(beta * (1 + nu), alpha * nu))
 
-    def compute_epistemic_uct(self, nu: np.ndarray) -> np.ndarray:
+    def compute_epistemic_uct(self, nu: Tensor) -> Tensor:
         """Compute the aleatoric uncertainty for DER model.
 
         Equation 10:
@@ -175,7 +166,7 @@ class DER(DeterministicModel):
         Returns:
             Epistemic Uncertainty
         """
-        return np.reciprocal(np.sqrt(nu))
+        return torch.reciprocal(torch.sqrt(nu))
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

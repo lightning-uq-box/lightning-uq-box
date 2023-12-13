@@ -17,8 +17,8 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    save_classification_predictions,
     save_regression_predictions,
-    save_classification_predictions
 )
 
 
@@ -168,9 +168,7 @@ class DeterministicModel(BaseModule):
     ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = (
-            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
-        )
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
 
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(
@@ -178,16 +176,17 @@ class DeterministicModel(BaseModule):
             )
 
         # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         # save metadata
         # UNIQUE to method
         for key, val in batch.items():
             if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                out_dict[key] = val.detach().squeeze(-1)
 
         if "out" in out_dict:
             del out_dict["out"]
+
         return out_dict
 
     def on_test_epoch_end(self):
@@ -247,6 +246,7 @@ class DeterministicRegression(DeterministicModel):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
+        outputs = {k: v.cpu().numpy() for k, v in outputs.items()}
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )

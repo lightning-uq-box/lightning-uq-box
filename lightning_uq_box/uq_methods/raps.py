@@ -10,6 +10,7 @@
 Adapted from https://github.com/aangelopoulos/conformal_classification
 """
 
+import os
 from functools import partial
 from typing import Union
 
@@ -21,7 +22,7 @@ from torch import Tensor
 
 from .base import PosthocBase
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
-from .utils import default_classification_metrics
+from .utils import default_classification_metrics, save_classification_predictions
 
 
 class RAPS(PosthocBase):
@@ -33,6 +34,7 @@ class RAPS(PosthocBase):
     """
 
     valid_tasks = ["binary", "multiclass", "multilable"]
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -152,7 +154,7 @@ class RAPS(PosthocBase):
             scores = temp_scale_logits(logits, self.temperature)
             S = self.adjust_model_logits(logits)
 
-        return {"pred": scores, "pred_set": S}
+        return {"pred": scores, "pred_set": S, "logits": scores}
 
     def adjust_model_logits(self, model_logits: Tensor) -> Tensor:
         """Adjust model output according to RAPS with fitted Qhat.
@@ -190,6 +192,20 @@ class RAPS(PosthocBase):
         self.Qhat = self.compute_q_hat(all_logits, all_labels)
 
         self.post_hoc_fitted = True
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 def gen_inverse_quantile_function(
