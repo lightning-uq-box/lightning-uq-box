@@ -4,8 +4,8 @@
 """Utilities for UQ-Method Implementations."""
 
 import os
-from collections import OrderedDict, defaultdict
-from typing import Any, Optional, Union
+from collections import OrderedDict
+from typing import Optional, Union
 
 import pandas as pd
 import torch
@@ -172,17 +172,6 @@ def change_inplace_activation(module):
     """Change inplace activation."""
     if hasattr(module, "inplace"):
         module.inplace = False
-
-
-def merge_list_of_dictionaries(list_of_dicts: list[dict[str, Any]]):
-    """Merge list of dictionaries."""
-    merged_dict = defaultdict(list)
-
-    for out in list_of_dicts:
-        for k, v in out.items():
-            merged_dict[k].extend(v.tolist())
-
-    return merged_dict
 
 
 def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
