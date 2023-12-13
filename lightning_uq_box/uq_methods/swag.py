@@ -563,6 +563,18 @@ class SWAGSegmentation(SWAGClassification):
         preds = self.sample_predictions(X)
         return process_segmentation_prediction(preds)
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        pass
+
 
 # Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501
 def update_bn(

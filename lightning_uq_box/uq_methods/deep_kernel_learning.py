@@ -34,6 +34,7 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    save_classification_predictions,
     save_regression_predictions,
 )
 
@@ -49,6 +50,7 @@ class DKLBase(gpytorch.Module, BaseModule):
     # TODO make elbo_fn an argument that can be instatiated with
     # different elbo functions and Lightning CLI
     kernel_choices = ["RBF", "Matern12", "Matern32", "Matern52", "RQ"]
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -215,6 +217,28 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.val_metrics(y_pred.mean, y.squeeze(-1))
         return loss
 
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Test step."""
+        out_dict = self.predict_step(batch[self.input_key])
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
+
+        self.log(
+            "test_loss",
+            -self.elbo_fn(out_dict["out"], batch[self.target_key].squeeze(-1)),
+        )  # logging to Logger
+        if batch[self.input_key].shape[0] > 1:
+            self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))
+
+        del out_dict["out"]
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in [self.input_key, self.target_key]:
+                out_dict[key] = val.detach().squeeze(-1).cpu()
+        return out_dict
+
     def on_validation_epoch_end(self) -> None:
         """Log epoch level validation metrics."""
         self.log_dict(self.val_metrics.compute())
@@ -257,8 +281,6 @@ class DKLRegression(DKLBase):
     * https://proceedings.mlr.press/v51/wilson16.html
     * https://arxiv.org/abs/2102.11409
     """
-
-    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -321,28 +343,6 @@ class DKLRegression(DKLBase):
         if self.device.type == "cuda":
             self.gp_layer = self.gp_layer.cuda()
             self.likelihood = self.likelihood.cuda()
-
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
-        """Test step."""
-        out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
-
-        self.log(
-            "test_loss",
-            -self.elbo_fn(out_dict["out"], batch[self.target_key].squeeze(-1)),
-        )  # logging to Logger
-        if batch[self.input_key].shape[0] > 1:
-            self.test_metrics(out_dict["out"].mean, batch[self.target_key].squeeze(-1))
-
-        del out_dict["out"]
-
-        # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu()
-        return out_dict
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -537,31 +537,6 @@ class DKLClassification(DKLBase):
         self.val_metrics(scores, y.squeeze(-1))
         return loss
 
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
-        """Test step."""
-        out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
-
-        self.log(
-            "test_loss",
-            -self.elbo_fn(out_dict["out"], batch[self.target_key].squeeze(-1)),
-        )  # logging to Logger
-        if batch[self.input_key].shape[0] > 1:
-            self.test_metrics(
-                self.likelihood(out_dict["out"]).probs.mean(0),
-                batch[self.target_key].squeeze(-1),
-            )
-
-        del out_dict["out"]
-
-        # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu()
-        return out_dict
-
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""
         self.log_dict(self.test_metrics.compute())
@@ -591,7 +566,21 @@ class DKLClassification(DKLBase):
             output = self.likelihood(gp_dist)
             mean = output.probs.mean(0).cpu()  # take mean over sampling dimension
             entropy = output.entropy().mean(0).cpu()
-        return {"pred": mean, "pred_uct": entropy, "out": gp_dist}
+        return {"pred": mean, "pred_uct": entropy, "out": gp_dist, "logits": mean}
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 class DKLGPLayer(ApproximateGP):

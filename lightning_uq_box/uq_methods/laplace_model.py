@@ -348,7 +348,7 @@ class LaplaceClassification(LaplaceBase):
 
             entropy = -torch.sum(probs * torch.log(probs), dim=1)
 
-        return {"pred": probs, "pred_uct": entropy}
+        return {"pred": probs, "pred_uct": entropy, "logits": probs}
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
