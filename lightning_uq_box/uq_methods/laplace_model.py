@@ -19,6 +19,7 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    save_classification_predictions,
     save_regression_predictions,
 )
 
@@ -184,9 +185,7 @@ class LaplaceBase(BaseModule):
     ) -> None:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = (
-            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
-        )
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
 
         self.log(
             "test_loss",
@@ -196,12 +195,12 @@ class LaplaceBase(BaseModule):
             self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))
 
         # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         # save metadata
         for key, val in batch.items():
             if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                out_dict[key] = val.detach().squeeze(-1).cpu()
 
         return out_dict
 
@@ -259,17 +258,18 @@ class LaplaceRegression(LaplaceBase):
             input = X.clone().requires_grad_()
 
             laplace_mean, laplace_var = self.forward(input)
-            laplace_mean = laplace_mean.squeeze().detach().cpu().numpy()
-            laplace_epistemic = laplace_var.squeeze().sqrt().cpu().numpy()
+            laplace_mean = laplace_mean.squeeze().detach()
+            laplace_epistemic = laplace_var.squeeze().sqrt()
             laplace_aleatoric = (
-                np.ones_like(laplace_epistemic) * self.laplace_model.sigma_noise.item()
+                torch.ones_like(laplace_epistemic)
+                * self.laplace_model.sigma_noise.item()
             )
-            laplace_predictive = np.sqrt(
+            laplace_predictive = torch.sqrt(
                 laplace_epistemic**2 + laplace_aleatoric**2
             )
 
         return {
-            "pred": torch.from_numpy(laplace_mean).to(self.device),
+            "pred": laplace_mean,
             "pred_uct": laplace_predictive,
             "epistemic_uct": laplace_epistemic,
             "aleatoric_uct": laplace_aleatoric,
@@ -349,4 +349,18 @@ class LaplaceClassification(LaplaceBase):
 
             entropy = -torch.sum(probs * torch.log(probs), dim=1)
 
-        return {"pred": probs, "pred_uct": entropy}
+        return {"pred": probs, "pred_uct": entropy, "logits": probs}
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )

@@ -17,6 +17,7 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    save_classification_predictions,
     save_regression_predictions,
 )
 
@@ -167,9 +168,7 @@ class DeterministicModel(BaseModule):
     ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = (
-            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
-        )
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
 
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(
@@ -177,16 +176,17 @@ class DeterministicModel(BaseModule):
             )
 
         # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         # save metadata
         # UNIQUE to method
         for key, val in batch.items():
             if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                out_dict[key] = val.detach().squeeze(-1)
 
         if "out" in out_dict:
             del out_dict["out"]
+
         return out_dict
 
     def on_test_epoch_end(self):
@@ -304,6 +304,34 @@ class DeterministicClassification(DeterministicModel):
             "test", self.task, self.num_classes
         )
 
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        with torch.no_grad():
+            out = self.forward(X)
+        return {"pred": self.adapt_output_for_metrics(out), "logits": out}
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
 
 class PosthocBase(BaseModule):
     """Posthoc Base Model for UQ methods."""
@@ -366,6 +394,9 @@ class PosthocBase(BaseModule):
         Returns:
             underlying model output and labels
         """
+        # needed because we need inference_mode=True for
+        # optimization procedures later on but need fixed model here
+        self.eval()
         self.model_logits.append(self.model(batch[self.input_key]))
         self.labels.append(batch[self.target_key])
 
@@ -387,10 +418,13 @@ class PosthocBase(BaseModule):
         raise NotImplementedError
 
     def forward(self, X: Tensor) -> Tensor:
-        """Forward pass of CQR model.
+        """Forward pass of Posthoc model that adjusts model logits.
 
         Args:
             X: input tensor of shape [batch_size x input_dims]
+
+        Returns:
+            adjusted model output tensor of shape [batch_size x num_outputs]
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(

@@ -53,8 +53,9 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 | UQ-Method            | Regression            | Classification            | Segmentation              | Pixel Wise Regression      |
 |----------------------|:---------------------:|:-------------------------:|:-------------------------:|:--------------------------:|
-| Conformal QR         |          ✅           |           ❌              |           ❌              |            ⏳              |
 | Temperature Scaling  |          ❌           |           ✅              |           ⏳              |            ❌              |
+| Conformal QR         |          ✅           |           ❌              |           ❌              |            ⏳              |
+| RAPS                 |          ❌           |           ✅              |           ❌              |            ❌              |
 
 ## Table of contents
 

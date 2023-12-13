@@ -1,0 +1,16 @@
+model:
+  class_path: lightning_uq_box.uq_methods.RAPS
+  init_args:
+    model:
+      class_path: lightning_uq_box.uq_methods.MCDropoutClassification
+      init_args:
+        model:
+          class_path: lightning_uq_box.models.MLP
+          init_args:
+            n_inputs: 2
+            n_outputs: 2
+            n_hidden: [50]
+        loss_fn:
+          class_path: torch.nn.CrossEntropyLoss
+        num_mc_samples: 5
+    kreg: 1
