@@ -22,6 +22,7 @@ from .utils import (
     default_classification_metrics,
     default_regression_metrics,
     process_classification_prediction,
+    save_classification_predictions,
     save_regression_predictions,
 )
 
@@ -174,21 +175,6 @@ class CARDBase(BaseModule):
     #     self.log_dict(self.val_metrics.compute())
     #     self.val_metrics.reset()
 
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Tensor:
-        """Compute and return the validation loss.
-
-        Args:
-            batch: the output of your DataLoader
-
-        Returns:
-            validation loss
-        """
-        test_loss, y_t_sample = self.diffusion_process(batch)
-        self.log("test_loss", test_loss)
-        return test_loss
-
     # def on_test_epoch_end(self):
     #     """Log epoch-level test metrics."""
     #     self.log_dict(self.test_metrics.compute())
@@ -267,7 +253,7 @@ class CARDBase(BaseModule):
         t: int,
         alphas: Tensor,
         one_minus_alphas_bar_sqrt: Tensor,
-    ):
+    ) -> Tensor:
         """Reverse diffusion process sampling, one time step.
 
         This is the process of generating a sample from the model's prior distribution
@@ -489,6 +475,38 @@ class CARDBase(BaseModule):
         reshape = [t.shape[0]] + [1] * (len(shape) - 1)
         return out.reshape(*reshape)
 
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute and return the test loss.
+
+        Args:
+            batch: the output of your DataLoader
+
+        Returns:
+            test loss
+        """
+        out_dict = self.predict_step(batch[self.input_key])
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
+
+        # turn mean to np array
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
+        out_dict["pred_uct"] = out_dict["pred_uct"].detach().cpu().squeeze(-1)
+        if "aleatoric_uct" in out_dict:
+            out_dict["aleatoric_uct"] = (
+                out_dict["aleatoric_uct"].detach().cpu().squeeze(-1)
+            )
+
+        # save metadata
+        for key, val in batch.items():
+            if key not in [self.input_key, self.target_key]:
+                if isinstance(val, Tensor):
+                    out_dict[key] = val.detach().squeeze(-1)
+                else:
+                    out_dict[key] = val
+
+        return out_dict
+
     def configure_optimizers(self) -> Any:
         """Configure optimizers."""
         # lightning puts optimizer weights on device automatically
@@ -520,39 +538,6 @@ class CARDRegression(CARDBase):
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
-
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Tensor:
-        """Compute and return the test loss.
-
-        Args:
-            batch: the output of your DataLoader
-
-        Returns:
-            test loss
-        """
-        out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = (
-            batch[self.target_key].detach().squeeze(-1).cpu().numpy()
-        )
-
-        # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
-        out_dict["pred_uct"] = out_dict["pred_uct"].detach().cpu().squeeze(-1).numpy()
-        out_dict["aleatoric_uct"] = (
-            out_dict["aleatoric_uct"].detach().cpu().squeeze(-1).numpy()
-        )
-
-        # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                if isinstance(val, Tensor):
-                    out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
-                else:
-                    out_dict[key] = val
-
-        return out_dict
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -686,9 +671,24 @@ class CARDClassification(CARDBase):
 
         # momenet matching
         pred_dict = process_classification_prediction(final_recoverd)
-        pred_dict["out"] = y_tile_seq
+        pred_dict["samples"] = y_tile_seq
 
         return pred_dict
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        del outputs["samples"]
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
 
 
 class NoiseScheduler:

@@ -123,12 +123,10 @@ class QuantileRegression(QuantileRegressionBase):
         """
         with torch.no_grad():
             out = self.model(X)  # [batch_size, len(self.quantiles)]
-            np_out = out.cpu().numpy()
+            # np_out = out.cpu().numpy()
 
         median = self.adapt_output_for_metrics(out)
-        mean, std = compute_sample_mean_std_from_quantile(
-            np_out, self.hparams.quantiles
-        )
+        _, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
 
         # TODO can happen due to overlapping quantiles
         # how to handle this properly ?
@@ -137,8 +135,8 @@ class QuantileRegression(QuantileRegressionBase):
         return {
             "pred": median,
             "pred_uct": std,
-            "lower_quant": np_out[:, 0],
-            "upper_quant": np_out[:, -1],
+            "lower_quant": out[:, 0],
+            "upper_quant": out[:, -1],
             "aleatoric_uct": std,
         }
 

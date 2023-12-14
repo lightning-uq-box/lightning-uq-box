@@ -18,6 +18,7 @@ from .utils import (
     process_classification_prediction,
     process_regression_prediction,
     process_segmentation_prediction,
+    save_classification_predictions,
     save_regression_predictions,
 )
 
@@ -89,7 +90,7 @@ class DeepEnsemble(BaseModule):
             dictionary of uncertainty outputs
         """
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict["targets"] = batch[self.target_key].detach().squeeze(-1).cpu().numpy()
+        out_dict["targets"] = batch[self.target_key].detach().squeeze(-1).cpu()
 
         # self.log("test_loss", self.loss_fn(out_dict["pred"],
         # batch[self.target_key].squeeze(-1)))
@@ -97,12 +98,12 @@ class DeepEnsemble(BaseModule):
             self.test_metrics(out_dict["pred"], batch[self.target_key])
 
         # turn mean to np array
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1).numpy()
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         # save metadata
         for key, val in batch.items():
             if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu().numpy()
+                out_dict[key] = val.detach().squeeze(-1).cpu()
 
         return out_dict
 
@@ -217,6 +218,20 @@ class DeepEnsembleClassification(DeepEnsemble):
 
         return process_classification_prediction(preds)
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
 
 class DeepEnsembleSegmentation(DeepEnsembleClassification):
     """Deep Ensemble Model for segmentation.
@@ -247,3 +262,15 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
             preds = self.generate_ensemble_predictions(X)
 
         return process_segmentation_prediction(preds)
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        pass

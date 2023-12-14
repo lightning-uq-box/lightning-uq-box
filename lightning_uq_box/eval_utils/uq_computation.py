@@ -78,8 +78,8 @@ def compute_predictive_uncertainty(
 
 
 def compute_sample_mean_std_from_quantile(
-    inter_range_quantiles: np.ndarray, quantiles: list[float]
-) -> np.ndarray:
+    inter_range_quantiles: Tensor, quantiles: list[float]
+) -> Tensor:
     """Compute sample mean and std from inter quantiles.
 
     Taken from: https://stats.stackexchange.com/questions/256456/

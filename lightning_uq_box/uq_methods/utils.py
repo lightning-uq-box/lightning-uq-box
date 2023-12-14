@@ -4,8 +4,8 @@
 """Utilities for UQ-Method Implementations."""
 
 import os
-from collections import OrderedDict, defaultdict
-from typing import Any, Optional, Union
+from collections import OrderedDict
+from typing import Optional, Union
 
 import pandas as pd
 import torch
@@ -52,6 +52,28 @@ def checkpoint_loader(
         return model_class.model
     else:
         return model_class
+
+
+def compute_coverage_and_set_size(
+    pred_set: list[Tensor], targets: Tensor
+) -> tuple[float, float]:
+    """Compute the coverage and size of the predictions sets.
+
+    Args:
+        pred_set: List of tensors of predicted labels for each sample in the batch
+            with class labels
+        targets: Tensor of true labels shape [batch_size, num_classes]
+
+    Returns:
+        coverage of the prediction sets and the average size of the prediction sets
+    """
+    covered = 0
+    size = 0
+    for i in range(targets.shape[0]):
+        if targets[i].item() in pred_set[i]:
+            covered += 1
+        size = size + pred_set[i].shape[0]
+    return float(covered) / targets.shape[0], size / targets.shape[0]
 
 
 def default_regression_metrics(prefix: str):
@@ -117,23 +139,18 @@ def process_regression_prediction(
             "epistemic_uct": epistemic,
             "aleatoric_uct": aleatoric,
         }
-        if quantiles is not None:
-            quantiles = compute_quantiles_from_std(
-                mean.detach().cpu().numpy(), std, quantiles
-            )
-            pred_dict["lower_quant"] = quantiles[:, 0]
-            pred_dict["upper_quant"] = quantiles[:, -1]
-        return pred_dict
     # assume mse prediction
     else:
         std = mean_samples.std(-1)
         pred_dict = {"pred": mean, "pred_uct": std, "epistemic_uct": std}
-        if quantiles is not None:
-            quantiles = compute_quantiles_from_std(
-                mean.detach().cpu().numpy(), std, quantiles
-            )
-            pred_dict["lower_quant"] = quantiles[:, 0]
-            pred_dict["upper_quant"] = quantiles[:, -1]
+
+    # check if quantiles are present
+    if quantiles is not None:
+        quantiles = compute_quantiles_from_std(
+            mean.detach().cpu().numpy(), std, quantiles
+        )
+        pred_dict["lower_quant"] = torch.from_numpy(quantiles[:, 0])
+        pred_dict["upper_quant"] = torch.from_numpy(quantiles[:, -1])
 
     return pred_dict
 
@@ -149,11 +166,12 @@ def process_classification_prediction(preds: Tensor) -> dict[str, Tensor]:
     Returns:
         dictionary with mean [batch_size, num_classes]
             and predictive uncertainty [batch_size]
+            and logits [batch_size, num_classes]
     """
     mean = nn.functional.softmax(preds.mean(-1), dim=-1)
     entropy = -(mean * mean.log()).sum(dim=-1)
 
-    return {"pred": mean, "pred_uct": entropy}
+    return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
 
 
 def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
@@ -181,34 +199,68 @@ def change_inplace_activation(module):
         module.inplace = False
 
 
-def merge_list_of_dictionaries(list_of_dicts: list[dict[str, Any]]):
-    """Merge list of dictionaries."""
-    merged_dict = defaultdict(list)
-
-    for out in list_of_dicts:
-        for k, v in out.items():
-            merged_dict[k].extend(v.tolist())
-
-    return merged_dict
-
-
 def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
     """Save regression predictions to csv file.
 
     Args:
         outputs: metrics and values to be saved
+            - pred: predictions of shape [batch_size]
+            - pred_uct: predictive uncertainty of shape [batch_size]
+            - epistemic_uct: epistemic uncertainty of shape [batch_size]
+            - aleatoric_uct: aleatoric uncertainty of shape [batch_size]
+            - lower_quant: lower quantile of shape [batch_size]
+            - upper_quant: upper quantile of shape [batch_size]
         path: path where csv should be saved
     """
-    # concatenate the predictions into a single dictionary
-    # save_pred_dict = merge_list_of_dictionaries(outputs)
-
-    # save the outputs, i.e. write them to file
+    outputs = {k: v.cpu().numpy() for k, v in outputs.items()}
     df = pd.DataFrame.from_dict(outputs)
 
     # check if path already exists, then just append
     if os.path.exists(path):
         df.to_csv(path, mode="a", index=False, header=False)
     else:  # create new csv
+        df.to_csv(path, index=False)
+
+
+def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> None:
+    """Save classification predictions to csv file.
+
+    Args:
+        outputs: metrics and values to be saved
+            - logits: logits of shape [batch_size, num_classes]
+            - pred: predictions of shape [batch_size, num_classes]
+            - target: targets of shape [batch_size]
+            - pred_uct: predictive uncertainty of shape [batch_size]
+        path: path where csv should be saved
+    """
+    logits = outputs.pop("logits")
+    for i in range(logits.shape[1]):
+        outputs[f"logit_{i}"] = logits[:, i]
+
+    if "pred_set" in outputs:
+        pred_set = [
+            str(tensor.cpu().numpy().tolist()) for tensor in outputs.pop("pred_set")
+        ]
+        df_pred_set = pd.DataFrame(pred_set, columns=["pred_set"])
+
+    pred = torch.argmax(outputs.pop("pred"), dim=1).cpu().numpy()
+
+    outputs = {k: v.cpu().numpy() for k, v in outputs.items()}
+
+    df_pred = pd.DataFrame(pred, columns=["pred"])
+
+    # Create DataFrame for the rest of the outputs
+    df_outputs = pd.DataFrame.from_dict(outputs)
+
+    # Concatenate the two DataFrames
+    df = pd.concat([df_pred, df_outputs], axis=1)
+
+    if "pred_set" in outputs:
+        df = pd.concat([df, df_pred_set], axis=1)
+
+    if os.path.exists(path):
+        df.to_csv(path, mode="a", index=False, header=False)
+    else:
         df.to_csv(path, index=False)
 
 

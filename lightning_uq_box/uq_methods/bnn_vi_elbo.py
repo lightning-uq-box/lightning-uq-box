@@ -26,6 +26,7 @@ from .utils import (
     process_classification_prediction,
     process_regression_prediction,
     process_segmentation_prediction,
+    save_classification_predictions,
     save_regression_predictions,
 )
 
@@ -547,6 +548,20 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
 
         return process_classification_prediction(preds)
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
 
 class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
     """Bayes By Backprop Model with Variational Inference (VI) for Segmentation.
@@ -584,3 +599,15 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
             )  # shape [batch_size, num_classes, height, width, num_samples]
 
         return process_segmentation_prediction(preds)
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        pass

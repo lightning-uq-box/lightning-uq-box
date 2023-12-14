@@ -50,6 +50,7 @@ from .mc_dropout import (
 )
 from .mean_variance_estimation import MVEBase, MVERegression
 from .quantile_regression import QuantileRegression, QuantileRegressionBase
+from .raps import RAPS
 from .sgld import SGLDBase, SGLDClassification, SGLDRegression
 from .spectral_normalized_layers import (
     SpectralBatchNorm1d,
@@ -116,6 +117,8 @@ __all__ = (
     "SGLDBase",
     "SGLDRegression",
     "SGLDClassification",
+    # RAPS Model
+    "RAPS",
     # Temperature Scaling
     "TempScaling",
     # Deep Evidential Regression Model

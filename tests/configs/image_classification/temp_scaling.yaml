@@ -1,0 +1,8 @@
+model:
+  _target_: lightning_uq_box.uq_methods.TempScaling
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    num_classes: 2
+  optim_lr: 1e-3
+  max_iter: 20
