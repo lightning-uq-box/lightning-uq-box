@@ -19,6 +19,7 @@ from torchmetrics import (
     MeanSquaredError,
     MetricCollection,
     R2Score,
+    CalibrationError
 )
 
 from lightning_uq_box.eval_utils import (
@@ -68,7 +69,7 @@ def default_classification_metrics(prefix: str, task: str, num_classes: int):
     return MetricCollection(
         {
             "Acc": Accuracy(task=task, num_classes=num_classes),
-            "F1Score": F1Score(task, num_classes=num_classes),
+            "Calibration": CalibrationError(task, num_classes=num_classes),
         },
         prefix=prefix,
     )

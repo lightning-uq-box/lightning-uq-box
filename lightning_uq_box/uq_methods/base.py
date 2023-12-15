@@ -405,6 +405,11 @@ class PosthocBase(BaseModule):
     ) -> dict[str, Tensor]:
         """Test step after running posthoc fitting methodology."""
         raise NotImplementedError
+    
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model output according to post-hoc fitting procedure.
