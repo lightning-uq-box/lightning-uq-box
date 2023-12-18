@@ -73,6 +73,8 @@ class LaplaceBase(BaseModule):
 
         self.save_hyperparameters(ignore=["laplace_model"])
 
+        # reinitialize the model with the correct device because cannot set device
+        # to laplace model afterwards
         self.laplace_model = laplace_model
 
         self.laplace_fitted = False
@@ -126,6 +128,21 @@ class LaplaceBase(BaseModule):
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
+        LaplaceClass = type(self.laplace_model)
+        init_args = self.laplace_model.__init__.__code__.co_varnames
+        model = self.laplace_model.model.to(self.device)
+
+        args_dict = {
+            arg: getattr(self.laplace_model, arg)
+            for arg in init_args
+            if hasattr(self.laplace_model, arg) and arg != "model"
+        }
+        args_dict["model"] = model
+
+        # Create a new instance of the LaplaceClass with the same arguments,
+        # but with the model on the CUDA device
+        self.laplace_model = LaplaceClass(**args_dict)
+
         self.train_loader = self.trainer.datamodule.train_dataloader()
 
         def collate_fn_laplace_torch(batch):
@@ -157,7 +174,6 @@ class LaplaceBase(BaseModule):
             return (aug_batch[self.input_key], aug_batch[self.target_key])
 
         self.train_loader.collate_fn = collate_fn_laplace_torch
-
         if not self.laplace_fitted:
             # take the deterministic model we trained and fit laplace
             # laplace needs a nn.Module ant not a lightning module
@@ -194,7 +210,6 @@ class LaplaceBase(BaseModule):
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))
 
-        # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         # save metadata
