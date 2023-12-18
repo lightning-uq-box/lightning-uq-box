@@ -44,11 +44,7 @@ class TestImageClassificationTask:
         trainer.test(ckpt_path="best", datamodule=datamodule)
 
 
-
-posthoc_config_paths = [
-    "tests/configs/image_segmentation/conformal_risk_control.yaml"
-]
-
+posthoc_config_paths = ["tests/configs/image_segmentation/conformal_risk_control.yaml"]
 
 class TestPosthoc:
     @pytest.mark.parametrize("model_config_path", posthoc_config_paths)
@@ -59,8 +55,10 @@ class TestPosthoc:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
 
-        model = instantiate(model_conf.model)
-        datamodule = instantiate(data_conf.data)
+        full_confifg = OmegaConf.merge(data_conf, model_conf)
+
+        model = instantiate(full_confifg.model)
+        datamodule = instantiate(full_confifg.data)
         trainer = Trainer(default_root_dir=str(tmp_path), inference_mode=False)
         # use validation for testing, should be calibration loader for conformal
         trainer.validate(model, datamodule.val_dataloader())

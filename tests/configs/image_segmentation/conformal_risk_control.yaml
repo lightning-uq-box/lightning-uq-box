@@ -4,6 +4,10 @@ model:
     _target_: segmentation_models_pytorch.Unet
     encoder_name: resnet18
     encoder_weights: imagenet
-    classes: 4
+    classes: 1 # predict sigmoid logits
     in_channels: 3
   alpha: 0.1
+
+data:
+  _target_: lightning_uq_box.datamodules.ToySegmentationDataModule
+  num_classes: 2
