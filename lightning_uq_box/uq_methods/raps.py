@@ -134,7 +134,7 @@ class RAPS(PosthocBase):
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
-        """Predict step with RAPS applie.
+        """Predict step with RAPS applied.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
