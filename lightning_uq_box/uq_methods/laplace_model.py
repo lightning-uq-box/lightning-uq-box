@@ -3,6 +3,7 @@
 
 """Laplace Approximation model."""
 
+import copy
 import os
 from typing import Any
 
@@ -75,7 +76,22 @@ class LaplaceBase(BaseModule):
 
         # reinitialize the model with the correct device because cannot set device
         # to laplace model afterwards
-        self.laplace_model = laplace_model
+        LaplaceClass = type(laplace_model)
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        init_args = laplace_model.__init__.__code__.co_varnames
+        model_copy = copy.deepcopy(laplace_model.model)
+        model = model_copy.to(device)
+
+        args_dict = {
+            arg: getattr(laplace_model, arg)
+            for arg in init_args
+            if hasattr(laplace_model, arg) and arg != "model"
+        }
+        args_dict["model"] = model
+
+        # Create a new instance of the LaplaceClass with the same arguments,
+        # but with the model on the CUDA device
+        self.laplace_model = LaplaceClass(**args_dict)
 
         self.laplace_fitted = False
 
@@ -128,21 +144,6 @@ class LaplaceBase(BaseModule):
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
-        LaplaceClass = type(self.laplace_model)
-        init_args = self.laplace_model.__init__.__code__.co_varnames
-        model = self.laplace_model.model.to(self.device)
-
-        args_dict = {
-            arg: getattr(self.laplace_model, arg)
-            for arg in init_args
-            if hasattr(self.laplace_model, arg) and arg != "model"
-        }
-        args_dict["model"] = model
-
-        # Create a new instance of the LaplaceClass with the same arguments,
-        # but with the model on the CUDA device
-        self.laplace_model = LaplaceClass(**args_dict)
-
         self.train_loader = self.trainer.datamodule.train_dataloader()
 
         def collate_fn_laplace_torch(batch):
