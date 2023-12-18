@@ -3,15 +3,18 @@
 
 """Conformal Risk Control."""
 
-from typing import Union, Optional
-from lightning import LightningModule
-from torch.nn.modules import Module
-from lightning_uq_box.uq_methods import PosthocBase
-from .utils import default_segmentation_metrics
-import torch
-from scipy.optimize import brentq
+from typing import Optional, Union
+
 import numpy as np
+import torch
+from lightning import LightningModule
+from scipy.optimize import brentq
 from torch import Tensor
+from torch.nn.modules import Module
+
+from lightning_uq_box.uq_methods import PosthocBase
+
+from .utils import default_segmentation_metrics
 
 
 class ConformalRiskControl(PosthocBase):
@@ -23,10 +26,9 @@ class ConformalRiskControl(PosthocBase):
     """
 
     pred_file_name = "preds.csv"
-
     def __init__(
         self,
-        model: LightningModule | Module,
+        model: Union[LightningModule, Module],
         lamda_param: Optional[int] = None,
         alpha: float = 0.1,
     ) -> None:
@@ -43,15 +45,22 @@ class ConformalRiskControl(PosthocBase):
         self.lamda_param = lamda_param
         self.alpha = alpha
 
+        self.setup_task()
+
     def on_validation_end(self) -> None:
         """Apply Conformal Risk Control conformal method."""
-        all_logits = torch.cat(self.model_logits, dim=0).detach().cpu().numpy()
+        all_logits = torch.cat(self.model_logits, dim=0).detach()
         all_labels = torch.cat(self.labels, dim=0).detach().cpu().numpy()
-        n = all_logits.shape[0]
 
+        if all_logits.dim() == 4:
+            all_logits = all_logits.squeeze(1)
+        all_sigmoid = all_logits.sigmoid().cpu().numpy()
+
+        n = all_logits.shape[0]
+    
         def false_negative_rate(pred_masks: np.ndarray, true_masks: np.ndarray):
             """Compute the false negative rate.
-            
+
             Args:
                 pred_masks: Predicted masks
                 true_masks: True masks
@@ -65,9 +74,9 @@ class ConformalRiskControl(PosthocBase):
             )
 
         def lamhat_threshold(lam):
-            return false_negative_rate(all_logits >= lam, all_labels) - (
+            return false_negative_rate(all_sigmoid >= lam, all_labels) - (
                 (n + 1) / n * self.alpha - 1 / (n + 1)
-            )
+            )  
 
         self.lamhat = brentq(lamhat_threshold, 0, 1)
 
@@ -82,7 +91,9 @@ class ConformalRiskControl(PosthocBase):
         Returns:
             The adjusted model logits
         """
-        return model_logits >= self.lamhat
+        mask = model_logits >= self.lamhat
+        adjusted_logits = torch.where(mask, model_logits, 0)
+        return adjusted_logits
 
 
 class ConformalRiskControlSegmentation(ConformalRiskControl):
@@ -90,13 +101,13 @@ class ConformalRiskControlSegmentation(ConformalRiskControl):
 
     def setup_task(self) -> None:
         """Setup the task."""
-        self.test_metrics = default_segmentation_metrics()
+        self.test_metrics = default_segmentation_metrics(prefix="test", num_classes=2, task="binary")
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
         """Test step after running posthoc fitting methodology.
-        
+
         Args:
             batch: batch of shape [batch_size x num_channels x height x width]
             batch_idx: batch index
@@ -110,8 +121,7 @@ class ConformalRiskControlSegmentation(ConformalRiskControl):
         pred_dict = self.predict_step(batch[self.input_key])
 
         # logging metrics
-        self.log("test_loss", self.loss_fn(pred_dict["pred"], batch[self.target_key]))
-        self.test_metrics(pred_dict["pred"], batch[self.target_key])
+        self.test_metrics(pred_dict["pred"].flatten(), batch[self.target_key].flatten())
         return pred_dict
 
     def predict_step(
