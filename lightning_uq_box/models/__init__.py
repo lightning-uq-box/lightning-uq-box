@@ -9,7 +9,16 @@ from .cards import (
     ConditionalLinear,
     DiffusionSequential,
 )
+
+# from .hierarchical_prob_unet import (
+#     HierarchicalProbUNet,
+#     LagrangeMultiplier,
+#     MovingAverage,
+#     _HierarchicalCore,
+#     _StitchingDecoder,
+# )
 from .mlp import MLP
+from .prob_unet import AxisAlignedConvGaussian, Fcomb
 
 __all__ = (
     # Toy Example architecture
@@ -19,4 +28,13 @@ __all__ = (
     "ConditionalGuidedLinearModel",
     "ConditionalGuidedConvModel",
     "DiffusionSequential",
+    # Prob Unet
+    "AxisAlignedConvGaussian",
+    "Fcomb",
+    # Hierarchical ProbUNet architecture
+    # "LagrangeMultiplier",
+    # "MovingAverage",
+    # "HierarchicalProbUNet",
+    # "_HierarchicalCore",
+    # "_StitchingDecoder",
 )

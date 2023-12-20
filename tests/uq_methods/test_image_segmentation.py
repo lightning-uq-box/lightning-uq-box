@@ -20,6 +20,7 @@ model_config_paths = [
     "tests/configs/image_segmentation/bnn_vi_elbo_part_stoch.yaml",
     "tests/configs/image_segmentation/mc_dropout.yaml",
     "tests/configs/image_segmentation/swag.yaml",
+    "tests/configs/image_segmentation/prob_unet.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_segmentation/toy_segmentation.yaml"]
