@@ -90,7 +90,7 @@ class DeepEnsemble(BaseModule):
             dictionary of uncertainty outputs
         """
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
+        out_dict[self.input_key] = batch[self.target_key].detach().squeeze(-1).cpu()
 
         # self.log("test_loss", self.loss_fn(out_dict["pred"],
         # batch[self.target_key].squeeze(-1)))
