@@ -116,6 +116,8 @@ class ProbUNet(BaseModule):
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
 
+        self.setup_task()
+
     def setup_task(self) -> None:
         """Set up the task."""
         self.train_metrics = default_segmentation_metrics(
@@ -246,6 +248,7 @@ class ProbUNet(BaseModule):
         self.log("train_kl_loss", loss_dict["kl_loss"])
 
         # compute metrics with reconstruction
+        self.train_metrics(loss_dict["reconstruction"], batch[self.target_key])
 
         # return loss to optimize
         return loss_dict["loss"]
@@ -269,7 +272,8 @@ class ProbUNet(BaseModule):
         self.log("val_rec_loss_sum", loss_dict["rec_loss_sum"])
         self.log("val_rec_loss_mean", loss_dict["rec_loss_mean"])
         self.log("val_kl_loss", loss_dict["kl_loss"])
-        # compute metrics
+        # compute metrics with reconstruction
+        self.val_metrics(loss_dict["reconstruction"], batch[self.target_key])
 
         return loss_dict["loss"]
 
