@@ -16,7 +16,7 @@ from .cards import (
 #     _HierarchicalCore,
 #     _StitchingDecoder,
 # )
-# from .mlp import MLP
+from .mlp import MLP
 from .prob_unet import AxisAlignedConvGaussian, Fcomb
 
 __all__ = (
