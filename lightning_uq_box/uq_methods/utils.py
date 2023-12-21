@@ -10,6 +10,7 @@ from typing import Optional, Union
 import pandas as pd
 import torch
 import torch.nn as nn
+from lightning import LightningModule
 from torch import Tensor
 from torchmetrics import (
     Accuracy,
@@ -27,6 +28,30 @@ from lightning_uq_box.eval_utils import (
     compute_predictive_uncertainty,
     compute_quantiles_from_std,
 )
+
+
+def checkpoint_loader(
+    model_class: LightningModule, ckpt_path: str, return_model: bool = False
+) -> Union[LightningModule, nn.Module]:
+    """Load state dict checkpoint for LightningModule.
+
+    Args:
+        model_class: LightningModule class
+        ckpt_path: path to checkpoint
+        return_model: whether to return the model or the model class
+
+    Returns:
+        model_class or model
+    """
+    state_dict = {
+        k.replace("model.", ""): v
+        for k, v in torch.load(ckpt_path)["state_dict"].items()
+    }
+    model_class.model.load_state_dict(state_dict)
+    if return_model:
+        return model_class.model
+    else:
+        return model_class
 
 
 def compute_coverage_and_set_size(
