@@ -55,8 +55,6 @@ def init_weights(m: nn.Module) -> None:
     """
     if type(m) == nn.Conv2d or type(m) == nn.ConvTranspose2d:
         nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
-        # nn.init.normal_(m.weight, std=0.001)
-        # nn.init.normal_(m.bias, std=0.001)
         truncated_normal_(m.bias, mean=0, std=0.001)
 
 
@@ -70,25 +68,6 @@ def init_weights_orthogonal_normal(m: nn.Module) -> None:
         nn.init.orthogonal_(m.weight)
         truncated_normal_(m.bias, mean=0, std=0.001)
         # nn.init.normal_(m.bias, std=0.001)
-
-
-def l2_regularisation(m: nn.Module) -> torch.Tensor:
-    """Compute the L2 norm of the weights of the model.
-
-    Args:
-        m: Model whose weights' L2 norm needs to be computed
-
-    Returns:
-        L2 norm of the weights of the model
-    """
-    l2_reg = None
-
-    for W in m.parameters():
-        if l2_reg is None:
-            l2_reg = W.norm(2)
-        else:
-            l2_reg = l2_reg + W.norm(2)
-    return l2_reg
 
 
 class Encoder(nn.Module):
@@ -123,8 +102,8 @@ class Encoder(nn.Module):
         self.num_filters = num_filters
 
         if posterior:
-            # To accomodate for the mask that is concatenated at the channel axis,
-            # we increase the input_channels.
+            # the mask is concatenated at the channel axis,
+            # so increase the input_channels.
             self.input_channels += 1
 
         layers = []
@@ -157,8 +136,6 @@ class Encoder(nn.Module):
 
         self.layers = nn.Sequential(*layers)
 
-        self.layers.apply(init_weights)
-
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """Forward pass of the Encoder network.
 
@@ -168,8 +145,23 @@ class Encoder(nn.Module):
         Returns:
             Output tensor
         """
-        output = self.layers(input)
-        return output
+        # for i, module in enumerate(self.layers):
+        #     for name, param in module.named_parameters():
+        #         if torch.isnan(param).any():
+        #             print(f"NaN values found in module {i}, parameter {name}")
+        #             import pdb
+        #             pdb.set_trace()
+        # # return self.layers(input)
+        # x = input
+        # for i, layer in enumerate(self.layers):
+        #     x = layer(x)
+        #     if torch.isnan(x).any():
+        #         print(f"NaN values found in output of layer {i}")
+        #         import pdb
+        #         pdb.set_trace()
+        # return x
+
+        return self.layers(input)
 
 
 class AxisAlignedConvGaussian(nn.Module):
@@ -200,10 +192,6 @@ class AxisAlignedConvGaussian(nn.Module):
         self.no_convs_per_block = no_convs_per_block
         self.latent_dim = latent_dim
         self.posterior = posterior
-        if self.posterior:
-            self.name = "Posterior"
-        else:
-            self.name = "Prior"
         self.encoder = Encoder(
             self.input_channels,
             self.num_filters,
@@ -243,6 +231,10 @@ class AxisAlignedConvGaussian(nn.Module):
             self.sum_input = torch.sum(input)
 
         encoding = self.encoder(input)
+        if torch.isnan(encoding).any():
+            import pdb
+
+            pdb.set_trace()
         self.show_enc = encoding
 
         # We only want the mean of the resulting hxw image

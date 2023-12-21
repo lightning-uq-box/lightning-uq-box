@@ -147,10 +147,8 @@ class ProbUNet(BaseModule):
         # check dimensions, add channel dimension to seg_mask under assumption
         # that it is a binary mask
         if len(seg_mask.shape) == 3:
-            seg_mask_target = seg_mask.long()  # ensure the mask is of type long
-            seg_mask_target = F.one_hot(
-                seg_mask_target, num_classes=self.num_classes
-            )  # one-hot encoding
+            seg_mask_target = seg_mask.long()
+            seg_mask_target = F.one_hot(seg_mask_target, num_classes=self.num_classes)
             seg_mask_target = seg_mask_target.permute(
                 0, 3, 1, 2
             ).float()  # move class dim to the channel dim
@@ -313,7 +311,7 @@ class ProbUNet(BaseModule):
         preds = self.predict_step(batch[self.input_key])
 
         # compute metrics with sampled reconstruction
-        self.test_metrics(preds, batch[self.target_key])
+        self.test_metrics(preds["logits"], batch[self.target_key])
 
         return preds
 
@@ -337,7 +335,7 @@ class ProbUNet(BaseModule):
         # which can then be used to sample a segmentation
         samples = torch.stack(
             [self.sample(testing=True) for _ in range(self.num_samples)], dim=-1
-        )  # shape: (ba tch_size, num_classes, height, width, num_samples)
+        )  # shape: (batch_size, num_classes, height, width, num_samples)
 
         return process_segmentation_prediction(samples)
 

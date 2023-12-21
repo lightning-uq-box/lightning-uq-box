@@ -40,8 +40,7 @@ from .deep_kernel_learning import (
     compute_initial_values,
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
-
-# from .hierarchical_prob_unet import HierarchicalProbUNet
+from .hierarchical_prob_unet import HierarchicalProbUNet
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
 from .loss_functions import NLL, DERLoss, HuberQLoss, PinballLoss, QuantileLoss
 from .mc_dropout import (
@@ -149,7 +148,7 @@ __all__ = (
     # Probabilistic Unet
     "ProbUNet",
     # Hierarchical Probabilistic Unet
-    # "HierarchicalProbUNet",
+    "HierarchicalProbUNet",
     # Loss Functions
     "NLL",
     "QuantileLoss",
