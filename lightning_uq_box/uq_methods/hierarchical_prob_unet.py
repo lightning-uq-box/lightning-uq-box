@@ -30,14 +30,14 @@ import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
-from lightning_uq_box.models import (
+from lightning_uq_box.uq_methods import BaseModule
+
+from ..models import (
     LagrangeMultiplier,
     MovingAverage,
     _HierarchicalCore,
     _StitchingDecoder,
 )
-from lightning_uq_box.uq_methods import BaseModule
-
 from .utils import default_segmentation_metrics, process_segmentation_prediction
 
 
