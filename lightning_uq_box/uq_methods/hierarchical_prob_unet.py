@@ -22,6 +22,7 @@
 
 """Hierarchical Probabilistic U-Net."""
 
+import copy
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import torch
@@ -112,6 +113,8 @@ class HierarchicalProbUNet(BaseModule):
         self.convs_per_block = convs_per_block
         self.blocks_per_level = blocks_per_level
 
+        # assert that latent_dims align with convs_per_block
+
         self._build_model()
 
         assert (
@@ -148,40 +151,49 @@ class HierarchicalProbUNet(BaseModule):
         """Build the HierarchicalProbUnet model."""
         # these are default arguments from the original code
         # TODO need to add input channels
+
+        # TODO first prior
         base_channels = 24
-        default_channels_per_block = (
-            self.num_in_channels + self.latent_dims[0],
+        default_channels_per_block = [
             base_channels,
             2 * base_channels,
             4 * base_channels,
             8 * base_channels,
             8 * base_channels,
-        )
+        ]
         if self.channels_per_block is None:
-            self.channels_per_block = default_channels_per_block
-        if self.down_channels_per_block is None:
-            self.all_gatherdown_channels_per_block = tuple(
-                [i / 2 for i in default_channels_per_block]
-            )
+            self.prior_channels_per_block = copy.deepcopy(default_channels_per_block)
+            # for prior image input size
+            self.prior_channels_per_block.insert(0, self.num_in_channels)
 
         self._prior = _HierarchicalCore(
             latent_dims=self.latent_dims,
-            channels_per_block=self.channels_per_block,
+            channels_per_block=self.prior_channels_per_block,
             down_channels_per_block=self.down_channels_per_block,
             activation_fn=self.activation_fn,
             convs_per_block=self.convs_per_block,
             blocks_per_level=self.blocks_per_level,
         )
+
+        # TODO for posterior need to add latent dims
+        if self.channels_per_block is None:
+            self.post_channels_per_block = copy.deepcopy(default_channels_per_block)
+            # for posterior image input size and latent dim
+            self.post_channels_per_block.insert(
+                0, (self.num_in_channels + self.latent_dims[0])
+            )
 
         self._posterior = _HierarchicalCore(
             latent_dims=self.latent_dims,
-            channels_per_block=self.channels_per_block,
+            channels_per_block=self.post_channels_per_block,
             down_channels_per_block=self.down_channels_per_block,
             activation_fn=self.activation_fn,
             convs_per_block=self.convs_per_block,
             blocks_per_level=self.blocks_per_level,
         )
 
+        if self.channels_per_block is None:
+            self.channels_per_block = copy.deepcopy(default_channels_per_block)
         self._f_comb = _StitchingDecoder(
             latent_dims=self.latent_dims,
             channels_per_block=self.channels_per_block,
