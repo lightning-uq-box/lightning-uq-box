@@ -26,7 +26,6 @@ import copy
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
@@ -163,8 +162,11 @@ class HierarchicalProbUNet(BaseModule):
         ]
         if self.channels_per_block is None:
             self.prior_channels_per_block = copy.deepcopy(default_channels_per_block)
-            # for prior image input size
-            self.prior_channels_per_block.insert(0, self.num_in_channels)
+        else:
+            self.prior_channels_per_block = self.channels_per_block
+
+        # for prior image input size
+        self.prior_channels_per_block.insert(0, self.num_in_channels)
 
         self._prior = _HierarchicalCore(
             latent_dims=self.latent_dims,
@@ -178,10 +180,12 @@ class HierarchicalProbUNet(BaseModule):
         # TODO for posterior need to add latent dims
         if self.channels_per_block is None:
             self.post_channels_per_block = copy.deepcopy(default_channels_per_block)
-            # for posterior image input size and latent dim
-            self.post_channels_per_block.insert(
-                0, (self.num_in_channels + self.latent_dims[0])
-            )
+        else:
+            self.post_channels_per_block = self.channels_per_block
+        # for posterior image input size and latent dim
+        self.post_channels_per_block.insert(
+            0, (self.num_in_channels + self.latent_dims[0])
+        )
 
         self._posterior = _HierarchicalCore(
             latent_dims=self.latent_dims,
@@ -194,6 +198,7 @@ class HierarchicalProbUNet(BaseModule):
 
         if self.channels_per_block is None:
             self.channels_per_block = copy.deepcopy(default_channels_per_block)
+
         self._f_comb = _StitchingDecoder(
             latent_dims=self.latent_dims,
             channels_per_block=self.channels_per_block,
@@ -553,7 +558,7 @@ def ce_loss(
         mask = mask.view(-1)
 
     n_pixels_in_batch = y_flat.shape[0]
-    xe = nn.CrossEntropyLoss(reduction="none")(y_flat, t_flat)
+    xe = F.cross_entropy(input=y_flat, target=t_flat, reduction="none")
 
     if top_k_percentage is not None:
         assert 0.0 < top_k_percentage <= 1.0
@@ -572,7 +577,7 @@ def ce_loss(
         mask = mask * top_k_mask
 
     xe = xe.view(logits.shape[0], -1)
-    mask = mask.view(logits.shape[0], -1)
+    mask = mask.view(logits.shape[0], -1).to(xe.device)
     ce_sum_per_instance = torch.sum(mask * xe, dim=1)
     ce_sum = torch.mean(ce_sum_per_instance)
     ce_mean = torch.sum(mask * xe) / torch.sum(mask)

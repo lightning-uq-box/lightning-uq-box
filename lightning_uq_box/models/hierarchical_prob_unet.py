@@ -29,7 +29,6 @@ import torch.nn.functional as F
 from torch import Tensor
 
 
-# TODO this is a model
 class _HierarchicalCore(nn.Module):
     """A U-Net encoder-decoder with a full encoder and a truncated decoder.
 
@@ -64,62 +63,72 @@ class _HierarchicalCore(nn.Module):
                 level
         """
         super().__init__()
-        self._latent_dims = latent_dims
-        self._channels_per_block = channels_per_block
-        self._activation_fn = activation_fn
-        self._convs_per_block = convs_per_block
-        self._blocks_per_level = blocks_per_level
+        self.latent_dims = latent_dims
+        self.channels_per_block = channels_per_block
+        self.activation_fn = activation_fn
+        self.convs_per_block = convs_per_block
+        self.blocks_per_level = blocks_per_level
         if down_channels_per_block is None:
-            self._down_channels_per_block = channels_per_block
+            self.down_channels_per_block = channels_per_block
         else:
-            self._down_channels_per_block = down_channels_per_block
+            self.down_channels_per_block = down_channels_per_block
 
         # Initialize ResBlock instances for encoder
         self.encoder_res_blocks = nn.ModuleList()
-        for level in range(len(self._channels_per_block)):
-            in_channels = self._channels_per_block[level]
+
+        for level in range(len(self.channels_per_block)):
+            in_channels = self.channels_per_block[level]
             out_channels = (
-                self._channels_per_block[level + 1]
-                if level < len(self._channels_per_block) - 1
-                else self._channels_per_block[level]
+                self.channels_per_block[level + 1]
+                if level < len(self.channels_per_block) - 1
+                else self.channels_per_block[level]
             )
             level_res_blocks = nn.Sequential(
                 *[
                     ResBlock(
                         in_channels=in_channels if block == 0 else out_channels,
                         out_channels=out_channels,
-                        n_down_channels=self._down_channels_per_block[level],
-                        activation_fn=self._activation_fn,
-                        convs_per_block=self._convs_per_block,
+                        n_down_channels=self.down_channels_per_block[level],
+                        activation_fn=self.activation_fn,
+                        convs_per_block=self.convs_per_block,
                     )
-                    for block in range(self._blocks_per_level)
+                    for block in range(self.blocks_per_level)
                 ]
             )
             self.encoder_res_blocks.append(level_res_blocks)
 
         # Initialize ResBlock instances for decoder
         self.decoder_res_blocks = nn.ModuleList()
-        for level in range(len(self._latent_dims) - 1, -1, -1):
-            level = level - len(self._latent_dims)
+        for level in range(len(self.latent_dims) - 1, -1, -1):
+            level = level - len(self.latent_dims)
             in_channels = (
-                self._channels_per_block[level]
-                + self._channels_per_block[level - 1]
-                + self._latent_dims[::-1][level]
+                self.channels_per_block[level]
+                + self.channels_per_block[level - 1]
+                + self.latent_dims[::-1][level]
             )
-            out_channels = self._channels_per_block[level - 1]
+            out_channels = self.channels_per_block[level - 1]
             level_res_blocks = nn.Sequential(
                 *[
                     ResBlock(
                         in_channels=in_channels if block == 0 else out_channels,
                         out_channels=out_channels,
-                        n_down_channels=self._down_channels_per_block[level],
-                        activation_fn=self._activation_fn,
-                        convs_per_block=self._convs_per_block,
+                        n_down_channels=self.down_channels_per_block[level],
+                        activation_fn=self.activation_fn,
+                        convs_per_block=self.convs_per_block,
                     )
-                    for block in range(self._blocks_per_level)
+                    for block in range(self.blocks_per_level)
                 ]
             )
             self.decoder_res_blocks.append(level_res_blocks)
+
+        self.mu_logsigma_layers = nn.ModuleList(
+            [
+                nn.Conv2d(in_channels, 2 * latent_dim, (1, 1), padding="same")
+                for in_channels, latent_dim in zip(
+                    self.channels_per_block[::-1], self.latent_dims
+                )
+            ]
+        )
 
     def forward(
         self,
@@ -143,8 +152,9 @@ class _HierarchicalCore(nn.Module):
         """
         encoder_features = inputs
         encoder_outputs = []
-        num_levels = len(self._channels_per_block)
-        num_latent_levels = len(self._latent_dims)
+        # TODO: this -1 is a hack?
+        num_levels = len(self.channels_per_block) - 1
+        num_latent_levels = len(self.latent_dims)
         if isinstance(mean, bool):
             mean = [mean] * num_latent_levels
         distributions = []
@@ -157,15 +167,11 @@ class _HierarchicalCore(nn.Module):
             if level != num_levels - 1:
                 encoder_features = resize_down(encoder_features, scale=2)
 
-        # TODO some misconfiguration in the encoder, creating one too many
-        encoder_outputs = encoder_outputs[:-1]
         decoder_features = encoder_outputs[-1]
         for level in range(num_latent_levels):
-            latent_dim = self._latent_dims[level]
+            latent_dim = self.latent_dims[level]
             # TODO need to also configure the mu_logsigma layer as nn.ModuleList
-            mu_logsigma = nn.Conv2d(
-                decoder_features.size(1), 2 * latent_dim, (1, 1), padding="same"
-            )(decoder_features)
+            mu_logsigma = self.mu_logsigma_layers[level](decoder_features)
 
             mu = mu_logsigma.narrow(1, 0, latent_dim)
             logsigma = mu_logsigma.narrow(
@@ -189,10 +195,10 @@ class _HierarchicalCore(nn.Module):
             # Concat and upsample the latents with the previous features.
             decoder_output_lo = torch.cat([z, decoder_features], dim=1)
             decoder_output_hi = resize_up(decoder_output_lo, scale=2)
+
             decoder_features = torch.cat(
                 [decoder_output_hi, encoder_outputs[::-1][level + 1]], dim=1
             )
-
             decoder_features = self.decoder_res_blocks[level](decoder_features)
 
         return {
@@ -238,37 +244,37 @@ class _StitchingDecoder(nn.Module):
                 level
         """
         super().__init__()
-        self._latent_dims = latent_dims
-        self._channels_per_block = channels_per_block
-        self._num_classes = num_classes
-        self._activation_fn = activation_fn
-        self._convs_per_block = convs_per_block
-        self._blocks_per_level = blocks_per_level
+        self.latent_dims = latent_dims
+        self.channels_per_block = channels_per_block
+        self.num_classes = num_classes
+        self.activation_fn = activation_fn
+        self.convs_per_block = convs_per_block
+        self.blocks_per_level = blocks_per_level
         if down_channels_per_block is None:
             down_channels_per_block = channels_per_block
-        self._down_channels_per_block = down_channels_per_block
+        self.down_channels_per_block = down_channels_per_block
 
         self.logits = nn.Conv2d(
-            self._channels_per_block[0], self._num_classes, kernel_size=1
+            self.channels_per_block[0], self.num_classes, kernel_size=1
         )
 
         # Initialize ResBlock instances
         self.res_blocks = nn.ModuleList()
-        for level in range(len(self._channels_per_block)):
-            in_channels = self._channels_per_block[::-1][level]
+        for level in range(len(self.channels_per_block)):
+            in_channels = self.channels_per_block[::-1][level]
             out_channels = (
-                self._channels_per_block[::-1][level - 1]
+                self.channels_per_block[::-1][level - 1]
                 if level > 0
-                else self._num_classes
+                else self.num_classes
             )
-            for _ in range(self._blocks_per_level):
+            for _ in range(self.blocks_per_level):
                 self.res_blocks.append(
                     ResBlock(
                         in_channels=in_channels,
                         out_channels=out_channels,
-                        n_down_channels=self._down_channels_per_block[::-1][level],
-                        activation_fn=self._activation_fn,
-                        convs_per_block=self._convs_per_block,
+                        n_down_channels=self.down_channels_per_block[::-1][level],
+                        activation_fn=self.activation_fn,
+                        convs_per_block=self.convs_per_block,
                     )
                 )
 
@@ -286,9 +292,9 @@ class _StitchingDecoder(nn.Module):
         Returns:
             A tensor representing the final output of the decoder
         """
-        num_latents = len(self._latent_dims)
+        num_latents = len(self.latent_dims)
         start_level = num_latents + 1
-        num_levels = len(self._channels_per_block)
+        num_levels = len(self.channels_per_block)
 
         res_block_idx = 0
         for level in range(start_level, num_levels, 1):
@@ -296,64 +302,11 @@ class _StitchingDecoder(nn.Module):
             decoder_features = torch.cat(
                 [decoder_features, encoder_features[::-1][level]], dim=1
             )
-            for _ in range(self._blocks_per_level):
+            for _ in range(self.blocks_per_level):
                 decoder_features = self.res_blocks[res_block_idx](decoder_features)
                 res_block_idx += 1
 
         return self.logits(decoder_features)
-
-
-def res_block(
-    input_features: Tensor,
-    n_channels: int,
-    n_down_channels=int,
-    activation_fn=F.relu,
-    convs_per_block: int = 3,
-):
-    """A pre-activated residual block.
-
-    Args:
-        input_features: A tensor of shape (b, c, h, w)
-        n_channels: An integer specifying the number of output channels
-        n_down_channels: An integer specifying the number of intermediate channels
-        activation_fn: A callable activation function
-        convs_per_block: An Integer specifying the number of convolutional layers
-
-    Returns:
-        A tensor of shape (b, c, h, w)
-    """
-    # Pre-activate the inputs.
-    skip = input_features
-    residual = activation_fn(input_features)
-
-    # Set the number of intermediate channels that we compress to.
-    if n_down_channels is None:
-        n_down_channels = n_channels
-
-    for c in range(convs_per_block):
-        if c == 0 and input_features.shape[1] != n_down_channels:
-            conv = nn.Conv2d(
-                input_features.shape[1], n_down_channels, kernel_size=(3, 3), padding=1
-            )
-        else:
-            conv = nn.Conv2d(
-                n_down_channels, n_down_channels, kernel_size=(3, 3), padding=1
-            )
-        import pdb
-
-        pdb.set_trace()
-        residual = conv(residual)
-        if c < convs_per_block - 1:
-            residual = activation_fn(residual)
-
-    incoming_channels = input_features.shape[1]
-    if incoming_channels != n_channels:
-        conv = nn.Conv2d(incoming_channels, n_channels, kernel_size=(1, 1), padding=0)
-        skip = conv(skip)
-    if n_down_channels != n_channels:
-        conv = nn.Conv2d(n_down_channels, n_channels, kernel_size=(1, 1), padding=0)
-        residual = conv(residual)
-    return skip + residual
 
 
 class ResBlock(nn.Module):
