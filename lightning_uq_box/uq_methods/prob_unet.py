@@ -30,9 +30,9 @@ from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 from torch.distributions import kl
 
-from lightning_uq_box.models import AxisAlignedConvGaussian, Fcomb
 from lightning_uq_box.uq_methods import BaseModule
 
+from ..models.prob_unet import AxisAlignedConvGaussian, Fcomb
 from .utils import default_segmentation_metrics, process_segmentation_prediction
 
 
