@@ -32,7 +32,7 @@ from torch import Tensor
 
 from lightning_uq_box.uq_methods import BaseModule
 
-from ..models import (
+from ..models.hierarchical_prob_unet import (
     LagrangeMultiplier,
     MovingAverage,
     _HierarchicalCore,
