@@ -34,7 +34,7 @@ class ToySegmentationDataset(Dataset):
         """Generate a random grayscale image and corresponding mask."""
         # Generate a random grayscale image and corresponding mask
         image = torch.randint(
-            0, 255, (3, self.image_size, self.image_size), dtype=torch.float32
+            0, 1, (3, self.image_size, self.image_size), dtype=torch.float32
         )
         mask = torch.randint(
             0, self.num_classes, (self.image_size, self.image_size), dtype=torch.long

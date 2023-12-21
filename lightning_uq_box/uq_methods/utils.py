@@ -190,7 +190,7 @@ def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
     # dim=1 is the expected num classes dimension
     mean = nn.functional.softmax(preds.mean(-1), dim=1)
     entropy = -(mean * mean.log()).sum(dim=1)
-    return {"pred": mean, "pred_uct": entropy}
+    return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
 
 
 def change_inplace_activation(module):
