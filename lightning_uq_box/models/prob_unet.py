@@ -145,22 +145,6 @@ class Encoder(nn.Module):
         Returns:
             Output tensor
         """
-        # for i, module in enumerate(self.layers):
-        #     for name, param in module.named_parameters():
-        #         if torch.isnan(param).any():
-        #             print(f"NaN values found in module {i}, parameter {name}")
-        #             import pdb
-        #             pdb.set_trace()
-        # # return self.layers(input)
-        # x = input
-        # for i, layer in enumerate(self.layers):
-        #     x = layer(x)
-        #     if torch.isnan(x).any():
-        #         print(f"NaN values found in output of layer {i}")
-        #         import pdb
-        #         pdb.set_trace()
-        # return x
-
         return self.layers(input)
 
 
@@ -231,10 +215,6 @@ class AxisAlignedConvGaussian(nn.Module):
             self.sum_input = torch.sum(input)
 
         encoding = self.encoder(input)
-        if torch.isnan(encoding).any():
-            import pdb
-
-            pdb.set_trace()
         self.show_enc = encoding
 
         # We only want the mean of the resulting hxw image
