@@ -153,10 +153,11 @@ class RAPS(PosthocBase):
             adjusted model logits tensor of shape [batch_size x num_outputs]
         """
         scores = temp_scale_logits(model_logits, self.temperature)
-        sorted_score_indices, ordered, cumsum = sort_sum(scores)
+        softmax_scores = F.softmax(scores, dim=1)
+        sorted_score_indices, ordered, cumsum = sort_sum(softmax_scores)
 
         return gen_cond_quantile_function(
-            scores,
+            softmax_scores,
             self.Qhat,
             sorted_score_indices,
             ordered,
@@ -254,14 +255,19 @@ def compute_q_hat(
         q_hat
     """
     scores = temp_scale_logits(logits, temperature)
-    sorted_score_indices, ordered, cumsum = sort_sum(scores)
-
+    softmax_scores = F.softmax(scores, dim=1)
+    sorted_score_indices, ordered, cumsum = sort_sum(softmax_scores)
     E = gen_inverse_quantile_function(
-        scores, targets, sorted_score_indices, ordered, cumsum, penalties, True, True
+        softmax_scores,
+        targets,
+        sorted_score_indices,
+        ordered,
+        cumsum,
+        penalties,
+        True,
+        True,
     )
-
     Qhat = torch.quantile(E, 1 - alpha, interpolation="higher")
-
     return Qhat
 
 
@@ -280,19 +286,11 @@ def find_kreg_param(paramtune_logits: DataLoader, alpha: float) -> int:
     for sample in paramtune_logits:
         # Get the sorted indices of logits in descending order
         sorted_indices = torch.argsort(sample[0], dim=1, descending=True)
-
-        # Expand dims of target for comparison
         target_expanded = sample[1].unsqueeze(1)
-
-        # Get the ranks of targets in the sorted logits
         ranks = (sorted_indices == target_expanded).nonzero(as_tuple=True)[1]
-
         all_ranks.append(ranks)
 
-    # Concatenate all ranks
     all_ranks = torch.cat(all_ranks)
-
-    # Compute kstar
     kstar = torch.quantile(all_ranks.float(), 1 - alpha, interpolation="higher") + 1
 
     return int(kstar.cpu().item())
