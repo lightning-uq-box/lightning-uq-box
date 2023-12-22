@@ -13,4 +13,4 @@ model:
     _target_: torch.optim.lr_scheduler.ConstantLR
     _partial_: true
   n_inducing_points: 5
-  num_classes: 2
+  num_classes: 4
