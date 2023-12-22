@@ -53,7 +53,7 @@ class BNN_VI_Base(DeterministicModel):
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[list[Union[str, int]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instace of BNN VI.
 
@@ -290,7 +290,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instace of BNN VI Regression.
 
@@ -466,7 +466,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[list[Union[str, int]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instace of BNN VI Batched.
 

@@ -57,7 +57,7 @@ class MCDropoutBase(DeterministicModel):
         loss_fn: nn.Module,
         dropout_layer_names: list[str] = [],
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instance of MCDropoutModel.
 
@@ -132,7 +132,7 @@ class MCDropoutRegression(MCDropoutBase):
         burnin_epochs: int = 0,
         dropout_layer_names: list[str] = [],
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Regression.
 
@@ -242,7 +242,7 @@ class MCDropoutClassification(MCDropoutBase):
         task: str = "multiclass",
         dropout_layer_names: list[str] = [],
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Classification.
 

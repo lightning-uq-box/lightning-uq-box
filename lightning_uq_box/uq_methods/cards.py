@@ -51,7 +51,7 @@ class CARDBase(BaseModule):
         beta_end: float = 1e-2,
         n_z_samples: int = 100,
         guidance_optim: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instance of the CARD Model.
 
@@ -600,7 +600,7 @@ class CARDClassification(CARDBase):
         n_z_samples: int = 100,
         task: str = "multiclass",
         guidance_optim: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instance of the CARD Classification.
 

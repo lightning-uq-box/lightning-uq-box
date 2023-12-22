@@ -54,7 +54,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[list[Union[int, str]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -310,7 +310,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -447,7 +447,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Model instance.
 

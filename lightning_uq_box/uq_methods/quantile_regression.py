@@ -36,7 +36,7 @@ class QuantileRegressionBase(DeterministicModel):
         loss_fn: Optional[nn.Module] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 
@@ -83,7 +83,7 @@ class QuantileRegression(QuantileRegressionBase):
         loss_fn: Optional[nn.Module] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 
@@ -163,7 +163,7 @@ class QuantileRegression(QuantileRegressionBase):
 #         model: nn.Module,
 #         optimizer: OptimizerCallable = torch.optim.Adam,
 #         loss_fn: nn.Module = QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
-#         lr_scheduler: LRSchedulerCallable = None,
+#         lr_scheduler: Optional[LRSchedulerCallable] = None,
 #
 #     ) -> None:
 #         super().__init__(model, optimizer, loss_fn, lr_scheduler)

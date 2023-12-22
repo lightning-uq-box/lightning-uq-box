@@ -29,7 +29,7 @@ class MVEBase(DeterministicModel):
         model: nn.Module,
         burnin_epochs: int,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instace of Deterministic Gaussian Model.
 
@@ -90,7 +90,7 @@ class MVERegression(MVEBase):
         model: nn.Module,
         burnin_epochs: int,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instance of Mean Variance Estimation Model for Regression.
 

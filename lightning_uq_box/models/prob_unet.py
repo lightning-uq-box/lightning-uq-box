@@ -55,7 +55,8 @@ def init_weights(m: nn.Module) -> None:
     """
     if type(m) == nn.Conv2d or type(m) == nn.ConvTranspose2d:
         nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
-        truncated_normal_(m.bias, mean=0, std=0.001)
+        if m.bias:
+            truncated_normal_(m.bias, mean=0, std=0.001)
 
 
 def init_weights_orthogonal_normal(m: nn.Module) -> None:
@@ -66,7 +67,8 @@ def init_weights_orthogonal_normal(m: nn.Module) -> None:
     """
     if type(m) == nn.Conv2d or type(m) == nn.ConvTranspose2d:
         nn.init.orthogonal_(m.weight)
-        truncated_normal_(m.bias, mean=0, std=0.001)
+        if m.bias:
+            truncated_normal_(m.bias, mean=0, std=0.001)
         # nn.init.normal_(m.bias, std=0.001)
 
 

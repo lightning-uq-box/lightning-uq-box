@@ -5,6 +5,7 @@
 
 import os
 
+from typing import Optional
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -70,7 +71,7 @@ class DER(DeterministicModel):
         model: nn.Module,
         coeff: float = 0.01,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Base Model.
 

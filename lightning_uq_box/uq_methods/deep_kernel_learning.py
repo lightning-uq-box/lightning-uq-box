@@ -5,7 +5,7 @@
 
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import gpytorch
 import numpy as np
@@ -58,7 +58,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         n_inducing_points: int,
         gp_kernel: str = "RBF",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model.
 
@@ -293,7 +293,7 @@ class DKLRegression(DKLBase):
         num_targets: int = 1,
         gp_kernel: str = "RBF",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Regression.
 
@@ -418,7 +418,7 @@ class DKLClassification(DKLBase):
         task: str = "multiclass",
         gp_kernel: str = "RBF",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Classification.
 

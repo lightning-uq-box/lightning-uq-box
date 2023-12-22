@@ -264,7 +264,7 @@ class DeterministicClassification(DeterministicModel):
         loss_fn: nn.Module,
         task: str = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Deterministic Classification Model.
 
