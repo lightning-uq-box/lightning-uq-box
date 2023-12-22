@@ -4,8 +4,8 @@
 """Deep Evidential Regression."""
 
 import os
-
 from typing import Optional
+
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
