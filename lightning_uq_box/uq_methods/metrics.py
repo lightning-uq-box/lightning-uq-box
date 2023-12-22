@@ -46,23 +46,17 @@ class EmpiricalCoverage(Metric):
         if isinstance(pred_set, torch.Tensor):
             if self.topk is not None:
                 _, topk_pred_set = pred_set.topk(self.topk, dim=1)
-                for i in range(targets.shape[0]):
-                    if targets[i].item() in topk_pred_set[i]:
-                        covered += 1
-                set_size = self.topk * targets.shape[0]
+                covered += torch.isin(targets, topk_pred_set).sum().item()
+                set_size = self.topk * pred_set.shape[0]
             else:
                 for k in range(1, pred_set.shape[1] + 1):
                     _, topk_pred_set = pred_set.topk(k, dim=1)
-                    batch_covered = 0
-                    for i in range(targets.shape[0]):
-                        if targets[i].item() in topk_pred_set[i]:
-                            batch_covered += 1
-                    coverage = batch_covered / targets.shape[0]
-                    if coverage >= 1 - self.alpha:
-                        set_size += k * batch_covered
+                    batch_covered = torch.isin(targets, topk_pred_set).sum().item()
+                    batch_coverage = batch_covered / pred_set.shape[0]
+                    if batch_coverage >= 1 - self.alpha:
+                        set_size += k * pred_set.shape[0]
                         covered += batch_covered
                         break
-                    covered += batch_covered
         # list of tensors denoting prediction sets
         # fore each sample in the batch
         else:
@@ -70,6 +64,7 @@ class EmpiricalCoverage(Metric):
                 if targets[i].item() in pred_set[i]:
                     covered += 1
                 set_size += len(pred_set[i])
+
         self.covered += covered
         self.set_size += set_size
         self.total += targets.shape[0]
