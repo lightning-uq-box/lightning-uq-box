@@ -343,7 +343,8 @@ def find_lamda_param_size(
             _, S = conformal_model(logit)
             covg_and_size_metric.update(S, target)
 
-        _, size = covg_and_size_metric.compute()
+        covg_and_size = covg_and_size_metric.compute()
+        size = covg_and_size["set_size"]
         if size < best_size:
             best_size = size
             lamda_star = temp_lam

@@ -74,11 +74,14 @@ class EmpiricalCoverage(Metric):
         self.set_size += set_size
         self.total += targets.shape[0]
 
-    def compute(self) -> tuple[float]:
+    def compute(self) -> dict[str, float]:
         """Compute the coverage of the prediction sets.
 
         Returns:
             The coverage of the prediction sets.
         """
         # compute average coverage and set size
-        return self.covered / self.total, self.set_size / self.total
+        return {
+            "coverage": self.covered / self.total,
+            "set_size": self.set_size / self.total,
+        }

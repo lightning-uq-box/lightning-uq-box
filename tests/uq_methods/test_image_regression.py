@@ -11,6 +11,7 @@ from typing import Any, Dict
 import pytest
 from hydra.utils import instantiate
 from lightning import Trainer
+from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
 from pytest import TempPathFactory
 
@@ -54,7 +55,10 @@ class TestImageRegressionTask:
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+            max_epochs=2,
+            log_every_n_steps=1,
+            default_root_dir=str(tmp_path),
+            logger=CSVLogger(str(tmp_path)),
         )
         # laplace only uses test
         if "laplace" not in model_config_path:

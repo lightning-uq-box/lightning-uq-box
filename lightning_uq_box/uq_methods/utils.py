@@ -30,6 +30,8 @@ from lightning_uq_box.eval_utils import (
     compute_quantiles_from_std,
 )
 
+from .metrics import EmpiricalCoverage
+
 
 def checkpoint_loader(
     model_class: LightningModule, ckpt_path: str, return_model: bool = False
@@ -95,6 +97,7 @@ def default_classification_metrics(prefix: str, task: str, num_classes: int):
         {
             "Acc": Accuracy(task=task, num_classes=num_classes),
             "Calibration": CalibrationError(task, num_classes=num_classes),
+            "Empirical Coverage": EmpiricalCoverage(),
         },
         prefix=prefix,
     )
