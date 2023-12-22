@@ -10,16 +10,17 @@ from typing import Optional, Union
 import pandas as pd
 import torch
 import torch.nn as nn
+from lightning import LightningModule
 from torch import Tensor
 from torchmetrics import (
     Accuracy,
+    CalibrationError,
     F1Score,
     JaccardIndex,
     MeanAbsoluteError,
     MeanSquaredError,
     MetricCollection,
     R2Score,
-    CalibrationError
 )
 
 from lightning_uq_box.eval_utils import (
@@ -28,6 +29,30 @@ from lightning_uq_box.eval_utils import (
     compute_predictive_uncertainty,
     compute_quantiles_from_std,
 )
+
+
+def checkpoint_loader(
+    model_class: LightningModule, ckpt_path: str, return_model: bool = False
+) -> Union[LightningModule, nn.Module]:
+    """Load state dict checkpoint for LightningModule.
+
+    Args:
+        model_class: LightningModule class
+        ckpt_path: path to checkpoint
+        return_model: whether to return the model or the model class
+
+    Returns:
+        model_class or model
+    """
+    state_dict = {
+        k.replace("model.", ""): v
+        for k, v in torch.load(ckpt_path)["state_dict"].items()
+    }
+    model_class.model.load_state_dict(state_dict)
+    if return_model:
+        return model_class.model
+    else:
+        return model_class
 
 
 def compute_coverage_and_set_size(
@@ -166,7 +191,7 @@ def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
     # dim=1 is the expected num classes dimension
     mean = nn.functional.softmax(preds.mean(-1), dim=1)
     entropy = -(mean * mean.log()).sum(dim=1)
-    return {"pred": mean, "pred_uct": entropy}
+    return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
 
 
 def change_inplace_activation(module):

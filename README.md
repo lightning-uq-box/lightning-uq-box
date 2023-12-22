@@ -69,9 +69,11 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Generative Models
 
-| UQ-Method            | Regression            | Classification            | Segmentation              | Pixel Wise Regression      |
-|----------------------|:---------------------:|:-------------------------:|:-------------------------:|:--------------------------:|
-| CARD                 |          ✅           |           ✅              |           ❌              |            ❌            |
+| UQ-Method                      | Regression | Classification | Segmentation | Pixel Wise Regression |
+|--------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
+| CARD                           |     ✅     |       ✅       |      ❌      |          ❌           |
+| Probabilistic UNet             |     ❌     |       ❌       |      ✅      |          ❌           |
+| Hierarchical Probabilistic UNet|     ❌     |       ❌       |      ✅      |          ❌           |
 
 
 ### Post-Hoc Calibration methods

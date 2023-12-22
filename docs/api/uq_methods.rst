@@ -275,6 +275,22 @@ Deep Ensemble Segmentation
 
 .. autoclass:: DeepEnsembleSegmentation 
 
+
+Probabilistic UNet
+==================
+
+.. currentmodule:: lightning_uq_box.uq_methods.prob_unet
+
+.. autoclass:: ProbUNet
+
+
+Hierachical Probabilistic UNet
+==============================
+
+.. currentmodule:: lightning_uq_box.uq_methods.hierachical_prob_unet
+
+.. autoclass:: HierachicalProbUNet
+
 UQ Calibration Methods
 ======================
 

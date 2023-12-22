@@ -40,6 +40,7 @@ from .deep_kernel_learning import (
     compute_initial_values,
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
+from .hierarchical_prob_unet import HierarchicalProbUNet
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
 from .loss_functions import NLL, DERLoss, HuberQLoss, PinballLoss, QuantileLoss
 from .mc_dropout import (
@@ -49,6 +50,7 @@ from .mc_dropout import (
     MCDropoutSegmentation,
 )
 from .mean_variance_estimation import MVEBase, MVERegression
+from .prob_unet import ProbUNet
 from .quantile_regression import QuantileRegression, QuantileRegressionBase
 from .raps import RAPS
 from .sgld import SGLDBase, SGLDClassification, SGLDRegression
@@ -143,6 +145,10 @@ __all__ = (
     "BNN_LV_VI_Regression",
     "BNN_LV_VI_Batched_Base",
     "BNN_LV_VI_Batched_Regression",
+    # Probabilistic Unet
+    "ProbUNet",
+    # Hierarchical Probabilistic Unet
+    "HierarchicalProbUNet",
     # Loss Functions
     "NLL",
     "QuantileLoss",
