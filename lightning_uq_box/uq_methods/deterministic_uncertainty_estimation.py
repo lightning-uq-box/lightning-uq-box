@@ -1,7 +1,7 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the MIT License.
 
-"""Deterministic Uncertainty Estimation."""
+"""Deterministic Uncertainty Estimation (DUE)."""
 
 from typing import Dict
 
