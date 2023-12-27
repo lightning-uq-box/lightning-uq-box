@@ -212,7 +212,7 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
             - upper_quant: upper quantile of shape [batch_size]
         path: path where csv should be saved
     """
-    outputs = {k: v.cpu().numpy() for k, v in outputs.items()}
+    outputs = {k: v.squeeze(-1).cpu().numpy() for k, v in outputs.items()}
     df = pd.DataFrame.from_dict(outputs)
 
     # check if path already exists, then just append

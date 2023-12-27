@@ -6,6 +6,7 @@
 """Spectral Normalized Gaussian Process (SNGP)."""
 
 import math
+import os
 from typing import Optional
 
 import torch
@@ -24,6 +25,8 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    save_classification_predictions,
+    save_regression_predictions,
 )
 
 # TODO
@@ -35,15 +38,16 @@ from .utils import (
 class SNGPBase(BaseModule):
     """Specral Normalized Gaussian Process (SNGP)."""
 
+    pred_file_name = "preds.csv"
+
     def __init__(
         self,
         feature_extractor: nn.Module,
         loss_fn: nn.Module,
-        num_data: int,
         num_targets: int = 1,
         num_gp_features: int = 128,
         num_random_features: int = 1024,
-        normalize_gp_features: int = True,
+        normalize_gp_features: bool = True,
         feature_scale: int = 2,
         ridge_penalty: float = 1.0,
         coeff: float = 0.95,
@@ -57,7 +61,6 @@ class SNGPBase(BaseModule):
         Args:
             feature_extractor: Feature extractor model
             loss_fn: Loss function
-            num_data: Number of data points
             num_targets: Number of output units / targets
             num_gp_features: Number of GP features
             num_deep_features: Number of deep features
@@ -85,8 +88,6 @@ class SNGPBase(BaseModule):
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
 
-        # TODO figure this out from dataset and trainer
-        self.num_data = num_data
         self.num_targets = num_targets
         self.num_gp_features = num_gp_features
         # number of output features from feature extractor
@@ -122,7 +123,6 @@ class SNGPBase(BaseModule):
         )
         self.beta = nn.Linear(self.num_random_features, self.num_targets)
 
-        self.num_data = self.num_data
         self.register_buffer("seen_data", torch.tensor(0))
 
         precision = torch.eye(self.num_random_features) * self.ridge_penalty
@@ -164,6 +164,10 @@ class SNGPBase(BaseModule):
             u, info = torch.linalg.cholesky_ex(self.precision + jitter)
             assert (info == 0).all(), "Precision matrix inversion failed!"
             torch.cholesky_inverse(u, out=self.covariance)
+
+    def on_fit_start(self) -> None:
+        """Before fitting compute number of training points."""
+        self.num_data = len(self.trainer.datamodule.train_dataloader().dataset)
 
     def on_train_epoch_start(self) -> None:
         """Called when the train epoch begins."""
@@ -301,6 +305,20 @@ class SNGPRegression(SNGPBase):
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
 
 class SNGPClassification(SNGPBase):
     """SNGP for classification."""
@@ -311,11 +329,10 @@ class SNGPClassification(SNGPBase):
         self,
         feature_extractor: Module,
         loss_fn: Module,
-        num_data: int,
         num_targets: int = 1,
         num_gp_features: int = 128,
         num_random_features: int = 1024,
-        normalize_gp_features: int = True,
+        normalize_gp_features: bool = True,
         feature_scale: int = 2,
         ridge_penalty: float = 1,
         coeff: float = 0.95,
@@ -331,7 +348,6 @@ class SNGPClassification(SNGPBase):
         Args:
             feature_extractor: Feature extractor model
             loss_fn: Loss function
-            num_data: Number of data points
             num_targets: Number of output units / targets
             num_gp_features: Number of GP features
             num_deep_features: Number of deep features
@@ -354,7 +370,6 @@ class SNGPClassification(SNGPBase):
         super().__init__(
             feature_extractor,
             loss_fn,
-            num_data,
             num_targets,
             num_gp_features,
             num_random_features,
@@ -397,6 +412,33 @@ class SNGPClassification(SNGPBase):
             logits = logits / logits_scale.unsqueeze(-1)
 
         return logits
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
+    def predict_step(self, X: Tensor) -> dict[str, Tensor]:
+        """Predict the output for a batch of inputs.
+
+        Args:
+            X: Input tensor
+
+        Returns:
+            output dictionary
+        """
+        pred_dict = super().predict_step(X)
+        pred_dict["logits"] = pred_dict["pred"]
+        return pred_dict
 
 
 def random_ortho(n: int, m: int) -> Tensor:
