@@ -12,3 +12,4 @@ model:
       class_path: torch.optim.lr_scheduler.ConstantLR
     loss_fn:
       class_path: torch.nn.MSELoss
+    feature_scale: None

@@ -276,7 +276,12 @@ class SNGPBase(BaseModule):
 
         output_std = pred_cov.diag().sqrt()
 
-        return {"pred": pred, "pred_uct": output_std, "epistemic_uct": output_std}
+        return {
+            "pred": pred,
+            "pred_uct": output_std,
+            "epistemic_uct": output_std,
+            "pred_cov": pred_cov,
+        }
 
     def configure_optimizers(self):
         """Configure optimizers and learning rate schedulers."""
@@ -437,6 +442,9 @@ class SNGPClassification(SNGPBase):
             output dictionary
         """
         pred_dict = super().predict_step(X)
+        pred_dict["pred"] = self.mean_field_logits(
+            pred_dict["pred"], pred_dict["pred_cov"]
+        )
         pred_dict["logits"] = pred_dict["pred"]
         return pred_dict
 
@@ -511,124 +519,3 @@ class RandomFourierFeatures(nn.Module):
         k = k / self.feature_scale
 
         return k
-
-
-class Laplace(nn.Module):
-    """Laplace approximation for Gaussian Processes."""
-
-    def __init__(
-        self,
-        feature_extractor: nn.Module,
-        num_deep_features: int,
-        num_gp_features: int,
-        normalize_gp_features: bool,
-        num_random_features: int,
-        num_targets: int,
-        num_data: int,
-        train_batch_size: int,
-        ridge_penalty: float = 1.0,
-        feature_scale: Optional[float] = None,
-        mean_field_factor: Optional[float] = None,
-    ) -> None:
-        """Initializes the Laplace approximation for GP.
-
-        Args:
-            feature_extractor: The feature extractor network
-            num_deep_features: Number of deep features
-            num_gp_features: Number of Gaussian Process features
-            normalize_gp_features: Whether to normalize Gaussian Process features
-            num_random_features: Number of random features
-            num_targets: Number of output units
-            num_data: Number of data points
-            train_batch_size: Training batch size
-            ridge_penalty: Ridge penalty. Defaults to 1.0
-            feature_scale: Feature scale. Defaults to None
-            mean_field_factor: Mean field factor, required for classification problems
-        """
-        super().__init__()
-        self.feature_extractor = feature_extractor
-        self.mean_field_factor = mean_field_factor
-        self.ridge_penalty = ridge_penalty
-        self.train_batch_size = train_batch_size
-
-        if num_gp_features > 0:
-            self.num_gp_features = num_gp_features
-            self.register_buffer(
-                "random_matrix",
-                torch.normal(0, 0.05, (num_gp_features, num_deep_features)),
-            )
-            self.jl = lambda x: nn.functional.linear(x, self.random_matrix)
-        else:
-            self.num_gp_features = num_deep_features
-            self.jl = nn.Identity()
-
-        self.normalize_gp_features = normalize_gp_features
-        if normalize_gp_features:
-            self.normalize = nn.LayerNorm(num_gp_features)
-
-        self.rff = RandomFourierFeatures(
-            num_gp_features, num_random_features, feature_scale
-        )
-        self.beta = nn.Linear(num_random_features, num_targets)
-
-        self.num_data = num_data
-        self.register_buffer("seen_data", torch.tensor(0))
-
-        precision = torch.eye(num_random_features) * self.ridge_penalty
-        self.register_buffer("precision", precision)
-
-        self.recompute_covariance = True
-        self.register_buffer("covariance", torch.eye(num_random_features))
-
-    def forward(self, x: Tensor) -> Tensor:
-        """Performs a forward pass through the model.
-
-        Args:
-            x: The input tensor.
-
-        Returns:
-            The model's output.
-        """
-        f = self.feature_extractor(x)
-        f_reduc = self.jl(f)
-        if self.normalize_gp_features:
-            f_reduc = self.normalize(f_reduc)
-
-        k = self.rff(f_reduc)
-
-        pred = self.beta(k)
-
-        if self.training:
-            precision_minibatch = k.t() @ k
-            self.precision += precision_minibatch
-            self.seen_data += x.shape[0]
-
-            assert (
-                self.seen_data <= self.num_data
-            ), "Did not reset precision matrix at start of epoch"
-        else:
-            assert self.seen_data > (
-                self.num_data - self.train_batch_size
-            ), "Not seen sufficient data for precision matrix"
-
-            if self.recompute_covariance:
-                with torch.no_grad():
-                    eps = 1e-7
-                    jitter = eps * torch.eye(
-                        self.precision.shape[1], device=self.precision.device
-                    )
-                    u, info = torch.linalg.cholesky_ex(self.precision + jitter)
-                    assert (info == 0).all(), "Precision matrix inversion failed!"
-                    torch.cholesky_inverse(u, out=self.covariance)
-
-                self.recompute_covariance = False
-
-            with torch.no_grad():
-                pred_cov = k @ ((self.covariance @ k.t()) * self.ridge_penalty)
-
-            if self.mean_field_factor is None:
-                return pred, pred_cov
-            else:
-                pred = self.mean_field_logits(pred, pred_cov)
-
-        return pred
