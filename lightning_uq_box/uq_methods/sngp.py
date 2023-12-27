@@ -14,10 +14,19 @@ from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
 from .base import BaseModule
-from .utils import default_classification_metrics, default_regression_metrics
+from .utils import (
+    _get_num_outputs,
+    default_classification_metrics,
+    default_regression_metrics,
+)
+
+# TODO
+# https://colab.research.google.com/github/tensorflow/docs/blob/master/site/en/tutorials/understanding/sngp.ipynb
+# https://www.tensorflow.org/tutorials/understanding/sngp
+# good visualizations and explanations here
 
 
-class SNGP(BaseModule):
+class SNGPBase(BaseModule):
     """Specral Normalized Gaussian Process (SNGP)."""
 
     def __init__(
@@ -25,6 +34,7 @@ class SNGP(BaseModule):
         feature_extractor: nn.Module,
         loss_fn: nn.Module,
         num_data: int,
+        num_targets: int = 1,
         num_gp_features: int = 128,
         num_random_features: int = 1024,
         normalize_gp_features: int = True,
@@ -40,7 +50,9 @@ class SNGP(BaseModule):
             feature_extractor: Feature extractor model
             loss_fn: Loss function
             num_data: Number of data points
+            num_targets: Number of output units / targets
             num_gp_features: Number of GP features
+            num_deep_features: Number of deep features
             num_random_features: Number of random features
             normalize_gp_features: Whether to normalize GP features
             feature_scale: Feature scale
@@ -58,7 +70,10 @@ class SNGP(BaseModule):
 
         # TODO figure this out from dataset and trainer
         self.num_data = num_data
+        self.num_targets = num_targets
         self.num_gp_features = num_gp_features
+        # number of output features from feature extractor
+        self.num_deep_features = 64
         self.num_random_features = num_random_features
         self.normalize_gp_features = normalize_gp_features
         self.feature_scale = feature_scale
@@ -66,6 +81,8 @@ class SNGP(BaseModule):
         self.mean_field_factor = mean_field_factor
 
         self._build_model()
+
+        self.setup_task()
 
     def _build_model(self) -> None:
         """Build SNGP model."""
@@ -87,7 +104,7 @@ class SNGP(BaseModule):
         self.rff = RandomFourierFeatures(
             self.num_gp_features, self.num_random_features, self.feature_scale
         )
-        self.beta = nn.Linear(self.num_random_features, self.num_outputs)
+        self.beta = nn.Linear(self.num_random_features, self.num_targets)
 
         self.num_data = self.num_data
         self.register_buffer("seen_data", torch.tensor(0))
@@ -139,6 +156,10 @@ class SNGP(BaseModule):
 
         return logits
 
+    def on_train_epoch_start(self) -> None:
+        """Called when the train epoch begins."""
+        self.reset_precision_matrix()
+
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -152,15 +173,11 @@ class SNGP(BaseModule):
         Returns:
             training loss
         """
-        y = batch[self.target_key]
-        pred, k = self.forward(batch[self.input_key])
-        # precision_minibatch = k.t() @ k
-        # self.precision += precision_minibatch
-        # self.seen_data += x.shape[0]
+        x, y = batch[self.input_key], batch[self.target_key]
+        pred, k = self.forward(x)
+        precision_minibatch = k.t() @ k
+        self.precision += precision_minibatch
 
-        # assert (
-        #     self.seen_data <= self.num_data
-        # ), "Did not reset precision matrix at start of epoch"
         loss = self.loss_fn(pred, y)
         self.log("train_loss", loss)
         if y.shape[0] > 1:
@@ -181,11 +198,19 @@ class SNGP(BaseModule):
         Returns:
             validation loss
         """
-        pass
+        x, y = batch[self.input_key], batch[self.target_key]
+        pred_dict = self.predict_step(x)
+
+        loss = self.loss_fn(pred_dict["pred"], y)
+        self.log("val_loss", loss)
+        if y.shape[0] > 1:
+            self.val_metrics(pred_dict["pred"], y)
+
+        return loss
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Tensor:
+    ) -> dict[str, Tensor]:
         """Compute and return the predictions.
 
         Args:
@@ -196,9 +221,17 @@ class SNGP(BaseModule):
         Returns:
             predictions
         """
-        pass
+        x, y = batch[self.input_key], batch[self.target_key]
+        pred_dict = self.predict_step(x)
 
-    def predict_step(self, X: Tensor) -> Tensor:
+        loss = self.loss_fn(pred_dict["pred"], y)
+        self.log("test_loss", loss)
+        if y.shape[0] > 1:
+            self.test_metrics(pred_dict["pred"], y)
+
+        return pred_dict
+
+    def predict_step(self, X: Tensor) -> dict[str, Tensor]:
         """Predict the output for a batch of inputs.
 
         Args:
@@ -207,11 +240,40 @@ class SNGP(BaseModule):
         Returns:
             The predicted output
         """
-        pred, k = self.forward(X)
-        pass
+        with torch.no_grad():
+            pred, k = self.forward(X)
+            pred_cov = k @ ((self.covariance @ k.t()) * self.ridge_penalty)
+
+            if self.mean_field_factor is None:
+                pred = pred
+            else:
+                pred = self.mean_field_logits(pred, pred_cov)
+
+        output_std = pred_cov.diag().sqrt()
+
+        return {"pred": pred, "pred_uct": output_std}
+
+    def configure_optimizers(self):
+        """Configure optimizers and learning rate schedulers."""
+        optimizer = self.optimizer(
+            # [
+            #     {"params": self.feature_extractor.parameters()},
+            #     {"params": self.rff.parameters()},
+            #     {"params": self.beta.parameters()},
+            # ]
+            self.parameters()
+        )
+        if self.lr_scheduler is not None:
+            lr_scheduler = self.lr_scheduler(optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+            }
+        else:
+            return {"optimizer": optimizer}
 
 
-class SNGPRegression(SNGP):
+class SNGPRegression(SNGPBase):
     """SNGP for regression."""
 
     def setup_task(self) -> None:
@@ -221,19 +283,19 @@ class SNGPRegression(SNGP):
         self.test_metrics = default_regression_metrics("test")
 
 
-class SNGPClassification(SNGP):
+class SNGPClassification(SNGPBase):
     """SNGP for classification."""
 
     def setup_task(self) -> None:
         """Set up task."""
         self.train_metrics = default_classification_metrics(
-            "train", task=self.task, num_classes=self.num_outputs
+            "train", task=self.task, num_classes=self.num_targets
         )
         self.val_metrics = default_classification_metrics(
-            "val", task=self.task, num_classes=self.num_outputs
+            "val", task=self.task, num_classes=self.num_targets
         )
         self.test_metrics = default_classification_metrics(
-            "test", task=self.task, num_classes=self.num_outputs
+            "test", task=self.task, num_classes=self.num_targets
         )
 
 
@@ -319,7 +381,7 @@ class Laplace(nn.Module):
         num_gp_features: int,
         normalize_gp_features: bool,
         num_random_features: int,
-        num_outputs: int,
+        num_targets: int,
         num_data: int,
         train_batch_size: int,
         ridge_penalty: float = 1.0,
@@ -334,7 +396,7 @@ class Laplace(nn.Module):
             num_gp_features: Number of Gaussian Process features
             normalize_gp_features: Whether to normalize Gaussian Process features
             num_random_features: Number of random features
-            num_outputs: Number of output units
+            num_targets: Number of output units
             num_data: Number of data points
             train_batch_size: Training batch size
             ridge_penalty: Ridge penalty. Defaults to 1.0
@@ -365,7 +427,7 @@ class Laplace(nn.Module):
         self.rff = RandomFourierFeatures(
             num_gp_features, num_random_features, feature_scale
         )
-        self.beta = nn.Linear(num_random_features, num_outputs)
+        self.beta = nn.Linear(num_random_features, num_targets)
 
         self.num_data = num_data
         self.register_buffer("seen_data", torch.tensor(0))
