@@ -13,3 +13,4 @@ model:
     _target_: torch.nn.CrossEntropyLoss
   input_size: 64
   mean_field_factor: 2
+  

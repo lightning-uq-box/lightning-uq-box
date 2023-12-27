@@ -186,15 +186,14 @@ class SNGPBase(BaseModule):
         Returns:
             training loss
         """
-        x, y = batch[self.input_key], batch[self.target_key]
-        pred, k = self.forward(x)
+        pred, k = self.forward(batch[self.input_key])
         precision_minibatch = k.t() @ k
         self.precision += precision_minibatch
 
-        loss = self.loss_fn(pred, y)
+        loss = self.loss_fn(pred, batch[self.target_key])
         self.log("train_loss", loss)
-        if y.shape[0] > 1:
-            self.train_metrics(pred, y)
+        if batch[self.target_key].shape[0] > 1:
+            self.train_metrics(pred, batch[self.target_key])
 
         return loss
 
@@ -216,13 +215,12 @@ class SNGPBase(BaseModule):
         Returns:
             validation loss
         """
-        x, y = batch[self.input_key], batch[self.target_key]
-        pred_dict = self.predict_step(x)
+        pred_dict = self.predict_step(batch[self.input_key])
 
-        loss = self.loss_fn(pred_dict["pred"], y)
+        loss = self.loss_fn(pred_dict["pred"], batch[self.target_key])
         self.log("val_loss", loss)
-        if y.shape[0] > 1:
-            self.val_metrics(pred_dict["pred"], y)
+        if batch[self.target_key].shape[0] > 1:
+            self.val_metrics(pred_dict["pred"], batch[self.target_key])
 
         return loss
 
@@ -246,14 +244,14 @@ class SNGPBase(BaseModule):
         Returns:
             predictions
         """
-        x, y = batch[self.input_key], batch[self.target_key]
-        pred_dict = self.predict_step(x)
+        pred_dict = self.predict_step(batch[self.input_key])
 
-        loss = self.loss_fn(pred_dict["pred"], y)
+        loss = self.loss_fn(pred_dict["pred"], batch[self.target_key])
         self.log("test_loss", loss)
-        if y.shape[0] > 1:
-            self.test_metrics(pred_dict["pred"], y)
+        if batch[self.target_key].shape[0] > 1:
+            self.test_metrics(pred_dict["pred"], batch[self.target_key])
 
+        del pred_dict["pred_cov"]
         return pred_dict
 
     def on_test_epoch_end(self):
@@ -343,7 +341,7 @@ class SNGPClassification(SNGPBase):
         coeff: float = 0.95,
         n_power_iterations: int = 1,
         input_size: Optional[int] = None,
-        mean_field_factor: Optional[float] = None,
+        mean_field_factor: Optional[float] = math.pi / 8,
         task: str = "multiclass",
         optimizer: OptimizerCallable = Adam,
         lr_scheduler: LRSchedulerCallable = None,
