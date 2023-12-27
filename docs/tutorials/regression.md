@@ -16,6 +16,7 @@ regression/bnn_vi_elbo
 regression/bnn_vi
 regression/bnn_vi_lv
 regression/swag
+regression/sngp
 regression/deep_kernel_learning
 regression/conformal_prediction
 regression/deep_ensemble
