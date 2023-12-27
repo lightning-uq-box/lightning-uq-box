@@ -12,8 +12,14 @@ import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
+from torch.nn.modules import Module
+from torch.optim.adam import Adam as Adam
 
 from .base import BaseModule
+from .spectral_normalized_layers import (
+    collect_input_sizes,
+    spectral_normalize_model_layers,
+)
 from .utils import (
     _get_num_outputs,
     default_classification_metrics,
@@ -40,8 +46,10 @@ class SNGPBase(BaseModule):
         normalize_gp_features: int = True,
         feature_scale: int = 2,
         ridge_penalty: float = 1.0,
-        mean_field_factor: Optional[float] = None,
-        optimizer: OptimizerCallable = torch.optim.Adam,
+        coeff: float = 0.95,
+        n_power_iterations: int = 1,
+        input_size: Optional[int] = None,
+        optimizer: OptimizerCallable = Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new SNGP model.
@@ -57,12 +65,21 @@ class SNGPBase(BaseModule):
             normalize_gp_features: Whether to normalize GP features
             feature_scale: Feature scale
             ridge_penalty: Ridge penalty
-            mean_field_factor: Mean field factor
+            coeff: soft normalization only when sigma larger than coeff,
+                should be (0, 1)
+            n_power_iterations: number of power iterations for spectral normalization
+            input_size: image dimension input size needed for spectral normalization
             optimizer: Optimizer
             lr_scheduler: Learning rate scheduler
         """
         super().__init__()
 
+        # spectral normalize feature extractor
+        self.input_size = input_size
+        self.input_dimensions = collect_input_sizes(feature_extractor, self.input_size)
+        feature_extractor = spectral_normalize_model_layers(
+            feature_extractor, n_power_iterations, self.input_dimensions, coeff
+        )
         self.feature_extractor = feature_extractor
         self.loss_fn = loss_fn
         self.optimizer = optimizer
@@ -73,12 +90,11 @@ class SNGPBase(BaseModule):
         self.num_targets = num_targets
         self.num_gp_features = num_gp_features
         # number of output features from feature extractor
-        self.num_deep_features = 64
+        self.num_deep_features = _get_num_outputs(feature_extractor)
         self.num_random_features = num_random_features
         self.normalize_gp_features = normalize_gp_features
         self.feature_scale = feature_scale
         self.ridge_penalty = ridge_penalty
-        self.mean_field_factor = mean_field_factor
 
         self._build_model()
 
@@ -138,23 +154,16 @@ class SNGPBase(BaseModule):
         self.seen_data = torch.tensor(0)
         self.recompute_covariance = True
 
-    def mean_field_logits(self, logits: Tensor, pred_cov: Tensor) -> Tensor:
-        """Applies the Mean-Field approximation to the provided logits.
-
-        Based on: https://arxiv.org/abs/2006.07584
-
-        Args:
-            logits: The logits to be transformed
-            pred_cov: The predicted covariance
-
-        Returns:
-            The transformed logits
-        """
-        logits_scale = torch.sqrt(1.0 + torch.diag(pred_cov) * self.mean_field_factor)
-        if self.mean_field_factor > 0:
-            logits = logits / logits_scale.unsqueeze(-1)
-
-        return logits
+    def recompute_covariance_matrix(self):
+        """Recompute the covariance matrix."""
+        with torch.no_grad():
+            eps = 1e-7
+            jitter = eps * torch.eye(
+                self.precision.shape[1], device=self.precision.device
+            )
+            u, info = torch.linalg.cholesky_ex(self.precision + jitter)
+            assert (info == 0).all(), "Precision matrix inversion failed!"
+            torch.cholesky_inverse(u, out=self.covariance)
 
     def on_train_epoch_start(self) -> None:
         """Called when the train epoch begins."""
@@ -185,6 +194,11 @@ class SNGPBase(BaseModule):
 
         return loss
 
+    def on_train_epoch_end(self):
+        """Log epoch-level training metrics."""
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
+
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -207,6 +221,13 @@ class SNGPBase(BaseModule):
             self.val_metrics(pred_dict["pred"], y)
 
         return loss
+
+    def on_validation_epoch_end(self):
+        """Log epoch-level validation metrics."""
+        if self.trainer.current_epoch % 2 == 0:
+            self.recompute_covariance_matrix()
+        self.log_dict(self.val_metrics.compute())
+        self.val_metrics.reset()
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -231,6 +252,11 @@ class SNGPBase(BaseModule):
 
         return pred_dict
 
+    def on_test_epoch_end(self):
+        """Log epoch-level training metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
+
     def predict_step(self, X: Tensor) -> dict[str, Tensor]:
         """Predict the output for a batch of inputs.
 
@@ -244,24 +270,17 @@ class SNGPBase(BaseModule):
             pred, k = self.forward(X)
             pred_cov = k @ ((self.covariance @ k.t()) * self.ridge_penalty)
 
-            if self.mean_field_factor is None:
-                pred = pred
-            else:
-                pred = self.mean_field_logits(pred, pred_cov)
-
         output_std = pred_cov.diag().sqrt()
 
-        return {"pred": pred, "pred_uct": output_std}
+        return {"pred": pred, "pred_uct": output_std, "epistemic_uct": output_std}
 
     def configure_optimizers(self):
         """Configure optimizers and learning rate schedulers."""
         optimizer = self.optimizer(
-            # [
-            #     {"params": self.feature_extractor.parameters()},
-            #     {"params": self.rff.parameters()},
-            #     {"params": self.beta.parameters()},
-            # ]
-            self.parameters()
+            [
+                {"params": self.feature_extractor.parameters()},
+                {"params": self.beta.parameters()},
+            ]
         )
         if self.lr_scheduler is not None:
             lr_scheduler = self.lr_scheduler(optimizer)
@@ -286,6 +305,69 @@ class SNGPRegression(SNGPBase):
 class SNGPClassification(SNGPBase):
     """SNGP for classification."""
 
+    valid_tasks = ["binary", "multiclass"]
+
+    def __init__(
+        self,
+        feature_extractor: Module,
+        loss_fn: Module,
+        num_data: int,
+        num_targets: int = 1,
+        num_gp_features: int = 128,
+        num_random_features: int = 1024,
+        normalize_gp_features: int = True,
+        feature_scale: int = 2,
+        ridge_penalty: float = 1,
+        coeff: float = 0.95,
+        n_power_iterations: int = 1,
+        input_size: Optional[int] = None,
+        mean_field_factor: Optional[float] = None,
+        task: str = "multiclass",
+        optimizer: OptimizerCallable = Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+    ) -> None:
+        """Initialize a new SNGP model for classification.
+
+        Args:
+            feature_extractor: Feature extractor model
+            loss_fn: Loss function
+            num_data: Number of data points
+            num_targets: Number of output units / targets
+            num_gp_features: Number of GP features
+            num_deep_features: Number of deep features
+            num_random_features: Number of random features
+            normalize_gp_features: Whether to normalize GP features
+            feature_scale: Feature scale
+            ridge_penalty: Ridge penalty
+            coeff: soft normalization only when sigma larger than coeff,
+                should be (0, 1)
+            n_power_iterations: number of power iterations for spectral normalization
+            input_size: image dimension input size needed for spectral normalization
+            mean_field_factor: Mean field factor, required for classification problems
+            task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            optimizer: Optimizer
+            lr_scheduler: Learning rate scheduler
+        """
+        assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
+        self.task = task
+        self.mean_field_factor = mean_field_factor
+        super().__init__(
+            feature_extractor,
+            loss_fn,
+            num_data,
+            num_targets,
+            num_gp_features,
+            num_random_features,
+            normalize_gp_features,
+            feature_scale,
+            ridge_penalty,
+            coeff,
+            n_power_iterations,
+            input_size,
+            optimizer,
+            lr_scheduler,
+        )
+
     def setup_task(self) -> None:
         """Set up task."""
         self.train_metrics = default_classification_metrics(
@@ -297,6 +379,24 @@ class SNGPClassification(SNGPBase):
         self.test_metrics = default_classification_metrics(
             "test", task=self.task, num_classes=self.num_targets
         )
+
+    def mean_field_logits(self, logits: Tensor, pred_cov: Tensor) -> Tensor:
+        """Applies the Mean-Field approximation to the provided logits.
+
+        Based on: https://arxiv.org/abs/2006.07584
+
+        Args:
+            logits: The logits to be transformed
+            pred_cov: The predicted covariance
+
+        Returns:
+            The transformed logits
+        """
+        logits_scale = torch.sqrt(1.0 + torch.diag(pred_cov) * self.mean_field_factor)
+        if self.mean_field_factor > 0:
+            logits = logits / logits_scale.unsqueeze(-1)
+
+        return logits
 
 
 def random_ortho(n: int, m: int) -> Tensor:

@@ -9,8 +9,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 
-from lightning_uq_box.uq_methods.spectral_normalized_layers import spectral_norm_fc
-
 
 class FCResNet(nn.Module):
     """Fully Connected ResNet architecture."""
@@ -20,9 +18,6 @@ class FCResNet(nn.Module):
         input_dim: int,
         features: int,
         depth: int,
-        spectral_normalization: bool,
-        coeff: float = 0.95,
-        n_power_iterations: int = 1,
         dropout_rate: float = 0.01,
         num_outputs: int = None,
         activation: str = "relu",
@@ -30,16 +25,15 @@ class FCResNet(nn.Module):
         """Initialze a new instance of the FCResNet.
 
         Args:
-            input_dim: The input dimension of the network.
-            features: The number of features in the hidden layers.
-            depth: The number of hidden layers.
-            spectral_normalization: Whether to use spectral normalization.
-            coeff: The coefficient for spectral normalization.
-            n_power_iterations: The number of power iterations for spectral
-                normalization.
-            dropout_rate: The dropout rate.
-            num_outputs: The number of outputs.
-            activation: The activation function.
+            input_dim: The input dimension of the network
+            features: The number of features in the hidden layers
+            depth: The number of hidden layers
+            dropout_rate: The dropout rate
+            num_outputs: The number of outputs
+            activation: The activation function, "elu" or "relu"
+
+        Raises:
+            ValueError: If the activation is not known
         """
         super().__init__()
         """
@@ -52,18 +46,6 @@ class FCResNet(nn.Module):
             [nn.Linear(features, features) for i in range(depth)]
         )
         self.dropout = nn.Dropout(dropout_rate)
-
-        if spectral_normalization:
-            self.first = spectral_norm_fc(
-                self.first, coeff=coeff, n_power_iterations=n_power_iterations
-            )
-
-            for i in range(len(self.residuals)):
-                self.residuals[i] = spectral_norm_fc(
-                    self.residuals[i],
-                    coeff=coeff,
-                    n_power_iterations=n_power_iterations,
-                )
 
         self.num_outputs = num_outputs
         if num_outputs is not None:

@@ -386,5 +386,21 @@ def _get_num_outputs(model: nn.Module) -> int:
         _, seg_module = _get_input_layer_name_and_module(model.segmentation_head)
         num_outputs = seg_module.out_channels
     else:
-        raise ValueError(f"Module {module} does not have out_features or out_channels.")
+        # more complicated model structure
+        try:
+            num_inputs = _get_num_inputs(model)
+            _, module = _get_input_layer_name_and_module(model)
+            if hasattr(module, "in_features"):  # Linear Layer
+                dummy_tensor = torch.randn(1, num_inputs)
+            elif hasattr(module, "in_channels"):  # Conv Layer
+                dummy_tensor = torch.randn(1, num_inputs, 64, 64)
+
+            out = model(dummy_tensor)
+
+            num_outputs = out.shape[1]
+
+        except ValueError:
+            raise ValueError(
+                f"Module {module} does not have out_features or out_channels."
+            )
     return num_outputs
