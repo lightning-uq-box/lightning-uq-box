@@ -179,7 +179,8 @@ class DKLBase(gpytorch.Module, BaseModule):
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
         self.log("train_loss", loss)  # logging to Logger
-        self.train_metrics(y_pred.mean, y.squeeze(-1))
+        if batch[self.input_key].shape[0] > 1:
+            self.train_metrics(y_pred.mean, y.squeeze(-1))
         return loss
 
     def on_train_epoch_end(self):
@@ -214,7 +215,8 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         self.log("val_loss", loss)  # logging to Logger
 
-        self.val_metrics(y_pred.mean, y.squeeze(-1))
+        if batch[self.input_key].shape[0] > 1:
+            self.val_metrics(y_pred.mean, y.squeeze(-1))
         return loss
 
     def test_step(
@@ -232,6 +234,8 @@ class DKLBase(gpytorch.Module, BaseModule):
             self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))
 
         del out_dict["out"]
+
+        out_dict["pred"] = out_dict["pred"].detach().cpu()
 
         # save metadata
         for key, val in batch.items():
@@ -384,7 +388,7 @@ class DKLRegression(DKLBase):
             64
         ), gpytorch.settings.fast_pred_var(state=False):
             output = self.likelihood(self.forward(X))
-            mean = output.mean.cpu()
+            mean = output.mean
             std = output.stddev.cpu()
 
         return {"pred": mean, "pred_uct": std, "epistemic_uct": std, "out": output}
@@ -564,7 +568,7 @@ class DKLClassification(DKLBase):
         ), gpytorch.settings.fast_pred_var(state=False):
             gp_dist = self.forward(X)
             output = self.likelihood(gp_dist)
-            mean = output.probs.mean(0).cpu()  # take mean over sampling dimension
+            mean = output.probs.mean(0)  # take mean over sampling dimension
             entropy = output.entropy().mean(0).cpu()
         return {"pred": mean, "pred_uct": entropy, "out": gp_dist, "logits": mean}
 

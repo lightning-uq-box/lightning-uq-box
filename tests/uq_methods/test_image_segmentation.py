@@ -9,17 +9,22 @@ from typing import Any, Dict
 import pytest
 from hydra.utils import instantiate
 from lightning import Trainer
+from lightning.pytorch import seed_everything
 from omegaconf import OmegaConf
 from pytest import TempPathFactory
 
 from lightning_uq_box.datamodules import ToySegmentationDataModule
 from lightning_uq_box.uq_methods import DeepEnsembleSegmentation
 
+seed_everything(0)
+
 model_config_paths = [
     "tests/configs/image_segmentation/bnn_vi_elbo.yaml",
     "tests/configs/image_segmentation/bnn_vi_elbo_part_stoch.yaml",
     "tests/configs/image_segmentation/mc_dropout.yaml",
     "tests/configs/image_segmentation/swag.yaml",
+    "tests/configs/image_segmentation/prob_unet.yaml",
+    "tests/configs/image_segmentation/hierarchical_prob_unet.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_segmentation/toy_segmentation.yaml"]
@@ -37,7 +42,10 @@ class TestImageClassificationTask:
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+            max_epochs=2,
+            log_every_n_steps=1,
+            default_root_dir=str(tmp_path),
+            deterministic=True,
         )
 
         trainer.fit(model, datamodule)

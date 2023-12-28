@@ -158,7 +158,8 @@ def plot_predictions_regression(
         title: title of plot
         show_bands: show uncertainty bands
     """
-    y_pred = y_pred.squeeze(-1)
+    if y_pred.ndim == 2:
+        y_pred = y_pred.squeeze(-1)
     # fig, ax = plt.subplots(ncols=2)
     fig = plt.figure(figsize=(10, 7))
     ax0 = fig.add_subplot(1, 2, 1)
