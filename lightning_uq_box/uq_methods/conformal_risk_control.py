@@ -26,6 +26,7 @@ class ConformalRiskControl(PosthocBase):
     """
 
     pred_file_name = "preds.csv"
+
     def __init__(
         self,
         model: Union[LightningModule, Module],
@@ -38,7 +39,7 @@ class ConformalRiskControl(PosthocBase):
             model: A lightning or torch module
             lamda_param: The lamda parameter for the conformal risk control method. If None, it will be optimized for via
                 Brent's method as implemented in scipy
-            alpha: 1 - alpha is the desired coverage
+            alpha: 1 - alpha is the desired false negative rate
         """
         super().__init__(model)
 
@@ -57,7 +58,7 @@ class ConformalRiskControl(PosthocBase):
         all_sigmoid = all_logits.sigmoid().cpu().numpy()
 
         n = all_logits.shape[0]
-    
+
         def false_negative_rate(pred_masks: np.ndarray, true_masks: np.ndarray):
             """Compute the false negative rate.
 
@@ -76,7 +77,7 @@ class ConformalRiskControl(PosthocBase):
         def lamhat_threshold(lam):
             return false_negative_rate(all_sigmoid >= lam, all_labels) - (
                 (n + 1) / n * self.alpha - 1 / (n + 1)
-            )  
+            )
 
         self.lamhat = brentq(lamhat_threshold, 0, 1)
 
@@ -101,7 +102,9 @@ class ConformalRiskControlSegmentation(ConformalRiskControl):
 
     def setup_task(self) -> None:
         """Setup the task."""
-        self.test_metrics = default_segmentation_metrics(prefix="test", num_classes=2, task="binary")
+        self.test_metrics = default_segmentation_metrics(
+            prefix="test", num_classes=2, task="binary"
+        )
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

@@ -22,6 +22,8 @@ def plot_training_metrics(save_dir: str, metric: str) -> plt.figure:
     latest_version = sorted(os.listdir(save_dir))[-1]
     metrics_path = os.path.join(save_dir, latest_version, "metrics.csv")
 
+    import pdb
+    pdb.set_trace()
     df = pd.read_csv(metrics_path)
 
     train_loss = df[df["train_loss"].notna()]["train_loss"]

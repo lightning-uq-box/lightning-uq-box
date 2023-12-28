@@ -12,13 +12,16 @@ Adapted from https://github.com/aangelopoulos/conformal_classification
 
 import os
 from functools import partial
-from typing import Union
+from typing import Optional, Union
+from torch.utils.data import DataLoader, TensorDataset, random_split
+import torch.nn.functional as F
 
 import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
+import pandas as pd
 
 from .base import PosthocBase
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
@@ -42,8 +45,8 @@ class RAPS(PosthocBase):
         optim_lr: float = 0.01,
         max_iter: int = 50,
         alpha: float = 0.1,
-        kreg: int = 5,
-        lamda_param: float = 0.01,
+        kreg: Optional[int] = None,
+        lamda_param: Optional[float] = None,
         randomized: bool = False,
         allow_zero_sets: bool = False,
         pct_param_tune: float = 0.3,
@@ -87,9 +90,6 @@ class RAPS(PosthocBase):
         self.kreg = kreg
         self.lamda_param = lamda_param
 
-        self.penalties = torch.zeros((1, self.num_classes))
-        self.penalties[:, int(kreg) :] += lamda_param  # noqa: E203
-
         self.setup_task()
 
     def setup_task(self) -> None:
@@ -97,26 +97,6 @@ class RAPS(PosthocBase):
         self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
         )
-
-    def compute_q_hat(self, logits: Tensor, targets: Tensor) -> Tensor:
-        """Compute q_hat."""
-        scores = temp_scale_logits(logits, self.temperature)
-        sorted_score_indices, ordered, cumsum = sort_sum(scores)
-
-        E = gen_inverse_quantile_function(
-            scores,
-            targets,
-            sorted_score_indices,
-            ordered,
-            cumsum,
-            self.penalties,
-            True,
-            True,
-        )
-
-        Qhat = torch.quantile(E, 1 - self.alpha, interpolation="higher")
-
-        return Qhat
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -181,15 +161,47 @@ class RAPS(PosthocBase):
 
     def on_validation_end(self) -> None:
         """Apply RASP conformal method."""
-        all_logits = torch.cat(self.model_logits, dim=0).detach()
-        all_labels = torch.cat(self.labels, dim=0).detach()
+        calib_logits = torch.cat(self.model_logits, dim=0).detach()
+        calib_labels = torch.cat(self.labels, dim=0).detach()
+
+        # check kreg and lamda param
+        if self.kreg is None or self.lamda_param is None:
+            num_paramtune = int(np.ceil(self.pct_paramtune * len(calib_logits)))
+            paramtune_logits, calib_logits = random_split(
+                calib_logits, [num_paramtune, len(calib_logits) - num_paramtune]
+            )
+            paramtune_loader = DataLoader(
+                paramtune_logits, batch_size=64, shuffle=False, pin_memory=True
+            )
+            if self.kreg is None:
+                self.kreg = find_kreg_param(paramtune_loader, self.alpha)
+
+            if self.lamda_param is None:
+                if self.lamda_criterion == "size":
+                    self.lamda_param = self.find_lamda_param_size(
+                        self.model,
+                        paramtune_loader,
+                        self.alpha,
+                        self.kreg,
+                        self.randomized,
+                        self.allow_zero_sets,
+                    )
+                elif self.lamda_criterion == "adaptiveness":
+                    self.lamda_param = self.find_lamda_param_adaptiveness(
+                        calib_logits, calib_labels, self.kreg
+                    )
+
+        self.penalties = torch.zeros((1, self.num_classes))
+        self.penalties[:, int(self.kreg) :] += self.lamda_param  # noqa: E203
 
         optimizer = partial(torch.optim.LBFGS, lr=self.optim_lr, max_iter=self.max_iter)
         self.temperature = run_temperature_optimization(
-            optimizer, self.temperature, all_logits, all_labels, self.loss_fn
+            optimizer, self.temperature, calib_logits, calib_labels, self.loss_fn
         )
 
-        self.Qhat = self.compute_q_hat(all_logits, all_labels)
+        self.Qhat = self.compute_q_hat(
+            calib_logits, calib_labels, self.temperature, self.penalties, self.alpha
+        )
 
         self.post_hoc_fitted = True
 
@@ -206,6 +218,265 @@ class RAPS(PosthocBase):
         save_classification_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
+
+
+def compute_q_hat(
+    logits: Tensor,
+    targets: Tensor,
+    temperature: nn.Parameter,
+    penalties: Tensor,
+    alpha: float,
+) -> Tensor:
+    """Compute q_hat.
+
+    Args:
+        logits: model output logits of shape [batch_size x num_outputs]
+        targets: labels of shape [batch_size]
+        temperature: temperature parameter
+        penalties: regularization penalties
+        alpha: 1 - alpha is the desired coverage
+
+    Returns:
+        q_hat
+    """
+    scores = temp_scale_logits(logits, temperature)
+    sorted_score_indices, ordered, cumsum = sort_sum(scores)
+
+    E = gen_inverse_quantile_function(
+        scores, targets, sorted_score_indices, ordered, cumsum, penalties, True, True
+    )
+
+    Qhat = torch.quantile(E, 1 - alpha, interpolation="higher")
+
+    return Qhat
+
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+
+    def __init__(self, name, fmt=":f"):
+        self.name = name
+        self.fmt = fmt
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
+    def __str__(self):
+        fmtstr = "{name} {val" + self.fmt + "} ({avg" + self.fmt + "})"
+        return fmtstr.format(**self.__dict__)
+
+
+def coverage_size(S, targets):
+    covered = 0
+    size = 0
+    for i in range(targets.shape[0]):
+        if targets[i].item() in S[i]:
+            covered += 1
+        size = size + S[i].shape[0]
+    return float(covered) / targets.shape[0], size / targets.shape[0]
+
+
+def find_kreg_param(paramtune_logits: DataLoader, alpha: float):
+    """Find kreg parameter."""
+    gt_locs_kstar = torch.tensor(
+        [
+            torch.where(torch.argsort(x[0], descending=True) == x[1])[0][0]
+            for x in paramtune_logits
+        ]
+    )
+    kstar = torch.quantile(gt_locs_kstar.float(), 1 - alpha, interpolation="higher") + 1
+    return kstar
+
+
+def find_lamda_param_size(
+    model: nn.Module,
+    loss_fn: nn.Module,
+    paramtune_loader: DataLoader,
+    alpha: float,
+    kreg: float,
+    randomized: bool,
+    allow_zero_sets: bool,
+) -> Tensor:
+    """Find lamda parameter for size criterion."""
+
+    best_size = iter(paramtune_loader).__next__()[0][1].shape[0]  # number of classes
+    # Use the paramtune data to pick lamda.  Does not violate exchangeability.
+    for temp_lam in [
+        0.001,
+        0.01,
+        0.1,
+        0.2,
+        0.5,
+    ]:  # predefined grid, change if more precision desired.
+        conformal_model = ConformalModelLogits(
+            model,
+            paramtune_loader,
+            loss_fn=loss_fn,
+            alpha=alpha,
+            kreg=kreg,
+            lamda=temp_lam,
+            randomized=randomized,
+            allow_zero_sets=allow_zero_sets,
+            naive=False,
+        )
+        coverage = AverageMeter("RAPS coverage")
+        size = AverageMeter("RAPS size")
+        for i, (x, target) in enumerate(paramtune_loader):
+            target = target.cuda()
+            # compute output
+            _, S = model(x.cuda())
+
+            cvg, sz = coverage_size(S, target)
+            # Update meters
+            coverage.update(cvg, n=x.shape[0])
+            size.update(sz, n=x.shape[0])
+
+        if size.avg < best_size:
+            best_size = size.avg
+            lamda_star = temp_lam
+
+    return lamda_star
+
+
+def find_lamda_param_adaptiveness(
+    model: nn.Module,
+    loss_fn: nn.Module,
+    paramtune_loader: DataLoader,
+    alpha: float,
+    kreg: float,
+    randomized: bool,
+    allow_zero_sets: bool,
+    strata: list[list[int]] = [[0, 1], [2, 3], [4, 6], [7, 10], [11, 100], [101, 1000]],
+) -> Tensor:
+    lamda_star = 0
+    best_violation = 1
+    for temp_lam in [
+        0,
+        1e-5,
+        1e-4,
+        8e-4,
+        9e-4,
+        1e-3,
+        1.5e-3,
+        2e-3,
+    ]:  # predefined grid, change if more precision desired.
+        conformal_model = ConformalModelLogits(
+            model,
+            paramtune_loader,
+            alpha=alpha,
+            kreg=kreg,
+            lamda=temp_lam,
+            randomized=randomized,
+            allow_zero_sets=allow_zero_sets,
+            naive=False,
+        )
+        curr_violation = get_violation(conformal_model, paramtune_loader, strata, alpha)
+
+        if curr_violation < best_violation:
+            best_violation = curr_violation
+            lamda_star = temp_lam
+    return lamda_star
+
+def get_violation(cmodel, loader_paramtune, strata, alpha):
+    df = pd.DataFrame(columns=["size", "correct"])
+    for logit, target in loader_paramtune:
+        # compute output
+        _, S = cmodel(
+            logit
+        )  # This is a 'dummy model' which takes logits, for efficiency.
+        # measure accuracy and record loss
+        size = np.array([x.size for x in S])
+        I, _, _ = sort_sum(logit.numpy())
+        correct = np.zeros_like(size)
+        for j in range(correct.shape[0]):
+            correct[j] = int(target[j] in list(S[j]))
+        batch_df = pd.DataFrame({"size": size, "correct": correct})
+        df = df.append(batch_df, ignore_index=True)
+    wc_violation = 0
+    for stratum in strata:
+        temp_df = df[(df["size"] >= stratum[0]) & (df["size"] <= stratum[1])]
+        if len(temp_df) == 0:
+            continue
+        stratum_violation = abs(temp_df.correct.mean() - (1 - alpha))
+        wc_violation = max(wc_violation, stratum_violation)
+    return wc_violation  # the violation
+
+
+class ConformalModelLogits(nn.Module):
+    def __init__(
+        self,
+        model,
+        calib_loader,
+        loss_fn: nn.Module,
+        alpha,
+        kreg=None,
+        lamda=None,
+        randomized=True,
+        allow_zero_sets=False,
+        naive=False,
+        pct_paramtune=0.3,
+        batch_size=32,
+        lamda_criterion="size",
+    ):
+        super(ConformalModelLogits, self).__init__()
+        self.model = model
+        self.alpha = alpha
+        self.randomized = randomized
+        self.allow_zero_sets = allow_zero_sets
+
+        # temperature optimization
+        optimizer = partial(torch.optim.LBFGS, lr=self.optim_lr, max_iter=self.max_iter)
+        logits = calib_loader.dataset[0]
+        targets = calib_loader.dataset[1]
+
+        self.T = run_temperature_optimization(
+            optimizer=optimizer, logits=logits, targets=targets, criterion=loss_fn
+        )
+
+        self.penalties = np.zeros((1, calib_loader.dataset[0][0].shape[0]))
+
+        if not (kreg == None) and not naive:
+            self.penalties[:, kreg:] += lamda
+        self.Qhat = 1 - alpha
+        if not naive:
+            self.Qhat = compute_q_hat(
+                logits, targets, self.T, self.penalties, self.alpha
+            )
+
+    def forward(self, logits, randomized=None, allow_zero_sets=None):
+        """Forward pass."""
+        if randomized == None:
+            randomized = self.randomized
+        if allow_zero_sets == None:
+            allow_zero_sets = self.allow_zero_sets
+
+        with torch.no_grad():
+            logits_numpy = logits.detach().cpu().numpy()
+            scores = F.softmax(logits_numpy / self.T.item(), axis=1)
+            I, ordered, cumsum = sort_sum(scores)
+
+            S = gen_cond_quantile_function(
+                scores,
+                self.Qhat,
+                I=I,
+                ordered=ordered,
+                cumsum=cumsum,
+                penalties=self.penalties,
+                randomized=randomized,
+                allow_zero_sets=allow_zero_sets,
+            )
+
+        return logits, S
 
 
 def gen_inverse_quantile_function(

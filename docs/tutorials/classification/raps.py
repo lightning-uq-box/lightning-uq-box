@@ -11,18 +11,23 @@ from orig_conformal import ConformalModel
 from orig_utils import (
     AverageMeter,
     compute_accuracy,
-    coverage_size,
     get_model,
     validate,
 )
+from lightning.pytorch import seed_everything
 from tqdm import tqdm
 
 from lightning_uq_box.uq_methods import RAPS
+from lightning_uq_box.uq_methods.metrics import EmpiricalCoverage
 
+seed_everything(0)
 cudnn.benchmark = True
 import pandas as pd
 
 plt.rcParams["figure.figsize"] = [14, 5]
+
+RANDOMIZED = False
+ALLOW_ZERO_SETS = False
 
 
 def compute_empirical_coverage(S: list[Sequence[int]], y: list[int]) -> float:
@@ -109,16 +114,18 @@ def fit_original_raps(model: torch.nn.Module):
     # allow sets of size zero
     allow_zero_sets = False
     # use the randomized version of conformal
-    randomized = True
+    randomized = False
 
     # Conformalize model
     model = ConformalModel(
         model,
         their_cal_loader,
         alpha=0.1,
-        lamda=0,
-        randomized=randomized,
-        allow_zero_sets=allow_zero_sets,
+        lamda=None,
+        kreg=None,
+        lamda_criterion="size",
+        randomized=RANDOMIZED,
+        allow_zero_sets=ALLOW_ZERO_SETS,
     )
 
     print("Model calibrated and conformalized! Now evaluate over remaining data.")
@@ -130,17 +137,23 @@ def fit_original_raps(model: torch.nn.Module):
         "coverage": validation_metrics[2],
         "size": validation_metrics[3],
         "temperature": model.T.detach().item(),
+        "kreg": model.kreg,
+        "lamda": model.lamda,
+        "q_hat": model.Qhat,
     }
 
 
 def fit_my_raps(orig_model: torch.nn.Module):
     raps = RAPS(
         orig_model.model,
-        lamda_param=orig_model.lamda,
-        kreg=orig_model.kreg,
-        randomized=True,
-        allow_zero_sets=False,
+        lamda_param=None,
+        kreg=None,
+        lamda_criterion= "size",
+        randomized=RANDOMIZED,
+        allow_zero_sets=ALLOW_ZERO_SETS,
     )
+    import pdb
+    pdb.set_trace()
     raps.input_key = "image"
     raps.target_key = "label"
 
@@ -157,8 +170,7 @@ def fit_my_raps(orig_model: torch.nn.Module):
     raps = raps.to(device)
     top1 = AverageMeter("top1")
     top5 = AverageMeter("top5")
-    coverage = AverageMeter("coverage")
-    size = AverageMeter("size")
+    size_metric = EmpiricalCoverage()
     # evaluate on full validation set
     for batch in tqdm(val_dataloader):
         image = batch["image"].to(device)
@@ -171,20 +183,23 @@ def fit_my_raps(orig_model: torch.nn.Module):
             prec1, prec5 = compute_accuracy(
                 output.cpu(), batch["label"].cpu(), topk=(1, 5)
             )
-            cvg, sz = coverage_size(S, batch["label"])
+
+            size_metric.update(S, batch["label"])
 
             # Update meters
             top1.update(prec1.item() / 100.0, n=output.shape[0])
             top5.update(prec5.item() / 100.0, n=output.shape[0])
-            coverage.update(cvg, n=output.shape[0])
-            size.update(sz, n=output.shape[0])
 
+    cvg, size = size_metric.compute()
     return raps, {
         "top1": top1.avg,
         "top5": top5.avg,
-        "coverage": coverage.avg,
-        "size": size.avg,
+        "coverage": cvg,
+        "size": size,
         "temperature": raps.temperature.detach().item(),
+        "kreg": raps.kreg,
+        "lamda": raps.lamda_param,
+        "q_hat": raps.Qhat.item(),
     }
 
 
@@ -192,7 +207,7 @@ def run_seed(seed, device):
     print(f"RUNNING SEED {seed} ON {device}")
     seed_everything(seed)
     result_dict = {}
-    model_names = ["ResNet18", "ResNet50", "ResNet101", "ResNet152"]
+    model_names = ["ResNet18", "ResNet101"]
 
     torch.set_float32_matmul_precision("medium")
 
@@ -206,7 +221,6 @@ def run_seed(seed, device):
         model = model.to(device)
 
         conformal_model, orig_metrics = fit_original_raps(model)
-        print(orig_metrics)
         raps, metrics = fit_my_raps(conformal_model)
         result_dict[name]["orig"] = orig_metrics
         result_dict[name]["my"] = metrics
@@ -221,7 +235,7 @@ def run_seed(seed, device):
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "4"
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     num_seeds = 5
     for i in tqdm(range(num_seeds)):

@@ -4,7 +4,7 @@ model:
     _target_: segmentation_models_pytorch.Unet
     encoder_name: resnet18
     encoder_weights: imagenet
-    classes: 1 # predict sigmoid logits
+    classes: 1 # predict sigmoid logits for binary classification problem
     in_channels: 3
   alpha: 0.1
 
