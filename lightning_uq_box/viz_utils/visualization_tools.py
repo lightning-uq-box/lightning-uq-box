@@ -12,7 +12,7 @@ import pandas as pd
 import uncertainty_toolbox as uct
 
 
-def plot_training_metrics(save_dir: str, metric: str) -> plt.figure:
+def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.figure:
     """Plot training metrics from latest lightning CSVLogger version.
 
     Args:
@@ -22,20 +22,19 @@ def plot_training_metrics(save_dir: str, metric: str) -> plt.figure:
     latest_version = sorted(os.listdir(save_dir))[-1]
     metrics_path = os.path.join(save_dir, latest_version, "metrics.csv")
 
-    import pdb
-    pdb.set_trace()
     df = pd.read_csv(metrics_path)
 
-    train_loss = df[df["train_loss"].notna()]["train_loss"]
-    train_rmse = df[df[f"train{metric}"].notna()][f"train{metric}"]
+    plot_metric = {}
+    for m in metrics:
+        try:
+            plot_metric[m] = df[df[m].notna()][m]
+        except KeyError:
+            print(f"{m} not in metrics, available are {df.columns}")
 
-    fig, ax = plt.subplots(ncols=2)
-    ax[0].plot(np.arange(len(train_loss)), train_loss)
-    ax[0].set_title("Train Loss")
-
-    ax[1].plot(np.arange(len(train_rmse)), train_rmse)
-    ax[1].set_title(f"Train {metric}")
-
+    fig, ax = plt.subplots(ncols=len(metrics))
+    for idx, (m, p) in enumerate(plot_metric.items()):
+        ax[idx].plot(p)
+        ax[idx].set_title(m)     
     return fig
 
 

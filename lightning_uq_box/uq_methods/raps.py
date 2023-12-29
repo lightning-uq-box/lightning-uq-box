@@ -13,17 +13,18 @@ Adapted from https://github.com/aangelopoulos/conformal_classification
 import os
 from functools import partial
 from typing import Optional, Union
-from torch.utils.data import DataLoader, TensorDataset, random_split
-import torch.nn.functional as F
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from lightning import LightningModule
 from torch import Tensor
-import pandas as pd
+from torch.utils.data import DataLoader, Subset, TensorDataset, random_split
 
 from .base import PosthocBase
+from .metrics import EmpiricalCoverage
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
 from .utils import default_classification_metrics, save_classification_predictions
 
@@ -37,6 +38,7 @@ class RAPS(PosthocBase):
     """
 
     valid_tasks = ["binary", "multiclass", "multilable"]
+    valid_lambda_criterion = ["size", "adaptiveness"]
     pred_file_name = "preds.csv"
 
     def __init__(
@@ -83,6 +85,11 @@ class RAPS(PosthocBase):
         self.randomized = randomized
         self.allow_zero_sets = allow_zero_sets
         self.pct_param_tune = pct_param_tune
+
+        assert lamda_criterion in self.valid_lambda_criterion, (
+            f"lamda_criterion must be one of {self.valid_lambda_criterion}, "
+            f"got {lamda_criterion}"
+        )
         self.lamda_criterion = lamda_criterion
 
         self.alpha = alpha
@@ -146,10 +153,11 @@ class RAPS(PosthocBase):
             adjusted model logits tensor of shape [batch_size x num_outputs]
         """
         scores = temp_scale_logits(model_logits, self.temperature)
-        sorted_score_indices, ordered, cumsum = sort_sum(scores)
+        softmax_scores = F.softmax(scores, dim=1)
+        sorted_score_indices, ordered, cumsum = sort_sum(softmax_scores)
 
         return gen_cond_quantile_function(
-            scores,
+            softmax_scores,
             self.Qhat,
             sorted_score_indices,
             ordered,
@@ -164,22 +172,23 @@ class RAPS(PosthocBase):
         calib_logits = torch.cat(self.model_logits, dim=0).detach()
         calib_labels = torch.cat(self.labels, dim=0).detach()
 
+        calib_ds = TensorDataset(calib_logits, calib_labels)
+
         # check kreg and lamda param
         if self.kreg is None or self.lamda_param is None:
-            num_paramtune = int(np.ceil(self.pct_paramtune * len(calib_logits)))
-            paramtune_logits, calib_logits = random_split(
-                calib_logits, [num_paramtune, len(calib_logits) - num_paramtune]
+            num_paramtune = int(np.ceil(self.pct_param_tune * len(calib_logits)))
+            paramtune_ds, calib_ds = random_split(
+                calib_ds, [num_paramtune, len(calib_logits) - num_paramtune]
             )
-            paramtune_loader = DataLoader(
-                paramtune_logits, batch_size=64, shuffle=False, pin_memory=True
-            )
+            paramtune_loader = DataLoader(paramtune_ds, batch_size=64, shuffle=False)
             if self.kreg is None:
                 self.kreg = find_kreg_param(paramtune_loader, self.alpha)
 
             if self.lamda_param is None:
                 if self.lamda_criterion == "size":
-                    self.lamda_param = self.find_lamda_param_size(
+                    self.lamda_param = find_lamda_param_size(
                         self.model,
+                        self.loss_fn,
                         paramtune_loader,
                         self.alpha,
                         self.kreg,
@@ -187,8 +196,14 @@ class RAPS(PosthocBase):
                         self.allow_zero_sets,
                     )
                 elif self.lamda_criterion == "adaptiveness":
-                    self.lamda_param = self.find_lamda_param_adaptiveness(
-                        calib_logits, calib_labels, self.kreg
+                    self.lamda_param = find_lamda_param_adaptiveness(
+                        self.model,
+                        self.loss_fn,
+                        paramtune_loader,
+                        self.alpha,
+                        self.kreg,
+                        self.randomized,
+                        self.allow_zero_sets,
                     )
 
         self.penalties = torch.zeros((1, self.num_classes))
@@ -196,10 +211,10 @@ class RAPS(PosthocBase):
 
         optimizer = partial(torch.optim.LBFGS, lr=self.optim_lr, max_iter=self.max_iter)
         self.temperature = run_temperature_optimization(
-            optimizer, self.temperature, calib_logits, calib_labels, self.loss_fn
+             optimizer, self.temperature, calib_logits, calib_labels, self.loss_fn
         )
 
-        self.Qhat = self.compute_q_hat(
+        self.Qhat = compute_q_hat(
             calib_logits, calib_labels, self.temperature, self.penalties, self.alpha
         )
 
@@ -240,62 +255,45 @@ def compute_q_hat(
         q_hat
     """
     scores = temp_scale_logits(logits, temperature)
-    sorted_score_indices, ordered, cumsum = sort_sum(scores)
-
+    softmax_scores = F.softmax(scores, dim=1)
+    sorted_score_indices, ordered, cumsum = sort_sum(softmax_scores)
     E = gen_inverse_quantile_function(
-        scores, targets, sorted_score_indices, ordered, cumsum, penalties, True, True
+        softmax_scores,
+        targets,
+        sorted_score_indices,
+        ordered,
+        cumsum,
+        penalties,
+        True,
+        True,
     )
-
     Qhat = torch.quantile(E, 1 - alpha, interpolation="higher")
-
     return Qhat
 
 
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
+def find_kreg_param(paramtune_logits: DataLoader, alpha: float) -> int:
+    """Find kreg parameter.
 
-    def __init__(self, name, fmt=":f"):
-        self.name = name
-        self.fmt = fmt
-        self.reset()
+    Args:
+        paramtune_logits: logits of paramtune data
+        alpha: 1 - alpha is the desired coverage
 
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
+    Returns:
+        kreg parameter
+    """
+    all_ranks = []
 
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
+    for sample in paramtune_logits:
+        # Get the sorted indices of logits in descending order
+        sorted_indices = torch.argsort(sample[0], dim=1, descending=True)
+        target_expanded = sample[1].unsqueeze(1)
+        ranks = (sorted_indices == target_expanded).nonzero(as_tuple=True)[1]
+        all_ranks.append(ranks)
 
-    def __str__(self):
-        fmtstr = "{name} {val" + self.fmt + "} ({avg" + self.fmt + "})"
-        return fmtstr.format(**self.__dict__)
+    all_ranks = torch.cat(all_ranks)
+    kstar = torch.quantile(all_ranks.float(), 1 - alpha, interpolation="higher") + 1
 
-
-def coverage_size(S, targets):
-    covered = 0
-    size = 0
-    for i in range(targets.shape[0]):
-        if targets[i].item() in S[i]:
-            covered += 1
-        size = size + S[i].shape[0]
-    return float(covered) / targets.shape[0], size / targets.shape[0]
-
-
-def find_kreg_param(paramtune_logits: DataLoader, alpha: float):
-    """Find kreg parameter."""
-    gt_locs_kstar = torch.tensor(
-        [
-            torch.where(torch.argsort(x[0], descending=True) == x[1])[0][0]
-            for x in paramtune_logits
-        ]
-    )
-    kstar = torch.quantile(gt_locs_kstar.float(), 1 - alpha, interpolation="higher") + 1
-    return kstar
+    return int(kstar.cpu().item())
 
 
 def find_lamda_param_size(
@@ -307,10 +305,20 @@ def find_lamda_param_size(
     randomized: bool,
     allow_zero_sets: bool,
 ) -> Tensor:
-    """Find lamda parameter for size criterion."""
+    """Find lamda parameter for size criterion.
 
+    Args:
+        model: model to be used as conformal model
+        loss_fn: loss function
+        paramtune_loader: paramtune data loader
+        alpha: 1 - alpha is the desired coverage
+        kreg: regularization param (smaller kreg leads to smaller sets)
+        randomized: whether to use randomized version of conformal prediction
+        allow_zero_sets: whether to allow sets of size zero
+    """
     best_size = iter(paramtune_loader).__next__()[0][1].shape[0]  # number of classes
     # Use the paramtune data to pick lamda.  Does not violate exchangeability.
+    lamda_star = 0
     for temp_lam in [
         0.001,
         0.01,
@@ -327,22 +335,16 @@ def find_lamda_param_size(
             lamda=temp_lam,
             randomized=randomized,
             allow_zero_sets=allow_zero_sets,
-            naive=False,
         )
-        coverage = AverageMeter("RAPS coverage")
-        size = AverageMeter("RAPS size")
-        for i, (x, target) in enumerate(paramtune_loader):
-            target = target.cuda()
-            # compute output
-            _, S = model(x.cuda())
+        covg_and_size_metric = EmpiricalCoverage()
+        for i, (logit, target) in enumerate(paramtune_loader):
+            _, S = conformal_model(logit)
+            covg_and_size_metric.update(S, target)
 
-            cvg, sz = coverage_size(S, target)
-            # Update meters
-            coverage.update(cvg, n=x.shape[0])
-            size.update(sz, n=x.shape[0])
-
-        if size.avg < best_size:
-            best_size = size.avg
+        covg_and_size = covg_and_size_metric.compute()
+        size = covg_and_size["set_size"]
+        if size < best_size:
+            best_size = size
             lamda_star = temp_lam
 
     return lamda_star
@@ -358,6 +360,18 @@ def find_lamda_param_adaptiveness(
     allow_zero_sets: bool,
     strata: list[list[int]] = [[0, 1], [2, 3], [4, 6], [7, 10], [11, 100], [101, 1000]],
 ) -> Tensor:
+    """Find lamda parameter for adaptiveness criterion.
+
+    Args:
+        model: model to be used as conformal model
+        loss_fn: loss function
+        paramtune_loader: paramtune data loader
+        alpha: 1 - alpha is the desired coverage
+        kreg: regularization param (smaller kreg leads to smaller sets)
+        randomized: whether to use randomized version of conformal prediction
+        allow_zero_sets: whether to allow sets of size zero
+        strata: strata to use for adaptiveness criterion
+    """
     lamda_star = 0
     best_violation = 1
     for temp_lam in [
@@ -373,12 +387,12 @@ def find_lamda_param_adaptiveness(
         conformal_model = ConformalModelLogits(
             model,
             paramtune_loader,
+            loss_fn=loss_fn,
             alpha=alpha,
             kreg=kreg,
             lamda=temp_lam,
             randomized=randomized,
             allow_zero_sets=allow_zero_sets,
-            naive=False,
         )
         curr_violation = get_violation(conformal_model, paramtune_loader, strata, alpha)
 
@@ -387,7 +401,24 @@ def find_lamda_param_adaptiveness(
             lamda_star = temp_lam
     return lamda_star
 
-def get_violation(cmodel, loader_paramtune, strata, alpha):
+
+def get_violation(
+    cmodel: nn.Module,
+    loader_paramtune: DataLoader,
+    strata: list[list[int]],
+    alpha: float,
+):
+    """Get violation for adaptiveness criterion.
+
+    Args:
+        cmodel: conformal model
+        loader_paramtune: paramtune data loader
+        strata: strata to use for adaptiveness criterion
+        alpha: 1 - alpha is the desired coverage
+
+    Returns:
+        violation
+    """
     df = pd.DataFrame(columns=["size", "correct"])
     for logit, target in loader_paramtune:
         # compute output
@@ -395,13 +426,14 @@ def get_violation(cmodel, loader_paramtune, strata, alpha):
             logit
         )  # This is a 'dummy model' which takes logits, for efficiency.
         # measure accuracy and record loss
-        size = np.array([x.size for x in S])
-        I, _, _ = sort_sum(logit.numpy())
+        size = np.array([x.size()[0] for x in S])
+        sorted_score_indices, _, _ = sort_sum(logit)
+        sorted_score_indices = sorted_score_indices.cpu().numpy()
         correct = np.zeros_like(size)
         for j in range(correct.shape[0]):
             correct[j] = int(target[j] in list(S[j]))
         batch_df = pd.DataFrame({"size": size, "correct": correct})
-        df = df.append(batch_df, ignore_index=True)
+        df = pd.concat([df, batch_df], ignore_index=True)
     wc_violation = 0
     for stratum in strata:
         temp_df = df[(df["size"] >= stratum[0]) & (df["size"] <= stratum[1])]
@@ -413,62 +445,90 @@ def get_violation(cmodel, loader_paramtune, strata, alpha):
 
 
 class ConformalModelLogits(nn.Module):
+    """Conformal Model for logits."""
+
     def __init__(
         self,
-        model,
-        calib_loader,
+        model: nn.Module,
+        calib_loader: DataLoader,
         loss_fn: nn.Module,
-        alpha,
-        kreg=None,
-        lamda=None,
-        randomized=True,
-        allow_zero_sets=False,
-        naive=False,
-        pct_paramtune=0.3,
-        batch_size=32,
-        lamda_criterion="size",
+        alpha: float,
+        kreg: Optional[int] = None,
+        lamda: Optional[float] = None,
+        randomized: bool = True,
+        allow_zero_sets: bool = False,
     ):
-        super(ConformalModelLogits, self).__init__()
+        """Initialize ConformalModelLogits.
+
+        Args:
+            model: model to be used as conformal model
+            calib_loader: calibration data loader
+            loss_fn: loss function
+            alpha: 1 - alpha is the desired coverage
+            kreg: regularization param (smaller kreg leads to smaller sets)
+            lamda: regularization param (larger lamda leads to smaller sets)
+                (any value of kreg and lambda will lead to coverage, but will yield
+                different set sizes)
+            randomized: whether to use randomized version of conformal prediction
+            allow_zero_sets: whether to allow sets of size zero
+            pct_paramtune: fraction of calibration data to use for parameter tuning
+            batch_size: batch size for parameter tuning
+            lamda_criterion: optimize for 'size' or 'adaptiveness'
+        """
+        super().__init__()
         self.model = model
         self.alpha = alpha
         self.randomized = randomized
         self.allow_zero_sets = allow_zero_sets
 
         # temperature optimization
-        optimizer = partial(torch.optim.LBFGS, lr=self.optim_lr, max_iter=self.max_iter)
-        logits = calib_loader.dataset[0]
-        targets = calib_loader.dataset[1]
+        if isinstance(calib_loader.dataset, TensorDataset):
+            logits = calib_loader.dataset.tensors[0]
+            labels = calib_loader.dataset.tesnors[1]
+        elif isinstance(calib_loader.dataset, Subset):
+            logits = calib_loader.dataset.dataset.tensors[0]
+            labels = calib_loader.dataset.dataset.tensors[1]
 
+        self.T = nn.Parameter(torch.ones(1) * 1.5).to(logits.device)
         self.T = run_temperature_optimization(
-            optimizer=optimizer, logits=logits, targets=targets, criterion=loss_fn
+            logits=logits, labels=labels, criterion=loss_fn, temperature=self.T, optimizer=partial(torch.optim.LBFGS, lr=0.01, max_iter=50)
         )
 
-        self.penalties = np.zeros((1, calib_loader.dataset[0][0].shape[0]))
+        self.penalties = torch.zeros((1, calib_loader.dataset[0][0].shape[0]))
 
-        if not (kreg == None) and not naive:
-            self.penalties[:, kreg:] += lamda
-        self.Qhat = 1 - alpha
-        if not naive:
-            self.Qhat = compute_q_hat(
-                logits, targets, self.T, self.penalties, self.alpha
-            )
+        self.penalties[:, kreg:] += lamda
+        self.Qhat = compute_q_hat(logits, labels, self.T, self.penalties, self.alpha)
 
-    def forward(self, logits, randomized=None, allow_zero_sets=None):
-        """Forward pass."""
-        if randomized == None:
+    def forward(
+        self,
+        logits: Tensor,
+        randomized: Optional[bool] = None,
+        allow_zero_sets: Optional[bool] = None,
+    ):
+        """Forward pass.
+
+        Args:
+            logits: model output logits of shape [batch_size x num_outputs]
+            randomized: whether to use randomized version of conformal prediction
+            allow_zero_sets: whether to allow sets of size zero
+
+        Returns:
+            logits and prediction sets
+        """
+        if randomized is None:
             randomized = self.randomized
-        if allow_zero_sets == None:
+        if allow_zero_sets is None:
             allow_zero_sets = self.allow_zero_sets
 
         with torch.no_grad():
-            logits_numpy = logits.detach().cpu().numpy()
-            scores = F.softmax(logits_numpy / self.T.item(), axis=1)
-            I, ordered, cumsum = sort_sum(scores)
+            # logits_numpy = logits.detach().cpu().numpy()
+            scores = F.softmax(logits / self.T.item(), dim=1)
+            sorted_score_indices, ordered, cumsum = sort_sum(scores)
 
             S = gen_cond_quantile_function(
                 scores,
                 self.Qhat,
-                I=I,
+                sorted_score_indices=sorted_score_indices,
                 ordered=ordered,
                 cumsum=cumsum,
                 penalties=self.penalties,
@@ -480,19 +540,29 @@ class ConformalModelLogits(nn.Module):
 
 
 def gen_inverse_quantile_function(
-    scores,
-    targets,
-    sorted_score_indices,
-    ordered,
-    cumsum,
-    penalties,
-    randomized,
-    allow_zero_sets,
+    scores: Tensor,
+    targets: Tensor,
+    sorted_score_indices: Tensor,
+    ordered: Tensor,
+    cumsum: Tensor,
+    penalties: Tensor,
+    randomized: bool,
+    allow_zero_sets: bool,
 ) -> Tensor:
     """Generalized inverse quantile conformity score function.
 
     E from equation (7) in Romano, Sesia, Candes.  Find the minimum tau in [0, 1]
     such that the correct label enters.
+
+    Args:
+        scores: shape [batch_size x num_classes]
+        targets: shape [batch_size]
+        sorted_score_indices: shape [batch_size x num_classes]
+        ordered: shape [batch_size x num_classes]
+        cumsum: shape [batch_size x num_classes]
+        penalties: shape [1 x num_classes]
+        randomized: whether to use randomized version of conformal prediction
+        allow_zero_sets: whether to allow sets of size zero
 
     Returns:
         E: generalized inverse quantile conformity score
@@ -580,12 +650,12 @@ def gen_cond_quantile_function(
 
 
 def get_single_tau(
-    target,
-    sorted_score_indices,
-    ordered,
-    cumsum,
-    penalty,
-    randomized,
+    target: Tensor,
+    sorted_score_indices: Tensor,
+    ordered: Tensor,
+    cumsum: Tensor,
+    penalty: Tensor,
+    randomized: bool,
     allow_zero_sets: bool,
 ) -> Tensor:
     """Get tau for one example.
