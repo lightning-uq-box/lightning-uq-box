@@ -259,18 +259,14 @@ def compute_q_hat(
     I, ordered_orig, cum_orig = sort_sum_orig(softmax_scores.cpu().numpy())
 
     assert np.allclose(ordered.cpu().numpy(), ordered_orig.copy())
-    assert np.allclose(sorted_score_indices.cpu().numpy().astype(float), I.copy().astype(float))
+    assert np.allclose(
+        sorted_score_indices.cpu().numpy().astype(float), I.copy().astype(float)
+    )
     assert np.allclose(cumsum.cpu().numpy(), cum_orig.copy())
 
     # TODO why is this always randomized and allow zero sets to true?
     E = gen_inverse_quantile_function(
-        targets,
-        sorted_score_indices,
-        ordered,
-        cumsum,
-        penalties,
-        True,
-        True,
+        targets, sorted_score_indices, ordered, cumsum, penalties, True, True
     )
     E_orig = giq(
         targets=targets.cpu().numpy(),
@@ -292,7 +288,7 @@ def get_tau(
 ):  # For one example
     idx = np.where(I == target)
     tau_nonrandom = cumsum[idx]
- 
+
     if not randomized:
         return tau_nonrandom + penalty[0]
 
@@ -309,6 +305,7 @@ def get_tau(
             + cumsum[(idx[0], idx[1] - 1)]
             + (penalty[0 : (idx[1][0] + 1)]).sum()
         )
+
 
 def gcq(scores, tau, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
     penalties_cumsum = np.cumsum(penalties, axis=1)
@@ -349,6 +346,7 @@ def gcq(scores, tau, I, ordered, cumsum, penalties, randomized, allow_zero_sets)
         S = S + [I[i, 0 : sizes[i]]]
 
     return S
+
 
 def giq(targets, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
     """
@@ -641,15 +639,15 @@ class ConformalModelLogits(nn.Module):
                 scores.cpu().numpy(),
                 self.Qhat.cpu().numpy(),
                 I=sorted_score_indices.cpu().numpy(),
-                ordered = ordered.cpu().numpy(),
+                ordered=ordered.cpu().numpy(),
                 cumsum=cumsum.cpu().numpy(),
                 penalties=self.penalties.cpu().numpy(),
                 randomized=randomized,
-                allow_zero_sets=allow_zero_sets
+                allow_zero_sets=allow_zero_sets,
             )
             for s, s_orig in zip(S, S_orig):
                 assert np.allclose(s.cpu().numpy(), s_orig)
-                
+
         return logits, S
 
 
