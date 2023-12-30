@@ -256,116 +256,118 @@ def compute_q_hat(
     scores = temp_scale_logits(logits, temperature)
     softmax_scores = F.softmax(scores, dim=1)
     sorted_score_indices, ordered, cumsum = sort_sum(softmax_scores)
-    I, ordered_orig, cum_orig = sort_sum_orig(softmax_scores.cpu().numpy())
+    # I, ordered_orig, cum_orig = sort_sum_orig(softmax_scores.cpu().numpy())
 
-    assert np.allclose(ordered.cpu().numpy(), ordered_orig.copy())
-    assert np.allclose(
-        sorted_score_indices.cpu().numpy().astype(float), I.copy().astype(float)
-    )
-    assert np.allclose(cumsum.cpu().numpy(), cum_orig.copy())
+    # assert np.allclose(ordered.cpu().numpy(), ordered_orig.copy())
+    # assert np.allclose(
+    #     sorted_score_indices.cpu().numpy().astype(float), I.copy().astype(float)
+    # )
+    # assert np.allclose(cumsum.cpu().numpy(), cum_orig.copy())
 
     # TODO why is this always randomized and allow zero sets to true?
     E = gen_inverse_quantile_function(
         targets, sorted_score_indices, ordered, cumsum, penalties, True, True
     )
-    E_orig = giq(
-        targets=targets.cpu().numpy(),
-        I=I,
-        ordered=ordered_orig,
-        cumsum=cum_orig,
-        penalties=penalties.cpu().numpy(),
-        randomized=True,
-        allow_zero_sets=True,
-    )
+    # E_orig = giq(
+    #     targets=targets.cpu().numpy(),
+    #     I=I,
+    #     ordered=ordered_orig,
+    #     cumsum=cum_orig,
+    #     penalties=penalties.cpu().numpy(),
+    #     randomized=True,
+    #     allow_zero_sets=True,
+    # )
     # these will not be the same because of the randomized version
     # assert np.allclose(E.cpu().numpy(), E_orig.copy())
     Qhat = torch.quantile(E, 1 - alpha, interpolation="higher")
     return Qhat
 
 
-def get_tau(
-    target, I, ordered, cumsum, penalty, randomized, allow_zero_sets
-):  # For one example
-    idx = np.where(I == target)
-    tau_nonrandom = cumsum[idx]
+# def get_tau(
+#     target, I, ordered, cumsum, penalty, randomized, allow_zero_sets
+# ):  # For one example
+#     idx = np.where(I == target)
+#     tau_nonrandom = cumsum[idx]
 
-    if not randomized:
-        return tau_nonrandom + penalty[0]
+#     if not randomized:
+#         return tau_nonrandom + penalty[0]
 
-    U = np.random.random()
+#     U = np.random.random()
 
-    if idx == (0, 0):
-        if not allow_zero_sets:
-            return tau_nonrandom + penalty[0]
-        else:
-            return U * tau_nonrandom + penalty[0]
-    else:
-        return (
-            U * ordered[idx]
-            + cumsum[(idx[0], idx[1] - 1)]
-            + (penalty[0 : (idx[1][0] + 1)]).sum()
-        )
-
-
-def gcq(scores, tau, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
-    penalties_cumsum = np.cumsum(penalties, axis=1)
-    sizes_base = ((cumsum + penalties_cumsum) <= tau).sum(axis=1) + 1  # 1 - 1001
-    sizes_base = np.minimum(sizes_base, scores.shape[1])  # 1-1000
-
-    if randomized:
-        V = np.zeros(sizes_base.shape)
-        for i in range(sizes_base.shape[0]):
-            V[i] = (
-                1
-                / ordered[i, sizes_base[i] - 1]
-                * (
-                    tau
-                    - (cumsum[i, sizes_base[i] - 1] - ordered[i, sizes_base[i] - 1])
-                    - penalties_cumsum[0, sizes_base[i] - 1]
-                )
-            )  # -1 since sizes_base \in {1,...,1000}.
-
-        sizes = sizes_base - (np.random.random(V.shape) >= V).astype(int)
-    else:
-        sizes = sizes_base
-
-    if tau == 1.0:
-        sizes[:] = cumsum.shape[
-            1
-        ]  # always predict max size if alpha==0. (Avoids numerical error.)
-
-    if not allow_zero_sets:
-        sizes[
-            sizes == 0
-        ] = 1  # allow the user the option to never have empty sets (will lead to incorrect coverage if 1-alpha < model's top-1 accuracy
-
-    S = list()
-
-    # Construct S from equation (5)
-    for i in range(I.shape[0]):
-        S = S + [I[i, 0 : sizes[i]]]
-
-    return S
+#     if idx == (0, 0):
+#         if not allow_zero_sets:
+#             return tau_nonrandom + penalty[0]
+#         else:
+#             return U * tau_nonrandom + penalty[0]
+#     else:
+#         return (
+#             U * ordered[idx]
+#             + cumsum[(idx[0], idx[1] - 1)]
+#             + (penalty[0 : (idx[1][0] + 1)]).sum()
+#         )
 
 
-def giq(targets, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
-    """
-    Generalized inverse quantile conformity score function.
-    E from equation (7) in Romano, Sesia, Candes.  Find the minimum tau in [0, 1] such that the correct label enters.
-    """
-    E = -np.ones((targets.shape[0],))
-    for i in range(targets.shape[0]):
-        E[i] = get_tau(
-            targets[i].item(),
-            I[i : i + 1, :],
-            ordered[i : i + 1, :],
-            cumsum[i : i + 1, :],
-            penalties[0, :],
-            randomized=randomized,
-            allow_zero_sets=allow_zero_sets,
-        )
+# def gcq(scores, tau, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
+#     penalties_cumsum = np.cumsum(penalties, axis=1)
+#     sizes_base = ((cumsum + penalties_cumsum) <= tau).sum(axis=1) + 1  # 1 - 1001
+#     sizes_base = np.minimum(sizes_base, scores.shape[1])  # 1-1000
 
-    return E
+#     if randomized:
+#         V = np.zeros(sizes_base.shape)
+#         for i in range(sizes_base.shape[0]):
+#             V[i] = (
+#                 1
+#                 / ordered[i, sizes_base[i] - 1]
+#                 * (
+#                     tau
+#                     - (cumsum[i, sizes_base[i] - 1] - ordered[i, sizes_base[i] - 1])
+#                     - penalties_cumsum[0, sizes_base[i] - 1]
+#                 )
+#             )  # -1 since sizes_base \in {1,...,1000}.
+
+#         sizes = sizes_base - (np.random.random(V.shape) >= V).astype(int)
+#     else:
+#         sizes = sizes_base
+
+#     if tau == 1.0:
+#         sizes[:] = cumsum.shape[
+#             1
+#         ]  # always predict max size if alpha==0. (Avoids numerical error.)
+
+#     if not allow_zero_sets:
+#         sizes[
+#             sizes == 0
+#         ] = 1  # allow the user the option to never have empty sets
+# (will lead to incorrect coverage if 1-alpha < model's top-1 accuracy
+
+#     S = list()
+
+#     # Construct S from equation (5)
+#     for i in range(I.shape[0]):
+#         S = S + [I[i, 0 : sizes[i]]]
+
+#     return S
+
+
+# def giq(targets, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
+#     """
+#     Generalized inverse quantile conformity score function.
+#     E from equation (7) in Romano, Sesia, Candes.
+#       Find the minimum tau in [0, 1] such that the correct label enters.
+#     """
+#     E = -np.ones((targets.shape[0],))
+#     for i in range(targets.shape[0]):
+#         E[i] = get_tau(
+#             targets[i].item(),
+#             I[i : i + 1, :],
+#             ordered[i : i + 1, :],
+#             cumsum[i : i + 1, :],
+#             penalties[0, :],
+#             randomized=randomized,
+#             allow_zero_sets=allow_zero_sets,
+#         )
+
+#     return E
 
 
 def find_kreg_param(paramtune_logits: DataLoader, alpha: float) -> int:
@@ -635,18 +637,18 @@ class ConformalModelLogits(nn.Module):
                 allow_zero_sets=allow_zero_sets,
             )
 
-            S_orig = gcq(
-                scores.cpu().numpy(),
-                self.Qhat.cpu().numpy(),
-                I=sorted_score_indices.cpu().numpy(),
-                ordered=ordered.cpu().numpy(),
-                cumsum=cumsum.cpu().numpy(),
-                penalties=self.penalties.cpu().numpy(),
-                randomized=randomized,
-                allow_zero_sets=allow_zero_sets,
-            )
-            for s, s_orig in zip(S, S_orig):
-                assert np.allclose(s.cpu().numpy(), s_orig)
+            # S_orig = gcq(
+            #     scores.cpu().numpy(),
+            #     self.Qhat.cpu().numpy(),
+            #     I=sorted_score_indices.cpu().numpy(),
+            #     ordered=ordered.cpu().numpy(),
+            #     cumsum=cumsum.cpu().numpy(),
+            #     penalties=self.penalties.cpu().numpy(),
+            #     randomized=randomized,
+            #     allow_zero_sets=allow_zero_sets,
+            # )
+            # for s, s_orig in zip(S, S_orig):
+            #     assert np.allclose(s.cpu().numpy(), s_orig)
 
         return logits, S
 
@@ -678,7 +680,7 @@ def gen_inverse_quantile_function(
         E: generalized inverse quantile conformity score
     """
     E = -torch.ones((targets.shape[0],))
-    E_orig = -np.ones((targets.shape[0],))
+    # E_orig = -np.ones((targets.shape[0],))
     for i in range(targets.shape[0]):
         E[i] = get_single_tau(
             targets[i].item(),
@@ -833,8 +835,8 @@ def sort_sum(scores: Tensor) -> tuple[Tensor, Tensor, Tensor]:
     return sorted_score_indices, ordered, cumsum
 
 
-def sort_sum_orig(scores):
-    I = scores.argsort(axis=1)[:, ::-1]
-    ordered = np.sort(scores, axis=1)[:, ::-1]
-    cumsum = np.cumsum(ordered, axis=1)
-    return I, ordered, cumsum
+# def sort_sum_orig(scores):
+#     I = scores.argsort(axis=1)[:, ::-1]
+#     ordered = np.sort(scores, axis=1)[:, ::-1]
+#     cumsum = np.cumsum(ordered, axis=1)
+#     return I, ordered, cumsum
