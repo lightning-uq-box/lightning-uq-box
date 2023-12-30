@@ -62,10 +62,13 @@ def plot_two_moons_data(
     """Plot the two moons dataset.
 
     Args:
-        X_train: Training data features.
-        y_train: Training data labels.
-        X_val: Validation data features.
-        y_val: Validation data labels.
+        X_train: Training data features
+        y_train: Training data labels
+        X_val: Validation data features
+        y_val: Validation data labels
+
+    Returns:
+        figure of twoo moons dataset
     """
     fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
