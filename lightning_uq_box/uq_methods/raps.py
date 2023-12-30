@@ -310,6 +310,45 @@ def get_tau(
             + (penalty[0 : (idx[1][0] + 1)]).sum()
         )
 
+def gcq(scores, tau, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
+    penalties_cumsum = np.cumsum(penalties, axis=1)
+    sizes_base = ((cumsum + penalties_cumsum) <= tau).sum(axis=1) + 1  # 1 - 1001
+    sizes_base = np.minimum(sizes_base, scores.shape[1])  # 1-1000
+
+    if randomized:
+        V = np.zeros(sizes_base.shape)
+        for i in range(sizes_base.shape[0]):
+            V[i] = (
+                1
+                / ordered[i, sizes_base[i] - 1]
+                * (
+                    tau
+                    - (cumsum[i, sizes_base[i] - 1] - ordered[i, sizes_base[i] - 1])
+                    - penalties_cumsum[0, sizes_base[i] - 1]
+                )
+            )  # -1 since sizes_base \in {1,...,1000}.
+
+        sizes = sizes_base - (np.random.random(V.shape) >= V).astype(int)
+    else:
+        sizes = sizes_base
+
+    if tau == 1.0:
+        sizes[:] = cumsum.shape[
+            1
+        ]  # always predict max size if alpha==0. (Avoids numerical error.)
+
+    if not allow_zero_sets:
+        sizes[
+            sizes == 0
+        ] = 1  # allow the user the option to never have empty sets (will lead to incorrect coverage if 1-alpha < model's top-1 accuracy
+
+    S = list()
+
+    # Construct S from equation (5)
+    for i in range(I.shape[0]):
+        S = S + [I[i, 0 : sizes[i]]]
+
+    return S
 
 def giq(targets, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
     """
@@ -598,6 +637,19 @@ class ConformalModelLogits(nn.Module):
                 allow_zero_sets=allow_zero_sets,
             )
 
+            S_orig = gcq(
+                scores.cpu().numpy(),
+                self.Qhat.cpu().numpy(),
+                I=sorted_score_indices.cpu().numpy(),
+                ordered = ordered.cpu().numpy(),
+                cumsum=cumsum.cpu().numpy(),
+                penalties=self.penalties.cpu().numpy(),
+                randomized=randomized,
+                allow_zero_sets=allow_zero_sets
+            )
+            for s, s_orig in zip(S, S_orig):
+                assert np.allclose(s.cpu().numpy(), s_orig)
+                
         return logits, S
 
 
