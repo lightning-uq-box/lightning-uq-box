@@ -132,8 +132,6 @@ class RAPS(PosthocBase):
         # need to set manually because of inference mode
         self.eval()
         with torch.no_grad():
-            # TODO (nils): check if the underlying model is a lightning module
-            # and has a predict step, because then RAPs should be applied on top of that
             if hasattr(self.model, "predict_step"):
                 logits = self.model.predict_step(X)["logits"]
             else:
@@ -169,6 +167,7 @@ class RAPS(PosthocBase):
 
     def on_validation_end(self) -> None:
         """Apply RASP conformal method."""
+        self.eval()
         calib_logits = torch.cat(self.model_logits, dim=0).detach()
         calib_labels = torch.cat(self.labels, dim=0).detach()
 
@@ -257,8 +256,14 @@ def compute_q_hat(
     scores = temp_scale_logits(logits, temperature)
     softmax_scores = F.softmax(scores, dim=1)
     sorted_score_indices, ordered, cumsum = sort_sum(softmax_scores)
+    I, ordered_orig, cum_orig = sort_sum_orig(softmax_scores.cpu().numpy())
+
+    assert np.allclose(ordered.cpu().numpy(), ordered_orig.copy())
+    assert np.allclose(sorted_score_indices.cpu().numpy().astype(float), I.copy().astype(float))
+    assert np.allclose(cumsum.cpu().numpy(), cum_orig.copy())
+
+    # TODO why is this always randomized and allow zero sets to true?
     E = gen_inverse_quantile_function(
-        softmax_scores,
         targets,
         sorted_score_indices,
         ordered,
@@ -267,8 +272,63 @@ def compute_q_hat(
         True,
         True,
     )
+    E_orig = giq(
+        targets=targets.cpu().numpy(),
+        I=I,
+        ordered=ordered_orig,
+        cumsum=cum_orig,
+        penalties=penalties.cpu().numpy(),
+        randomized=True,
+        allow_zero_sets=True,
+    )
+    # these will not be the same because of the randomized version
+    # assert np.allclose(E.cpu().numpy(), E_orig.copy())
     Qhat = torch.quantile(E, 1 - alpha, interpolation="higher")
     return Qhat
+
+
+def get_tau(
+    target, I, ordered, cumsum, penalty, randomized, allow_zero_sets
+):  # For one example
+    idx = np.where(I == target)
+    tau_nonrandom = cumsum[idx]
+ 
+    if not randomized:
+        return tau_nonrandom + penalty[0]
+
+    U = np.random.random()
+
+    if idx == (0, 0):
+        if not allow_zero_sets:
+            return tau_nonrandom + penalty[0]
+        else:
+            return U * tau_nonrandom + penalty[0]
+    else:
+        return (
+            U * ordered[idx]
+            + cumsum[(idx[0], idx[1] - 1)]
+            + (penalty[0 : (idx[1][0] + 1)]).sum()
+        )
+
+
+def giq(targets, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
+    """
+    Generalized inverse quantile conformity score function.
+    E from equation (7) in Romano, Sesia, Candes.  Find the minimum tau in [0, 1] such that the correct label enters.
+    """
+    E = -np.ones((targets.shape[0],))
+    for i in range(targets.shape[0]):
+        E[i] = get_tau(
+            targets[i].item(),
+            I[i : i + 1, :],
+            ordered[i : i + 1, :],
+            cumsum[i : i + 1, :],
+            penalties[0, :],
+            randomized=randomized,
+            allow_zero_sets=allow_zero_sets,
+        )
+
+    return E
 
 
 def find_kreg_param(paramtune_logits: DataLoader, alpha: float) -> int:
@@ -338,6 +398,8 @@ def find_lamda_param_size(
         )
         covg_and_size_metric = EmpiricalCoverage()
         for i, (logit, target) in enumerate(paramtune_loader):
+            # TODO: the set sized from this implementation are
+            #       different from the original implementation
             _, S = conformal_model(logit)
             covg_and_size_metric.update(S, target)
 
@@ -540,7 +602,6 @@ class ConformalModelLogits(nn.Module):
 
 
 def gen_inverse_quantile_function(
-    scores: Tensor,
     targets: Tensor,
     sorted_score_indices: Tensor,
     ordered: Tensor,
@@ -554,8 +615,7 @@ def gen_inverse_quantile_function(
     E from equation (7) in Romano, Sesia, Candes.  Find the minimum tau in [0, 1]
     such that the correct label enters.
 
-    Args:
-        scores: shape [batch_size x num_classes]
+    Args:a
         targets: shape [batch_size]
         sorted_score_indices: shape [batch_size x num_classes]
         ordered: shape [batch_size x num_classes]
@@ -567,8 +627,9 @@ def gen_inverse_quantile_function(
     Returns:
         E: generalized inverse quantile conformity score
     """
-    E = -torch.ones((scores.shape[0],))
-    for i in range(scores.shape[0]):
+    E = -torch.ones((targets.shape[0],))
+    E_orig = -np.ones((targets.shape[0],))
+    for i in range(targets.shape[0]):
         E[i] = get_single_tau(
             targets[i].item(),
             sorted_score_indices[i : i + 1, :],  # noqa: E203
@@ -578,6 +639,15 @@ def gen_inverse_quantile_function(
             randomized=randomized,
             allow_zero_sets=allow_zero_sets,
         )
+        # E_orig[i] = get_tau(
+        #     targets[i].item(),
+        #     sorted_score_indices[i : i + 1, :].cpu().numpy(),  # noqa: E203
+        #     ordered[i : i + 1, :].cpu().numpy(),  # noqa: E203
+        #     cumsum[i : i + 1, :].cpu().numpy(),  # noqa: E203
+        #     penalties[0, :].cpu().numpy(),  # noqa: E203
+        #     randomized=randomized,
+        #     allow_zero_sets=allow_zero_sets,
+        # )
 
     return E
 
@@ -702,7 +772,19 @@ def sort_sum(scores: Tensor) -> tuple[Tensor, Tensor, Tensor]:
     Returns:
         sorted_score_indices, ordered, cumsum
     """
-    sorted_score_indices = torch.argsort(scores, dim=1, descending=True)
+    # https://stackoverflow.com/questions/66767610/difference-between-numpy-argsort-and-torch-argsort
+    # scores = scores.double() if scores.dtype != torch.float64 else scores
+    # sorted_score_indices = torch.argsort(scores, dim=1, descending=True)
+    device = scores.device
+    sorted_score_indices = scores.cpu().numpy().argsort(axis=1)[:, ::-1]
+    sorted_score_indices = torch.from_numpy(sorted_score_indices.copy()).to(device)
     ordered = torch.sort(scores, dim=1, descending=True).values
     cumsum = torch.cumsum(ordered, dim=1)
     return sorted_score_indices, ordered, cumsum
+
+
+def sort_sum_orig(scores):
+    I = scores.argsort(axis=1)[:, ::-1]
+    ordered = np.sort(scores, axis=1)[:, ::-1]
+    cumsum = np.cumsum(ordered, axis=1)
+    return I, ordered, cumsum
