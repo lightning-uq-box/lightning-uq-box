@@ -74,6 +74,7 @@ class MCDropoutBase(DeterministicModel):
         if not dropout_layer_names:
             dropout_layer_names = find_dropout_layers(model)
         self.dropout_layer_names = dropout_layer_names
+        self.num_mc_samples = num_mc_samples
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
