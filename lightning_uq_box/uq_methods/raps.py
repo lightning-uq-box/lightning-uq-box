@@ -99,7 +99,15 @@ class RAPS(PosthocBase):
         )
 
     def compute_q_hat(self, logits: Tensor, targets: Tensor) -> Tensor:
-        """Compute q_hat."""
+        """Compute Q hat.
+
+        Args:
+            logits: logit outputs from calibration set
+            targets: targets from calibration set
+
+        Returns:
+            q_hat
+        """
         scores = temp_scale_logits(logits, self.temperature)
         sorted_score_indices, ordered, cumsum = sort_sum(scores)
 

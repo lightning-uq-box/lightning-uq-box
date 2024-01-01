@@ -5,15 +5,6 @@ model:
     model_name: resnet18
     num_classes: 2
     drop_rate: 0.1
-  optimizer:
-    _target_: torch.optim.Adam
-    _partial_: true
-    lr: 0.003
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.ConstantLR
-    _partial_: true
-  loss_fn:
-    _target_: torch.nn.CrossEntropyLoss
   num_mc_samples: 20
   min_delta: 0.1
   patience: 10

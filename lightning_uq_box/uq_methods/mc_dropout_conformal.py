@@ -5,15 +5,15 @@
 
 import torch
 import torch.nn as nn
-from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
-from torch.optim.adam import Adam
 
-from .mc_dropout import MCDropoutClassification, MCDropoutRegression
-from .utils import process_classification_prediction, process_regression_prediction
+from .conformal_qr import ConformalQR
+from .mc_dropout import activate_dropout_recursive
+from .raps import RAPS
+from .temp_scaling import temp_scale_logits
 
 
-class MCDropoutCPClassification(MCDropoutClassification):
+class MCDropoutCPClassification(RAPS):
     """MC Dropout with Conformal Prediction for Classification.
 
     If you use this method, please cite:
@@ -25,44 +25,71 @@ class MCDropoutCPClassification(MCDropoutClassification):
         self,
         model: nn.Module,
         num_mc_samples: int,
-        loss_fn: nn.Module,
         patience: int = 10,
         min_delta: float = 5e-4,
+        optim_lr: float = 0.01,
+        max_iter: int = 50,
+        alpha: float = 0.1,
+        kreg: int = 5,
+        lamda_param: float = 0.01,
+        randomized: bool = False,
+        allow_zero_sets: bool = False,
+        pct_param_tune: float = 0.3,
+        lamda_criterion: str = "size",
         task: str = "multiclass",
         dropout_layer_names: list[str] = [],
-        optimizer: OptimizerCallable = Adam,
-        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize MC Dropout with Conformal Prediction for Classification.
 
         Args:
             model: PyTorch model
             num_mc_samples: number of MC samples
-            loss_fn: loss function
             patience: how many forward passes to wait when all classes are lower than
                 the min_delta threshold
             min_delta: considered stable if class value falls below this threshold
-            task: task type, either "binary" or "multiclass"
+            optim_lr: learning rate for optimizer
+            max_iter: maximum number of iterations to run optimizer
+            alpha: 1 - alpha is the desired coverage
+            kreg: regularization param (smaller kreg leads to smaller sets)
+            lamda_param: regularization param (larger lamda leads to smaller sets)
+                (any value of kreg and lambda will lead to coverage, but will yield
+                different set sizes)
+            randomized: whether to use randomized version of conformal prediction
+            allow_zero_sets: whether to allow sets of size zero
+            pct_param_tune: fraction of calibration data to use for parameter tuning
+            lamda_criterion: optimize for 'size' or 'adaptiveness'
+            task: task type, one of 'binary', 'multiclass', or 'multilabel'
             dropout_layer_names: list of names of dropout layers
-            optimizer: optimizer
-            lr_scheduler: learning rate scheduler
         """
         super().__init__(
             model,
-            num_mc_samples,
-            loss_fn,
+            optim_lr,
+            max_iter,
+            alpha,
+            kreg,
+            lamda_param,
+            randomized,
+            allow_zero_sets,
+            pct_param_tune,
+            lamda_criterion,
             task,
-            dropout_layer_names,
-            optimizer,
-            lr_scheduler,
         )
-        self.patience = patience
         self.min_delta = min_delta
+        self.patience = patience
+        self.temperature = nn.Parameter(torch.ones(1) * 1.5)
+        self.num_mc_samples = num_mc_samples
+        self.dropout_layer_names = dropout_layer_names
+
+    def activate_dropout(self) -> None:
+        """Activate dropout layers."""
+        activate_dropout_recursive(self.model, self.dropout_layer_names)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
         """Predict step with MC-Dropout using conformalised procedure.
+
+        Algorithm 2 in the paper.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
@@ -73,11 +100,14 @@ class MCDropoutCPClassification(MCDropoutClassification):
         self.activate_dropout()
         preds = dynamic_mc_dropout_conformalised(
             self.model, X, self.patience, self.min_delta, self.num_mc_samples
-        )
-        return process_classification_prediction(preds)
+        ).mean(-1)
+        scores = temp_scale_logits(preds, self.temperature)
+        S = self.adjust_model_logits(preds)
+
+        return {"pred": scores, "pred_set": S, "logits": scores}
 
 
-class MCDropoutCPRegression(MCDropoutRegression):
+class MCDropoutCPRegression(ConformalQR):
     """MC Dropout with Conformal Prediction for Regression.
 
     If you use this method, please cite:
@@ -89,13 +119,10 @@ class MCDropoutCPRegression(MCDropoutRegression):
         self,
         model: nn.Module,
         num_mc_samples: int,
-        loss_fn: nn.Module,
         patience: int = 10,
         min_delta: float = 5e-4,
-        burnin_epochs: int = 0,
         dropout_layer_names: list[str] = [],
-        optimizer: OptimizerCallable = Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        quantiles: list[float] = [0.1, 0.5, 0.9],
     ) -> None:
         """Initialize MC Dropout with Conformal Prediction for Regression.
 
@@ -108,25 +135,24 @@ class MCDropoutCPRegression(MCDropoutRegression):
             min_delta: considered stable if class value falls below this threshold
             burnin_epochs: number of epochs to wait before switching to loss function
             dropout_layer_names: list of names of dropout layers
-            optimizer: optimizer
-            lr_scheduler: learning rate scheduler
+            quantiles: quantiles to be used for CQR
         """
-        super().__init__(
-            model,
-            num_mc_samples,
-            loss_fn,
-            burnin_epochs,
-            dropout_layer_names,
-            optimizer,
-            lr_scheduler,
-        )
+        super().__init__(model, quantiles)
+        self.num_mc_samples = num_mc_samples
+        self.dropout_layer_names = dropout_layer_names
         self.patience = patience
         self.min_delta = min_delta
+
+    def activate_dropout(self) -> None:
+        """Activate dropout layers."""
+        activate_dropout_recursive(self.model, self.dropout_layer_names)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
         """Predict step with MC-Dropout using conformalised procedure.
+
+        Algorithm 3 in the paper.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
@@ -137,14 +163,24 @@ class MCDropoutCPRegression(MCDropoutRegression):
         self.activate_dropout()
         preds = dynamic_mc_dropout_conformalised(
             self.model, X, self.patience, self.min_delta, self.num_mc_samples
-        )
-        return process_regression_prediction(preds)
+        ).mean(-1)
+
+        mc_cqr_sets = self.adjust_model_logits(preds)
+
+        return {
+            "pred": mc_cqr_sets[:, 1],
+            "lower_quant": mc_cqr_sets[:, 0],
+            "upper_quant": mc_cqr_sets[:, -1],
+            "out": mc_cqr_sets,
+        }
 
 
 def dynamic_mc_dropout_conformalised(
     model: nn.Module, X: Tensor, patience: int, min_delta: float, max_num_samples: int
 ) -> Tensor:
     """MC Dropout with Conformal Prediction for Regression.
+
+    Algorithm 1 in the paper https://arxiv.org/abs/2308.09647.
 
     If you use this method, please cite:
 
