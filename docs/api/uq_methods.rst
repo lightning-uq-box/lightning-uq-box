@@ -277,7 +277,7 @@ Deep Ensemble Segmentation
 
 
 Probabilistic UNet
-------------------
+==================
 
 .. currentmodule:: lightning_uq_box.uq_methods.prob_unet
 
@@ -285,7 +285,7 @@ Probabilistic UNet
 
 
 Hierachical Probabilistic UNet
-------------------------------
+==============================
 
 .. currentmodule:: lightning_uq_box.uq_methods.hierachical_prob_unet
 
