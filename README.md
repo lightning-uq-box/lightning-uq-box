@@ -83,6 +83,8 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Temperature Scaling  |          ❌           |           ✅              |           ⏳              |            ❌              |
 | Conformal QR         |          ✅           |           ❌              |           ❌              |            ⏳              |
 | RAPS                 |          ❌           |           ✅              |           ❌              |            ❌              |
+| MC-Dropout Conformal |          ✅           |           ✅              |           ❌              |            ❌              |
+
 
 # Tutorials
 

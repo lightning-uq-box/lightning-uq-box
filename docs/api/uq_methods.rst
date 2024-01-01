@@ -315,3 +315,11 @@ Regularized Adaptive Prediction Sets (RAPS)
 
 .. autoclass:: RAPS
 
+MC-Dropout Conformal Prediction
+-------------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.mc_dropout_conformal
+
+.. autoclass:: MCDropoutCPClassification
+.. autoclass:: MCDropoutCPRegression
+
