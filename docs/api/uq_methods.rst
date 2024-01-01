@@ -1,14 +1,5 @@
-lightning_uq_box.uq_methods
+Single Forward Pass Methods
 ===========================
-
-.. automodule:: lightning_uq_box.uq_methods
-
-.. currentmodule:: lightning_uq_box.uq_methods.base
-
-.. autoclass:: DeterministicModel
-
-.. autoclass:: PosthocBase
-
 
 Mean Variance Estimation
 ========================
@@ -46,6 +37,9 @@ Deep Evidential Regression
 .. currentmodule:: lightning_uq_box.uq_methods.deep_evidential_regression
 
 .. autoclass:: DER
+
+Approximate Bayesian Methods
+============================
 
 Monte Carlo Dropout
 ===================
@@ -90,33 +84,6 @@ Laplace Classification
 ----------------------
 
 .. autoclass:: LaplaceClassification
-
-
-Classification and Regression Diffusion (CARD)
-==============================================
-
-.. currentmodule:: lightning_uq_box.uq_methods.cards
-
-CARD Base
----------
-
-.. autoclass:: CARDBase
-
-CARD Regression
----------------
-
-.. autoclass:: CARDRegression
-
-CARD Classification
--------------------
-
-.. autoclass:: CARDClassification
-
-Noise Scheduler
----------------
-
-.. autoclass:: NoiseScheduler
-
 
 Bayesian Neural Networks ELBO
 =============================
@@ -274,6 +241,35 @@ Deep Ensemble Segmentation
 --------------------------
 
 .. autoclass:: DeepEnsembleSegmentation 
+
+
+Generative Models
+=================
+
+Classification and Regression Diffusion (CARD)
+==============================================
+
+.. currentmodule:: lightning_uq_box.uq_methods.cards
+
+CARD Base
+---------
+
+.. autoclass:: CARDBase
+
+CARD Regression
+---------------
+
+.. autoclass:: CARDRegression
+
+CARD Classification
+-------------------
+
+.. autoclass:: CARDClassification
+
+Noise Scheduler
+---------------
+
+.. autoclass:: NoiseScheduler
 
 
 Probabilistic UNet
