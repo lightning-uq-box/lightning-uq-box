@@ -9,6 +9,10 @@ img[alt="Logo image"] {
     height: auto;  /* to maintain aspect ratio */
 }
 
+div.cell_output {
+    background-color: #080000;  /* Change to your preferred color */
+}
+
 /* body {
     font-family: "Arial", sans-serif;
     font-size: 16px;
