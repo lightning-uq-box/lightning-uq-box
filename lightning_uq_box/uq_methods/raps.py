@@ -449,7 +449,7 @@ class ConformalModelLogits(nn.Module):
         alpha: float,
         kreg: Optional[int] = None,
         lamda: Optional[float] = None,
-        randomized: bool = True,
+        randomized: bool = False,
         allow_zero_sets: bool = False,
     ):
         """Initialize ConformalModelLogits.
