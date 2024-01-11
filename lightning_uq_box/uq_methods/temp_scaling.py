@@ -5,7 +5,7 @@ Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperat
 
 import os
 from functools import partial
-from typing import Dict, Union, Optional
+from typing import Dict, Optional, Union
 
 import torch
 import torch.nn as nn

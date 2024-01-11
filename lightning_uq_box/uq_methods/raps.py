@@ -209,7 +209,6 @@ class RAPS(PosthocBase):
         self.penalties = torch.zeros((1, self.num_classes))
         self.penalties[:, int(self.kreg) :] += self.lamda_param  # noqa: E203
 
-        # optimizer = partial(torch.optim.LBFGS, lr=self.optim_lr, max_iter=self.max_iter)
         optimizer = partial(torch.optim.SGD, lr=self.optim_lr)
         self.temperature = run_temperature_optimization(
             calib_logits, calib_labels, self.loss_fn, self.temperature, optimizer
@@ -332,7 +331,6 @@ def find_lamda_param_size(
 
         covg_and_size = covg_and_size_metric.compute()
         size = covg_and_size["set_size"]
-        cvg = covg_and_size["coverage"]
         if size < best_size:
             best_size = size
             lamda_star = temp_lam
