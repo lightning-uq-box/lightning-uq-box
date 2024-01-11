@@ -108,14 +108,14 @@ class Encoder(nn.Module):
             # so increase the input_channels.
             self.input_channels += 1
 
-        layers = []
+        layers: list[nn.Module] = []
         for i in range(len(self.num_filters)):
             """
             Determine input_dim and output_dim of conv layers in this block.
             The first layer is input x output,
             All the subsequent layers are output x output.
             """
-            input_dim = self.input_channels if i == 0 else output_dim  # noqa: F821
+            input_dim: int = self.input_channels if i == 0 else output_dim  # noqa: F821
             output_dim = num_filters[i]
 
             if i != 0:

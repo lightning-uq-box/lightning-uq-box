@@ -331,7 +331,7 @@ class SWAGBase(DeterministicModel):
 
         return preds
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> torch.optim.Optimizer:
         """Manually implemented SWAG optimization."""
         swag_params: list[nn.Parameter] = [
             param

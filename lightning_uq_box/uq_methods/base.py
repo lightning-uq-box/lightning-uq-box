@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
 
 from .utils import (
@@ -208,7 +209,7 @@ class DeterministicModel(BaseModule):
             out = self.forward(X)
         return {"pred": self.adapt_output_for_metrics(out)}
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
