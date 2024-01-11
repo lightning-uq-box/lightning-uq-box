@@ -8,6 +8,7 @@
 """Regularized Adaptive Prediction Sets (RAPS).
 
 Adapted from https://github.com/aangelopoulos/conformal_classification
+to be integrated with Lightning and port several functions to pytorch.
 """
 
 import os
@@ -77,7 +78,7 @@ class RAPS(PosthocBase):
         self.num_classes = self.num_outputs
         assert task in self.valid_tasks
         self.task = task
-        self.temperature = nn.Parameter(torch.ones(1) * 1.5)
+        self.temperature = nn.Parameter(torch.Tensor([1.3]))
         self.optim_lr = optim_lr
         self.max_iter = max_iter
         self.loss_fn = nn.CrossEntropyLoss()
@@ -208,7 +209,8 @@ class RAPS(PosthocBase):
         self.penalties = torch.zeros((1, self.num_classes))
         self.penalties[:, int(self.kreg) :] += self.lamda_param  # noqa: E203
 
-        optimizer = partial(torch.optim.LBFGS, lr=self.optim_lr, max_iter=self.max_iter)
+        # optimizer = partial(torch.optim.LBFGS, lr=self.optim_lr, max_iter=self.max_iter)
+        optimizer = partial(torch.optim.SGD, lr=self.optim_lr)
         self.temperature = run_temperature_optimization(
             calib_logits, calib_labels, self.loss_fn, self.temperature, optimizer
         )
@@ -256,118 +258,13 @@ def compute_q_hat(
     scores = temp_scale_logits(logits, temperature)
     softmax_scores = F.softmax(scores, dim=1)
     sorted_score_indices, ordered, cumsum = sort_sum(softmax_scores)
-    # I, ordered_orig, cum_orig = sort_sum_orig(softmax_scores.cpu().numpy())
-
-    # assert np.allclose(ordered.cpu().numpy(), ordered_orig.copy())
-    # assert np.allclose(
-    #     sorted_score_indices.cpu().numpy().astype(float), I.copy().astype(float)
-    # )
-    # assert np.allclose(cumsum.cpu().numpy(), cum_orig.copy())
 
     # TODO why is this always randomized and allow zero sets to true?
     E = gen_inverse_quantile_function(
         targets, sorted_score_indices, ordered, cumsum, penalties, True, True
     )
-    # E_orig = giq(
-    #     targets=targets.cpu().numpy(),
-    #     I=I,
-    #     ordered=ordered_orig,
-    #     cumsum=cum_orig,
-    #     penalties=penalties.cpu().numpy(),
-    #     randomized=True,
-    #     allow_zero_sets=True,
-    # )
-    # these will not be the same because of the randomized version
-    # assert np.allclose(E.cpu().numpy(), E_orig.copy())
     Qhat = torch.quantile(E, 1 - alpha, interpolation="higher")
     return Qhat
-
-
-# def get_tau(
-#     target, I, ordered, cumsum, penalty, randomized, allow_zero_sets
-# ):  # For one example
-#     idx = np.where(I == target)
-#     tau_nonrandom = cumsum[idx]
-
-#     if not randomized:
-#         return tau_nonrandom + penalty[0]
-
-#     U = np.random.random()
-
-#     if idx == (0, 0):
-#         if not allow_zero_sets:
-#             return tau_nonrandom + penalty[0]
-#         else:
-#             return U * tau_nonrandom + penalty[0]
-#     else:
-#         return (
-#             U * ordered[idx]
-#             + cumsum[(idx[0], idx[1] - 1)]
-#             + (penalty[0 : (idx[1][0] + 1)]).sum()
-#         )
-
-
-# def gcq(scores, tau, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
-#     penalties_cumsum = np.cumsum(penalties, axis=1)
-#     sizes_base = ((cumsum + penalties_cumsum) <= tau).sum(axis=1) + 1  # 1 - 1001
-#     sizes_base = np.minimum(sizes_base, scores.shape[1])  # 1-1000
-
-#     if randomized:
-#         V = np.zeros(sizes_base.shape)
-#         for i in range(sizes_base.shape[0]):
-#             V[i] = (
-#                 1
-#                 / ordered[i, sizes_base[i] - 1]
-#                 * (
-#                     tau
-#                     - (cumsum[i, sizes_base[i] - 1] - ordered[i, sizes_base[i] - 1])
-#                     - penalties_cumsum[0, sizes_base[i] - 1]
-#                 )
-#             )  # -1 since sizes_base \in {1,...,1000}.
-
-#         sizes = sizes_base - (np.random.random(V.shape) >= V).astype(int)
-#     else:
-#         sizes = sizes_base
-
-#     if tau == 1.0:
-#         sizes[:] = cumsum.shape[
-#             1
-#         ]  # always predict max size if alpha==0. (Avoids numerical error.)
-
-#     if not allow_zero_sets:
-#         sizes[
-#             sizes == 0
-#         ] = 1  # allow the user the option to never have empty sets
-# (will lead to incorrect coverage if 1-alpha < model's top-1 accuracy
-
-#     S = list()
-
-#     # Construct S from equation (5)
-#     for i in range(I.shape[0]):
-#         S = S + [I[i, 0 : sizes[i]]]
-
-#     return S
-
-
-# def giq(targets, I, ordered, cumsum, penalties, randomized, allow_zero_sets):
-#     """
-#     Generalized inverse quantile conformity score function.
-#     E from equation (7) in Romano, Sesia, Candes.
-#       Find the minimum tau in [0, 1] such that the correct label enters.
-#     """
-#     E = -np.ones((targets.shape[0],))
-#     for i in range(targets.shape[0]):
-#         E[i] = get_tau(
-#             targets[i].item(),
-#             I[i : i + 1, :],
-#             ordered[i : i + 1, :],
-#             cumsum[i : i + 1, :],
-#             penalties[0, :],
-#             randomized=randomized,
-#             allow_zero_sets=allow_zero_sets,
-#         )
-
-#     return E
 
 
 def find_kreg_param(paramtune_logits: DataLoader, alpha: float) -> int:
@@ -416,7 +313,6 @@ def find_lamda_param_size(
         allow_zero_sets: whether to allow sets of size zero
     """
     best_size = iter(paramtune_loader).__next__()[0][1].shape[0]  # number of classes
-    # Use the paramtune data to pick lamda.  Does not violate exchangeability.
     lamda_star = 0
     for temp_lam in [
         0.001,
@@ -424,7 +320,7 @@ def find_lamda_param_size(
         0.1,
         0.2,
         0.5,
-    ]:  # predefined grid, change if more precision desired.
+    ]: 
         conformal_model = ConformalModelLogits(
             model,
             paramtune_loader,
@@ -437,13 +333,12 @@ def find_lamda_param_size(
         )
         covg_and_size_metric = EmpiricalCoverage()
         for i, (logit, target) in enumerate(paramtune_loader):
-            # TODO: the set sized from this implementation are
-            #       different from the original implementation
             _, S = conformal_model(logit)
             covg_and_size_metric.update(S, target)
 
         covg_and_size = covg_and_size_metric.compute()
         size = covg_and_size["set_size"]
+        cvg = covg_and_size["coverage"]
         if size < best_size:
             best_size = size
             lamda_star = temp_lam
@@ -484,7 +379,7 @@ def find_lamda_param_adaptiveness(
         1e-3,
         1.5e-3,
         2e-3,
-    ]:  # predefined grid, change if more precision desired.
+    ]:
         conformal_model = ConformalModelLogits(
             model,
             paramtune_loader,
@@ -522,11 +417,9 @@ def get_violation(
     """
     df = pd.DataFrame(columns=["size", "correct"])
     for logit, target in loader_paramtune:
-        # compute output
         _, S = cmodel(
             logit
-        )  # This is a 'dummy model' which takes logits, for efficiency.
-        # measure accuracy and record loss
+        ) 
         size = np.array([x.size()[0] for x in S])
         sorted_score_indices, _, _ = sort_sum(logit)
         sorted_score_indices = sorted_score_indices.cpu().numpy()
@@ -542,7 +435,7 @@ def get_violation(
             continue
         stratum_violation = abs(temp_df.correct.mean() - (1 - alpha))
         wc_violation = max(wc_violation, stratum_violation)
-    return wc_violation  # the violation
+    return wc_violation
 
 
 class ConformalModelLogits(nn.Module):
@@ -590,15 +483,15 @@ class ConformalModelLogits(nn.Module):
             logits = calib_loader.dataset.dataset.tensors[0]
             labels = calib_loader.dataset.dataset.tensors[1]
 
-        self.T = nn.Parameter(torch.ones(1) * 1.5).to(logits.device)
-        self.T = run_temperature_optimization(
-            logits=logits, labels=labels, criterion=loss_fn, temperature=self.T
+        optimizer = partial(torch.optim.SGD, lr=0.01)
+        self.temperature = run_temperature_optimization(
+            logits, labels, nn.CrossEntropyLoss(), nn.Parameter(torch.Tensor([1.3]).to(logits.device)), optimizer
         )
 
         self.penalties = torch.zeros((1, calib_loader.dataset[0][0].shape[0]))
 
         self.penalties[:, kreg:] += lamda
-        self.Qhat = compute_q_hat(logits, labels, self.T, self.penalties, self.alpha)
+        self.Qhat = compute_q_hat(logits, labels, self.temperature, self.penalties, self.alpha)
 
     def forward(
         self,
@@ -623,7 +516,7 @@ class ConformalModelLogits(nn.Module):
 
         with torch.no_grad():
             # logits_numpy = logits.detach().cpu().numpy()
-            scores = F.softmax(logits / self.T.item(), dim=1)
+            scores = F.softmax(logits / self.temperature.item(), dim=1)
             sorted_score_indices, ordered, cumsum = sort_sum(scores)
 
             S = gen_cond_quantile_function(
@@ -636,19 +529,6 @@ class ConformalModelLogits(nn.Module):
                 randomized=randomized,
                 allow_zero_sets=allow_zero_sets,
             )
-
-            # S_orig = gcq(
-            #     scores.cpu().numpy(),
-            #     self.Qhat.cpu().numpy(),
-            #     I=sorted_score_indices.cpu().numpy(),
-            #     ordered=ordered.cpu().numpy(),
-            #     cumsum=cumsum.cpu().numpy(),
-            #     penalties=self.penalties.cpu().numpy(),
-            #     randomized=randomized,
-            #     allow_zero_sets=allow_zero_sets,
-            # )
-            # for s, s_orig in zip(S, S_orig):
-            #     assert np.allclose(s.cpu().numpy(), s_orig)
 
         return logits, S
 
@@ -680,7 +560,6 @@ def gen_inverse_quantile_function(
         E: generalized inverse quantile conformity score
     """
     E = -torch.ones((targets.shape[0],))
-    # E_orig = -np.ones((targets.shape[0],))
     for i in range(targets.shape[0]):
         E[i] = get_single_tau(
             targets[i].item(),
@@ -691,15 +570,6 @@ def gen_inverse_quantile_function(
             randomized=randomized,
             allow_zero_sets=allow_zero_sets,
         )
-        # E_orig[i] = get_tau(
-        #     targets[i].item(),
-        #     sorted_score_indices[i : i + 1, :].cpu().numpy(),  # noqa: E203
-        #     ordered[i : i + 1, :].cpu().numpy(),  # noqa: E203
-        #     cumsum[i : i + 1, :].cpu().numpy(),  # noqa: E203
-        #     penalties[0, :].cpu().numpy(),  # noqa: E203
-        #     randomized=randomized,
-        #     allow_zero_sets=allow_zero_sets,
-        # )
 
     return E
 
@@ -833,10 +703,3 @@ def sort_sum(scores: Tensor) -> tuple[Tensor, Tensor, Tensor]:
     ordered = torch.sort(scores, dim=1, descending=True).values
     cumsum = torch.cumsum(ordered, dim=1)
     return sorted_score_indices, ordered, cumsum
-
-
-# def sort_sum_orig(scores):
-#     I = scores.argsort(axis=1)[:, ::-1]
-#     ordered = np.sort(scores, axis=1)[:, ::-1]
-#     cumsum = np.cumsum(ordered, axis=1)
-#     return I, ordered, cumsum

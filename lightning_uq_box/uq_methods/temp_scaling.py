@@ -5,7 +5,7 @@ Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperat
 
 import os
 from functools import partial
-from typing import Dict, Union
+from typing import Dict, Union, Optional
 
 import torch
 import torch.nn as nn
@@ -165,33 +165,37 @@ def run_temperature_optimization(
     criterion: nn.Module,
     temperature: nn.Parameter,
     optimizer: type[torch.optim.Optimizer] = partial(LBFGS, lr=0.01, max_iter=50),
+    max_iter: Optional[int] = 50,
 ) -> Tensor:
     """Run temperature optimization.
 
     Args:
-        optimizer: optimizer class
-        temperature: temperature parameter
         logits: model output logits of shape [batch_size x num_outputs]
         labels: labels of shape [batch_size]
         criterion: loss function
+        temperature: temperature parameter
+        optimizer: optimizer class
+        max_iter: maximum number of iterations to run optimizer
 
     Returns:
         optimized temperature parameter
     """
-    if temperature.device != logits.device:
-        temperature = temperature.to(logits.device)
-
     optimizer = optimizer([temperature])
-
+ 
     with torch.inference_mode(False):
         logits = logits.clone().requires_grad_(True)
-
-        def eval():
-            optimizer.zero_grad()
-            loss = criterion(temp_scale_logits(logits, temperature), labels)
-            loss.backward()
-            return loss
-
-        optimizer.step(eval)
+        if isinstance(optimizer, torch.optim.LBFGS):
+            def closure():
+                optimizer.zero_grad()
+                loss = criterion(temp_scale_logits(logits, temperature), labels)
+                loss.backward()
+                return loss
+            optimizer.step(closure)
+        else:
+            for _ in range(max_iter):  # You might need to adjust the number of iterations
+                optimizer.zero_grad()
+                loss = criterion(temp_scale_logits(logits, temperature), labels)
+                loss.backward()
+                optimizer.step()
 
     return temperature
