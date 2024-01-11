@@ -314,13 +314,7 @@ def find_lamda_param_size(
     """
     best_size = iter(paramtune_loader).__next__()[0][1].shape[0]  # number of classes
     lamda_star = 0
-    for temp_lam in [
-        0.001,
-        0.01,
-        0.1,
-        0.2,
-        0.5,
-    ]: 
+    for temp_lam in [0.001, 0.01, 0.1, 0.2, 0.5]:
         conformal_model = ConformalModelLogits(
             model,
             paramtune_loader,
@@ -370,16 +364,7 @@ def find_lamda_param_adaptiveness(
     """
     lamda_star = 0
     best_violation = 1
-    for temp_lam in [
-        0,
-        1e-5,
-        1e-4,
-        8e-4,
-        9e-4,
-        1e-3,
-        1.5e-3,
-        2e-3,
-    ]:
+    for temp_lam in [0, 1e-5, 1e-4, 8e-4, 9e-4, 1e-3, 1.5e-3, 2e-3]:
         conformal_model = ConformalModelLogits(
             model,
             paramtune_loader,
@@ -417,9 +402,7 @@ def get_violation(
     """
     df = pd.DataFrame(columns=["size", "correct"])
     for logit, target in loader_paramtune:
-        _, S = cmodel(
-            logit
-        ) 
+        _, S = cmodel(logit)
         size = np.array([x.size()[0] for x in S])
         sorted_score_indices, _, _ = sort_sum(logit)
         sorted_score_indices = sorted_score_indices.cpu().numpy()
@@ -485,13 +468,19 @@ class ConformalModelLogits(nn.Module):
 
         optimizer = partial(torch.optim.SGD, lr=0.01)
         self.temperature = run_temperature_optimization(
-            logits, labels, nn.CrossEntropyLoss(), nn.Parameter(torch.Tensor([1.3]).to(logits.device)), optimizer
+            logits,
+            labels,
+            nn.CrossEntropyLoss(),
+            nn.Parameter(torch.Tensor([1.3]).to(logits.device)),
+            optimizer,
         )
 
         self.penalties = torch.zeros((1, calib_loader.dataset[0][0].shape[0]))
 
         self.penalties[:, kreg:] += lamda
-        self.Qhat = compute_q_hat(logits, labels, self.temperature, self.penalties, self.alpha)
+        self.Qhat = compute_q_hat(
+            logits, labels, self.temperature, self.penalties, self.alpha
+        )
 
     def forward(
         self,

@@ -181,18 +181,22 @@ def run_temperature_optimization(
         optimized temperature parameter
     """
     optimizer = optimizer([temperature])
- 
+
     with torch.inference_mode(False):
         logits = logits.clone().requires_grad_(True)
         if isinstance(optimizer, torch.optim.LBFGS):
+
             def closure():
                 optimizer.zero_grad()
                 loss = criterion(temp_scale_logits(logits, temperature), labels)
                 loss.backward()
                 return loss
+
             optimizer.step(closure)
         else:
-            for _ in range(max_iter):  # You might need to adjust the number of iterations
+            for _ in range(
+                max_iter
+            ):  # You might need to adjust the number of iterations
                 optimizer.zero_grad()
                 loss = criterion(temp_scale_logits(logits, temperature), labels)
                 loss.backward()

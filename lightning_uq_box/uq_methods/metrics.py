@@ -46,12 +46,16 @@ class EmpiricalCoverage(Metric):
         if isinstance(pred_set, torch.Tensor):
             if self.topk is not None:
                 _, topk_pred_set = pred_set.topk(self.topk, dim=1)
-                covered += (targets.unsqueeze(1) == topk_pred_set).any(dim=1).sum().item()
+                covered += (
+                    (targets.unsqueeze(1) == topk_pred_set).any(dim=1).sum().item()
+                )
                 set_size = self.topk * pred_set.shape[0]
             else:
                 for k in range(1, pred_set.shape[1] + 1):
                     _, topk_pred_set = pred_set.topk(k, dim=1)
-                    batch_covered = (targets.unsqueeze(1) == topk_pred_set).any(dim=1).sum().item()
+                    batch_covered = (
+                        (targets.unsqueeze(1) == topk_pred_set).any(dim=1).sum().item()
+                    )
                     # batch_covered = torch.isin(topk_pred_set, targets).sum().item()
                     batch_coverage = batch_covered / pred_set.shape[0]
                     if batch_coverage >= 1 - self.alpha:
