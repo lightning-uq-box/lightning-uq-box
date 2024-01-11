@@ -9,8 +9,10 @@ img[alt="Logo image"] {
     height: auto;  /* to maintain aspect ratio */
 }
 
-div.cell_output {
-    background-color: #080000;  /* Change to your preferred color */
+
+div.nboutput.container div.output_area .highlight,
+div.nboutput.container div.output_area pre {
+    background-color: #080000 !important; /* Change this to your desired color */
 }
 
 /* body {
