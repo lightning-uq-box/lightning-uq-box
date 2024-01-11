@@ -17,7 +17,7 @@ def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.figure:
 
     Args:
         save_dir: path to save directory of CSVLogger
-        metric: metric to plot
+        metrics: list of metrics to plot
     """
     latest_version = sorted(os.listdir(save_dir))[-1]
     metrics_path = os.path.join(save_dir, latest_version, "metrics.csv")
@@ -31,7 +31,7 @@ def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.figure:
         except KeyError:
             print(f"{m} not in metrics, available are {df.columns}")
 
-    fig, ax = plt.subplots(ncols=len(metrics))
+    fig, ax = plt.subplots(ncols=len(metrics), figsize=(5 * len(metrics), 5))
     ax = np.atleast_1d(ax)
     for idx, (m, p) in enumerate(plot_metric.items()):
         ax[idx].plot(p)

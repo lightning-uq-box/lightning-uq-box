@@ -25,7 +25,7 @@ from torch import Tensor
 from torch.utils.data import DataLoader, Subset, TensorDataset, random_split
 
 from .base import PosthocBase
-from .metrics import EmpiricalCoverage
+from .metrics import SetSize
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
 from .utils import default_classification_metrics, save_classification_predictions
 
@@ -324,13 +324,12 @@ def find_lamda_param_size(
             randomized=randomized,
             allow_zero_sets=allow_zero_sets,
         )
-        covg_and_size_metric = EmpiricalCoverage()
+        size_metric = SetSize(topk=None)
         for i, (logit, target) in enumerate(paramtune_loader):
             _, S = conformal_model(logit)
-            covg_and_size_metric.update(S, target)
+            size_metric.update(S, target)
 
-        covg_and_size = covg_and_size_metric.compute()
-        size = covg_and_size["set_size"]
+        size = size_metric.compute()
         if size < best_size:
             best_size = size
             lamda_star = temp_lam

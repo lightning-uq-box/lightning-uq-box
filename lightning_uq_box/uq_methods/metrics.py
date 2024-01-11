@@ -11,7 +11,7 @@ from torch import Tensor
 from torchmetrics import Metric
 
 
-class EmpiricalCoverage(Metric):
+class EmpiricalCoverageBase(Metric):
     """Empirical Coverage."""
 
     def __init__(self, alpha: float = 0.1, topk: Optional[int] = 1, **kwargs):
@@ -74,10 +74,6 @@ class EmpiricalCoverage(Metric):
         self.set_size += set_size
         self.total += targets.shape[0]
 
-        # print("Aggregated")
-        # print(self.set_size)
-        # print(self.total)
-
     def compute(self) -> dict[str, float]:
         """Compute the coverage of the prediction sets.
 
@@ -89,3 +85,27 @@ class EmpiricalCoverage(Metric):
             "coverage": self.covered / self.total,
             "set_size": self.set_size / self.total,
         }
+
+
+class EmpiricalCoverage(EmpiricalCoverageBase):
+    """Empirical Coverage."""
+
+    def compute(self) -> Tensor:
+        """Compute the coverage of the prediction sets.
+
+        Returns:
+            The coverage of the prediction sets.
+        """
+        return torch.tensor(self.covered / self.total)
+
+
+class SetSize(EmpiricalCoverageBase):
+    """Set Size."""
+
+    def compute(self) -> Tensor:
+        """Compute the set size of the prediction sets.
+
+        Returns:
+            The set size of the prediction sets.
+        """
+        return torch.tensor(self.set_size / self.total)
