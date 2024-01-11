@@ -35,7 +35,7 @@ def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.figure:
     ax = np.atleast_1d(ax)
     for idx, (m, p) in enumerate(plot_metric.items()):
         ax[idx].plot(p)
-        ax[idx].set_title(m)     
+        ax[idx].set_title(m)
     return fig
 
 
