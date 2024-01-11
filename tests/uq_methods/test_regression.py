@@ -59,6 +59,10 @@ class TestRegressionTask:
             "1",
             "--trainer.default_root_dir",
             str(tmp_path),
+            "--trainer.logger",
+            "CSVLogger",
+            "--trainer.logger.save_dir",
+            str(tmp_path),
         ]
 
         cli = get_uq_box_cli(args)

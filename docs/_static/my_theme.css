@@ -9,6 +9,12 @@ img[alt="Logo image"] {
     height: auto;  /* to maintain aspect ratio */
 }
 
+
+div.nboutput.container div.output_area .highlight,
+div.nboutput.container div.output_area pre {
+    background-color: #080000 !important; /* Change this to your desired color */
+}
+
 /* body {
     font-family: "Arial", sans-serif;
     font-size: 16px;

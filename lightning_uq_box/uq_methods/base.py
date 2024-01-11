@@ -172,7 +172,7 @@ class DeterministicModel(BaseModule):
 
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(
-                out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1)
+                out_dict["pred"].squeeze(-1), batch[self.target_key].squeeze(-1)
             )
 
         # turn mean to np array
@@ -405,6 +405,11 @@ class PosthocBase(BaseModule):
     ) -> dict[str, Tensor]:
         """Test step after running posthoc fitting methodology."""
         raise NotImplementedError
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model output according to post-hoc fitting procedure.

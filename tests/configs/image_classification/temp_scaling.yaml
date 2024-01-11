@@ -3,6 +3,6 @@ model:
   model:
     _target_: timm.create_model
     model_name: resnet18
-    num_classes: 2
+    num_classes: 4
   optim_lr: 1e-3
   max_iter: 20

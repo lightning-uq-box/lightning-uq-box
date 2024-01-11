@@ -10,6 +10,7 @@ from typing import Any, Dict
 import pytest
 from hydra.utils import instantiate
 from lightning import Trainer
+from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
 from pytest import TempPathFactory
 
@@ -47,7 +48,10 @@ class TestImageClassificationTask:
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+            max_epochs=2,
+            log_every_n_steps=1,
+            default_root_dir=str(tmp_path),
+            logger=CSVLogger(str(tmp_path)),
         )
         # laplace only uses test
         if "laplace" not in model_config_path:
@@ -122,7 +126,7 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(
-            len(ensemble_members_dict), ensemble_members_dict, 2
+            len(ensemble_members_dict), ensemble_members_dict, num_classes=4
         )
 
         datamodule = ToyImageClassificationDatamodule()
