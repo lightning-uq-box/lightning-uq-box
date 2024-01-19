@@ -277,7 +277,7 @@ class DeterministicClassification(DeterministicModel):
             lr_scheduler: learning rate scheduler
         """
         self.num_classes = _get_num_outputs(model)
-        assert task in self.valid_tasks
+        assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
         self.task = task
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
 

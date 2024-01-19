@@ -63,6 +63,7 @@ from .spectral_normalized_layers import (
 )
 from .swag import SWAGBase, SWAGClassification, SWAGRegression, SWAGSegmentation
 from .temp_scaling import TempScaling
+from .test_time_augmentation import TTABase, TTAClassification, TTARegression
 
 __all__ = (
     # Base Module
@@ -155,4 +156,8 @@ __all__ = (
     "DERLoss",
     "HuberQLoss",
     "PinballLoss",
+    # Test time augmentation
+    "TTABase",
+    "TTARegression",
+    "TTAClassification",
 )
