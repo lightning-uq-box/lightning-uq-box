@@ -1,0 +1,10 @@
+model:
+  _target_: lightning_uq_box.uq_methods.MCDropoutCPClassification
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    num_classes: 2
+    drop_rate: 0.1
+  num_mc_samples: 20
+  min_delta: 0.1
+  patience: 10

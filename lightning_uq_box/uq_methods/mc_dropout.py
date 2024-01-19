@@ -42,6 +42,22 @@ def find_dropout_layers(model: nn.Module) -> list[str]:
     return dropout_layers
 
 
+def activate_dropout_recursive(model, dropout_layer_names, prefix="") -> None:
+    """Activate dropout in a nn.Module.
+
+    Args:
+        model: pytorch model
+        dropout_layer_names: names of dropout layers to activate during prediction
+        prefix: nested module prefix
+    """
+    for name, module in model.named_children():
+        full_name = f"{prefix}.{name}" if prefix else name
+        if full_name in dropout_layer_names and isinstance(module, nn.Dropout):
+            module.train()
+        elif isinstance(module, nn.Module):
+            activate_dropout_recursive(module, dropout_layer_names, full_name)
+
+
 class MCDropoutBase(DeterministicModel):
     """MC-Dropout Base class.
 
@@ -74,6 +90,7 @@ class MCDropoutBase(DeterministicModel):
         if not dropout_layer_names:
             dropout_layer_names = find_dropout_layers(model)
         self.dropout_layer_names = dropout_layer_names
+        self.num_mc_samples = num_mc_samples
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -100,18 +117,7 @@ class MCDropoutBase(DeterministicModel):
 
     def activate_dropout(self) -> None:
         """Activate dropout layers."""
-
-        def activate_dropout_recursive(model, prefix=""):
-            for name, module in model.named_children():
-                full_name = f"{prefix}.{name}" if prefix else name
-                if full_name in self.dropout_layer_names and isinstance(
-                    module, nn.Dropout
-                ):
-                    module.train()
-                elif isinstance(module, nn.Module):
-                    activate_dropout_recursive(module, full_name)
-
-        activate_dropout_recursive(self.model)
+        activate_dropout_recursive(self.model, self.dropout_layer_names)
 
 
 class MCDropoutRegression(MCDropoutBase):

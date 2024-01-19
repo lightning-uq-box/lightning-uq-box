@@ -1,0 +1,14 @@
+model:
+  class_path: lightning_uq_box.uq_methods.MCDropoutCPRegression
+  init_args:
+    model:
+      class_path: lightning_uq_box.models.MLP
+      init_args:
+        n_outputs: 3
+        n_hidden: [50]
+        dropout_p: 0.1
+        activation_fn:
+          class_path: torch.nn.ReLU
+    num_mc_samples: 20
+    patience: 10
+    min_delta: 0.1

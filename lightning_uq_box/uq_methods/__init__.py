@@ -49,6 +49,7 @@ from .mc_dropout import (
     MCDropoutRegression,
     MCDropoutSegmentation,
 )
+from .mc_dropout_conformal import MCDropoutCPClassification, MCDropoutCPRegression
 from .mean_variance_estimation import MVEBase, MVERegression
 from .prob_unet import ProbUNet
 from .quantile_regression import QuantileRegression, QuantileRegressionBase
@@ -84,6 +85,9 @@ __all__ = (
     "MCDropoutRegression",
     "MCDropoutClassification",
     "MCDropoutSegmentation",
+    # MC-Dropout with Conformal Prediction
+    "MCDropoutCPClassification",
+    "MCDropoutCPRegression",
     # Laplace Approximation
     "LaplaceBase",
     "LaplaceRegression",
