@@ -22,10 +22,10 @@
 
 """Hierarchical Probabilistic U-Net."""
 
+import copy
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
@@ -112,6 +112,8 @@ class HierarchicalProbUNet(BaseModule):
         self.convs_per_block = convs_per_block
         self.blocks_per_level = blocks_per_level
 
+        # assert that latent_dims align with convs_per_block
+
         self._build_model()
 
         assert (
@@ -148,39 +150,54 @@ class HierarchicalProbUNet(BaseModule):
         """Build the HierarchicalProbUnet model."""
         # these are default arguments from the original code
         # TODO need to add input channels
+
+        # TODO first prior
         base_channels = 24
-        default_channels_per_block = (
-            self.num_in_channels + self.latent_dims[0],
+        default_channels_per_block = [
             base_channels,
             2 * base_channels,
             4 * base_channels,
             8 * base_channels,
             8 * base_channels,
-        )
+        ]
         if self.channels_per_block is None:
-            self.channels_per_block = default_channels_per_block
-        if self.down_channels_per_block is None:
-            self.all_gatherdown_channels_per_block = tuple(
-                [i / 2 for i in default_channels_per_block]
-            )
+            self.prior_channels_per_block = copy.deepcopy(default_channels_per_block)
+        else:
+            self.prior_channels_per_block = self.channels_per_block
+
+        # for prior image input size
+        self.prior_channels_per_block.insert(0, self.num_in_channels)
 
         self._prior = _HierarchicalCore(
             latent_dims=self.latent_dims,
-            channels_per_block=self.channels_per_block,
+            channels_per_block=self.prior_channels_per_block,
             down_channels_per_block=self.down_channels_per_block,
             activation_fn=self.activation_fn,
             convs_per_block=self.convs_per_block,
             blocks_per_level=self.blocks_per_level,
+        )
+
+        # TODO for posterior need to add latent dims
+        if self.channels_per_block is None:
+            self.post_channels_per_block = copy.deepcopy(default_channels_per_block)
+        else:
+            self.post_channels_per_block = self.channels_per_block
+        # for posterior image input size and latent dim
+        self.post_channels_per_block.insert(
+            0, (self.num_in_channels + self.latent_dims[0])
         )
 
         self._posterior = _HierarchicalCore(
             latent_dims=self.latent_dims,
-            channels_per_block=self.channels_per_block,
+            channels_per_block=self.post_channels_per_block,
             down_channels_per_block=self.down_channels_per_block,
             activation_fn=self.activation_fn,
             convs_per_block=self.convs_per_block,
             blocks_per_level=self.blocks_per_level,
         )
+
+        if self.channels_per_block is None:
+            self.channels_per_block = copy.deepcopy(default_channels_per_block)
 
         self._f_comb = _StitchingDecoder(
             latent_dims=self.latent_dims,
@@ -541,7 +558,7 @@ def ce_loss(
         mask = mask.view(-1)
 
     n_pixels_in_batch = y_flat.shape[0]
-    xe = nn.CrossEntropyLoss(reduction="none")(y_flat, t_flat)
+    xe = F.cross_entropy(input=y_flat, target=t_flat, reduction="none")
 
     if top_k_percentage is not None:
         assert 0.0 < top_k_percentage <= 1.0
@@ -560,7 +577,7 @@ def ce_loss(
         mask = mask * top_k_mask
 
     xe = xe.view(logits.shape[0], -1)
-    mask = mask.view(logits.shape[0], -1)
+    mask = mask.view(logits.shape[0], -1).to(xe.device)
     ce_sum_per_instance = torch.sum(mask * xe, dim=1)
     ce_sum = torch.mean(ce_sum_per_instance)
     ce_mean = torch.sum(mask * xe) / torch.sum(mask)
