@@ -239,11 +239,11 @@ class DeterministicRegression(DeterministicModel):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],
+        outputs: dict[str, Tensor],  # type: ignore[override]
         batch: Any,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         """Test batch end save predictions.
 
         Args:
@@ -326,11 +326,11 @@ class DeterministicClassification(DeterministicModel):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],
+        outputs: dict[str, Tensor],  # type: ignore[override]
         batch: Any,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         """Test batch end save predictions.
 
         Args:
@@ -388,9 +388,6 @@ class PosthocBase(BaseModule):
         # TODO intitialize zero tensors for memory efficiency
         self.model_logits: list[Tensor] = []
         self.labels: list[Tensor] = []
-
-        # TODO this doesn't do anything right now
-        self.trainer.inference_mode = False
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

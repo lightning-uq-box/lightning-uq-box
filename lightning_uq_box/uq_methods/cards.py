@@ -8,9 +8,8 @@ Based on official PyTorch implementation from https://github.com/XzwHan/CARD # n
 
 import math
 import os
-from typing import Any, Optional
+from typing import Any, Optional, Tuple, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -87,7 +86,7 @@ class CARDBase(BaseModule):
         """Setup task specific attributes."""
         pass
 
-    def diffusion_process(self, batch: dict[str, Tensor]) -> Tensor:
+    def diffusion_process(self, batch: dict[str, Tensor]) -> Tuple[Tensor, Tensor]:
         """Diffusion process during training.
 
         Args:
@@ -182,7 +181,7 @@ class CARDBase(BaseModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> Tuple[Tensor, list[Tensor]]:
         """Prediction step.
 
         Args:
@@ -228,7 +227,7 @@ class CARDBase(BaseModule):
 
             else:
                 # TODO make this more efficient
-                y_tile_seq: list[Tensor] = [
+                y_tile_seq = [
                     self.p_sample_loop(
                         X,
                         y_0_hat,
@@ -250,7 +249,7 @@ class CARDBase(BaseModule):
         y: Tensor,
         y_0_hat: Tensor,
         y_T_mean: Tensor,
-        t: int,
+        t: Tensor,
         alphas: Tensor,
         one_minus_alphas_bar_sqrt: Tensor,
     ) -> Tensor:
@@ -267,7 +266,7 @@ class CARDBase(BaseModule):
             y: sampled y at time step t, y_t.
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
-            t: time step
+            t: time step tensor with single element
             alphas:
             one_minus_alphas_bar_sqrt:
 
@@ -275,7 +274,7 @@ class CARDBase(BaseModule):
             reverse process sample
         """
         z = torch.randn_like(y)  # if t > 1 else torch.zeros_like(y)
-        t = torch.tensor([t]).to(self.device)
+        t = t.to(self.device)
         alpha_t = self.extract(alphas, t, y)
         sqrt_one_minus_alpha_bar_t = self.extract(one_minus_alphas_bar_sqrt, t, y)
         sqrt_one_minus_alpha_bar_t_m_1 = self.extract(
@@ -368,7 +367,7 @@ class CARDBase(BaseModule):
         alphas: Tensor,
         one_minus_alphas_bar_sqrt: Tensor,
         only_last_sample: bool = False,
-    ) -> list[Tensor]:
+    ) -> Union[Tensor, list[Tensor]]:
         """P sample loop for the entire chain.
 
         Args:
@@ -383,17 +382,24 @@ class CARDBase(BaseModule):
         Returns:
             list of samples for each diffusion time step
         """
-        num_t, y_p_seq = None, None
         z = torch.randn_like(y_T_mean).to(self.device)
         cur_y = z + y_T_mean  # sampled y_T
         if only_last_sample:
-            num_t = 1
+            num_t: Optional[int] = 1
+            y_p_seq: list[Tensor] = []
         else:
+            num_t = None
             y_p_seq = [cur_y]
         for t in reversed(range(1, n_steps)):
             y_t = cur_y
             cur_y = self.p_sample(
-                x, y_t, y_0_hat, y_T_mean, t, alphas, one_minus_alphas_bar_sqrt
+                x,
+                y_t,
+                y_0_hat,
+                y_T_mean,
+                torch.Tensor([t]),
+                alphas,
+                one_minus_alphas_bar_sqrt,
             )  # y_{t-1}
             if only_last_sample:
                 num_t += 1
@@ -419,7 +425,7 @@ class CARDBase(BaseModule):
         y_0_hat: Tensor,
         alphas_bar_sqrt: Tensor,
         one_minus_alphas_bar_sqrt: Tensor,
-        t: int,
+        t: Tensor,
         noise: Optional[Tensor] = None,
     ) -> Tensor:
         """Q sampling process.
@@ -459,12 +465,12 @@ class CARDBase(BaseModule):
         )
         return y_t
 
-    def extract(self, input: Tensor, t: int, x: Tensor) -> Tensor:
+    def extract(self, input: Tensor, t: Tensor, x: Tensor) -> Tensor:
         """Extract noise level at time step t from schedule.
 
         Args:
             input: noise input
-            t: time step
+            t: time step tensor of single dimension
             x: tensor to make noisy version of
 
         Returns:
@@ -567,11 +573,11 @@ class CARDRegression(CARDBase):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, np.ndarray],
+        outputs: dict[str, Tensor],  # type ignore[override]
         batch: Any,
         batch_idx: int,
         dataloader_idx=0,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         """Test batch end save predictions."""
         del outputs["samples"]
         save_regression_predictions(
@@ -677,11 +683,11 @@ class CARDClassification(CARDBase):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],
+        outputs: dict[str, Tensor],  # type: ignore[override]
         batch: Any,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         """Test batch end save predictions.
 
         Args:

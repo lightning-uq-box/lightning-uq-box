@@ -406,11 +406,11 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],
+        outputs: dict[str, Tensor],  # type: ignore[override]
         batch: Any,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         """Test batch end save predictions.
 
         Args:
@@ -555,11 +555,11 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],
+        outputs: dict[str, Tensor],  # type: ignore[override]
         batch: Any,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         """Test batch end save predictions.
 
         Args:
@@ -612,11 +612,11 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],
+        outputs: dict[str, Tensor],  # type: ignore[override]
         batch: Any,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         """Test batch end save predictions.
 
         Args:

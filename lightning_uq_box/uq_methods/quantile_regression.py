@@ -125,7 +125,7 @@ class QuantileRegression(QuantileRegressionBase):
             # np_out = out.cpu().numpy()
 
         median = self.adapt_output_for_metrics(out)
-        _, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
+        _, std = compute_sample_mean_std_from_quantile(out, self.quantiles)
 
         # TODO can happen due to overlapping quantiles
         # how to handle this properly ?
@@ -141,11 +141,11 @@ class QuantileRegression(QuantileRegressionBase):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],
+        outputs: dict[str, Tensor],  # type: ignore[override]
         batch: Any,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         """Test batch end save predictions.
 
         Args:

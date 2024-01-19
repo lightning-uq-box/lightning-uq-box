@@ -133,11 +133,11 @@ class MVERegression(MVEBase):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],
+        outputs: dict[str, Tensor],  # type: ignore[override]
         batch: Any,
         batch_idx: int,
         dataloader_idx: int = 0,
-    ) -> None:  # type: ignore[override]
+    ) -> None:
         """Test batch end save predictions.
 
         Args:
