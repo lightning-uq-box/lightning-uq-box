@@ -392,12 +392,17 @@ class BNN_VI_Regression(BNN_VI_Base):
         return energy_loss, mean_out.detach()
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:  # type: ignore[override]
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

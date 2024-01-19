@@ -4,7 +4,7 @@
 """Implement Quantile Regression Model."""
 
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import torch
 import torch.nn as nn
@@ -52,11 +52,10 @@ class QuantileRegressionBase(DeterministicModel):
         assert _get_num_outputs(model) == len(
             quantiles
         ), "The num of desired quantiles should match num_outputs of the model."
+        if loss_fn is None:
+            loss_fn = QuantileLoss(quantiles=[0.1, 0.5, 0.9])
 
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
-
-        if loss_fn is None:
-            self.loss_fn = QuantileLoss(quantiles=[0.1, 0.5, 0.9])
         self.quantiles = quantiles
         self.median_index = self.quantiles.index(0.5)
 
@@ -141,12 +140,17 @@ class QuantileRegression(QuantileRegressionBase):
         }
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:  # type: ignore[override]
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

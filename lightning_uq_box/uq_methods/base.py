@@ -238,12 +238,17 @@ class DeterministicRegression(DeterministicModel):
         self.test_metrics = default_regression_metrics("test")
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:  # type: ignore[override]
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -320,12 +325,17 @@ class DeterministicClassification(DeterministicModel):
         return {"pred": self.adapt_output_for_metrics(out), "logits": out}
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:  # type: ignore[override]
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -376,8 +386,8 @@ class PosthocBase(BaseModule):
     def on_validation_start(self) -> None:
         """Initialize objects to track model logits and labels."""
         # TODO intitialize zero tensors for memory efficiency
-        self.model_logits = []
-        self.labels = []
+        self.model_logits: list[Tensor] = []
+        self.labels: list[Tensor] = []
 
         # TODO this doesn't do anything right now
         self.trainer.inference_mode = False

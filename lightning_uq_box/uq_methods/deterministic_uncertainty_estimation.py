@@ -3,7 +3,7 @@
 
 """Deterministic Uncertainty Estimation."""
 
-from typing import Dict
+from typing import Dict, Optional
 
 import torch
 import torch.nn as nn

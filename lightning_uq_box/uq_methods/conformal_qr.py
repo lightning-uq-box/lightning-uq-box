@@ -5,7 +5,7 @@
 
 import math
 import os
-from typing import Dict, Union
+from typing import Any, Dict, Union
 
 import torch
 import torch.nn as nn
@@ -77,7 +77,7 @@ class ConformalQR(PosthocBase):
 
         self.quantiles = quantiles
 
-        self.alpha = min(self.hparams.quantiles)
+        self.alpha = min(self.quantiles)
 
         self.desired_coverage = 1 - self.alpha  # 1-alpha is the desired coverage
 
@@ -176,12 +176,17 @@ class ConformalQR(PosthocBase):
         pass
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:  # type: ignore[override]
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

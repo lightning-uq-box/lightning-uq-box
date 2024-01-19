@@ -349,12 +349,17 @@ class DKLRegression(DKLBase):
             self.likelihood = self.likelihood.cuda()
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:  # type: ignore[override]
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -573,12 +578,17 @@ class DKLClassification(DKLBase):
         return {"pred": mean, "pred_uct": entropy, "out": gp_dist, "logits": mean}
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:  # type: ignore[override]
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -689,7 +699,7 @@ def compute_initial_values(
     augmentation,
     input_key: str,
     target_key: str,
-) -> tuple[Tensor]:
+) -> tuple[Tensor, Tensor]:
     """Compute the inital values.
 
     Args:

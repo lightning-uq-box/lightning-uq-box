@@ -4,6 +4,7 @@
 """Deterministic Model that predicts parameters of Gaussian."""
 
 import os
+from typing import Any, Optional
 
 import numpy as np
 import torch
@@ -39,9 +40,9 @@ class MVEBase(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
-        super().__init__(model, None, optimizer, lr_scheduler)
+        super().__init__(model, NLL(), optimizer, lr_scheduler)
 
-        self.loss_fn = NLL()
+        self.burnin_epochs = burnin_epochs
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -62,7 +63,7 @@ class MVEBase(DeterministicModel):
         """
         out = self.forward(batch[self.input_key])
 
-        if self.current_epoch < self.hparams.burnin_epochs:
+        if self.current_epoch < self.burnin_epochs:
             loss = nn.functional.mse_loss(
                 self.adapt_output_for_metrics(out), batch[self.target_key]
             )
@@ -131,12 +132,17 @@ class MVERegression(MVEBase):
         return {"pred": mean, "pred_uct": std, "aleatoric_uct": std, "out": preds}
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:  # type: ignore[override]
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
