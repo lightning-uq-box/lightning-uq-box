@@ -25,3 +25,11 @@ tutorials/regression
 
 tutorials/classification
 ```
+
+## Earth Observation Applications
+
+```{toctree}
+:maxdepth: 1
+
+tutorials/earth_observation
+```

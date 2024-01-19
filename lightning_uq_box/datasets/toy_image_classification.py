@@ -10,7 +10,7 @@ from torch.utils.data import Dataset
 class ToyImageClassificationDataset(Dataset):
     """Toy Image Classification Dataset."""
 
-    def __init__(self, num_classes: int = 2, num_samples: int = 10) -> None:
+    def __init__(self, num_classes: int = 4, num_samples: int = 10) -> None:
         """Initialize a new instance of Toy Image Classification Dataset."""
         super().__init__()
 

@@ -14,7 +14,7 @@ from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
 
 from .base import PosthocBase
-from .utils import save_regression_predictions
+from .utils import default_regression_metrics, save_regression_predictions
 
 
 def compute_q_hat_with_cqr(
@@ -81,6 +81,12 @@ class ConformalQR(PosthocBase):
 
         self.desired_coverage = 1 - self.alpha  # 1-alpha is the desired coverage
 
+        self.setup_task()
+
+    def setup_task(self) -> None:
+        """Set up task."""
+        self.test_metrics = default_regression_metrics("test")
+
     def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Conformalize underlying model output.
 
@@ -129,9 +135,9 @@ class ConformalQR(PosthocBase):
         """
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
-
-        # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
+
+        self.test_metrics(out_dict["pred"], out_dict[self.target_key])
 
         # save metadata
         for key, val in batch.items():
