@@ -14,6 +14,7 @@ from lightning import LightningModule
 from torch import Tensor
 from torchmetrics import (
     Accuracy,
+    CalibrationError,
     F1Score,
     JaccardIndex,
     MeanAbsoluteError,
@@ -28,6 +29,8 @@ from lightning_uq_box.eval_utils import (
     compute_predictive_uncertainty,
     compute_quantiles_from_std,
 )
+
+from .metrics import EmpiricalCoverage
 
 
 def checkpoint_loader(
@@ -93,7 +96,8 @@ def default_classification_metrics(prefix: str, task: str, num_classes: int):
     return MetricCollection(
         {
             "Acc": Accuracy(task=task, num_classes=num_classes),
-            "F1Score": F1Score(task, num_classes=num_classes),
+            "Calibration": CalibrationError(task, num_classes=num_classes),
+            "Empirical Coverage": EmpiricalCoverage(),
         },
         prefix=prefix,
     )
