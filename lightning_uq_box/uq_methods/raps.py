@@ -351,7 +351,7 @@ def find_lamda_param_adaptiveness(
     randomized: bool,
     allow_zero_sets: bool,
     strata: list[list[int]] = [[0, 1], [2, 3], [4, 6], [7, 10], [11, 100], [101, 1000]],
-) -> Tensor:
+) -> float:
     """Find lamda parameter for adaptiveness criterion.
 
     Args:
@@ -364,7 +364,7 @@ def find_lamda_param_adaptiveness(
         allow_zero_sets: whether to allow sets of size zero
         strata: strata to use for adaptiveness criterion
     """
-    lamda_star = 0
+    lamda_star = 0.0
     best_violation = 1
     for temp_lam in [0, 1e-5, 1e-4, 8e-4, 9e-4, 1e-3, 1.5e-3, 2e-3]:
         conformal_model = ConformalModelLogits(
