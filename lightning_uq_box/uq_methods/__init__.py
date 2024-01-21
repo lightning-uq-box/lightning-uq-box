@@ -41,6 +41,7 @@ from .deep_kernel_learning import (
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .hierarchical_prob_unet import HierarchicalProbUNet
+from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
 from .loss_functions import NLL, DERLoss, HuberQLoss, PinballLoss, QuantileLoss
 from .mc_dropout import (
@@ -63,7 +64,6 @@ from .spectral_normalized_layers import (
 )
 from .swag import SWAGBase, SWAGClassification, SWAGRegression, SWAGSegmentation
 from .temp_scaling import TempScaling
-from .test_time_augmentation import TTABase, TTAClassification, TTARegression
 
 __all__ = (
     # Base Module

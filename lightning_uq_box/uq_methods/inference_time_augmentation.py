@@ -5,12 +5,13 @@
 
 
 import os
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, List, Literal, Optional, Union
 
 import torch
 import torch.nn as nn
 from lightning import LightningModule
 from torch import Tensor
+from torchgeo.transforms import AugmentationSequential
 
 from .base import PosthocBase
 from .utils import (
@@ -36,44 +37,53 @@ class TTABase(PosthocBase):
     an additional prediction will be made for each element in `tt_augmentation`.
     """
 
+    valid_merge_strategies: list[str] = ["mean", "median", "sum", "max", "min"]
+
     def __init__(
         self,
         model: Union[LightningModule, nn.Module],
         tt_augmentation: Optional[list[Callable]] = None,
+        merge_strategy: Literal["mean", "median", "sum", "max", "min"] = "mean",
     ) -> None:
         """Initialize a new instance of TTA module.
 
         Args:
             model: LightningModule or nn.Module used for prediction
-            tt_augmentation: list of test time augmentation function, assumed to accept an
-                input that is a dictionary with key `self.input_key` and `self.target_key`
-                which is `input` and `target`, if None, a set of default augmentations will
-                be used
+            tt_augmentation: list of test time augmentation function, assumed to
+                accept an input that is a dictionary with key `self.input_key`
+                and `self.target_key` which is `input` and `target`, if None, a set
+                of default augmentations will be used
+            merge_strategy: strategy to merge the predictions from the different
+                augmentations
         """
         super().__init__(model)
 
         self.tt_augmentation = tt_augmentation
 
-        self.setup_task()
-
-    def setup_task(self) -> None:
-        """Setup task."""
-        raise NotImplementedError
-
-    def validation_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """No validation step in TTA."""
-        pass
-
-    def on_validation_start(self) -> None:
-        """No validation step in TTA."""
-        pass
+        assert (
+            merge_strategy in self.valid_merge_strategies
+        ), f"Merge strategy must be one of {self.valid_merge_strategies}"
+        self.merge_strategy = merge_strategy
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
         """Test step for TTA procedure."""
+        # make prediction with TTA
+        merged_aug_preds = self.predict_step(batch[self.input_key])
+
+        # augment the targets as well in same order as predictionsn
+        # TODO is it not enough to keep the same target for each augmentation
+        # since they are being undone and should therefore stay the same?
+        aug_targets = torch.repeat(batch[self.target_key], len(self.tt_augmentation))
+        merged_aug_targets = self.merge_tta_tensor(aug_targets)
+
+        # compute metrics
+        self.test_metrics(merged_aug_preds["pred"], merged_aug_targets)
+
+        merged_aug_preds[self.target_key] = merged_aug_targets
+
+        return merged_aug_preds
 
     def predict_step(
         self,
@@ -112,7 +122,14 @@ class TTABase(PosthocBase):
 
         # iterate over augmentation functions
         for aug_fn in aug:
-            X = aug_fn(X)
+            # augment the input
+            aug_X = aug_fn(X)
+            # make prediction
+            aug_pred = yield_prediction(aug_X)
+            # reverse augmentation
+            # TODO
+
+            # save prediction
             aug_predictions.append(yield_prediction(X))
 
         # combine predictions to common tensor
@@ -123,7 +140,48 @@ class TTABase(PosthocBase):
         else:
             aug_preds = {"pred": torch.stack(aug_predictions)}
 
+        # apply the merging to every key, val in pred dict
+        for key in aug_preds.keys():
+            aug_preds[key] = self.merge_tta_tensor(aug_pred[key])
+
         return aug_preds
+
+    def setup_task(self) -> None:
+        """Setup task."""
+        raise NotImplementedError
+
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """No validation step in TTA."""
+        pass
+
+    def on_validation_start(self) -> None:
+        """No validation step in TTA."""
+        pass
+
+    def merge_tta_tensor(self, aug_tensor: Tensor) -> Tensor:
+        """Merge predictions according to `merge_strategy`.
+
+        Args:
+            aug_tensors: The tensor containing predictions from different
+                augmentations
+
+        Returns:
+            The tensor after applying the merge strategy
+        """
+        if self.merge_strategy == "mean":
+            aug_tensor = torch.mean(aug_tensor, dim=0)
+        elif self.merge_strategy == "median":
+            aug_tensor = torch.median(aug_tensor, dim=0).values
+        elif self.merge_strategy == "sum":
+            aug_tensor = torch.sum(aug_tensor, dim=0)
+        elif self.merge_strategy == "max":
+            aug_tensor = torch.max(aug_tensor, dim=0).values
+        elif self.merge_strategy == "min":
+            aug_tensor = torch.min(aug_tensor, dim=0).values
+
+        return aug_tensor
 
 
 class TTARegression(TTABase):
@@ -133,24 +191,29 @@ class TTARegression(TTABase):
         self,
         model: Union[LightningModule, nn.Module],
         tt_augmentation: Optional[list[Callable[..., Any]]] = None,
+        merge_strategy: Literal["mean", "median", "sum", "max", "min"] = "mean",
     ) -> None:
         """Initialize a new instance of TTA Regression module.
 
         Args:
             model: LightningModule or nn.Module used for prediction
-            tt_augmentation: list of test time augmentation function, assumed to accept an
-                input that is a dictionary with key `self.input_key` and `self.target_key`
-                which is `input` and `target`, if None, a set of default augmentations will
-                be used
+            tt_augmentation: list of test time augmentation function, assumed to
+                accept an input that is a dictionary with key `self.input_key`
+                and `self.target_key` which is `input` and `target`, if None, a set
+                of default augmentations will be used
+            merge_strategy: strategy to merge the predictions from the different
+                augmentations
         """
-        super().__init__(model, tt_augmentation)
+        super().__init__(model, tt_augmentation, merge_strategy)
+
+        self.setup_task()
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         self.test_metrics = default_regression_metrics("test")
 
         if self.tt_augmentation is None:
-            self.tt_augmentation = []
+            self.tt_augmentation = AugmentationSequential()
 
     def predict_step(
         self,
@@ -194,28 +257,34 @@ class TTAClassification(TTABase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks = ["binary", "multiclass", "multilable"]
+    valid_tasks: List[str] = ["binary", "multiclass", "multilable"]
 
     def __init__(
         self,
         model: Union[LightningModule, nn.Module],
         tt_augmentation: Optional[list[Callable[..., Any]]] = None,
-        task: str = "multiclass",
+        merge_strategy: Literal["mean", "median", "sum", "max", "min"] = "mean",
+        task: Literal["binary", "multiclass", "multilable"] = "multiclass",
     ) -> None:
         """Initialize a new instance of TTA Classification module.
 
         Args:
             model: LightningModule or nn.Module used for prediction
-            tt_augmentation: list of test time augmentation function, assumed to accept an
-                input that is a dictionary with key `self.input_key` and `self.target_key`
-                which is `input` and `target`, if None, a set of default augmentations will
-                be used
+            tt_augmentation: list of test time augmentation function, assumed to
+                accept an input that is a dictionary with key `self.input_key`
+                and `self.target_key` which is `input` and `target`, if None, a set
+                of default augmentations will be used
+            merge_strategy: strategy to merge the predictions from the different
+                augmentations
             task: task type, one of "binary", "multiclass", "multilabel"
         """
         assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
         self.task = task
-        self.num_classes = _get_num_outputs(model)
-        super().__init__(model, tt_augmentation)
+        super().__init__(model, tt_augmentation, merge_strategy)
+
+        self.num_classes = self.num_outputs
+
+        self.setup_task()
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
