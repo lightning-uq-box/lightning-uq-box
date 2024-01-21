@@ -109,6 +109,7 @@ class Encoder(nn.Module):
             self.input_channels += 1
 
         layers: list[nn.Module] = []
+        output_dim: int = 0
         for i in range(len(self.num_filters)):
             """
             Determine input_dim and output_dim of conv layers in this block.
@@ -187,16 +188,17 @@ class AxisAlignedConvGaussian(nn.Module):
         self.conv_layer = nn.Conv2d(
             num_filters[-1], 2 * self.latent_dim, (1, 1), stride=1
         )
-        self.show_img = 0
-        self.show_seg = 0
-        self.show_concat = 0
-        self.show_enc = 0
-        self.sum_input = 0
+        self.show_img: Optional[Tensor] = None
+        self.show_seg: Optional[Tensor] = None
+        self.show_concat: Optional[Tensor] = None
+        self.sum_input: Optional[Tensor] = None
+        self.show_enc: Optional[Tensor] = None
 
         nn.init.kaiming_normal_(
             self.conv_layer.weight, mode="fan_in", nonlinearity="relu"
         )
-        nn.init.normal_(self.conv_layer.bias)
+        if self.conv_layer.bias is not None:
+            nn.init.normal_(self.conv_layer.bias)
 
     def forward(self, input: Tensor, segm: Optional[Tensor] = None) -> Independent:
         """Forward pass of the AxisAlignedConvGaussian network.
@@ -281,7 +283,7 @@ class Fcomb(nn.Module):
         self.name = "Fcomb"
 
         if self.use_tile:
-            layers = []
+            layers: List[nn.Module] = []
 
             # Decoder of N x a 1x1 convolution followed by a ReLU except for last layer
             layers.append(nn.Conv2d(self.input_size, self.filter_size, kernel_size=1))
@@ -348,8 +350,8 @@ class Fcomb(nn.Module):
             z = torch.unsqueeze(z, 3)
             z = self.tile(z, 3, feature_map.shape[self.spatial_axes[1]])
 
-            # Concatenate the feature map (output of the UNet) and the sample
-            # taken from the latent space
-            feature_map = torch.cat((feature_map, z), dim=self.channel_axis)
-            output = self.layers(feature_map)
-            return self.last_layer(output)
+        # Concatenate the feature map (output of the UNet) and the sample
+        # taken from the latent space
+        feature_map = torch.cat((feature_map, z), dim=self.channel_axis)
+        output = self.layers(feature_map)
+        return self.last_layer(output)
