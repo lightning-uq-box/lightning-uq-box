@@ -189,8 +189,8 @@ class LaplaceBase(BaseModule):
                 self.laplace_model.optimize_prior_precision(method="marglik")
                 # tune_prior_precision(
                 #     self.model,
-                #     self.hparams.tune_precision_lr,
-                #     self.hparams.n_epochs_tune_precision,
+                #     self.hparams["tune_precision_lr"],
+                #     self.hparams["n_epochs_tune_precision"],
                 # )
 
             self.laplace_fitted = True

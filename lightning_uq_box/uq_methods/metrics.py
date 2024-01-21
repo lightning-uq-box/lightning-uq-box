@@ -25,9 +25,9 @@ class EmpiricalCoverageBase(Metric):
         """
         super().__init__(**kwargs)
         self.alpha = alpha
-        self.covered = 0
-        self.total = 0
-        self.set_size = 0
+        self.covered = 0.0
+        self.total = 0.0
+        self.set_size = 0.0
         self.topk = topk
 
     def update(
@@ -41,8 +41,8 @@ class EmpiricalCoverageBase(Metric):
                 in which case you take topk to get the predicted labels
             targets: Tensor of true labels shape [batch_size, num_classes]
         """
-        covered = 0
-        set_size = 0
+        covered = 0.0
+        set_size = 0.0
         if isinstance(pred_set, torch.Tensor):
             if self.topk is not None:
                 _, topk_pred_set = pred_set.topk(self.topk, dim=1)
@@ -74,17 +74,14 @@ class EmpiricalCoverageBase(Metric):
         self.set_size += set_size
         self.total += targets.shape[0]
 
-    def compute(self) -> dict[str, float]:
+    def compute(self) -> Tensor:
         """Compute the coverage of the prediction sets.
 
         Returns:
             The coverage of the prediction sets.
         """
         # compute average coverage and set size
-        return {
-            "coverage": self.covered / self.total,
-            "set_size": self.set_size / self.total,
-        }
+        raise NotImplementedError
 
 
 class EmpiricalCoverage(EmpiricalCoverageBase):

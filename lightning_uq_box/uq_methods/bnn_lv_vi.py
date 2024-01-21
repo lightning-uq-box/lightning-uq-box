@@ -154,7 +154,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         last_module_args = retrieve_module_init_args(last_module)
         replace_module(self.model, last_module_name, nn.Identity())
 
-        if self.hparams.latent_variable_intro == "first":
+        if self.hparams["latent_variable_intro"] == "first":
             module_name, module = _get_input_layer_name_and_module(self.model)
 
             if "Conv" in module.__class__.__name__:
@@ -166,7 +166,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             lv_init_std = math.sqrt(module.in_features)
             new_init_args: dict[str, Union[str, int, float]] = {}
             new_init_args["in_features"] = (
-                module.in_features + self.hparams.lv_latent_dim
+                module.in_features + self.hparams["lv_latent_dim"]
             )
             current_args = retrieve_module_init_args(module)
             current_args.update(new_init_args)
@@ -186,7 +186,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             )
         else:  # last layer
             last_module_args["in_features"] = (
-                last_module_args["in_features"] + self.hparams.lv_latent_dim
+                last_module_args["in_features"] + self.hparams["lv_latent_dim"]
             )
             lv_init_std = math.sqrt(last_module_args["in_features"])
 
@@ -216,10 +216,15 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                 f"{last_module_args['out_features']}."
             )
 
-        if not self.prediction_head and self.hparams.latent_variable_intro == "first":
+        if (
+            not self.prediction_head
+            and self.hparams["latent_variable_intro"] == "first"
+        ):
             # keep last module
             self.prediction_head = last_module.__class__(**last_module_args)
-        elif not self.prediction_head and self.hparams.latent_variable_intro == "last":
+        elif (
+            not self.prediction_head and self.hparams["latent_variable_intro"] == "last"
+        ):
             # provide a default
             self.prediction_head = nn.Sequential(
                 nn.Linear(last_module_args["in_features"], 50),
@@ -232,21 +237,21 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             assert last_module_args["in_features"] == module.in_features
 
         _, lv_output_module = _get_output_layer_name_and_module(latent_net)
-        assert lv_output_module.out_features == self.hparams.lv_latent_dim * 2, (
+        assert lv_output_module.out_features == self.hparams["lv_latent_dim"] * 2, (
             "The specified latent network needs to have the same output dimension as "
             f"`lv_latent_dim` but found {lv_output_module.out_features} "
-            f"and 2 * lv_latent_dim {self.hparams.lv_latent_dim}"
+            f"and 2 * lv_latent_dim {self.hparams['lv_latent_dim']}"
         )
 
         # need to find the output dimension at which latent net is introduced
         self.lv_net = LatentVariableNetwork(
             net=latent_net,
-            num_training_points=self.hparams.num_training_points,
-            lv_prior_mu=self.hparams.lv_prior_mu,
-            lv_prior_std=self.hparams.lv_prior_std,
+            num_training_points=self.hparams["num_training_points"],
+            lv_prior_mu=self.hparams["lv_prior_mu"],
+            lv_prior_std=self.hparams["lv_prior_std"],
             lv_init_std=lv_init_std,
-            lv_latent_dim=self.hparams.lv_latent_dim,
-            init_scaling=self.hparams.init_scaling,
+            lv_latent_dim=self.hparams["lv_latent_dim"],
+            init_scaling=self.hparams["init_scaling"],
         )
 
     def forward(
@@ -263,7 +268,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         Returns:
             bnn output of size [batch_size, output_dim]
         """
-        if self.hparams.latent_variable_intro == "first":
+        if self.hparams["latent_variable_intro"] == "first":
             if training:
                 # this passes X,y through the whole self.lv_net
                 z = self.lv_net(X, y)  # [batch_size, lv_latent_dim]
@@ -307,7 +312,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             sampled latent variable of shape [batch_size, lv_latent_dim]
         """
         batch_size = X.shape[0]
-        return torch.randn(batch_size, self.hparams.lv_latent_dim).to(self.device)
+        return torch.randn(batch_size, self.hparams["lv_latent_dim"]).to(self.device)
 
     def compute_energy_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
@@ -329,7 +334,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
 
         # draw samples for all stochastic functions
-        for i in range(self.hparams.n_mc_samples_train):
+        for i in range(self.hparams["n_mc_samples_train"]):
             # mean prediction
             pred = self.forward(X, y)  # pass X and y during training for lv
             model_preds.append(pred)
@@ -366,59 +371,9 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         Returns:
             prediction dictionary
         """
-        # n_aleatoric = self.hparams.n_mc_samples_epistemic
+        n_aleatoric = self.hparams["n_mc_samples_epistemic"]
 
-        # if self.hparams.latent_variable_intro == "first":
-        #     output_dim = self.prediction_head.out_features
-        # else:
-        #     key, module = _get_output_layer_name_and_module(self.prediction_head)
-        #     output_dim = module.out_features
-
-        # in_noise = torch.randn(n_aleatoric)
-        # model_preds_hy = np.zeros(
-        #     (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim)
-        # )
-        # model_preds = np.zeros(
-        #     (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim)
-        # )
-        # o_noise = torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
-        # with torch.no_grad():
-        #     for i in range(self.hparams.n_mc_samples_epistemic):
-        #         self.freeze_layers()
-        #         z = torch.tile(in_noise[i], (X.shape[0], 1))
-        #         pred = self.forward(X, z, training=False).cpu().numpy()
-        #         pred += (
-        #             np.tile(np.random.randn(1, output_dim), [X.shape[0], 1]) * o_noise
-        #         )
-        #         model_preds_hy[i, :, :] = pred
-
-        #     for i in range(self.hparams.n_mc_samples_epistemic):
-        #         # one forward pass to resample
-        #         self.freeze_layers()
-        #         for j in range(n_aleatoric):
-        #             z = torch.tile(in_noise[j], (X.shape[0], 1))
-        #             pred = self.forward(X, z, training=False).cpu().numpy()
-        #             pred += (
-        #                 np.tile(np.random.randn(1, output_dim), [X.shape[0], 1])
-        #                 * o_noise
-        #             )
-        #             model_preds[i, j, :, :] = pred
-        #         self.unfreeze_layers()
-
-        # mean_out = model_preds.mean(axis=(0, 1)).squeeze()
-
-        # def entropy(x, axis=None):
-        #     var_x = x.var(axis=axis)
-        #     # clip variance to avoid numerical issues
-        #     var_x = np.clip(var_x, 1e-6, None)
-        #     return 0.5 * np.log(2 * np.pi * var_x) + 0.5
-
-        # full_uncertainty = entropy(model_preds_hy, axis=0).ravel()
-        # aleatoric_uncertainty = entropy(model_preds, axis=1).mean(axis=0).ravel()
-        # epistemic_uncertainty = full_uncertainty - aleatoric_uncertainty
-        n_aleatoric = self.hparams.n_mc_samples_epistemic
-
-        if self.hparams.latent_variable_intro == "first":
+        if self.hparams["latent_variable_intro"] == "first":
             output_dim = self.prediction_head.out_features
         else:
             key, module = _get_output_layer_name_and_module(self.prediction_head)
@@ -426,14 +381,19 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
         in_noise = torch.randn(n_aleatoric)
         model_preds_hy = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim)
+            (self.hparams["n_mc_samples_epistemic"], X.shape[0], output_dim)
         )
         model_preds = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim)
+            (
+                self.hparams["n_mc_samples_epistemic"],
+                n_aleatoric,
+                X.shape[0],
+                output_dim,
+            )
         )
         o_noise = torch.exp(self.log_aleatoric_std).detach()
         with torch.no_grad():
-            for i in range(self.hparams.n_mc_samples_epistemic):
+            for i in range(self.hparams["n_mc_samples_epistemic"]):
                 self.freeze_layers()
                 z = torch.tile(in_noise[i], (X.shape[0], 1))
                 pred = self.forward(X, z, training=False)
@@ -442,7 +402,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                 )
                 model_preds_hy[i, :, :] = pred
 
-            for i in range(self.hparams.n_mc_samples_epistemic):
+            for i in range(self.hparams["n_mc_samples_epistemic"]):
                 # one forward pass to resample
                 self.freeze_layers()
                 for j in range(n_aleatoric):
@@ -647,14 +607,14 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
     def _define_bnn_args(self):
         """Define BNN Args."""
         return {
-            "prior_mu": self.hparams.prior_mu,
-            "prior_sigma": self.hparams.prior_sigma,
-            "posterior_mu_init": self.hparams.posterior_mu_init,
-            "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.bayesian_layer_type,
+            "prior_mu": self.hparams["prior_mu"],
+            "prior_sigma": self.hparams["prior_sigma"],
+            "posterior_mu_init": self.hparams["posterior_mu_init"],
+            "posterior_rho_init": self.hparams["posterior_rho_init"],
+            "layer_type": self.hparams["bayesian_layer_type"],
             "batched_samples": True,
             "max_n_samples": max(
-                self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
+                self.hparams["n_mc_samples_train"], self.hparams["n_mc_samples_test"]
             ),
         }
 
@@ -693,7 +653,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         """
         num_samples = X.shape[0]
         batch_size = X.shape[1]
-        return torch.randn(num_samples, batch_size, self.hparams.lv_latent_dim).to(
+        return torch.randn(num_samples, batch_size, self.hparams["lv_latent_dim"]).to(
             self.device
         )
 
@@ -709,16 +669,16 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
                 over samples, dim [n_mc_samples_train, output_dim]
         """
         out = self.forward(
-            X, y, n_samples=self.hparams.n_mc_samples_train
+            X, y, n_samples=self.hparams["n_mc_samples_train"]
         )  # [n_mc_samples_train, batch_size, output_dim]
 
-        y = torch.tile(y[None, ...], (self.hparams.n_mc_samples_train, 1, 1))
+        y = torch.tile(y[None, ...], (self.hparams["n_mc_samples_train"], 1, 1))
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
 
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
             get_log_f_hat([self.model, self.prediction_head])[
-                : self.hparams.n_mc_samples_train
+                : self.hparams["n_mc_samples_train"]
             ],  # noqa: E203
             get_log_Z_prior([self.model, self.prediction_head]),
             get_log_normalizer([self.model, self.prediction_head]),
@@ -742,10 +702,10 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         Returns:
             prediction dictionary
         """
-        n_aleatoric = self.hparams.n_mc_samples_epistemic
-        n_samples = self.hparams.n_mc_samples_test
+        n_aleatoric = self.hparams["n_mc_samples_epistemic"]
+        n_samples = self.hparams["n_mc_samples_test"]
 
-        if self.hparams.latent_variable_intro == "first":
+        if self.hparams["latent_variable_intro"] == "first":
             output_dim = self.prediction_head.out_features
         else:
             key, module = _get_output_layer_name_and_module(self.prediction_head)
@@ -753,16 +713,21 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
 
         in_noise = torch.randn(n_aleatoric)
         model_preds_hy = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim)
+            (self.hparams["n_mc_samples_epistemic"], X.shape[0], output_dim)
         )
 
         model_preds = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim)
+            (
+                self.hparams["n_mc_samples_epistemic"],
+                n_aleatoric,
+                X.shape[0],
+                output_dim,
+            )
         )
         o_noise = torch.exp(self.log_aleatoric_std).detach()
 
         with torch.no_grad():
-            for i in range(int(self.hparams.n_mc_samples_epistemic / n_samples)):
+            for i in range(int(self.hparams["n_mc_samples_epistemic"] / n_samples)):
                 self.freeze_layers(n_samples)
                 z = torch.tile(
                     in_noise[i * n_samples : (i + 1) * n_samples][  # noqa: E203
@@ -783,7 +748,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
                     i * n_samples : (i + 1) * n_samples, :, :  # noqa: E203
                 ] = pred
 
-            for i in range(int(self.hparams.n_mc_samples_epistemic / n_samples)):
+            for i in range(int(self.hparams["n_mc_samples_epistemic"] / n_samples)):
                 # freeze will resample
                 self.freeze_layers(n_samples)
                 for j in range(n_aleatoric):

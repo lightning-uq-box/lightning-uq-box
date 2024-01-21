@@ -5,7 +5,7 @@
 
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Literal, Optional
 
 import gpytorch
 import numpy as np
@@ -135,7 +135,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.initial_inducing_points, self.initial_lengthscale = compute_initial_values(
             train_dataset,
             self.feature_extractor,
-            self.hparams.n_inducing_points,
+            self.hparams["n_inducing_points"],
             augmentation,
             self.input_key,
             self.target_key,
@@ -420,7 +420,7 @@ class DKLClassification(DKLBase):
         feature_extractor: nn.Module,
         n_inducing_points: int,
         num_classes: int,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         gp_kernel: str = "RBF",
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: Optional[LRSchedulerCallable] = None,

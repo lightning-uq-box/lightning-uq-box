@@ -82,7 +82,7 @@ class DER(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
-        super().__init__(model, None, optimizer, lr_scheduler)
+        super().__init__(model, DERLoss(coeff), optimizer, lr_scheduler)
 
         self.save_hyperparameters(ignore=["model", "optimizer", "lr_scheduler"])
 
@@ -91,10 +91,6 @@ class DER(DeterministicModel):
 
         # add DER Layer
         self.model = nn.Sequential(self.model, DERLayer())
-
-        # set DER Loss
-        # TODO need to give control over the coeff through config or argument
-        self.loss_fn = DERLoss(coeff)
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""

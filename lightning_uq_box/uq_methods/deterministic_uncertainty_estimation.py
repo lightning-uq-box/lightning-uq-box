@@ -3,7 +3,7 @@
 
 """Deterministic Uncertainty Estimation."""
 
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 
 import torch
 import torch.nn as nn
@@ -84,7 +84,7 @@ class DUEClassification(DKLClassification):
         input_size: int,
         num_classes: int,
         gp_kernel: str = "RBF",
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         coeff: float = 0.95,
         n_power_iterations: int = 1,
         optimizer: OptimizerCallable = torch.optim.Adam,

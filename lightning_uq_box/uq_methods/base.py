@@ -4,7 +4,7 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -268,7 +268,7 @@ class DeterministicClassification(DeterministicModel):
         self,
         model: nn.Module,
         loss_fn: nn.Module,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:

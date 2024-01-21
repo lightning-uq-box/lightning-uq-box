@@ -4,7 +4,7 @@
 """Mc-Dropout module."""
 
 import os
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import torch
 import torch.nn as nn
@@ -247,7 +247,7 @@ class MCDropoutClassification(MCDropoutBase):
         model: nn.Module,
         num_mc_samples: int,
         loss_fn: nn.Module,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         dropout_layer_names: list[str] = [],
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: Optional[LRSchedulerCallable] = None,

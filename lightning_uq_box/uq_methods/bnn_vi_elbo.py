@@ -4,7 +4,7 @@
 """Bayesian Neural Networks with Variational Inference."""
 
 import os
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -113,11 +113,11 @@ class BNN_VI_ELBO_Base(DeterministicModel):
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
         self.bnn_args = {
-            "prior_mu": self.hparams.prior_mu,
-            "prior_sigma": self.hparams.prior_sigma,
-            "posterior_mu_init": self.hparams.posterior_mu_init,
-            "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.bayesian_layer_type,
+            "prior_mu": self.hparams["prior_mu"],
+            "prior_sigma": self.hparams["prior_sigma"],
+            "posterior_mu_init": self.hparams["posterior_mu_init"],
+            "posterior_rho_init": self.hparams["posterior_rho_init"],
+            "layer_type": self.hparams["bayesian_layer_type"],
         }
         # convert deterministic model to BNN
         convert_deterministic_to_bnn(
@@ -186,7 +186,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
 
         return elbo_loss
 
-    def compute_elbo_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+    def compute_elbo_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor, Tensor]:
         """Compute the ELBO loss with mse/nll.
 
         Args:
@@ -198,9 +198,9 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             for logging
         """
         model_preds: list[Tensor] = []
-        pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
+        pred_losses = torch.zeros(self.hparams["num_mc_samples_train"])
 
-        for i in range(self.hparams.num_mc_samples_train):
+        for i in range(self.hparams["num_mc_samples_train"]):
             # mean prediction
             pred = self.forward(X)
             pred_losses[i] = self.compute_task_loss(pred, y)
@@ -270,7 +270,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             a "lr dict" according to the pytorch lightning documentation
         """
         params = self.exclude_from_wt_decay(
-            self.named_parameters(), weight_decay=self.hparams.weight_decay
+            self.named_parameters(), weight_decay=self.hparams["weight_decay"]
         )
 
         optimizer = self.optimizer(params)
@@ -377,7 +377,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         Returns:
             nll loss for the task
         """
-        if self.current_epoch < self.hparams.burnin_epochs or isinstance(
+        if self.current_epoch < self.hparams["burnin_epochs"] or isinstance(
             self.criterion, nn.MSELoss
         ):
             # compute mse loss with output noise scale, is like mse
@@ -399,7 +399,8 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         """
         with torch.no_grad():
             preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+                [self.model(X) for _ in range(self.hparams["num_mc_samples_test"])],
+                dim=-1,
             )  # shape [batch_size, num_outputs, num_samples]
 
         return process_regression_prediction(preds)
@@ -440,7 +441,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         self,
         model: nn.Module,
         criterion: nn.Module,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         beta: float = 100,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
@@ -548,7 +549,8 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         """
         with torch.no_grad():
             preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+                [self.model(X) for _ in range(self.hparams["num_mc_samples_test"])],
+                dim=-1,
             )  # shape [batch_size, num_classes, num_samples]
 
         return process_classification_prediction(preds)
@@ -605,7 +607,8 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
         """
         with torch.no_grad():
             preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+                [self.model(X) for _ in range(self.hparams["num_mc_samples_test"])],
+                dim=-1,
             )  # shape [batch_size, num_classes, height, width, num_samples]
 
         return process_segmentation_prediction(preds)

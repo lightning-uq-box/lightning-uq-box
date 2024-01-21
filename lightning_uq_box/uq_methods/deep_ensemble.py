@@ -4,7 +4,7 @@
 """Implement a Deep Ensemble Model for prediction."""
 
 import os
-from typing import Any, Union
+from typing import Any, Literal, Union
 
 import torch
 from lightning import LightningModule
@@ -70,11 +70,12 @@ class DeepEnsemble(BaseModule):
         out: list[torch.Tensor] = []
         for model_config in self.ensemble_members:
             # load the weights into the network
-            model_config["base_model"].load_state_dict(
-                torch.load(model_config["ckpt_path"])["state_dict"]
-            )
-            model_config["base_model"].to(X.device)
-            out.append(model_config["base_model"](X))
+            model = model_config["base_model"]
+            if isinstance(model, torch.nn.Module):
+                state_dict = torch.load(model_config["ckpt_path"])["state_dict"]
+                model.load_state_dict(state_dict)
+                model.to(X.device)
+                out.append(model(X))
         return torch.stack(out, dim=-1)
 
     def test_step(
@@ -175,7 +176,7 @@ class DeepEnsembleClassification(DeepEnsemble):
     * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
     """
 
-    valid_tasks = ["multiclass", "binary", "multilabel"]
+    valid_tasks: list[str] = ["binary", "multiclass", "multilabel"]
     pred_file_name = "preds.csv"
 
     def __init__(
@@ -183,7 +184,7 @@ class DeepEnsembleClassification(DeepEnsemble):
         n_ensemble_members: int,
         ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
         num_classes: int,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
     ) -> None:
         """Initialize a new instance of DeepEnsemble for Classification.
 

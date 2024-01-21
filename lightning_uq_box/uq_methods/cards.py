@@ -8,7 +8,7 @@ Based on official PyTorch implementation from https://github.com/XzwHan/CARD # n
 
 import math
 import os
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Literal, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -181,7 +181,7 @@ class CARDBase(BaseModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Tuple[Tensor, list[Tensor]]:
+    ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
@@ -222,7 +222,7 @@ class CARDBase(BaseModule):
                     arr.reshape(self.n_z_samples, X.shape[0], y_t.shape[-1])
                     for arr in y_tile_seq
                 ]
-
+                y_seg = torch.stack(y_tile_seq, dim=0)
                 final_recoverd = y_tile_seq[-1]
 
             else:
@@ -238,10 +238,11 @@ class CARDBase(BaseModule):
                     )[-1]
                     for i in range(self.n_z_samples)
                 ]
+                # TODO check this computation
+                y_seq = torch.stack(y_tile_seq, dim=0)
+                final_recoverd = y_seq[-2:-1, ...]
 
-                final_recoverd = torch.stack(y_tile_seq, dim=0)
-
-        return final_recoverd, y_tile_seq
+        return {"pred": final_recoverd, "samples": y_seg}
 
     def p_sample(
         self,
@@ -483,7 +484,7 @@ class CARDBase(BaseModule):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Tensor:
+    ) -> dict[str, Tensor]:
         """Compute and return the test loss.
 
         Args:
@@ -522,7 +523,7 @@ class CARDBase(BaseModule):
         self.cond_mean_model = self.cond_mean_model.to(self.device)
 
         if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
+            lr_scheduler = self.lr_scheduler(optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
@@ -558,25 +559,22 @@ class CARDRegression(CARDBase):
         Returns:
             prediction dictionary with uncertainty estimates and samples
         """
-        final_recoverd, y_tile_seq = super().predict_step(X, batch_idx, dataloader_idx)
+        pred_dict = super().predict_step(X, batch_idx, dataloader_idx)
 
         # momenet matching
-        mean_pred = final_recoverd.mean(dim=0).detach().cpu().squeeze()
-        std_pred = final_recoverd.std(dim=0).detach().cpu().squeeze()
+        pred_dict["pred"] = pred_dict["pred"].mean(dim=0).detach().cpu().squeeze()
+        pred_std = pred_dict["pred"].std(dim=0).detach().cpu().squeeze()
+        pred_dict["pred_uct"] = pred_std
 
-        return {
-            "pred": mean_pred,
-            "pred_uct": std_pred,
-            "aleatoric_uct": std_pred,
-            "samples": y_tile_seq,
-        }
+        pred_dict["aleatoric_uct"] = pred_std
+        return pred_dict
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],  # type ignore[override]
+        outputs: dict[str, Tensor],
         batch: Any,
         batch_idx: int,
-        dataloader_idx=0,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions."""
         del outputs["samples"]
@@ -604,7 +602,7 @@ class CARDClassification(CARDBase):
         beta_start: float = 0.00001,
         beta_end: float = 0.01,
         n_z_samples: int = 100,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         guidance_optim: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
@@ -671,13 +669,12 @@ class CARDClassification(CARDBase):
         Returns:
             predictions
         """
-        final_recoverd, y_tile_seq = super().predict_step(X, batch_idx, dataloader_idx)
+        pred_dict = super().predict_step(X, batch_idx, dataloader_idx)
         # change from [num_samples, ...] to shape [batch_size, num_classes, num_samples]
-        final_recoverd = final_recoverd.permute(1, 2, 0).cpu()
+        pred_dict["pred"] = pred_dict["pred"].permute(1, 2, 0)
 
         # momenet matching
-        pred_dict = process_classification_prediction(final_recoverd)
-        pred_dict["samples"] = y_tile_seq
+        pred_dict["pred"] = process_classification_prediction(pred_dict["pred"])
 
         return pred_dict
 

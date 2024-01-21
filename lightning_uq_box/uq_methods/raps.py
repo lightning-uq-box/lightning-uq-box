@@ -13,7 +13,7 @@ to be integrated with Lightning and port several functions to pytorch.
 
 import os
 from functools import partial
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -54,7 +54,7 @@ class RAPS(PosthocBase):
         allow_zero_sets: bool = False,
         pct_param_tune: float = 0.3,
         lamda_criterion: str = "size",
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
     ) -> None:
         """Initialize RAPS.
 
@@ -304,7 +304,7 @@ def find_lamda_param_size(
     kreg: float,
     randomized: bool,
     allow_zero_sets: bool,
-) -> Tensor:
+) -> float:
     """Find lamda parameter for size criterion.
 
     Args:

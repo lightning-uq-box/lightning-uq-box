@@ -19,7 +19,7 @@ from .utils import default_regression_metrics, save_regression_predictions
 
 def compute_q_hat_with_cqr(
     cal_preds: Tensor, cal_labels: Tensor, alpha: float
-) -> float:
+) -> Tensor:
     """Compute q_hat which is the adjustment factor for quantiles.
 
     Check trusted computation here.

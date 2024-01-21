@@ -29,7 +29,7 @@ import math
 import os
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Literal, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -106,7 +106,7 @@ class SWAGBase(DeterministicModel):
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+    ) -> Tensor:
         """Compute SWAG optimization step.
 
         Args:
@@ -117,13 +117,15 @@ class SWAGBase(DeterministicModel):
         swag_opt = self.optimizers()
         swag_opt.zero_grad()
 
-        if self.trainer.global_step % self.hparams.snapshot_freq == 0:
+        if self.trainer.global_step % self.hparams["snapshot_freq"] == 0:
             self.update_uncertainty_buffers()
 
         loss = self.loss_fn(self.model(batch[self.input_key]), batch[self.target_key])
         self.manual_backward(loss)
 
         swag_opt.step()
+
+        return loss
 
     def on_train_epoch_end(self):
         """Do not Log epoch-level training metrics."""
@@ -230,8 +232,8 @@ class SWAGBase(DeterministicModel):
             if name in self.model_w_and_b_module_names:
                 K_sample = (
                     Normal(
-                        torch.zeros(self.hparams.max_swag_snapshots),
-                        torch.ones(self.hparams.max_swag_snapshots),
+                        torch.zeros(self.hparams["max_swag_snapshots"]),
+                        torch.ones(self.hparams["max_swag_snapshots"]),
                     )
                     .sample()
                     .to(param.device)  # should have lightning device
@@ -250,9 +252,9 @@ class SWAGBase(DeterministicModel):
                 (0.5 * (squared_mean - mean.pow(2)).clamp(1e-30)).sqrt(),
             ).sample()
             shape = d_block.shape[1:]
-            aux = d_block.reshape(self.hparams.max_swag_snapshots, -1)
+            aux = d_block.reshape(self.hparams["max_swag_snapshots"], -1)
             p3 = torch.matmul(K_sample, aux).reshape(shape) / math.sqrt(
-                2 * (self.hparams.max_swag_snapshots - 1)
+                2 * (self.hparams["max_swag_snapshots"] - 1)
             )
             sampled[name] = p1 + p2 + p3
         return sampled
@@ -302,12 +304,12 @@ class SWAGBase(DeterministicModel):
         """Update the state with a sample."""
         sampled_state_dict = self._sample_state_dict()
         self._update_tracked_state_dict(sampled_state_dict)
-        if self.hparams.num_datapoints_for_bn_update > 0:
+        if self.hparams["num_datapoints_for_bn_update"] > 0:
             update_bn(
                 self.train_loader,
                 self.model,
                 device=self.device,
-                num_datapoints=self.hparams.num_datapoints_for_bn_update,
+                num_datapoints=self.hparams["num_datapoints_for_bn_update"],
             )
 
     def sample_predictions(self, X: Tensor) -> Tensor:
@@ -320,7 +322,7 @@ class SWAGBase(DeterministicModel):
             predictions of shape [batch_size x num_outputs x num_mc_samples]
         """
         preds = []
-        for i in range(self.hparams.num_mc_samples):
+        for i in range(self.hparams["num_mc_samples"]):
             # sample weights
             self.sample_state()
             with torch.no_grad():
@@ -338,7 +340,7 @@ class SWAGBase(DeterministicModel):
             for name, param in self.model.named_parameters()
             if name in self.model_w_and_b_module_names
         ]
-        swag_optimizer = torch.optim.SGD(swag_params, lr=self.hparams.swag_lr)
+        swag_optimizer = torch.optim.SGD(swag_params, lr=self.hparams["swag_lr"])
         return swag_optimizer
 
 
@@ -453,7 +455,7 @@ class SWAGClassification(SWAGBase):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
         num_datapoints_for_bn_update: int = 0,
     ) -> None:
