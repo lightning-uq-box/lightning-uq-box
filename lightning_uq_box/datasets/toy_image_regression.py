@@ -23,7 +23,7 @@ class ToyImageRegressionDataset(Dataset):
         """Return the length of the dataset."""
         return self.num_samples
 
-    def __getitem__(self, index: int) -> Tensor:
+    def __getitem__(self, index: int) -> dict[str, Tensor]:
         """Retrieve single sample from the dataset.
 
         Args:

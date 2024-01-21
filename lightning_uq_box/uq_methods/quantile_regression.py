@@ -4,7 +4,7 @@
 """Implement Quantile Regression Model."""
 
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import torch
 import torch.nn as nn
@@ -36,7 +36,7 @@ class QuantileRegressionBase(DeterministicModel):
         loss_fn: Optional[nn.Module] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 
@@ -52,11 +52,10 @@ class QuantileRegressionBase(DeterministicModel):
         assert _get_num_outputs(model) == len(
             quantiles
         ), "The num of desired quantiles should match num_outputs of the model."
+        if loss_fn is None:
+            loss_fn = QuantileLoss(quantiles=[0.1, 0.5, 0.9])
 
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
-
-        if loss_fn is None:
-            self.loss_fn = QuantileLoss(quantiles=[0.1, 0.5, 0.9])
         self.quantiles = quantiles
         self.median_index = self.quantiles.index(0.5)
 
@@ -83,7 +82,7 @@ class QuantileRegression(QuantileRegressionBase):
         loss_fn: Optional[nn.Module] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 
@@ -126,7 +125,7 @@ class QuantileRegression(QuantileRegressionBase):
             # np_out = out.cpu().numpy()
 
         median = self.adapt_output_for_metrics(out)
-        _, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
+        _, std = compute_sample_mean_std_from_quantile(out, self.quantiles)
 
         # TODO can happen due to overlapping quantiles
         # how to handle this properly ?
@@ -141,12 +140,17 @@ class QuantileRegression(QuantileRegressionBase):
         }
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -163,7 +167,7 @@ class QuantileRegression(QuantileRegressionBase):
 #         model: nn.Module,
 #         optimizer: OptimizerCallable = torch.optim.Adam,
 #         loss_fn: nn.Module = QuantileLoss(quantiles=[0.1, 0.5, 0.9]),
-#         lr_scheduler: LRSchedulerCallable = None,
+#         lr_scheduler: Optional[LRSchedulerCallable] = None,
 #
 #     ) -> None:
 #         super().__init__(model, optimizer, loss_fn, lr_scheduler)

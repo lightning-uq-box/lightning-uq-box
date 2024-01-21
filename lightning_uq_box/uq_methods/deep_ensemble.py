@@ -4,7 +4,7 @@
 """Implement a Deep Ensemble Model for prediction."""
 
 import os
-from typing import Any, Union
+from typing import Any, Literal, Union
 
 import torch
 from lightning import LightningModule
@@ -70,11 +70,12 @@ class DeepEnsemble(BaseModule):
         out: list[torch.Tensor] = []
         for model_config in self.ensemble_members:
             # load the weights into the network
-            model_config["base_model"].load_state_dict(
-                torch.load(model_config["ckpt_path"])["state_dict"]
-            )
-            model_config["base_model"].to(X.device)
-            out.append(model_config["base_model"](X))
+            model = model_config["base_model"]
+            if isinstance(model, torch.nn.Module):
+                state_dict = torch.load(model_config["ckpt_path"])["state_dict"]
+                model.load_state_dict(state_dict)
+                model.to(X.device)
+                out.append(model(X))
         return torch.stack(out, dim=-1)
 
     def test_step(
@@ -148,12 +149,17 @@ class DeepEnsembleRegression(DeepEnsemble):
         return process_regression_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -170,7 +176,7 @@ class DeepEnsembleClassification(DeepEnsemble):
     * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
     """
 
-    valid_tasks = ["multiclass", "binary", "multilabel"]
+    valid_tasks: list[str] = ["binary", "multiclass", "multilabel"]
     pred_file_name = "preds.csv"
 
     def __init__(
@@ -178,7 +184,7 @@ class DeepEnsembleClassification(DeepEnsemble):
         n_ensemble_members: int,
         ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
         num_classes: int,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
     ) -> None:
         """Initialize a new instance of DeepEnsemble for Classification.
 
@@ -217,12 +223,17 @@ class DeepEnsembleClassification(DeepEnsemble):
         return process_classification_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -262,12 +273,17 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
         return process_segmentation_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

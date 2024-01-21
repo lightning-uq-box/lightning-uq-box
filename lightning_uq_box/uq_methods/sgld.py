@@ -8,7 +8,7 @@
 
 import os
 from collections.abc import Iterator
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 import torch
 import torch.nn as nn
@@ -136,9 +136,9 @@ class SGLDBase(DeterministicModel):
         """
         optimizer = SGLD(
             params=self.parameters(),
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay,
-            noise_factor=self.hparams.noise_factor,
+            lr=self.hparams["lr"],
+            weight_decay=self.hparams["weight_decay"],
+            noise_factor=self.hparams["noise_factor"],
         )
         return {"optimizer": optimizer}
 
@@ -153,7 +153,7 @@ class SGLDBase(DeterministicModel):
         """Save model ckpts after epoch and log training metrics."""
         # save ckpts for n_sgld_sample epochs before end (max_epochs)
         if self.current_epoch >= (
-            self.trainer.max_epochs - self.hparams.n_sgld_samples
+            self.trainer.max_epochs - self.hparams["n_sgld_samples"]
         ):
             torch.save(
                 self.model.state_dict(),
@@ -234,7 +234,7 @@ class SGLDRegression(SGLDBase):
         def closure():
             """Closure function for optimizer."""
             sgld_opt.zero_grad()
-            if self.current_epoch < self.hparams.burnin_epochs:
+            if self.current_epoch < self.hparams["burnin_epochs"]:
                 loss = nn.functional.mse_loss(self.adapt_output_for_metrics(out), y)
             # after train with nll
             else:
@@ -275,12 +275,17 @@ class SGLDRegression(SGLDBase):
         return process_regression_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -302,7 +307,7 @@ class SGLDClassification(SGLDBase):
         lr: float,
         weight_decay: float,
         noise_factor: float,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         n_sgld_samples: int = 20,
     ) -> None:
         """Initialize a new instance of SGLD model.
@@ -400,12 +405,17 @@ class SGLDClassification(SGLDBase):
         return process_classification_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

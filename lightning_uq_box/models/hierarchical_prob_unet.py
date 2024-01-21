@@ -354,7 +354,9 @@ class MovingAverage(nn.Module):
         """
         if not self.differentiable:
             inputs = inputs.detach()
-        self.average = self.decay * self.average + (1 - self.decay) * inputs
+        self.average: torch.Tensor = (
+            self.decay * self.average + (1 - self.decay) * inputs
+        )
         return self.average
 
 

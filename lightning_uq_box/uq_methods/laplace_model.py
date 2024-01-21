@@ -189,8 +189,8 @@ class LaplaceBase(BaseModule):
                 self.laplace_model.optimize_prior_precision(method="marglik")
                 # tune_prior_precision(
                 #     self.model,
-                #     self.hparams.tune_precision_lr,
-                #     self.hparams.n_epochs_tune_precision,
+                #     self.hparams["tune_precision_lr"],
+                #     self.hparams["n_epochs_tune_precision"],
                 # )
 
             self.laplace_fitted = True
@@ -292,12 +292,17 @@ class LaplaceRegression(LaplaceBase):
         }
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -368,12 +373,17 @@ class LaplaceClassification(LaplaceBase):
         return {"pred": probs, "pred_uct": entropy, "logits": probs}
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

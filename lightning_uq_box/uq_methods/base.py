@@ -4,12 +4,13 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import torch
 import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
 
 from .utils import (
@@ -208,7 +209,7 @@ class DeterministicModel(BaseModule):
             out = self.forward(X)
         return {"pred": self.adapt_output_for_metrics(out)}
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -237,12 +238,17 @@ class DeterministicRegression(DeterministicModel):
         self.test_metrics = default_regression_metrics("test")
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -262,9 +268,9 @@ class DeterministicClassification(DeterministicModel):
         self,
         model: nn.Module,
         loss_fn: nn.Module,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Deterministic Classification Model.
 
@@ -319,12 +325,17 @@ class DeterministicClassification(DeterministicModel):
         return {"pred": self.adapt_output_for_metrics(out), "logits": out}
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -375,11 +386,8 @@ class PosthocBase(BaseModule):
     def on_validation_start(self) -> None:
         """Initialize objects to track model logits and labels."""
         # TODO intitialize zero tensors for memory efficiency
-        self.model_logits = []
-        self.labels = []
-
-        # TODO this doesn't do anything right now
-        self.trainer.inference_mode = False
+        self.model_logits: list[Tensor] = []
+        self.labels: list[Tensor] = []
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

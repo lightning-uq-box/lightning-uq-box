@@ -4,6 +4,7 @@
 """Deep Evidential Regression."""
 
 import os
+from typing import Any, Optional
 
 import torch
 import torch.nn as nn
@@ -70,7 +71,7 @@ class DER(DeterministicModel):
         model: nn.Module,
         coeff: float = 0.01,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
         """Initialize a new Base Model.
 
@@ -81,7 +82,7 @@ class DER(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
-        super().__init__(model, None, optimizer, lr_scheduler)
+        super().__init__(model, DERLoss(coeff), optimizer, lr_scheduler)
 
         self.save_hyperparameters(ignore=["model", "optimizer", "lr_scheduler"])
 
@@ -90,10 +91,6 @@ class DER(DeterministicModel):
 
         # add DER Layer
         self.model = nn.Sequential(self.model, DERLayer())
-
-        # set DER Loss
-        # TODO need to give control over the coeff through config or argument
-        self.loss_fn = DERLoss(coeff)
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -169,12 +166,17 @@ class DER(DeterministicModel):
         return torch.reciprocal(torch.sqrt(nu))
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

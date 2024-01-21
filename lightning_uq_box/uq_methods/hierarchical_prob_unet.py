@@ -22,7 +22,7 @@
 
 """Hierarchical Probabilistic U-Net."""
 
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Literal, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -68,7 +68,7 @@ class HierarchicalProbUNet(BaseModule):
         top_k_percentage: Optional[float] = None,
         deterministic_top_k: Optional[int] = None,
         num_samples: int = 5,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
