@@ -17,7 +17,7 @@ regression/bnn_vi
 regression/bnn_vi_lv
 regression/swag
 regression/deep_kernel_learning
-regression/conformal_prediction
+regression/conformal_qr
 regression/deep_ensemble
 regression/evaluation_uncertainty
 ```
