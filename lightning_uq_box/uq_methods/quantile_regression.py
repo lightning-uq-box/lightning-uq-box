@@ -14,7 +14,7 @@ from torch import Tensor
 from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 
 from .base import DeterministicModel
-from .loss_functions import QuantileLoss
+from .loss_functions import PinballLoss
 from .utils import (
     _get_num_outputs,
     default_regression_metrics,
@@ -53,10 +53,11 @@ class QuantileRegressionBase(DeterministicModel):
             quantiles
         ), "The num of desired quantiles should match num_outputs of the model."
 
+        if loss_fn is None:
+            loss_fn = PinballLoss(quantiles=quantiles)
+
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
-        if loss_fn is None:
-            self.loss_fn = QuantileLoss(quantiles=[0.1, 0.5, 0.9])
         self.quantiles = quantiles
         self.median_index = self.quantiles.index(0.5)
 
