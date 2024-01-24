@@ -58,9 +58,9 @@ dependencies = [
     # Laplace Approximation
     "laplace-torch>=0.1a2",
     # Uncertainty toolbox metrics
-    "uncertainty-toolbox>=0.1.1"
+    "uncertainty-toolbox>=0.1.1",
     # Kornia for Test Time Augmentations and other image processing
-    "kornia>=0.6.9",
+    "kornia>=0.6.9"
 ]
 dynamic = ["version"]
 
