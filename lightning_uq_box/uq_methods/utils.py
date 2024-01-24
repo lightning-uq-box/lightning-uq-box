@@ -115,19 +115,22 @@ def default_segmentation_metrics(prefix: str, task: str, num_classes: int):
 
 
 def process_regression_prediction(
-    preds: Tensor, quantiles: Optional[list[float]] = None
+    preds: Tensor,
+    quantiles: Optional[list[float]] = None,
+    aggregate_fn: Callable = torch.mean,
 ) -> dict[str, Tensor]:
     """Process regression predictions that could be mse or nll predictions.
 
     Args:
         preds: prediction tensor of shape [batch_size, num_outputs, num_samples]
         quantiles: quantiles to compute
+        aggregate_fn: function to aggregate over the samples to form a mean
 
     Returns:
         dictionary with mean prediction and predictive uncertainty
     """
     mean_samples = preds[:, 0, :].cpu()
-    mean = preds[:, 0:1, :].mean(-1)
+    mean = aggregate_fn(preds[:, 0:1, :], dim=-1)
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
         log_sigma_2_samples = preds[:, 1, :].cpu()
@@ -174,10 +177,10 @@ def process_classification_prediction(
             and predictive uncertainty [batch_size]
             and logits [batch_size, num_classes]
     """
-    mean = nn.functional.softmax(preds.aggregate_fn(-1), dim=-1)
+    mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
     entropy = -(mean * mean.log()).sum(dim=-1)
 
-    return {"pred": mean, "pred_uct": entropy, "logits": preds.aggregate_fn(-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
 
 
 def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
@@ -218,7 +221,7 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
             - upper_quant: upper quantile of shape [batch_size]
         path: path where csv should be saved
     """
-    outputs = {k: v.cpu().numpy() for k, v in outputs.items()}
+    outputs = {k: v.squeeze().cpu().numpy() for k, v in outputs.items()}
     df = pd.DataFrame.from_dict(outputs)
 
     # check if path already exists, then just append

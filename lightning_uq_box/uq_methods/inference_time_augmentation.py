@@ -15,19 +15,40 @@ from torch import Tensor
 
 from .base import PosthocBase
 from .utils import (
-    _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
-    default_segmentation_metrics,
     process_classification_prediction,
     process_regression_prediction,
-    process_segmentation_prediction,
     save_classification_predictions,
     save_regression_predictions,
 )
 
-# TODO default augmentations should be composed with Kornia
-# and they should also be suggested to be used
+
+def torch_median_val_only(tensor: torch.Tensor, dim: int) -> torch.Tensor:
+    """Torch median but only return values."""
+    values, _ = torch.median(tensor, dim=dim)
+    return values
+
+
+def torch_max_val_only(tensor: torch.Tensor, dim: int) -> torch.Tensor:
+    """Torch max but only return values."""
+    values, _ = torch.max(tensor, dim=dim)
+    return values
+
+
+def torch_min_val_only(tensor: torch.Tensor, dim: int) -> torch.Tensor:
+    """Torch min but only return values."""
+    values, _ = torch.min(tensor, dim=dim)
+    return values
+
+
+merge_strategy_dict = {
+    "mean": torch.mean,
+    "median": torch_median_val_only,
+    "sum": torch.sum,
+    "max": torch_max_val_only,
+    "min": torch_min_val_only,
+}
 
 
 class TTABase(PosthocBase):
@@ -87,13 +108,11 @@ class TTABase(PosthocBase):
         # augment the targets as well in same order as predictionsn
         # TODO is it not enough to keep the same target for each augmentation
         # since they are being undone and should therefore stay the same?
-        aug_targets = torch.repeat(batch[self.target_key], len(self.tt_augmentation))
-        merged_aug_targets = self.merge_tta_tensor(aug_targets)
 
         # compute metrics
-        self.test_metrics(merged_aug_preds["pred"], merged_aug_targets)
+        self.test_metrics(merged_aug_preds["pred"], batch[self.target_key])
 
-        merged_aug_preds[self.target_key] = merged_aug_targets
+        merged_aug_preds[self.target_key] = batch[self.target_key]
 
         return merged_aug_preds
 
@@ -121,7 +140,7 @@ class TTABase(PosthocBase):
             """Yield prediction depending on underlying model."""
             with torch.no_grad():
                 if hasattr(self.model, "predict_step"):
-                    pred = self.model.predict_step(X)["pred"]
+                    pred = self.model.predict_step(X)
                 else:
                     pred = self.model(X)
             return pred
@@ -136,32 +155,33 @@ class TTABase(PosthocBase):
         for aug_fn in aug:
             # augment the input
             aug_X = aug_fn(X)
-            # make prediction
-            aug_pred = yield_prediction(aug_X)
-            # reverse augmentation
+            # reverse augmentation on the label to keep track on label
             # TODO
 
             # save prediction
-            aug_predictions.append(yield_prediction(X))
+            aug_predictions.append(yield_prediction(aug_X))
 
         # combine predictions to common tensor
-        # the DICT SHOULD ONLY CONTAIN THE RAW OUTPUTS FROM THE UNDERLYING MODEL SO
-        # THE LOGITS AND NOT THE COMPUTED PREDICTIVE MEANS
-        # SO FOR SAMPLING BASED METHODS NEED A CONCATENATION OF THE SAMPLES
-        # AND FOR NON-SAMPLING BASED METHODS NEED A STACKING OF THE LOGITS TO CREATE SAMPLES
+        # TODO: how should predictions be merged from underlying sampling based models?
+        # for example is the pred and pred_uct just averages of the augmentations
+        # or do you consider the underlying samples to create a larger set of samples
+        #  with the augmentations and compute uncertainty on those?
+        aug_preds: dict[str, Tensor] = {}
         if isinstance(aug_predictions[0], dict):
-            aug_preds = {}
             for key in aug_predictions[0].keys():
-                aug_preds[key] = torch.stack([pred[key] for pred in aug_predictions])
+                aug_preds[key] = torch.stack(
+                    [pred[key] for pred in aug_predictions], dim=-1
+                )
+                if key in ["pred", "logits"]:
+                    aug_preds[key] = merge_strategy_dict[self.merge_strategy](
+                        aug_preds[key], dim=-1
+                    )
+                else:
+                    aug_preds[key] = aug_preds[key].mean(dim=-1)
         else:
-            aug_preds = {"pred": torch.stack(aug_predictions)}
-
-        import pdb
-
-        pdb.set_trace()
-        # apply the merging to every key, val in pred dict
-        for key in aug_preds.keys():
-            aug_preds[key] = self.compute_predictive_uncertainty(aug_preds[key])
+            aug_preds = self.compute_predictive_uncertainty(
+                torch.stack(aug_predictions, dim=-1)
+            )
 
         return aug_preds
 
@@ -182,6 +202,8 @@ class TTABase(PosthocBase):
 
 class TTARegression(TTABase):
     """Regression Test Time Augmentation Module."""
+
+    pred_file_name = "preds.csv"
 
     def __init__(
         self,
@@ -212,29 +234,43 @@ class TTARegression(TTABase):
             self.tt_augmentation: list[nn.Module] = [
                 K.RandomHorizontalFlip(p=1.0),
                 K.RandomVerticalFlip(p=1.0),
+                K.ColorJiggle(
+                    brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=1.0
+                ),
             ]
 
-    def predict_step(
-        self,
-        X: Tensor,
-        aug: list[Callable[..., Any]] = None,
-        batch_idx: int = 0,
-        dataloader_idx: int = 0,
-    ) -> dict[str, Tensor]:
-        """Predict step with TTA applied.
+    def compute_predictive_uncertainty(self, aug_tensor: Tensor) -> dict[str, Tensor]:
+        """Merge predictions according to `merge_strategy`.
 
         Args:
-            X: prediction batch of shape [batch_size x input_dims]
-            aug: augmentation function to apply to X
-            batch_idx: batch index
-            dataloader_idx: dataloader index
+            aug_tensors: The tensor containing predictions from different
+                augmentations
 
         Returns:
-            regression predictions
+            The tensor after applying the merge strategy
         """
-        aug_preds = super().predict_step(X, aug, batch_idx, dataloader_idx)
+        if self.merge_strategy == "mean":
+            pred_dict = process_regression_prediction(
+                aug_tensor, aggregate_fn=torch.mean
+            )
+        elif self.merge_strategy == "median":
+            pred_dict = process_regression_prediction(
+                aug_tensor, aggregate_fn=torch_median_val_only
+            )
+        elif self.merge_strategy == "sum":
+            pred_dict = process_regression_prediction(
+                aug_tensor, aggregate_fn=torch.sum
+            )
+        elif self.merge_strategy == "max":
+            pred_dict = process_regression_prediction(
+                aug_tensor, aggregate_fn=torch_max_val_only
+            )
+        elif self.merge_strategy == "min":
+            pred_dict = process_regression_prediction(
+                aug_tensor, aggregate_fn=torch_min_val_only
+            )
 
-        return process_regression_prediction(aug_preds)
+        return pred_dict
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -295,6 +331,9 @@ class TTAClassification(TTABase):
             self.tt_augmentation: list[nn.Module] = [
                 K.RandomHorizontalFlip(p=1.0),
                 K.RandomVerticalFlip(p=1.0),
+                K.ColorJiggle(
+                    brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=1.0
+                ),
             ]
 
     def compute_predictive_uncertainty(self, aug_tensor: Tensor) -> dict[str, Tensor]:
@@ -313,7 +352,7 @@ class TTAClassification(TTABase):
             )
         elif self.merge_strategy == "median":
             pred_dict = process_classification_prediction(
-                aug_tensor, aggregate_fn=torch.median
+                aug_tensor, aggregate_fn=torch_median_val_only
             )
         elif self.merge_strategy == "sum":
             pred_dict = process_classification_prediction(
@@ -321,38 +360,14 @@ class TTAClassification(TTABase):
             )
         elif self.merge_strategy == "max":
             pred_dict = process_classification_prediction(
-                aug_tensor, aggregate_fn=torch.max
+                aug_tensor, aggregate_fn=torch_max_val_only
             )
         elif self.merge_strategy == "min":
             pred_dict = process_classification_prediction(
-                aug_tensor, aggregate_fn=torch.min
+                aug_tensor, aggregate_fn=torch_min_val_only
             )
 
         return pred_dict
-
-    def predict_step(
-        self,
-        X: Tensor,
-        aug: list[Callable[..., Any]] = None,
-        batch_idx: int = 0,
-        dataloader_idx: int = 0,
-    ) -> dict[str, Tensor]:
-        """Predict step with TTA applied.
-
-        Args:
-            X: prediction batch of shape [batch_size x input_dims]
-            aug: augmentation function to apply to X
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-
-        Returns:
-            classification predictions
-        """
-        aug_preds = super().predict_step(X, aug, batch_idx, dataloader_idx)
-        import pdb
-
-        pdb.set_trace()
-        return process_classification_prediction(aug_preds)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

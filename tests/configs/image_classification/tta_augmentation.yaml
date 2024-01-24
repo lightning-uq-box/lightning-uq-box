@@ -1,0 +1,4 @@
+model:
+  _target_: timm.create_model
+  model_name: resnet18
+  num_classes: 4
