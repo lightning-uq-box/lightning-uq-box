@@ -144,7 +144,7 @@ tta_model_paths = [
 
 class TestTTAModel:
     @pytest.mark.parametrize("model_config_path", tta_model_paths)
-    @pytest.mark.parametrize("merge_strategy", ["mean", "median", "sum"])
+    @pytest.mark.parametrize("merge_strategy", ["mean", "median", "sum", "max", "min"])
     def test_trainer(
         self, model_config_path: str, merge_strategy: str, tmp_path: Path
     ) -> None:
