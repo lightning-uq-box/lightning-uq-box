@@ -16,7 +16,7 @@ class ToyImageRegressionDataset(Dataset):
         super().__init__()
 
         self.num_samples = 10
-        self.images = [torch.ones(3, 64, 64) * val for val in range(self.num_samples)]
+        self.images = [torch.randn(3, 64, 64) for val in range(self.num_samples)]
         self.targets = torch.arange(0, self.num_samples).to(torch.float32)
 
     def __len__(self):

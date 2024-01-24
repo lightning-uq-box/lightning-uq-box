@@ -16,7 +16,7 @@ class ToyImageClassificationDataset(Dataset):
 
         self.num_samples = num_samples
         self.num_classes = num_classes
-        self.images = [torch.ones(3, 64, 64) * val for val in range(self.num_samples)]
+        self.images = [torch.randn(3, 64, 64) for val in range(self.num_samples)]
         self.targets = torch.randint(0, self.num_classes, (self.num_samples,))
 
     def __len__(self):

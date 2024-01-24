@@ -293,6 +293,15 @@ Hierachical Probabilistic UNet
 UQ Calibration Methods
 ======================
 
+Test Time Augmentation (TTA)
+----------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.inference_time_augmentation
+
+.. autoclass:: TTABase
+.. autoclass:: TTAClassification
+.. autoclass:: TTARegression
+
 Conformal Quantile Regression
 -----------------------------
 
