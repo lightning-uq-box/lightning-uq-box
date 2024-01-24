@@ -5,7 +5,7 @@
 
 import os
 from collections import OrderedDict
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 import pandas as pd
 import torch
@@ -159,7 +159,9 @@ def process_regression_prediction(
     return pred_dict
 
 
-def process_classification_prediction(preds: Tensor) -> dict[str, Tensor]:
+def process_classification_prediction(
+    preds: Tensor, aggregate_fn: Callable = torch.mean
+) -> dict[str, Tensor]:
     """Process classification predictions.
 
     Applies softmax to logit and computes mean over the samples and entropy.
@@ -172,10 +174,10 @@ def process_classification_prediction(preds: Tensor) -> dict[str, Tensor]:
             and predictive uncertainty [batch_size]
             and logits [batch_size, num_classes]
     """
-    mean = nn.functional.softmax(preds.mean(-1), dim=-1)
+    mean = nn.functional.softmax(preds.aggregate_fn(-1), dim=-1)
     entropy = -(mean * mean.log()).sum(dim=-1)
 
-    return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": preds.aggregate_fn(-1)}
 
 
 def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
