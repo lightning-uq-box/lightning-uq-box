@@ -56,6 +56,21 @@ class BaseModule(LightningModule):
         """
         return _get_num_outputs(self.model)
 
+    def on_train_epoch_end(self):
+        """Log epoch-level training metrics."""
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
+
+    def on_validation_epoch_end(self) -> None:
+        """Log epoch level validation metrics."""
+        self.log_dict(self.val_metrics.compute())
+        self.val_metrics.reset()
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
+
 
 class DeterministicModel(BaseModule):
     """Deterministic Base Trainer as LightningModule."""
@@ -132,11 +147,6 @@ class DeterministicModel(BaseModule):
 
         return loss
 
-    def on_train_epoch_end(self):
-        """Log epoch-level training metrics."""
-        self.log_dict(self.train_metrics.compute())
-        self.train_metrics.reset()
-
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -157,11 +167,6 @@ class DeterministicModel(BaseModule):
             self.val_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
-
-    def on_validation_epoch_end(self) -> None:
-        """Log epoch level validation metrics."""
-        self.log_dict(self.val_metrics.compute())
-        self.val_metrics.reset()
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -188,11 +193,6 @@ class DeterministicModel(BaseModule):
             del out_dict["out"]
 
         return out_dict
-
-    def on_test_epoch_end(self):
-        """Log epoch-level test metrics."""
-        self.log_dict(self.test_metrics.compute())
-        self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
