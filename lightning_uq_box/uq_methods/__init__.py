@@ -40,6 +40,7 @@ from .deep_kernel_learning import (
     compute_initial_values,
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
+from .guided_diffusion_model import GuidedDiffusionClassifier, GuidedDiffusionModel
 from .hierarchical_prob_unet import HierarchicalProbUNet
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
@@ -80,6 +81,9 @@ __all__ = (
     "NoiseScheduler",
     # conformalized Quantile Regression
     "ConformalQR",
+    # Guided Diffusion
+    "GuidedDiffusionModel",
+    "GuidedDiffusionClassifier",
     # MC-Dropout
     "MCDropoutBase",
     "MCDropoutRegression",

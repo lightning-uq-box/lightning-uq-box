@@ -30,26 +30,35 @@ model_config_paths = [
 
 data_config_paths = ["tests/configs/image_classification/toy_classification.yaml"]
 
+trainer_config_path = ["tests/configs/image_classification/trainer.yaml"]
+
 
 class TestImageClassificationTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
+    @pytest.mark.parametrize("trainer_config_path", trainer_config_path)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        trainer_config_path: str,
+        tmp_path: Path,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
+        trainer_conf = OmegaConf.load(trainer_config_path)
+
+        full_conf = OmegaConf.merge(trainer_conf, data_conf, model_conf)
 
         # timm resnets implement dropout as nn.functional and not modules
         # so the find_dropout_layers function yields a warning
         # TODO
         # match = "No dropout layers found in model*"
         # with pytest.warns(UserWarning):
-        model = instantiate(model_conf.model)
-        datamodule = instantiate(data_conf.data)
-        trainer = Trainer(
-            max_epochs=2,
-            log_every_n_steps=1,
+        model = instantiate(full_conf.model)
+        datamodule = instantiate(full_conf.data)
+        trainer = instantiate(
+            full_conf.trainer,
             default_root_dir=str(tmp_path),
             logger=CSVLogger(str(tmp_path)),
         )

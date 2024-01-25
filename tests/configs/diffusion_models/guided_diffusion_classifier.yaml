@@ -1,0 +1,13 @@
+model:
+  _target_: lightning_uq_box.uq_methods.GuidedDiffusionClassifier
+  image_size: 64
+  num_classes: 4
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ConstantLR
+    _partial_: true
+  use_ddim: true
+  diffusion_steps: 2
