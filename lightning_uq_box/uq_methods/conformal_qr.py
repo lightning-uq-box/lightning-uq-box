@@ -14,6 +14,8 @@ from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
 
+from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
+
 from .base import PosthocBase
 from .utils import default_regression_metrics, save_regression_predictions
 
@@ -121,6 +123,7 @@ class ConformalQR(PosthocBase):
         """
         if isinstance(model_output, dict):
             output_dict = copy.deepcopy(model_output)
+            output_dict["pred"] = model_output["pred"].squeeze(-1)
             output_dict["lower_quant"] = model_output["lower_quant"] - self.q_hat
             output_dict["upper_quant"] = model_output["upper_quant"] + self.q_hat
         else:
@@ -129,6 +132,21 @@ class ConformalQR(PosthocBase):
             output_dict["lower_quant"] = model_output[:, 0] - self.q_hat
             output_dict["pred"] = model_output[:, 1]
             output_dict["upper_quant"] = model_output[:, -1] + self.q_hat
+
+        # compute gaussian assumption std with updated quantiles
+        _, std = compute_sample_mean_std_from_quantile(
+            torch.stack(
+                [
+                    output_dict["lower_quant"],
+                    output_dict["pred"],
+                    output_dict["upper_quant"],
+                ],
+                dim=-1,
+            ),
+            self.quantiles,
+        )
+        output_dict["pred_uct"] = std
+        output_dict["aleatoric_uct"] = std
 
         return output_dict
 
