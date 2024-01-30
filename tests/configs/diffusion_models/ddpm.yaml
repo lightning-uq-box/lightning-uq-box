@@ -1,0 +1,20 @@
+model:
+  _target_: lightning_uq_box.uq_methods.DDPM
+  diffusion_model:
+    _target_: denoising_diffusion_pytorch.denoising_diffusion_pytorch.GaussianDiffusion
+    model:
+      _target_: denoising_diffusion_pytorch.denoising_diffusion_pytorch.Unet
+      dim: 64
+      channels: 3
+      out_dim: 3
+      flash_attn: true
+    image_size: 64
+    timesteps: 100
+    sampling_timesteps: 2
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ConstantLR
+    _partial_: true

@@ -19,10 +19,9 @@ class ConditionalLinear(nn.Module):
         """Initialize a new instance of the layer.
 
         Args:
-            n_inputs: number of inputs to the layer
-            n_outputs: number of outputs from the layer
+            n_inputs: number of inputs to the layer, could be the number of pixels
+            n_outputs: number of outputs from the layer, number of classes
             n_steps: number of diffusion steps in embedding
-
         """
         super().__init__()
         self.n_outputs = n_outputs
