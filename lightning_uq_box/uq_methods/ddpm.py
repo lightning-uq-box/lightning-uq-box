@@ -18,15 +18,9 @@ from denoising_diffusion_pytorch.guided_diffusion import (
 )
 from ema_pytorch import EMA
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
-from lightning.pytorch.utilities.types import EVAL_DATALOADERS
 from torch import Tensor
-from torch.optim.adam import Adam as Adam
 
 from .base import BaseModule
-
-# TODO could this not come from CARDs model?
-# this classifier should be pretrained or no?
-# if not just provide a conditional linear layer
 
 
 def classifier_cond_fn(
@@ -75,13 +69,21 @@ class DDPM(BaseModule):
 
         Args:
             diffusion_model: diffusion model
+            ema_decay: exponential moving average decay
+            ema_update_every: update EMA every this many update calls
+            optimizer: optimizer
+            lr_scheduler: learning rate scheduler
         """
         super().__init__()
 
         self.diffusion_model = diffusion_model
         self.ema_decay = ema_decay
         self.ema_update_every = ema_update_every
-        # self.ema = EMA(self.diffusion_model, beta=self.ema_decay, update_every=self.ema_update_every)
+        self.ema = EMA(
+            self.diffusion_model,
+            beta=self.ema_decay,
+            update_every=self.ema_update_every,
+        )
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
 
@@ -131,7 +133,13 @@ class DDPM(BaseModule):
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
-        """"""
+        """Test step.
+
+        Args:
+            batch: the output of your DataLoader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
         pass
 
     def predict_step(
@@ -150,7 +158,7 @@ class DDPM(BaseModule):
             batch_size, return_all_timesteps=True
         )
 
-        return {"pred": sampled_images}
+        return {"sample": sampled_images}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -209,7 +217,9 @@ class GuidedDDPM(DDPM):
             batch[self.input_key].shape[0],
             batch[self.input_key].device,
         )
-        t = torch.randint(0, self.num_timesteps, (batch_size,), device=device).long()
+        t = torch.randint(
+            0, self.diffusion_model.num_timesteps, (batch_size,), device=device
+        ).long()
 
         q_sample = self.diffusion_model.q_sample(batch[self.input_key], t)
 
@@ -237,14 +247,14 @@ class GuidedDDPM(DDPM):
             batch_size,
             return_all_timesteps=True,
             cond_fn=classifier_cond_fn,
-            cond_fn_kwargs={
+            guidance_kwargs={
                 "classifier": self.classifier,
                 "y": torch.fill(torch.zeros(batch_size), 1).long(),
                 "classifier_scale": 1,
             },
         )
 
-        return {"pred": sampled_images}
+        return {"sample": sampled_images}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.

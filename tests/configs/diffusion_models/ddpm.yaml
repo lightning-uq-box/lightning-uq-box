@@ -4,7 +4,7 @@ model:
     _target_: denoising_diffusion_pytorch.denoising_diffusion_pytorch.GaussianDiffusion
     model:
       _target_: denoising_diffusion_pytorch.denoising_diffusion_pytorch.Unet
-      dim: 64
+      dim: 16
       channels: 3
       out_dim: 3
       flash_attn: true

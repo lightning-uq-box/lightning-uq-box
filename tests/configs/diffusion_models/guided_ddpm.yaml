@@ -1,14 +1,23 @@
 model:
   _target_: lightning_uq_box.uq_methods.GuidedDDPM
   diffusion_model:
-    _target_: denoising_diffusion_pytorch.denoising_diffusion_pytorch.GaussianDiffusion
+    _target_: denoising_diffusion_pytorch.guided_diffusion.GaussianDiffusion
     model:
-      _target_: denoising_diffusion_pytorch.denoising_diffusion_pytorch.Unet
-      in_channels: 3
-      out_channels: 3
-      flash_attn: true
+      _target_: denoising_diffusion_pytorch.guided_diffusion.Unet
+      dim: 16
+      channels: 3
+      out_dim: 3
     image_size: 64
-    timesteps: 2
+    timesteps: 100
+    sampling_timesteps: 2
+  classifier:
+    _target_: lightning_uq_box.models.ConditionalEncoder
+    encoder:
+      _target_: timm.create_model
+      model_name: resnet18
+      num_classes: 15 # embedding with conditional layer afterwards
+    n_outputs: 4
+    n_steps: 100
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true

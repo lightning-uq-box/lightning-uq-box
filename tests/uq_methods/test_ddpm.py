@@ -12,7 +12,7 @@ from omegaconf import OmegaConf
 
 model_config_paths = [
     "tests/configs/diffusion_models/ddpm.yaml",
-    # "tests/configs/diffusion_models/guided_diffusion_classifier.yaml",
+    "tests/configs/diffusion_models/guided_ddpm.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_classification/toy_classification.yaml"]
@@ -37,11 +37,7 @@ class TestImageClassificationTask:
 
         full_conf = OmegaConf.merge(trainer_conf, data_conf, model_conf)
 
-        if "classifier" in model_config_path:
-            # TODO update correctly
-            pass
-        else:
-            model = instantiate(full_conf.model)
+        model = instantiate(full_conf.model)
 
         datamodule = instantiate(full_conf.data)
         trainer = instantiate(
