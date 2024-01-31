@@ -144,10 +144,10 @@ class CARDBase(BaseModule):
         Returns:
             training loss
         """
-        train_loss, y_t_sample = self.diffusion_process(batch)
+        loss, y_t_sample = self.diffusion_process(batch)
 
-        self.log("train_loss", train_loss)
-        return train_loss
+        self.log("train_loss", loss, batch_size=batch[self.input_key].shape[0])
+        return loss
 
     # TODO what metrics should be logged?
     # def on_train_epoch_end(self):
@@ -166,9 +166,9 @@ class CARDBase(BaseModule):
         Returns:
             validation loss
         """
-        val_loss, y_t_sample = self.diffusion_process(batch)
-        self.log("val_loss", val_loss)
-        return val_loss
+        loss, y_t_sample = self.diffusion_process(batch)
+        self.log("val_loss", loss, batch_size=batch[self.input_key].shape[0])
+        return loss
 
     # def on_validation_epoch_end(self) -> None:
     #     """Log epoch level validation metrics."""
@@ -498,12 +498,7 @@ class CARDBase(BaseModule):
             )
 
         # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                if isinstance(val, Tensor):
-                    out_dict[key] = val.detach().squeeze(-1)
-                else:
-                    out_dict[key] = val
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         return out_dict
 

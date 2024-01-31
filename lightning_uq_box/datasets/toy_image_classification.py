@@ -29,4 +29,9 @@ class ToyImageClassificationDataset(Dataset):
         Args:
             index: index value to index dataset
         """
-        return {"input": self.images[index], "target": self.targets[index]}
+        return {
+            "input": self.images[index],
+            "target": self.targets[index],
+            "index": index,
+            "aux": "random_aux_data",
+        }

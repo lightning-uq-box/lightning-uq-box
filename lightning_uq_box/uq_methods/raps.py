@@ -115,7 +115,11 @@ class RAPS(PosthocBase):
         pred_dict = self.predict_step(batch[self.input_key])
 
         # logging metrics
-        self.log("test_loss", self.loss_fn(pred_dict["pred"], batch[self.target_key]))
+        self.log(
+            "test_loss",
+            self.loss_fn(pred_dict["pred"], batch[self.target_key]),
+            batch_size=batch[self.input_key].shape[0],
+        )
         self.test_metrics(pred_dict["pred"], batch[self.target_key])
         return pred_dict
 

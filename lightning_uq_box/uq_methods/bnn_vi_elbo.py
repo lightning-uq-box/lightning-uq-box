@@ -158,7 +158,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
 
         elbo_loss, mean_output = self.compute_elbo_loss(X, y)
 
-        self.log("train_loss", elbo_loss)  # logging to Logger
+        self.log("train_loss", elbo_loss, batch_size=X.shape[0])  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.train_metrics(mean_output, y)
 
@@ -180,7 +180,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
 
         elbo_loss, mean_output = self.compute_elbo_loss(X, y)
 
-        self.log("val_loss", elbo_loss)  # logging to Logger
+        self.log("val_loss", elbo_loss, batch_size=X.shape[0])  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.val_metrics(mean_output, y)
 
@@ -414,7 +414,6 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
