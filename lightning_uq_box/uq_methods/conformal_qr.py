@@ -185,9 +185,7 @@ class ConformalQR(PosthocBase):
         self.test_metrics(out_dict["pred"], out_dict[self.target_key])
 
         # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu()
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         if "out" in out_dict:
             del out_dict["out"]

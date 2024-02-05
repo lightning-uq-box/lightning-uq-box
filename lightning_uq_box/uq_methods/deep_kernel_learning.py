@@ -178,7 +178,9 @@ class DKLBase(gpytorch.Module, BaseModule):
         y_pred = self.forward(X)
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.train_metrics(y_pred.mean, y.squeeze(-1))
         return loss
@@ -213,7 +215,9 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
-        self.log("val_loss", loss)  # logging to Logger
+        self.log(
+            "val_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
 
         if batch[self.input_key].shape[0] > 1:
             self.val_metrics(y_pred.mean, y.squeeze(-1))
@@ -229,6 +233,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.log(
             "test_loss",
             -self.elbo_fn(out_dict["out"], batch[self.target_key].squeeze(-1)),
+            batch_size=batch[self.input_key].shape[0],
         )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))
@@ -238,9 +243,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         out_dict["pred"] = out_dict["pred"].detach().cpu()
 
         # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu()
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
         return out_dict
 
     def on_validation_epoch_end(self) -> None:
@@ -506,7 +509,9 @@ class DKLClassification(DKLBase):
         y_pred = self.forward(X)
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         scores = self.likelihood(y_pred).probs.mean(0)
         self.train_metrics(scores, y.squeeze(-1))
         return loss
@@ -536,7 +541,9 @@ class DKLClassification(DKLBase):
 
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
-        self.log("val_loss", loss)  # logging to Logger
+        self.log(
+            "val_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         scores = self.likelihood(y_pred).probs.mean(0)
         self.val_metrics(scores, y.squeeze(-1))
         return loss

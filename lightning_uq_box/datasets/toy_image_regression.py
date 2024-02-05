@@ -32,4 +32,6 @@ class ToyImageRegressionDataset(Dataset):
         return {
             "input": self.images[index],
             "target": self.targets[index].unsqueeze(-1),
+            "index": index,
+            "aux": "random_aux_data",
         }

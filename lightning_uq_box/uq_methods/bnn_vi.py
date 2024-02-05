@@ -158,7 +158,7 @@ class BNN_VI_Base(DeterministicModel):
 
         energy_loss, mean_output = self.compute_energy_loss(X, y)
 
-        self.log("train_loss", energy_loss)  # logging to Logger
+        self.log("train_loss", energy_loss, batch_size=X.shape[0])  # logging to Logger
         self.train_metrics(mean_output, y)
 
         return energy_loss
@@ -178,7 +178,7 @@ class BNN_VI_Base(DeterministicModel):
         X, y = batch[self.input_key], batch[self.target_key]
         energy_loss, mean_output = self.compute_energy_loss(X, y)
 
-        self.log("val_loss", energy_loss)  # logging to Logger
+        self.log("val_loss", energy_loss, batch_size=X.shape[0])  # logging to Logger
         self.val_metrics(mean_output, y)
 
         return energy_loss
@@ -401,7 +401,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
+        del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )

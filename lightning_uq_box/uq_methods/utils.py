@@ -7,6 +7,7 @@ import os
 from collections import OrderedDict
 from typing import Callable, Optional, Union
 
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -48,7 +49,7 @@ def checkpoint_loader(
     """
     state_dict = {
         k.replace("model.", ""): v
-        for k, v in torch.load(ckpt_path)["state_dict"].items()
+        for k, v in torch.load(ckpt_path, map_location="cpu")["state_dict"].items()
     }
     model_class.model.load_state_dict(state_dict)
     if return_model:
@@ -221,8 +222,14 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
             - upper_quant: upper quantile of shape [batch_size]
         path: path where csv should be saved
     """
-    outputs = {k: v.squeeze().cpu().numpy() for k, v in outputs.items()}
-    df = pd.DataFrame.from_dict(outputs)
+    cpu_outputs = {}
+    for key, val in outputs.items():
+        if isinstance(val, Tensor):
+            cpu_outputs[key] = val.squeeze(-1).cpu().numpy()
+        else:
+            cpu_outputs[key] = np.array(val)
+
+    df = pd.DataFrame.from_dict(cpu_outputs)
 
     # check if path already exists, then just append
     if os.path.exists(path):
@@ -254,12 +261,17 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
 
     pred = torch.argmax(outputs.pop("pred"), dim=1).cpu().numpy()
 
-    outputs = {k: v.cpu().numpy() for k, v in outputs.items()}
+    cpu_outputs = {}
+    for key, val in outputs.items():
+        if isinstance(val, Tensor):
+            cpu_outputs[key] = val.squeeze(-1).cpu().numpy()
+        else:
+            cpu_outputs[key] = np.array(val)
 
     df_pred = pd.DataFrame(pred, columns=["pred"])
 
     # Create DataFrame for the rest of the outputs
-    df_outputs = pd.DataFrame.from_dict(outputs)
+    df_outputs = pd.DataFrame.from_dict(cpu_outputs)
 
     # Concatenate the two DataFrames
     df = pd.concat([df_pred, df_outputs], axis=1)

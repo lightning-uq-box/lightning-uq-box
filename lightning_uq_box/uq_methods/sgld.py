@@ -245,7 +245,9 @@ class SGLDRegression(SGLDBase):
 
         loss = sgld_opt.step(closure=closure)
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         self.train_metrics(self.adapt_output_for_metrics(out), y)
 
         # return loss
@@ -372,7 +374,9 @@ class SGLDClassification(SGLDBase):
 
         loss = sgld_opt.step(closure=closure)
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         self.train_metrics(self.adapt_output_for_metrics(out), y)
 
         return loss
