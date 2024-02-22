@@ -323,7 +323,7 @@ def map_stochastic_modules(
             f"Model only contains these parameter modules {module_names}, "
             f"and you requested {stochastic_module_names}."
         )
-        part_stoch_names = module_names.copy()
+        part_stoch_names = stochastic_module_names
     else:
         raise ValueError
     return part_stoch_names
@@ -359,15 +359,35 @@ def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]
         output key and module
     """
     keys = []
+    last_module_with_out_features = None
+    last_keys_with_out_features = None
     children = list(model.named_children())
     while children != []:
         name, module = children[-1]
         keys.append(name)
-        children = list(module.named_children())
+        next_children = list(module.named_children())
+        if next_children == []:
+            if hasattr(module, "out_features") or hasattr(module, "out_channels"):
+                last_module_with_out_features = module
+                last_keys_with_out_features = list(keys)
+            else:
+                for i in range(
+                    len(children) - 2, -1, -1
+                ):  # Iterate backwards through previous children
+                    name, module = children[i]
+                    if hasattr(module, "out_features") or hasattr(
+                        module, "out_channels"
+                    ):
+                        last_module_with_out_features = module
+                        last_keys_with_out_features = list(keys)
+                        break
+        children = next_children
 
-    key = ".".join(keys)
+    if last_module_with_out_features is None:
+        raise ValueError("No layer with out_features found.")
 
-    return key, module
+    key = ".".join(last_keys_with_out_features)
+    return key, last_module_with_out_features
 
 
 def _get_num_inputs(model: nn.Module) -> int:
