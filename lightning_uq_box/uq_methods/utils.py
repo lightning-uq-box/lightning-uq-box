@@ -407,9 +407,6 @@ def _get_num_outputs(model: nn.Module) -> int:
         num_outputs = module.out_features
     elif hasattr(module, "out_channels"):  # Conv Layer
         num_outputs = module.out_channels
-    elif "segmentation_models_pytorch" in str(type(model)):
-        _, seg_module = _get_input_layer_name_and_module(model.segmentation_head)
-        num_outputs = seg_module.out_channels
     else:
         raise ValueError(f"Module {module} does not have out_features or out_channels.")
     return num_outputs
