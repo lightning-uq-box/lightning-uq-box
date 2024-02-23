@@ -10,6 +10,7 @@ import pytest
 from hydra.utils import instantiate
 from lightning import Trainer
 from lightning.pytorch import seed_everything
+from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
 from pytest import TempPathFactory
 
@@ -46,6 +47,7 @@ class TestImageClassificationTask:
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
             deterministic=True,
+            logger=CSVLogger(str(tmp_path)),
         )
 
         trainer.fit(model, datamodule)

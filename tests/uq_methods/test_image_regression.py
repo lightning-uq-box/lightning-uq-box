@@ -11,11 +11,12 @@ from typing import Any, Dict
 import pytest
 from hydra.utils import instantiate
 from lightning import Trainer
+from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
 from pytest import TempPathFactory
 
 from lightning_uq_box.datamodules import ToyImageRegressionDatamodule
-from lightning_uq_box.uq_methods import DeepEnsembleRegression
+from lightning_uq_box.uq_methods import DeepEnsembleRegression, TTARegression
 
 model_config_paths = [
     "tests/configs/image_regression/mc_dropout_nll.yaml",
@@ -54,7 +55,10 @@ class TestImageRegressionTask:
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+            max_epochs=2,
+            log_every_n_steps=1,
+            default_root_dir=str(tmp_path),
+            logger=CSVLogger(str(tmp_path)),
         )
         # laplace only uses test
         if "laplace" not in model_config_path:
@@ -123,3 +127,26 @@ class TestDeepEnsemble:
         assert os.path.exists(
             os.path.join(trainer.default_root_dir, ensemble_model.pred_file_name)
         )
+
+
+tta_model_paths = [
+    "tests/configs/image_regression/mc_dropout_nll.yaml",
+    "tests/configs/image_regression/qr_model.yaml",
+    "tests/configs/image_regression/tta_augmentation.yaml",
+]
+
+
+class TestTTAModel:
+    @pytest.mark.parametrize("model_config_path", tta_model_paths)
+    @pytest.mark.parametrize("merge_strategy", ["mean", "median", "sum", "max", "min"])
+    def test_trainer(
+        self, model_config_path: str, merge_strategy: str, tmp_path: Path
+    ) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        base_model = instantiate(model_conf.model)
+        tta_model = TTARegression(base_model, merge_strategy=merge_strategy)
+        datamodule = ToyImageRegressionDatamodule()
+
+        trainer = Trainer(default_root_dir=str(tmp_path))
+
+        trainer.test(tta_model, datamodule)

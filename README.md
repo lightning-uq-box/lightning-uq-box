@@ -77,10 +77,11 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Hierarchical Probabilistic UNet|     ❌     |       ❌       |      ✅      |          ❌           |
 
 
-### Post-Hoc Calibration methods
+### Post-Hoc methods
 
 | UQ-Method            | Regression            | Classification            | Segmentation              | Pixel Wise Regression      |
 |----------------------|:---------------------:|:-------------------------:|:-------------------------:|:--------------------------:|
+| Test Time Augmentation|          ✅            |           ✅              |           ⏳               |            ⏳               |
 | Temperature Scaling  |          ❌           |           ✅              |           ⏳              |            ❌              |
 | Conformal QR         |          ✅           |           ❌              |           ❌              |            ⏳              |
 | RAPS                 |          ❌           |           ✅              |           ❌              |            ❌              |

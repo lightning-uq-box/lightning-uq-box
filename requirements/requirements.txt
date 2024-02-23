@@ -11,3 +11,4 @@ laplace-torch==0.1a2
 gpytorch==1.11
 pandas==1.5.3
 uncertainty-toolbox==0.1.1
+kornia==0.6.9

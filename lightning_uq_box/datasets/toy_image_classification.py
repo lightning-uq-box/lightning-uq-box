@@ -10,13 +10,13 @@ from torch.utils.data import Dataset
 class ToyImageClassificationDataset(Dataset):
     """Toy Image Classification Dataset."""
 
-    def __init__(self, num_classes: int = 2, num_samples: int = 10) -> None:
+    def __init__(self, num_classes: int = 4, num_samples: int = 10) -> None:
         """Initialize a new instance of Toy Image Classification Dataset."""
         super().__init__()
 
         self.num_samples = num_samples
         self.num_classes = num_classes
-        self.images = [torch.ones(3, 64, 64) * val for val in range(self.num_samples)]
+        self.images = [torch.randn(3, 64, 64) for val in range(self.num_samples)]
         self.targets = torch.randint(0, self.num_classes, (self.num_samples,))
 
     def __len__(self):
@@ -29,4 +29,9 @@ class ToyImageClassificationDataset(Dataset):
         Args:
             index: index value to index dataset
         """
-        return {"input": self.images[index], "target": self.targets[index]}
+        return {
+            "input": self.images[index],
+            "target": self.targets[index],
+            "index": index,
+            "aux": "random_aux_data",
+        }

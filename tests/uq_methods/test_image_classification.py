@@ -10,11 +10,12 @@ from typing import Any, Dict
 import pytest
 from hydra.utils import instantiate
 from lightning import Trainer
+from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
 from pytest import TempPathFactory
 
 from lightning_uq_box.datamodules import ToyImageClassificationDatamodule
-from lightning_uq_box.uq_methods import DeepEnsembleClassification
+from lightning_uq_box.uq_methods import DeepEnsembleClassification, TTAClassification
 
 model_config_paths = [
     "tests/configs/image_classification/mc_dropout.yaml",
@@ -48,7 +49,10 @@ class TestImageClassificationTask:
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+            max_epochs=2,
+            log_every_n_steps=1,
+            default_root_dir=str(tmp_path),
+            logger=CSVLogger(str(tmp_path)),
         )
         # laplace only uses test
         if "laplace" not in model_config_path:
@@ -123,7 +127,7 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(
-            len(ensemble_members_dict), ensemble_members_dict, 2
+            len(ensemble_members_dict), ensemble_members_dict, num_classes=4
         )
 
         datamodule = ToyImageClassificationDatamodule()
@@ -131,3 +135,25 @@ class TestDeepEnsemble:
         trainer = Trainer(default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
+
+
+tta_model_paths = [
+    "tests/configs/image_classification/mc_dropout.yaml",
+    "tests/configs/image_classification/tta_augmentation.yaml",
+]
+
+
+class TestTTAModel:
+    @pytest.mark.parametrize("model_config_path", tta_model_paths)
+    @pytest.mark.parametrize("merge_strategy", ["mean", "median", "sum", "max", "min"])
+    def test_trainer(
+        self, model_config_path: str, merge_strategy: str, tmp_path: Path
+    ) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        base_model = instantiate(model_conf.model)
+        tta_model = TTAClassification(base_model, merge_strategy=merge_strategy)
+        datamodule = ToyImageClassificationDatamodule()
+
+        trainer = Trainer(default_root_dir=str(tmp_path))
+
+        trainer.test(tta_model, datamodule)

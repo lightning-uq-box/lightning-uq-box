@@ -56,6 +56,26 @@ class BaseModule(LightningModule):
         """
         return _get_num_outputs(self.model)
 
+    def add_aux_data_to_dict(
+        self, out_dict: dict[str, Tensor], batch: dict[str, Tensor]
+    ) -> dict[str, Tensor]:
+        """Add auxiliary data to output dictionary.
+
+        Args:
+            out_dict: output dictionary
+            batch: batch of data
+
+        Returns:
+            updated dict
+        """
+        for key, val in batch.items():
+            if key not in [self.input_key, self.target_key]:
+                if isinstance(val, Tensor):
+                    out_dict[key] = val.detach().squeeze(-1)
+                else:
+                    out_dict[key] = val
+        return out_dict
+
 
 class DeterministicModel(BaseModule):
     """Deterministic Base Trainer as LightningModule."""
@@ -124,7 +144,9 @@ class DeterministicModel(BaseModule):
         out = self.forward(batch[self.input_key])
         loss = self.loss_fn(out, batch[self.target_key])
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.train_metrics(
                 self.adapt_output_for_metrics(out), batch[self.target_key]
@@ -152,7 +174,9 @@ class DeterministicModel(BaseModule):
         out = self.forward(batch[self.input_key])
         loss = self.loss_fn(out, batch[self.target_key])
 
-        self.log("val_loss", loss)  # logging to Logger
+        self.log(
+            "val_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.val_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
@@ -172,17 +196,13 @@ class DeterministicModel(BaseModule):
 
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(
-                out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1)
+                out_dict["pred"].squeeze(-1), batch[self.target_key].squeeze(-1)
             )
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
-        # save metadata
-        # UNIQUE to method
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1)
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         if "out" in out_dict:
             del out_dict["out"]
@@ -277,7 +297,7 @@ class DeterministicClassification(DeterministicModel):
             lr_scheduler: learning rate scheduler
         """
         self.num_classes = _get_num_outputs(model)
-        assert task in self.valid_tasks
+        assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
         self.task = task
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
@@ -405,6 +425,11 @@ class PosthocBase(BaseModule):
     ) -> dict[str, Tensor]:
         """Test step after running posthoc fitting methodology."""
         raise NotImplementedError
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model output according to post-hoc fitting procedure.

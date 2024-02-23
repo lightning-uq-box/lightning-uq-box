@@ -4,48 +4,108 @@
 """Metrics for uncertainty quantification."""
 
 # TODO eventually these can hopefully be moved to torchmetrics
-
-from typing import List
+from typing import List, Optional, Union
 
 import torch
+from torch import Tensor
 from torchmetrics import Metric
 
 
-class EmpiricalCoverage(Metric):
+class EmpiricalCoverageBase(Metric):
     """Empirical Coverage."""
 
-    def __init__(self, compute_on_step: bool = False, dist_sync_on_step: bool = False):
+    def __init__(self, alpha: float = 0.1, topk: Optional[int] = 1, **kwargs):
         """Initialize a new instance of Empirical Coverage Metric.
 
         Args:
-            compute_on_step: Forward only calls update and return None if this is
-                set to False
-            dist_sync_on_step: Synchronize metric state across processes at each step if
-                this is set to True
+            alpha: 1 - alpha is desired coverage, this is being used if we
+                have a prediction tensor, and will choose the set size such
+                that coverage is 1-alpha
+            topk: if a prediction tensor is used as a prediction set, this is the topk
         """
-        super().__init__(
-            compute_on_step=compute_on_step, dist_sync_on_step=dist_sync_on_step
-        )
+        super().__init__(**kwargs)
+        self.alpha = alpha
+        self.covered = 0
+        self.total = 0
+        self.set_size = 0
+        self.topk = topk
 
-    # TODO make this method accept a list of tensors of just a prediction tensor
-    def update(self, pred_set: List[torch.Tensor], targets: torch.Tensor):
+    def update(
+        self, pred_set: Union[List[torch.Tensor], Tensor], targets: torch.Tensor
+    ) -> None:
         """Update the state with the prediction set and targets.
 
         Args:
-            pred_set: List of tensors of predicted labels for each sample in the batch.
+            pred_set: List of tensors of predicted labels for each sample in the batch
+                or alternatively a tensor of shape [batch_size, num_samples]
+                in which case you take topk to get the predicted labels
             targets: Tensor of true labels shape [batch_size, num_classes]
         """
         covered = 0
-        for i in range(targets.shape[0]):
-            if targets[i].item() in pred_set[i]:
-                covered += 1
+        set_size = 0
+        if isinstance(pred_set, torch.Tensor):
+            if self.topk is not None:
+                _, topk_pred_set = pred_set.topk(self.topk, dim=1)
+                covered += (
+                    (targets.unsqueeze(1) == topk_pred_set).any(dim=1).sum().item()
+                )
+                set_size = self.topk * pred_set.shape[0]
+            else:
+                for k in range(1, pred_set.shape[1] + 1):
+                    _, topk_pred_set = pred_set.topk(k, dim=1)
+                    batch_covered = (
+                        (targets.unsqueeze(1) == topk_pred_set).any(dim=1).sum().item()
+                    )
+                    # batch_covered = torch.isin(topk_pred_set, targets).sum().item()
+                    batch_coverage = batch_covered / pred_set.shape[0]
+                    if batch_coverage >= 1 - self.alpha:
+                        set_size += k * pred_set.shape[0]
+                        covered += batch_covered
+                        break
+        # list of tensors denoting prediction sets
+        # fore each sample in the batch
+        else:
+            for i in range(targets.shape[0]):
+                if targets[i].item() in pred_set[i]:
+                    covered += 1
+                set_size += len(pred_set[i])
+
         self.covered += covered
+        self.set_size += set_size
         self.total += targets.shape[0]
 
-    def compute(self) -> float:
+    def compute(self) -> dict[str, float]:
         """Compute the coverage of the prediction sets.
 
         Returns:
             The coverage of the prediction sets.
         """
-        return self.covered / self.total
+        # compute average coverage and set size
+        return {
+            "coverage": self.covered / self.total,
+            "set_size": self.set_size / self.total,
+        }
+
+
+class EmpiricalCoverage(EmpiricalCoverageBase):
+    """Empirical Coverage."""
+
+    def compute(self) -> Tensor:
+        """Compute the coverage of the prediction sets.
+
+        Returns:
+            The coverage of the prediction sets.
+        """
+        return torch.tensor(self.covered / self.total)
+
+
+class SetSize(EmpiricalCoverageBase):
+    """Set Size."""
+
+    def compute(self) -> Tensor:
+        """Compute the set size of the prediction sets.
+
+        Returns:
+            The set size of the prediction sets.
+        """
+        return torch.tensor(self.set_size / self.total)

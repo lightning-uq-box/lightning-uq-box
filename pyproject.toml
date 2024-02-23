@@ -58,7 +58,9 @@ dependencies = [
     # Laplace Approximation
     "laplace-torch>=0.1a2",
     # Uncertainty toolbox metrics
-    "uncertainty-toolbox>=0.1.1"
+    "uncertainty-toolbox>=0.1.1",
+    # Kornia for Test Time Augmentations and other image processing
+    "kornia>=0.6.9"
 ]
 dynamic = ["version"]
 
@@ -77,8 +79,8 @@ dev = [
     "omegaconf>=2.3.0",
     # timm usef for model config testing
     "timm>=0.9.2",
-    # segmentation models pytorch for model config testing
-    "segmentation-models-pytorch>=0.3.3",
+    # torchseg for segmentation models
+    "torchseg>=0.0.1a1",
 
 
     ### Docs ###
