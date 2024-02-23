@@ -323,7 +323,7 @@ def map_stochastic_modules(
             f"Model only contains these parameter modules {module_names}, "
             f"and you requested {stochastic_module_names}."
         )
-        part_stoch_names = module_names.copy()
+        part_stoch_names = stochastic_module_names
     else:
         raise ValueError
     return part_stoch_names
@@ -358,16 +358,20 @@ def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]
     Returns:
         output key and module
     """
-    keys = []
-    children = list(model.named_children())
-    while children != []:
-        name, module = children[-1]
-        keys.append(name)
-        children = list(module.named_children())
+    queue = list(model.named_modules())
+    last_module_with_out = None
+    last_keys_with_out = None
 
-    key = ".".join(keys)
+    while queue:
+        name, module = queue.pop(0)
+        if hasattr(module, "out_features") or hasattr(module, "out_channels"):
+            last_module_with_out = module
+            last_keys_with_out = name
 
-    return key, module
+    if last_module_with_out is None:
+        raise ValueError("No layer with out_features found.")
+
+    return last_keys_with_out, last_module_with_out
 
 
 def _get_num_inputs(model: nn.Module) -> int:
@@ -403,9 +407,6 @@ def _get_num_outputs(model: nn.Module) -> int:
         num_outputs = module.out_features
     elif hasattr(module, "out_channels"):  # Conv Layer
         num_outputs = module.out_channels
-    elif "segmentation_models_pytorch" in str(type(model)):
-        _, seg_module = _get_input_layer_name_and_module(model.segmentation_head)
-        num_outputs = seg_module.out_channels
     else:
         raise ValueError(f"Module {module} does not have out_features or out_channels.")
     return num_outputs
