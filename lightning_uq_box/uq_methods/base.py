@@ -17,6 +17,7 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    process_classification_prediction,
     save_classification_predictions,
     save_regression_predictions,
 )
@@ -336,7 +337,12 @@ class DeterministicClassification(DeterministicModel):
         """
         with torch.no_grad():
             out = self.forward(X)
-        return {"pred": self.adapt_output_for_metrics(out), "logits": out}
+
+        def identity(x, dim=None):
+            return x
+
+        return process_classification_prediction(out, aggregate_fn=identity)
+        # return {"pred": self.adapt_output_for_metrics(out), "logits": out}
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

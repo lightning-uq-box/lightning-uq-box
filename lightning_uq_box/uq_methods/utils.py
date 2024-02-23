@@ -164,7 +164,7 @@ def process_regression_prediction(
 
 
 def process_classification_prediction(
-    preds: Tensor, aggregate_fn: Callable = torch.mean
+    preds: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
 ) -> dict[str, Tensor]:
     """Process classification predictions.
 
@@ -179,12 +179,15 @@ def process_classification_prediction(
             and logits [batch_size, num_classes]
     """
     mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
+    # prevent log of 0 -> nan
+    mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=-1)
-
     return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
 
 
-def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
+def process_segmentation_prediction(
+    preds: Tensor, eps: float = 1e-7
+) -> dict[str, Tensor]:
     """Process segmentation predictions.
 
     Applies softmax to logit and computes mean over the samples and entropy.
@@ -199,6 +202,8 @@ def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
     """
     # dim=1 is the expected num classes dimension
     mean = nn.functional.softmax(preds.mean(-1), dim=1)
+    # prevent log of 0 -> nan
+    mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=1)
     return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
 
