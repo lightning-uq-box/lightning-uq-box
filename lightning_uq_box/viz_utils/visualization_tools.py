@@ -177,10 +177,12 @@ def plot_predictions_regression(
         title: title of plot
         show_bands: show uncertainty bands
     """
+    import textwrap
+
     if y_pred.ndim == 2:
         y_pred = y_pred.squeeze(-1)
-    # fig, ax = plt.subplots(ncols=2)
-    fig = plt.figure(figsize=(10, 7))
+
+    fig = plt.figure(figsize=(13, 7))
     ax0 = fig.add_subplot(1, 2, 1)
     if samples is not None:
         ax0.scatter(
@@ -239,13 +241,16 @@ def plot_predictions_regression(
         ax1.set_title("Epistemic Uncertainty")
         ax1.legend()
     else:
+        wrapped_text = textwrap.fill(
+            "This Method does not quantify epistemic uncertainty.", width=30
+        )
         ax1.text(
             0.5,
             0.5,
-            "This Method does not quantify epistemic uncertainty.",
+            wrapped_text,
             horizontalalignment="center",
             verticalalignment="center",
-            fontsize=15,
+            fontsize=12,
         )
 
     # aleatoric uncertainty figure
@@ -273,13 +278,16 @@ def plot_predictions_regression(
 
         ax2.set_title("Aleatoric Uncertainty")
     else:
+        wrapped_text = textwrap.fill(
+            "This Method does not quantify aleatoric uncertainty.", width=30
+        )
         ax2.text(
             0.5,
             0.5,
-            "This Method does not quantify aleatoric uncertainty.",
+            wrapped_text,
             horizontalalignment="center",
             verticalalignment="center",
-            fontsize=15,
+            fontsize=12,
         )
 
     ax0.legend()
