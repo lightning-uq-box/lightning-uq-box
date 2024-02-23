@@ -191,7 +191,7 @@ class SNGPBase(BaseModule):
         self.precision += precision_minibatch
 
         loss = self.loss_fn(pred, batch[self.target_key])
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, batch_size=batch[self.input_key].shape[0])
         if batch[self.target_key].shape[0] > 1:
             self.train_metrics(pred, batch[self.target_key])
 
@@ -218,7 +218,7 @@ class SNGPBase(BaseModule):
         pred_dict = self.predict_step(batch[self.input_key])
 
         loss = self.loss_fn(pred_dict["pred"], batch[self.target_key])
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, batch_size=batch[self.input_key].shape[0])
         if batch[self.target_key].shape[0] > 1:
             self.val_metrics(pred_dict["pred"], batch[self.target_key])
 
@@ -247,7 +247,7 @@ class SNGPBase(BaseModule):
         pred_dict = self.predict_step(batch[self.input_key])
 
         loss = self.loss_fn(pred_dict["pred"], batch[self.target_key])
-        self.log("test_loss", loss)
+        self.log("test_loss", loss, batch_size=batch[self.input_key].shape[0])
         if batch[self.target_key].shape[0] > 1:
             self.test_metrics(pred_dict["pred"], batch[self.target_key])
 

@@ -8,7 +8,7 @@ model:
   lr_scheduler:
     _target_: torch.optim.lr_scheduler.ConstantLR
     _partial_: true
-  num_targets: 2
+  num_targets: 4
   loss_fn:
     _target_: torch.nn.CrossEntropyLoss
   input_size: 64
