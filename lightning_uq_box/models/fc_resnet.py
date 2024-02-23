@@ -11,7 +11,12 @@ from torch import Tensor
 
 
 class FCResNet(nn.Module):
-    """Fully Connected ResNet architecture."""
+    """Fully Connected ResNet architecture.
+
+    ResFNN architecture
+
+    Introduced in SNGP: https://arxiv.org/abs/2006.10108
+    """
 
     def __init__(
         self,
@@ -36,11 +41,6 @@ class FCResNet(nn.Module):
             ValueError: If the activation is not known
         """
         super().__init__()
-        """
-        ResFNN architecture
-
-        Introduced in SNGP: https://arxiv.org/abs/2006.10108
-        """
         self.first = nn.Linear(input_dim, features)
         self.residuals = nn.ModuleList(
             [nn.Linear(features, features) for i in range(depth)]
