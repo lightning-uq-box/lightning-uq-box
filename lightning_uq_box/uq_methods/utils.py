@@ -358,36 +358,20 @@ def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]
     Returns:
         output key and module
     """
-    keys = []
-    last_module_with_out_features = None
-    last_keys_with_out_features = None
-    children = list(model.named_children())
-    while children != []:
-        name, module = children[-1]
-        keys.append(name)
-        next_children = list(module.named_children())
-        if next_children == []:
-            if hasattr(module, "out_features") or hasattr(module, "out_channels"):
-                last_module_with_out_features = module
-                last_keys_with_out_features = list(keys)
-            else:
-                for i in range(
-                    len(children) - 2, -1, -1
-                ):  # Iterate backwards through previous children
-                    name, module = children[i]
-                    if hasattr(module, "out_features") or hasattr(
-                        module, "out_channels"
-                    ):
-                        last_module_with_out_features = module
-                        last_keys_with_out_features = list(keys)
-                        break
-        children = next_children
+    queue = list(model.named_modules())
+    last_module_with_out = None
+    last_keys_with_out = None
 
-    if last_module_with_out_features is None:
+    while queue:
+        name, module = queue.pop(0)
+        if hasattr(module, "out_features") or hasattr(module, "out_channels"):
+            last_module_with_out = module
+            last_keys_with_out = name
+
+    if last_module_with_out is None:
         raise ValueError("No layer with out_features found.")
 
-    key = ".".join(last_keys_with_out_features)
-    return key, last_module_with_out_features
+    return last_keys_with_out, last_module_with_out
 
 
 def _get_num_inputs(model: nn.Module) -> int:
