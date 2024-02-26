@@ -22,7 +22,7 @@ data_config_paths = ["tests/configs/image_classification/toy_classification.yaml
 trainer_config_path = ["tests/configs/diffusion_models/trainer.yaml"]
 
 
-class TestImageClassificationTask:
+class TestDDPMTasks:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     @pytest.mark.parametrize("trainer_config_path", trainer_config_path)
