@@ -78,12 +78,12 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         for k in range(n_train):
             rnd = np.random.rand()
             if rnd < 1 / 3.0:
-                X[k] = np.random.normal(loc=-4, scale=2.0 / 5.0)
+                X[k] = np.random.normal(loc=x_min, scale=2.0 / 5.0)
             else:
                 if rnd < 2.0 / 3.0:
                     X[k] = np.random.normal(loc=0.0, scale=0.9)
                 else:
-                    X[k] = np.random.normal(loc=4.0, scale=2.0 / 5.0)
+                    X[k] = np.random.normal(loc=x_max, scale=2.0 / 5.0)
 
             Y[k] = generate_y(X[k])
 
@@ -106,7 +106,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             self.X_val, self.y_val, test_size=0.4, random_state=42
         )
 
-        X_test = np.linspace(X.min(), X.max(), n_true)
+        X_test = np.linspace(X.min() * 1.2, X.max() * 1.2, n_true)
         Y_test = X_test * 0.0
         for k in range(len(X_test)):
             Y_test[k] = generate_y(X_test[k], noise=False)

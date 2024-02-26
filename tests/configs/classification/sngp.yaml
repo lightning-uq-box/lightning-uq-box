@@ -1,0 +1,14 @@
+model:
+  class_path: lightning_uq_box.uq_methods.SNGPClassification
+  init_args:
+    feature_extractor:
+      class_path: lightning_uq_box.models.fc_resnet.FCResNet
+      init_args:
+        input_dim: 2
+        features: 64
+        depth: 4
+        activation: "relu"
+    num_targets: 2
+    loss_fn:
+      class_path: torch.nn.CrossEntropyLoss
+    feature_scale: null

@@ -7,7 +7,6 @@ import os
 from typing import Any, Optional, Tuple, Union
 
 import einops
-import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -158,7 +157,7 @@ class BNN_VI_Base(DeterministicModel):
 
         energy_loss, mean_output = self.compute_energy_loss(X, y)
 
-        self.log("train_loss", energy_loss)  # logging to Logger
+        self.log("train_loss", energy_loss, batch_size=X.shape[0])  # logging to Logger
         self.train_metrics(mean_output, y)
 
         return energy_loss
@@ -178,7 +177,7 @@ class BNN_VI_Base(DeterministicModel):
         X, y = batch[self.input_key], batch[self.target_key]
         energy_loss, mean_output = self.compute_energy_loss(X, y)
 
-        self.log("val_loss", energy_loss)  # logging to Logger
+        self.log("val_loss", energy_loss, batch_size=X.shape[0])  # logging to Logger
         self.val_metrics(mean_output, y)
 
         return energy_loss
@@ -401,7 +400,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
+        del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
@@ -422,18 +421,16 @@ class BNN_VI_Regression(BNN_VI_Base):
                 self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
             ]
         # model_preds [batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=0).detach().cpu()
+        model_preds = torch.stack(model_preds, dim=0).detach()
         mean_out = model_preds.mean(dim=0).squeeze()
 
         # how can this happen that there is so little sample diversity
         # there should be at least a little numerical difference?
         std_epistemic = model_preds.std(dim=0).squeeze()
         std_epistemic[std_epistemic <= 0] = 1e-6
-        std_aleatoric = (
-            std_epistemic * 0.0 + torch.exp(self.log_aleatoric_std).detach().cpu()
-        )
+        std_aleatoric = std_epistemic * 0.0 + torch.exp(self.log_aleatoric_std).detach()
 
-        std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
+        std = torch.sqrt(std_epistemic**2 + std_aleatoric**2)
 
         return {
             "pred": mean_out,
@@ -580,24 +577,15 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        # preds = []
         with torch.no_grad():
-            # TODO why is this not batched?
-            # for _ in range(
-            #     int(self.hparams.n_mc_samples_test / self.hparams.n_mc_samples_train)
-            # ):
-            #     preds.append(self.forward(X).cpu())
-            model_preds = self.forward(X, self.hparams.n_mc_samples_test).cpu()
+            model_preds = self.forward(X, self.hparams.n_mc_samples_test)
 
-        # model_preds = torch.cat(preds, dim=0)
         mean_out = model_preds.mean(dim=0).squeeze()
 
         std_epistemic = model_preds.std(dim=0).squeeze()
         std_epistemic[std_epistemic <= 0] = 1e-6
-        std_aleatoric = (
-            std_epistemic * 0.0 + torch.exp(self.log_aleatoric_std).detach().cpu()
-        )
-        std = np.sqrt(std_epistemic**2 + std_aleatoric**2)
+        std_aleatoric = std_epistemic * 0.0 + torch.exp(self.log_aleatoric_std).detach()
+        std = torch.sqrt(std_epistemic**2 + std_aleatoric**2)
 
         return {
             "pred": mean_out,

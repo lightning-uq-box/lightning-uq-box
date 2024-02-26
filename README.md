@@ -64,6 +64,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Laplace              |          ✅           |           ✅              |           ❌              |            ⏳            |
 | MC-Dropout           |          ✅           |           ✅              |           ✅              |            ⏳            |
 | SGLD                 |          ✅           |           ✅              |           ⏳              |            ⏳            |
+| SNGP                 |          ✅           |           ✅              |           ❌              |            ❌            |
 | SWAG                 |          ✅           |           ✅              |           ✅              |            ⏳            |
 | Deep Ensemble        |          ✅           |           ✅              |           ✅              |            ⏳            |
 

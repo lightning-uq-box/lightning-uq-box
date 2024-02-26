@@ -7,6 +7,7 @@ import os
 from collections import OrderedDict
 from typing import Callable, Optional, Union
 
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -48,7 +49,7 @@ def checkpoint_loader(
     """
     state_dict = {
         k.replace("model.", ""): v
-        for k, v in torch.load(ckpt_path)["state_dict"].items()
+        for k, v in torch.load(ckpt_path, map_location="cpu")["state_dict"].items()
     }
     model_class.model.load_state_dict(state_dict)
     if return_model:
@@ -163,7 +164,7 @@ def process_regression_prediction(
 
 
 def process_classification_prediction(
-    preds: Tensor, aggregate_fn: Callable = torch.mean
+    preds: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
 ) -> dict[str, Tensor]:
     """Process classification predictions.
 
@@ -178,12 +179,15 @@ def process_classification_prediction(
             and logits [batch_size, num_classes]
     """
     mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
+    # prevent log of 0 -> nan
+    mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=-1)
-
     return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
 
 
-def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
+def process_segmentation_prediction(
+    preds: Tensor, eps: float = 1e-7
+) -> dict[str, Tensor]:
     """Process segmentation predictions.
 
     Applies softmax to logit and computes mean over the samples and entropy.
@@ -198,6 +202,8 @@ def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
     """
     # dim=1 is the expected num classes dimension
     mean = nn.functional.softmax(preds.mean(-1), dim=1)
+    # prevent log of 0 -> nan
+    mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=1)
     return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
 
@@ -221,8 +227,14 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
             - upper_quant: upper quantile of shape [batch_size]
         path: path where csv should be saved
     """
-    outputs = {k: v.squeeze().cpu().numpy() for k, v in outputs.items()}
-    df = pd.DataFrame.from_dict(outputs)
+    cpu_outputs = {}
+    for key, val in outputs.items():
+        if isinstance(val, Tensor):
+            cpu_outputs[key] = val.squeeze(-1).cpu().numpy()
+        else:
+            cpu_outputs[key] = np.array(val)
+
+    df = pd.DataFrame.from_dict(cpu_outputs)
 
     # check if path already exists, then just append
     if os.path.exists(path):
@@ -254,12 +266,17 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
 
     pred = torch.argmax(outputs.pop("pred"), dim=1).cpu().numpy()
 
-    outputs = {k: v.cpu().numpy() for k, v in outputs.items()}
+    cpu_outputs = {}
+    for key, val in outputs.items():
+        if isinstance(val, Tensor):
+            cpu_outputs[key] = val.squeeze(-1).cpu().numpy()
+        else:
+            cpu_outputs[key] = np.array(val)
 
     df_pred = pd.DataFrame(pred, columns=["pred"])
 
     # Create DataFrame for the rest of the outputs
-    df_outputs = pd.DataFrame.from_dict(outputs)
+    df_outputs = pd.DataFrame.from_dict(cpu_outputs)
 
     # Concatenate the two DataFrames
     df = pd.concat([df_pred, df_outputs], axis=1)
@@ -311,7 +328,7 @@ def map_stochastic_modules(
             f"Model only contains these parameter modules {module_names}, "
             f"and you requested {stochastic_module_names}."
         )
-        part_stoch_names = module_names.copy()
+        part_stoch_names = stochastic_module_names
     else:
         raise ValueError
     return part_stoch_names
@@ -346,16 +363,20 @@ def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]
     Returns:
         output key and module
     """
-    keys = []
-    children = list(model.named_children())
-    while children != []:
-        name, module = children[-1]
-        keys.append(name)
-        children = list(module.named_children())
+    queue = list(model.named_modules())
+    last_module_with_out = None
+    last_keys_with_out = None
 
-    key = ".".join(keys)
+    while queue:
+        name, module = queue.pop(0)
+        if hasattr(module, "out_features") or hasattr(module, "out_channels"):
+            last_module_with_out = module
+            last_keys_with_out = name
 
-    return key, module
+    if last_module_with_out is None:
+        raise ValueError("No layer with out_features found.")
+
+    return last_keys_with_out, last_module_with_out
 
 
 def _get_num_inputs(model: nn.Module) -> int:
@@ -391,9 +412,6 @@ def _get_num_outputs(model: nn.Module) -> int:
         num_outputs = module.out_features
     elif hasattr(module, "out_channels"):  # Conv Layer
         num_outputs = module.out_channels
-    elif "segmentation_models_pytorch" in str(type(model)):
-        _, seg_module = _get_input_layer_name_and_module(model.segmentation_head)
-        num_outputs = seg_module.out_channels
     else:
         raise ValueError(f"Module {module} does not have out_features or out_channels.")
     return num_outputs

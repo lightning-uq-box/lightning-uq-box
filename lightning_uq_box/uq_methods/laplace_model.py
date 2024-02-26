@@ -207,6 +207,7 @@ class LaplaceBase(BaseModule):
         self.log(
             "test_loss",
             self.loss_fn(out_dict["pred"], batch[self.target_key].squeeze(-1)),
+            batch_size=batch[self.input_key].shape[0],
         )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))
@@ -214,9 +215,7 @@ class LaplaceBase(BaseModule):
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu()
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         return out_dict
 

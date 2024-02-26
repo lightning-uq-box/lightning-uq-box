@@ -56,6 +56,7 @@ from .prob_unet import ProbUNet
 from .quantile_regression import QuantileRegression, QuantileRegressionBase
 from .raps import RAPS
 from .sgld import SGLDBase, SGLDClassification, SGLDRegression
+from .sngp import SNGPBase, SNGPClassification, SNGPRegression
 from .spectral_normalized_layers import (
     SpectralBatchNorm1d,
     SpectralBatchNorm2d,
@@ -124,6 +125,10 @@ __all__ = (
     "SGLDBase",
     "SGLDRegression",
     "SGLDClassification",
+    # SNGP Model
+    "SNGPBase",
+    "SNGPRegression",
+    "SNGPClassification",
     # RAPS Model
     "RAPS",
     # Temperature Scaling

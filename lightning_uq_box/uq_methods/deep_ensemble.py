@@ -99,9 +99,7 @@ class DeepEnsemble(BaseModule):
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu()
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         return out_dict
 

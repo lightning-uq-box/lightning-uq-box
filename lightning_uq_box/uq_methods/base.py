@@ -17,6 +17,7 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    process_classification_prediction,
     save_classification_predictions,
     save_regression_predictions,
 )
@@ -55,6 +56,26 @@ class BaseModule(LightningModule):
             number of output dimension to model
         """
         return _get_num_outputs(self.model)
+
+    def add_aux_data_to_dict(
+        self, out_dict: dict[str, Tensor], batch: dict[str, Tensor]
+    ) -> dict[str, Tensor]:
+        """Add auxiliary data to output dictionary.
+
+        Args:
+            out_dict: output dictionary
+            batch: batch of data
+
+        Returns:
+            updated dict
+        """
+        for key, val in batch.items():
+            if key not in [self.input_key, self.target_key]:
+                if isinstance(val, Tensor):
+                    out_dict[key] = val.detach().squeeze(-1)
+                else:
+                    out_dict[key] = val
+        return out_dict
 
 
 class DeterministicModel(BaseModule):
@@ -124,7 +145,9 @@ class DeterministicModel(BaseModule):
         out = self.forward(batch[self.input_key])
         loss = self.loss_fn(out, batch[self.target_key])
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.train_metrics(
                 self.adapt_output_for_metrics(out), batch[self.target_key]
@@ -152,7 +175,9 @@ class DeterministicModel(BaseModule):
         out = self.forward(batch[self.input_key])
         loss = self.loss_fn(out, batch[self.target_key])
 
-        self.log("val_loss", loss)  # logging to Logger
+        self.log(
+            "val_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.val_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
@@ -178,11 +203,7 @@ class DeterministicModel(BaseModule):
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
-        # save metadata
-        # UNIQUE to method
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1)
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         if "out" in out_dict:
             del out_dict["out"]
@@ -316,7 +337,12 @@ class DeterministicClassification(DeterministicModel):
         """
         with torch.no_grad():
             out = self.forward(X)
-        return {"pred": self.adapt_output_for_metrics(out), "logits": out}
+
+        def identity(x, dim=None):
+            return x
+
+        return process_classification_prediction(out, aggregate_fn=identity)
+        # return {"pred": self.adapt_output_for_metrics(out), "logits": out}
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

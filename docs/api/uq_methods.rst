@@ -183,6 +183,24 @@ Stochastic Gradient Langevin Dynamics (SGLD)
 
 .. autoclass:: SGLD
 
+Spectral Normalized Gaussian Process (SNGP)
+-------------------------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.sngp
+
+SNGPBase
+````````
+.. autoclass:: SNGPBase
+
+SNGPRegression
+```````````````
+
+.. autoclass:: SNGPRegression
+
+SNGPClassification
+``````````````````
+.. autoclass:: SNGPClassification
+
 Deep Kernel Learning (DKL)
 --------------------------
 
