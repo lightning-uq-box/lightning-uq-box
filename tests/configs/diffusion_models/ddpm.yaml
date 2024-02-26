@@ -9,7 +9,7 @@ model:
       out_dim: 3
       flash_attn: true
     image_size: 64
-    timesteps: 100
+    timesteps: 10
     sampling_timesteps: 2
   optimizer:
     _target_: torch.optim.Adam

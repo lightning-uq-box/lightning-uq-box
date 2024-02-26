@@ -1,5 +1,5 @@
 model:
-  _target_: lightning_uq_box.uq_methods.GuidanceFreeDDPM
+  _target_: lightning_uq_box.uq_methods.ClassFreeGuidanceDDPM
   diffusion_model:
     _target_: denoising_diffusion_pytorch.classifier_free_guidance.GaussianDiffusion
     model:
@@ -10,7 +10,7 @@ model:
       num_classes: 4
       cond_drop_prob: 0.3
     image_size: 64
-    timesteps: 100
+    timesteps: 10
     sampling_timesteps: 2
   num_classes: 4
   optimizer:
