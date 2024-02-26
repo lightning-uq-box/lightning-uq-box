@@ -44,7 +44,11 @@ class TestImageRegressionTask:
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     @pytest.mark.parametrize("trainer_config_path", trainer_config_path)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        trainer_config_path: str,
+        tmp_path: Path,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
