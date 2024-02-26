@@ -9,10 +9,12 @@ import pytest
 from hydra.utils import instantiate
 from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
+from torch import Tensor
 
 model_config_paths = [
     "tests/configs/diffusion_models/ddpm.yaml",
     "tests/configs/diffusion_models/guided_ddpm.yaml",
+    "tests/configs/diffusion_models/guidance_free_ddpm.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_classification/toy_classification.yaml"]
@@ -51,6 +53,9 @@ class TestImageClassificationTask:
 
         # test predict step with a single batch input
         batch = next(iter(datamodule.val_dataloader()))
-        pred_dict = model.predict_step(batch["input"])
+        if "guidance_free" in model_config_path:
+            sampled_images = model(batch["target"])
+        else:
+            sampled_images = model(batch["input"].shape[0])
 
-        assert "sample" in pred_dict
+        assert isinstance(sampled_images, Tensor)

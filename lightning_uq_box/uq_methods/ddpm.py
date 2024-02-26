@@ -2,6 +2,7 @@
 # MIT License
 # Copyright (c) 2020 Phil Wang
 
+# adapted denoising-diffusion-pytorch to be a lightning module
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the MIT License.
 
@@ -21,6 +22,7 @@ from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
 from .base import BaseModule
+from .utils import _get_num_outputs
 
 
 def classifier_cond_fn(
@@ -87,7 +89,13 @@ class DDPM(BaseModule):
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
 
-        # lucidrains implementation does normalization, have to be careful
+    def forward(
+        self, batch_size: int, return_all_timesteps: bool = True, **kwargs: Any
+    ) -> Any:
+        """Forward pass of DDPM model for inference is sampling."""
+        return self.diffusion_model.sample(
+            batch_size, return_all_timesteps=return_all_timesteps
+        )
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -120,7 +128,7 @@ class DDPM(BaseModule):
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
-        """Compute and return the validation loss.
+        """No validation step.
 
         Args:
             batch: the output of your DataLoader
@@ -133,7 +141,7 @@ class DDPM(BaseModule):
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
-        """Test step.
+        """No test step.
 
         Args:
             batch: the output of your DataLoader
@@ -141,24 +149,6 @@ class DDPM(BaseModule):
             dataloader_idx: dataloader index
         """
         pass
-
-    def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
-        """Prediction step that yields Diffusion Samples.
-
-        Args:
-            X: prediction batch of shape [batch_size x input_dims] for which
-                to generate samples
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        batch_size = X.shape[0]
-        sampled_images = self.diffusion_model.sample(
-            batch_size, return_all_timesteps=True
-        )
-
-        return {"sample": sampled_images}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -199,6 +189,8 @@ class GuidedDDPM(DDPM):
 
         self.classifier = classifier
 
+        self.num_classes = _get_num_outputs(self.classifier)
+
         self.loss_fn = nn.CrossEntropyLoss()
 
     def training_step(
@@ -231,30 +223,40 @@ class GuidedDDPM(DDPM):
 
         return loss
 
-    def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
-        """Prediction step with classifier guidance.
+    def forward(
+        self,
+        batch_size: int,
+        classifier_scale: float = 1.0,
+        cond_fn=classifier_cond_fn,
+        y: Optional[Tensor] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Forward pass of Guided DDPM model for inference is sampling.
 
         Args:
-            X: prediction batch of shape [batch_size x input_dims] for which
-                to generate samples
-            batch_idx: batch index
-            dataloader_idx: dataloader index
+            batch_size: batch size
+            classifier_scale: scale the classifier guidance gradient
+            cond_fn: conditional function
+            y: conditional classes tensor
+
+        Returns:
+            sampled images
         """
-        batch_size = X.shape[0]
-        sampled_images = self.diffusion_model.sample(
+        if y is None:
+            y = torch.randint(
+                0, self.num_classes, (batch_size,), device=self.device
+            ).long()
+
+        return self.diffusion_model.sample(
             batch_size,
             return_all_timesteps=True,
-            cond_fn=classifier_cond_fn,
+            cond_fn=cond_fn,
             guidance_kwargs={
                 "classifier": self.classifier,
-                "y": torch.fill(torch.zeros(batch_size), 1).long(),
-                "classifier_scale": 1,
+                "y": y,
+                "classifier_scale": classifier_scale,
             },
         )
-
-        return {"sample": sampled_images}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -271,3 +273,81 @@ class GuidedDDPM(DDPM):
             }
         else:
             return {"optimizer": optimizer}
+
+
+class GuidanceFreeDDPM(DDPM):
+    """Classifier free Guidance DDPM."""
+
+    def __init__(
+        self,
+        diffusion_model: GaussianDiffusion,
+        num_classes: int,
+        ema_decay: float = 0.995,
+        ema_update_every: float = 10,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
+    ) -> Any:
+        """Initialize a new instance of Guidance Free DDPM.
+
+        Args:
+            diffusion_model: diffusion model
+            num_classes: number of classes
+            ema_decay: exponential moving average decay
+            ema_update_every: update EMA every this many update calls
+            optimizer: optimizer
+            lr_scheduler: learning rate scheduler
+        """
+        super().__init__(
+            diffusion_model, ema_decay, ema_update_every, optimizer, lr_scheduler
+        )
+        self.num_classes = num_classes
+        # check cond_drop_prob
+        assert (
+            self.diffusion_model.model.cond_drop_prob > 0
+        ), "cond_prob_drop is 0, but for guidance free training it should be > 0"
+
+    def forward(
+        self,
+        classes: Tensor,
+        cond_scale: float = 6.0,
+        rescaled_phi: float = 0.7,
+        **kwargs: Any,
+    ) -> Any:
+        """Forward pass of DDPM model for inference is sampling.
+
+        Args:
+            classes: target classes
+            cond_scale: scale the conditional where values > 1 strengthen
+                the classifier free guidance
+            rescaled_phi: rescale phi
+
+        """
+        return self.diffusion_model.sample(
+            classes, cond_scale=cond_scale, rescaled_phi=rescaled_phi
+        )
+
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute and return the training loss.
+
+        Args:
+            batch: the output of your DataLoader
+
+        Returns:
+            training loss
+        """
+        batch_size, device = (
+            batch[self.input_key].shape[0],
+            batch[self.input_key].device,
+        )
+        t = torch.randint(
+            0, self.diffusion_model.num_timesteps, (batch_size,), device=device
+        ).long()
+        loss = self.diffusion_model.p_losses(
+            batch[self.input_key], t, classes=batch[self.target_key]
+        )
+
+        self.log("train_loss", loss)
+
+        return loss

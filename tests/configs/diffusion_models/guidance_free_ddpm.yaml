@@ -1,0 +1,22 @@
+model:
+  _target_: lightning_uq_box.uq_methods.GuidanceFreeDDPM
+  diffusion_model:
+    _target_: denoising_diffusion_pytorch.classifier_free_guidance.GaussianDiffusion
+    model:
+      _target_: denoising_diffusion_pytorch.classifier_free_guidance.Unet
+      dim: 16
+      channels: 3
+      out_dim: 3
+      num_classes: 4
+      cond_drop_prob: 0.3
+    image_size: 64
+    timesteps: 100
+    sampling_timesteps: 2
+  num_classes: 4
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ConstantLR
+    _partial_: true
