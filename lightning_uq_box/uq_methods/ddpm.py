@@ -8,21 +8,27 @@
 
 """Implement a Lightning Module Wrapper for Diffusion."""
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from denoising_diffusion_pytorch.denoising_diffusion_pytorch import GaussianDiffusion
-from denoising_diffusion_pytorch.guided_diffusion import (
-    GaussianDiffusion as GuidedGaussianDiffusion,
-)
-from ema_pytorch import EMA
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
 from .base import BaseModule
 from .utils import _get_num_outputs
+
+if TYPE_CHECKING:
+    try:
+        from denoising_diffusion_pytorch.denoising_diffusion_pytorch import (
+            GaussianDiffusion,
+        )
+        from denoising_diffusion_pytorch.guided_diffusion import (
+            GaussianDiffusion as GuidedGaussianDiffusion,
+        )
+    except ImportError:
+        pass
 
 
 def classifier_cond_fn(
@@ -61,7 +67,7 @@ class DDPM(BaseModule):
 
     def __init__(
         self,
-        diffusion_model: GaussianDiffusion,
+        diffusion_model: "GaussianDiffusion",
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -77,6 +83,14 @@ class DDPM(BaseModule):
             lr_scheduler: learning rate scheduler
         """
         super().__init__()
+
+        try:
+            import denoising_diffusion_pytorch  # noqa: F401
+            from ema_pytorch import EMA
+        except ImportError:
+            raise ImportError(
+                "You need to install the denoising-diffusion-pytorch package."
+            )
 
         self.diffusion_model = diffusion_model
         self.ema_decay = ema_decay
@@ -175,7 +189,7 @@ class GuidedDDPM(DDPM):
 
     def __init__(
         self,
-        diffusion_model: GuidedGaussianDiffusion,
+        diffusion_model: "GuidedGaussianDiffusion",
         classifier: nn.Module,
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
@@ -279,7 +293,7 @@ class ClassFreeGuidanceDDPM(DDPM):
 
     def __init__(
         self,
-        diffusion_model: GaussianDiffusion,
+        diffusion_model: "GaussianDiffusion",
         num_classes: int,
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
