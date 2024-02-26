@@ -62,7 +62,13 @@ def classifier_cond_fn(
 class DDPM(BaseModule):
     """Denoising Diffusion Probabilistic Model (DDPM).
 
-    This trains a simple diffusion model.
+    This trains a simple diffusion model based on the implementation
+    of `denoising-diffusion-pytorch repo
+    <https://github.com/lucidrains/denoising-diffusion-pytorch/>`_.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://arxiv.org/abs/2006.11239
     """
 
     def __init__(
@@ -184,7 +190,14 @@ class DDPM(BaseModule):
 class GuidedDDPM(DDPM):
     """Guided Diffusion Probabilistic Model (Guided-DDPM).
 
-    Trains a classifier based on a pretrained Diffusion Model.
+    Trains a classifier based on a pretrained Diffusion Model
+    for the implementation
+    of `denoising-diffusion-pytorch repo
+    <https://github.com/lucidrains/denoising-diffusion-pytorch/>`_.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://arxiv.org/abs/2105.05233
     """
 
     def __init__(
@@ -299,7 +312,16 @@ class GuidedDDPM(DDPM):
 
 
 class ClassFreeGuidanceDDPM(DDPM):
-    """Classifier free Guidance DDPM."""
+    """Classifier free Guidance DDPM.
+
+    This trains a classifier free guidance diffusion model based on the implementation
+    of `denoising-diffusion-pytorch repo
+    <https://github.com/lucidrains/denoising-diffusion-pytorch/>`_.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://arxiv.org/abs/2207.12598
+    """
 
     def __init__(
         self,
