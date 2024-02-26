@@ -181,7 +181,7 @@ class DDPM(BaseModule):
             lr_scheduler = self.lr_scheduler(optimizer)
             return {
                 "optimizer": optimizer,
-                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "train_loss"},
             }
         else:
             return {"optimizer": optimizer}
@@ -305,7 +305,7 @@ class GuidedDDPM(DDPM):
             lr_scheduler = self.lr_scheduler(optimizer)
             return {
                 "optimizer": optimizer,
-                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "train_loss"},
             }
         else:
             return {"optimizer": optimizer}
