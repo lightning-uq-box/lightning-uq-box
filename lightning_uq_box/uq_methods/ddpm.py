@@ -17,7 +17,7 @@ from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
 from .base import BaseModule
-from .utils import _get_num_outputs
+from .utils import _get_num_outputs, default_classification_metrics
 
 if TYPE_CHECKING:
     try:
@@ -207,6 +207,10 @@ class GuidedDDPM(DDPM):
 
         self.loss_fn = nn.CrossEntropyLoss()
 
+        self.train_metrics = default_classification_metrics(
+            "train", "multiclass", self.num_classes
+        )
+
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -234,8 +238,14 @@ class GuidedDDPM(DDPM):
         loss = self.loss_fn(logits, batch[self.target_key])
 
         self.log("train_loss", loss)
+        self.train_metrics(logits, batch[self.target_key])
 
         return loss
+
+    def on_train_epoch_end(self):
+        """Log epoch-level training metrics."""
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
 
     def forward(
         self,
@@ -314,7 +324,6 @@ class ClassFreeGuidanceDDPM(DDPM):
             diffusion_model, ema_decay, ema_update_every, optimizer, lr_scheduler
         )
         self.num_classes = num_classes
-        # check cond_drop_prob
         assert (
             self.diffusion_model.model.cond_drop_prob > 0
         ), "cond_prob_drop is 0, but for guidance free training it should be > 0"
