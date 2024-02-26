@@ -107,7 +107,12 @@ class DeterministicModel(BaseModule):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
+        self.freeze_model()
         raise NotImplementedError
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone."""
+        pass
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation.
@@ -284,6 +289,7 @@ class DeterministicClassification(DeterministicModel):
         model: nn.Module,
         loss_fn: nn.Module,
         task: str = "multiclass",
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -294,13 +300,32 @@ class DeterministicClassification(DeterministicModel):
             loss_fn: loss function used for optimization
             task: what kind of classification task, choose one of
                 ["binary", "multiclass", "multilabel"]
+            freeze_backbone: whether to freeze the model backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         self.num_classes = _get_num_outputs(model)
         assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
         self.task = task
+        self.freeze_backbone = freeze_backbone
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
+
+        self.freeze_model()
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        if self.freeze_backbone:
+            import pdb
+
+            pdb.set_trace()
+            for param in self.model.parameters():
+                param.requires_grad = False
+            for param in self.model.get_classifier().parameters():
+                param.requires_grad = True
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation.

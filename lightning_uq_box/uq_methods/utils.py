@@ -317,6 +317,8 @@ def map_stochastic_modules(
     # remove duplicates due to weight/bias
     module_names = list(set(module_names))
 
+    module_names = [name for name in module_names if name != ""]  # remove empty string
+
     if not stochastic_module_names:  # None means fully stochastic
         part_stoch_names = module_names.copy()
     elif all(isinstance(elem, int) for elem in stochastic_module_names):
@@ -415,3 +417,23 @@ def _get_num_outputs(model: nn.Module) -> int:
     else:
         raise ValueError(f"Module {module} does not have out_features or out_channels.")
     return num_outputs
+
+
+def freeze_model_backbone(model: nn.Module) -> None:
+    """Freeze the backbone of a model.
+
+    Args:
+        model: pytorch model
+    """
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # for timm model
+    if hasattr(model, "get_classifier"):
+        for param in model.get_classifier().parameters():
+            param.requires_grad = True
+    else:
+        # find last layer
+        _, module = _get_output_layer_name_and_module(model)
+        for param in module.parameters():
+            param.requires_grad = True

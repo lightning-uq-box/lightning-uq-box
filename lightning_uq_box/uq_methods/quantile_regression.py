@@ -18,6 +18,7 @@ from .loss_functions import PinballLoss
 from .utils import (
     _get_num_outputs,
     default_regression_metrics,
+    freeze_model_backbone,
     save_regression_predictions,
 )
 
@@ -35,6 +36,7 @@ class QuantileRegressionBase(DeterministicModel):
         model: nn.Module,
         loss_fn: Optional[nn.Module] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -44,6 +46,7 @@ class QuantileRegressionBase(DeterministicModel):
             model: pytorch model
             loss_fn: loss function
             quantiles: quantiles to compute
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -56,6 +59,8 @@ class QuantileRegressionBase(DeterministicModel):
         if loss_fn is None:
             loss_fn = PinballLoss(quantiles=quantiles)
 
+        self.freeze_backbone = freeze_backbone
+
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
 
         self.quantiles = quantiles
@@ -66,6 +71,16 @@ class QuantileRegressionBase(DeterministicModel):
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
+        self.freeze_model()
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        if self.freeze_backbone:
+            freeze_model_backbone(self.model)
 
 
 class QuantileRegression(QuantileRegressionBase):
@@ -83,6 +98,7 @@ class QuantileRegression(QuantileRegressionBase):
         model: nn.Module,
         loss_fn: Optional[nn.Module] = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -92,10 +108,14 @@ class QuantileRegression(QuantileRegressionBase):
             model: pytorch model
             optimizer: optimizer used for training
             loss_fn: loss function
-            lr_scheduler: learning rate scheduler
             quantiles: quantiles to compute
+            freeze_backbone: whether to freeze the backbone
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
         """
-        super().__init__(model, loss_fn, quantiles, optimizer, lr_scheduler)
+        super().__init__(
+            model, loss_fn, quantiles, freeze_backbone, optimizer, lr_scheduler
+        )
         self.save_hyperparameters(
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )

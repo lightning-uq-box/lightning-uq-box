@@ -22,6 +22,7 @@ from .utils import (
     default_classification_metrics,
     default_regression_metrics,
     default_segmentation_metrics,
+    freeze_model_backbone,
     map_stochastic_modules,
     process_classification_prediction,
     process_regression_prediction,
@@ -53,6 +54,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         posterior_rho_init: float = -5.0,
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[list[Union[int, str]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -76,6 +78,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             bayesian_layer_type: `flipout` or `reparameterization`
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -106,9 +109,17 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         self.criterion = criterion
         self.lr_scheduler = lr_scheduler
 
+        self.freeze_backbone = freeze_backbone
+        self.freeze_model()
+
     def setup_task(self) -> None:
         """Set up task."""
         pass
+
+    def freeze_model(self) -> None:
+        """Freeze the model backbone."""
+        if self.freeze_backbone:
+            freeze_model_backbone(self.model)
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
@@ -309,6 +320,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -333,6 +345,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             bayesian_layer_type: `flipout` or `reparameterization`
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -353,6 +366,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             posterior_rho_init,
             bayesian_layer_type,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )
@@ -445,6 +459,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -469,6 +484,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             bayesian_layer_type: `flipout` or `reparameterization`
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
 
@@ -494,6 +510,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             posterior_rho_init,
             bayesian_layer_type,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )
