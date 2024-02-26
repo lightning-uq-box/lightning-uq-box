@@ -274,7 +274,7 @@ class GuidedDDPM(DDPM):
             return {"optimizer": optimizer}
 
 
-class GuidanceFreeDDPM(DDPM):
+class ClassFreeGuidanceDDPM(DDPM):
     """Classifier free Guidance DDPM."""
 
     def __init__(

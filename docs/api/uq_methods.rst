@@ -267,6 +267,26 @@ Deep Ensemble Segmentation
 Generative Models
 =================
 
+Denoising Diffusion Probabilistic Models (DDPM)
+-----------------------------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.ddpm
+
+DDPM Base
+`````````
+
+.. autoclass:: DDPM
+
+Guided DDPM
+``````````
+
+.. autoclass:: GuidedDDPM
+
+Classifier Free Guidance DDPM
+`````````````````````````````
+
+.. autoclass:: ClassFreeGuidanceDDPM
+
 Classification and Regression Diffusion (CARD)
 ----------------------------------------------
 
