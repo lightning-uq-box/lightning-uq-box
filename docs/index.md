@@ -48,6 +48,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 | UQ-Method                      | Regression | Classification | Segmentation | Pixel Wise Regression |
 |--------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
+| DDPM                           |     ❌             ✅       |      ❌      |           ✅          |
 | CARD                           |     ✅     |       ✅       |      ❌      |          ❌           |
 | Probabilistic UNet             |     ❌     |       ❌       |      ✅      |          ❌           |
 | Hierarchical Probabilistic UNet|     ❌     |       ❌       |      ✅      |          ❌           |

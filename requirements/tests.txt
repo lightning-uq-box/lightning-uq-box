@@ -8,3 +8,4 @@ omegaconf==2.3.0
 timm==0.9.2
 jsonargparse[signatures]==4.27.1
 torchseg==0.0.1a1
+denoising_diffusion_pytorch
