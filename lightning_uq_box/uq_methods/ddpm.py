@@ -246,7 +246,6 @@ class GuidedDDPM(DDPM):
             y = torch.randint(
                 0, self.num_classes, (batch_size,), device=self.device
             ).long()
-
         return self.diffusion_model.sample(
             batch_size,
             return_all_timesteps=True,

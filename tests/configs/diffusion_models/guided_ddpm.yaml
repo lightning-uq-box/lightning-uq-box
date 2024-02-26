@@ -8,8 +8,7 @@ model:
       channels: 3
       out_dim: 3
     image_size: 64
-    timesteps: 100
-    sampling_timesteps: 2
+    timesteps: 20
   classifier:
     _target_: lightning_uq_box.models.ConditionalEncoder
     encoder:
@@ -17,7 +16,7 @@ model:
       model_name: resnet18
       num_classes: 15 # embedding with conditional layer afterwards
     n_outputs: 4
-    n_steps: 100
+    n_steps: 20
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true

@@ -17,6 +17,3 @@ model:
     _target_: torch.optim.Adam
     _partial_: true
     lr: 0.003
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.ConstantLR
-    _partial_: true
