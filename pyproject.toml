@@ -60,11 +60,11 @@ dependencies = [
     # Uncertainty toolbox metrics
     "uncertainty-toolbox>=0.1.1",
     # Kornia for Test Time Augmentations and other image processing
-    "kornia>=0.6.9"
+    "kornia>=0.6.9",
     # timm models for image classification and regression
     "timm>=0.9.2",
     # torchseg for segmentation, pixelwise regression
-    "torchseg>=0.0.1a1",
+    "torchseg>=0.0.1a1"
 ]
 dynamic = ["version"]
 
