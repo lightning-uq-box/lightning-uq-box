@@ -10,9 +10,8 @@ With that comes the integration of [Lightning-CLI](https://lightning.ai/docs/pyt
 
 The following aims to explain the design choices behind the implementations found in the Lightning-UQ-Box. We will first give some "definitions" about how we are using the three terms "UQ-Method", "Application Task", "Task Data Modalities".
 
-### Observations around terms
 
-#### UQ-Method
+### UQ-Method
 - a methodology developed that can be applied to a Neural Network and extract or
   enhance predictive uncertainty estimates
 - the methodology can be of different nature, for example:
@@ -26,7 +25,7 @@ The following aims to explain the design choices behind the implementations foun
   - how regression output from samples are computed is the same for MCDropout,
     SWAG, Ensembles etc (Gaussian moment matching)
 
-#### Application Task
+### Application Task
 - a task that is defined by the problem setting for which you have labels
 - regression,classification, segmentation, pixel wise regression, object
   detection, change detection etc.
@@ -34,13 +33,13 @@ The following aims to explain the design choices behind the implementations foun
 - however, there are also several commonalities across a subset of methods
   given any particular application task
 
-#### Task Data Modalities
+### Task Data Modalities
 - a specific application task can involve different data modalities
 - regression task could be vector inputs and single target output, or image
   input with single target output, or image input with multiple regression
   targets etc.
 
-### Design
+## Design
 
 - modular design aiming to:
   - give enough structure to apply any particular method to a
@@ -58,11 +57,11 @@ The following aims to explain the design choices behind the implementations foun
   implemented in the subclasses but can be util functions that could still be utilized by users for their own usage
 - try to integrate existing implementations into this framework to not reinvent the wheel
 
-### Pytorch and Lightning
+## Pytorch and Lightning
 - use [PyTorch](https://pytorch.org/docs/stable/index.html), because:
   - wide adaptation in research community
   - ready to use architectures and pretrained models for example through [timm library](https://github.com/huggingface/pytorch-image-models)
-    or [segmentation-models-pytorch](https://github.com/qubvel/segmentation_models.pytorch)
+    or [torchseg](https://github.com/isaaccorley/torchseg)
 - use [Lightning](https://lightning.ai/docs/pytorch/stable/), because:
   - reduces boiler plate code
   - enforces code organization structure
