@@ -260,6 +260,7 @@ class SNGPBase(BaseModule):
         if batch[self.target_key].shape[0] > 1:
             self.test_metrics(pred_dict["pred"], batch[self.target_key])
 
+        pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
         del pred_dict["pred_cov"]
         return pred_dict
 
