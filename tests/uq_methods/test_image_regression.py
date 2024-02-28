@@ -74,6 +74,7 @@ class TestImageRegressionTask:
 
 
 frozen_config_paths = [
+    "tests/configs/image_regression/mean_variance_estimation.yaml",
     "tests/configs/image_regression/mc_dropout_nll.yaml",
     "tests/configs/image_regression/bnn_vi_elbo.yaml",
     "tests/configs/image_regression/due.yaml",

@@ -110,12 +110,7 @@ class DeterministicModel(BaseModule):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
-        self.freeze_model()
         raise NotImplementedError
-
-    def freeze_model(self) -> None:
-        """Freeze model backbone."""
-        pass
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation.
