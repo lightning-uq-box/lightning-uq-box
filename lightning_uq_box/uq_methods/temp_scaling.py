@@ -127,9 +127,10 @@ class TempScaling(PosthocBase):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        preds = self.predict_step(batch[self.input_key])
-        self.test_metrics(preds["pred"], batch[self.target_key])
-        return preds
+        out_dict = self.predict_step(batch[self.input_key])
+        self.test_metrics(out_dict["pred"], batch[self.target_key])
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
+        return out_dict
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

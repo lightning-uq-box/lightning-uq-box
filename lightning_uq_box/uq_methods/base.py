@@ -17,7 +17,10 @@ from .utils import (
     _get_num_outputs,
     default_classification_metrics,
     default_regression_metrics,
+    freeze_model_backbone,
+    freeze_segmentation_model,
     process_classification_prediction,
+    process_segmentation_prediction,
     save_classification_predictions,
     save_regression_predictions,
 )
@@ -319,13 +322,7 @@ class DeterministicClassification(DeterministicModel):
         Alternatively, selected the last layer with parameters to freeze.
         """
         if self.freeze_backbone:
-            import pdb
-
-            pdb.set_trace()
-            for param in self.model.parameters():
-                param.requires_grad = False
-            for param in self.model.get_classifier().parameters():
-                param.requires_grad = True
+            freeze_model_backbone(self.model)
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation.
@@ -367,7 +364,6 @@ class DeterministicClassification(DeterministicModel):
             return x
 
         return process_classification_prediction(out, aggregate_fn=identity)
-        # return {"pred": self.adapt_output_for_metrics(out), "logits": out}
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -382,6 +378,76 @@ class DeterministicClassification(DeterministicModel):
         save_classification_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
+
+
+class DeterministicSegmentation(DeterministicClassification):
+    """Deterministic Base Trainer for segmentation as LightningModule."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        task: str = "multiclass",
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+    ) -> None:
+        """Initialize a new Deterministic Segmentation Model.
+
+        Args:
+            model: pytorch model
+            loss_fn: loss function used for optimization
+            task: what kind of classification task, choose one of
+                ["binary", "multiclass", "multilabel"]
+            freeze_backbone: whether to freeze the model backbone, by default this is
+                supported for torchseg Unet models
+            freeze_decoder: whether to freeze the model decoder, by default this is
+                supported for torchseg Unet models
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+        """
+        self.freeze_backbone = freeze_backbone
+        self.freeze_decoder = freeze_decoder
+        super().__init__(model, loss_fn, task, freeze_backbone, optimizer, lr_scheduler)
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        freeze_segmentation_model(self.model, self.freeze_backbone, self.freeze_decoder)
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        with torch.no_grad():
+            out = self.forward(X)
+
+        def identity(x, dim=None):
+            return x
+
+        return process_segmentation_prediction(out, aggregate_fn=identity)
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        pass
 
 
 class PosthocBase(BaseModule):

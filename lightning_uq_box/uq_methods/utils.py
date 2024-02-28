@@ -437,3 +437,24 @@ def freeze_model_backbone(model: nn.Module) -> None:
         _, module = _get_output_layer_name_and_module(model)
         for param in module.parameters():
             param.requires_grad = True
+
+
+def freeze_segmentation_model(
+    model: nn.Module, freeze_backbone: bool, freeze_decoder: bool
+) -> None:
+    """Freeze the encoder or decoder of a segmentation model.
+
+    Args:
+        model: pytorch model
+        freeze_backbone: whether to freeze the model backbone
+        freeze_decoder: whether to freeze the decoder
+    """
+    # Freeze backbone
+    if hasattr(model, "encoder") and freeze_backbone:
+        for param in model.encoder.parameters():
+            param.requires_grad = False
+
+    # Freeze decoder
+    if hasattr(model, "decoder") and freeze_decoder:
+        for param in model.decoder.parameters():
+            param.requires_grad = False

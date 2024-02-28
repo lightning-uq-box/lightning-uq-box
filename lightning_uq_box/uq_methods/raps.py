@@ -121,6 +121,7 @@ class RAPS(PosthocBase):
             batch_size=batch[self.input_key].shape[0],
         )
         self.test_metrics(pred_dict["pred"], batch[self.target_key])
+        pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
         return pred_dict
 
     def predict_step(
