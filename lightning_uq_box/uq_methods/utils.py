@@ -172,6 +172,8 @@ def process_classification_prediction(
 
     Args:
         preds: prediction logits tensor of shape [batch_size, num_classes, num_samples]
+        aggregate_fn: function to aggregate over the samples
+        eps: small value to prevent log of 0
 
     Returns:
         dictionary with mean [batch_size, num_classes]
@@ -186,7 +188,7 @@ def process_classification_prediction(
 
 
 def process_segmentation_prediction(
-    preds: Tensor, eps: float = 1e-7
+    preds: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
 ) -> dict[str, Tensor]:
     """Process segmentation predictions.
 
@@ -195,17 +197,19 @@ def process_segmentation_prediction(
     Args:
         preds: prediction logits tensor of shape
             [batch_size, num_classes, height, width, num_samples]
+        aggregate_fn: function to aggregate over the samples
+        eps: small value to prevent log of 0
 
     Returns:
         dictionary with mean [batch_size, num_classes, height, width]
             and predictive uncertainty [batch_size, height, width]
     """
     # dim=1 is the expected num classes dimension
-    mean = nn.functional.softmax(preds.mean(-1), dim=1)
+    mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=1)
-    return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
 
 
 def change_inplace_activation(module):
