@@ -18,6 +18,7 @@ from lightning_uq_box.datamodules import ToyImageClassificationDatamodule
 from lightning_uq_box.uq_methods import DeepEnsembleClassification, TTAClassification
 
 model_config_paths = [
+    "tests/configs/image_classification/base.yaml",
     "tests/configs/image_classification/mc_dropout.yaml",
     "tests/configs/image_classification/bnn_vi_elbo.yaml",
     "tests/configs/image_classification/swag.yaml",
@@ -87,6 +88,7 @@ class TestPosthoc:
 
 
 frozen_config_paths = [
+    "tests/configs/image_classification/base.yaml",
     "tests/configs/image_classification/mc_dropout.yaml",
     "tests/configs/image_classification/bnn_vi_elbo.yaml",
     "tests/configs/image_classification/due.yaml",
