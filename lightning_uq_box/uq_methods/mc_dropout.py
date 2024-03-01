@@ -7,7 +7,6 @@ import os
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
@@ -332,11 +331,7 @@ class MCDropoutClassification(MCDropoutBase):
         self.activate_dropout()  # activate dropout during prediction
         with torch.no_grad():
             preds = torch.stack(
-                [
-                    F.softmax(self.model(X), dim=1)
-                    for _ in range(self.hparams.num_mc_samples)
-                ],
-                dim=-1,
+                [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
         return process_classification_prediction(preds)
