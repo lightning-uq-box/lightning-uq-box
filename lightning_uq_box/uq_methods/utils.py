@@ -262,7 +262,9 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     for i in range(logits.shape[1]):
         outputs[f"logit_{i}"] = logits[:, i]
 
-    if "pred_set" in outputs:
+    pred_set_true = True if "pred_set" in outputs else False
+
+    if pred_set_true:
         pred_set = [
             str(tensor.cpu().numpy().tolist()) for tensor in outputs.pop("pred_set")
         ]
@@ -285,7 +287,7 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     # Concatenate the two DataFrames
     df = pd.concat([df_pred, df_outputs], axis=1)
 
-    if "pred_set" in outputs:
+    if pred_set_true:
         df = pd.concat([df, df_pred_set], axis=1)
 
     if os.path.exists(path):
