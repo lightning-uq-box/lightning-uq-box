@@ -27,7 +27,11 @@ from torch.utils.data import DataLoader, Subset, TensorDataset, random_split
 from .base import PosthocBase
 from .metrics import SetSize
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
-from .utils import default_classification_metrics, save_classification_predictions
+from .utils import (
+    default_classification_metrics,
+    process_classification_prediction,
+    save_classification_predictions,
+)
 
 
 class RAPS(PosthocBase):
@@ -145,7 +149,14 @@ class RAPS(PosthocBase):
             scores = temp_scale_logits(logits, self.temperature)
             S = self.adjust_model_logits(logits)
 
-        return {"pred": scores, "pred_set": S, "logits": scores}
+        def identity(x, dim=None):
+            return x
+
+        pred_dict = process_classification_prediction(scores, aggregate_fn=identity)
+        pred_dict["pred_set"] = S
+        pred_dict["size"] = torch.tensor([len(x) for x in S])
+
+        return pred_dict
 
     def adjust_model_logits(self, model_logits: Tensor) -> Tensor:
         """Adjust model output according to RAPS with fitted Qhat.
