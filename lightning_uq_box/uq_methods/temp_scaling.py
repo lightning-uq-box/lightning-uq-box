@@ -128,6 +128,7 @@ class TempScaling(PosthocBase):
             dataloader_idx: dataloader index
         """
         out_dict = self.predict_step(batch[self.input_key])
+        out_dict[self.target_key] = batch[self.target_key]
         self.test_metrics(out_dict["pred"], batch[self.target_key])
         out_dict = self.add_aux_data_to_dict(out_dict, batch)
         return out_dict

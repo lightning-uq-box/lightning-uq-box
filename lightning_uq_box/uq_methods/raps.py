@@ -117,6 +117,7 @@ class RAPS(PosthocBase):
         # need to set manually because of inference mode
         self.eval()
         pred_dict = self.predict_step(batch[self.input_key])
+        pred_dict[self.target_key] = batch[self.target_key]
 
         # logging metrics
         self.log(
