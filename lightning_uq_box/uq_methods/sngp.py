@@ -254,7 +254,7 @@ class SNGPBase(BaseModule):
             predictions
         """
         pred_dict = self.predict_step(batch[self.input_key])
-
+        pred_dict[self.target_key] = batch[self.target_key]
         loss = self.loss_fn(pred_dict["pred"], batch[self.target_key])
         self.log("test_loss", loss, batch_size=batch[self.input_key].shape[0])
         if batch[self.target_key].shape[0] > 1:
