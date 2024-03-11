@@ -313,6 +313,8 @@ class ProbUNet(BaseModule):
         # compute metrics with sampled reconstruction
         self.test_metrics(preds["logits"], batch[self.target_key])
 
+        preds = self.add_aux_data_to_dict(preds, batch)
+
         return preds
 
     def predict_step(

@@ -114,6 +114,8 @@ class TTABase(PosthocBase):
 
         merged_aug_preds[self.target_key] = batch[self.target_key]
 
+        merged_aug_preds = self.add_aux_data_to_dict(merged_aug_preds, batch)
+
         return merged_aug_preds
 
     def predict_step(

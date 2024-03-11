@@ -1,5 +1,5 @@
 uq_method:
-  _target_: lightning_uq_box.uq_methods.ProbUNet
+  _target_: lightning_uq_box.uq_methods.DeterministicSegmentation
   model:
     _target_: torchseg.Unet
     encoder_name: resnet18
@@ -13,3 +13,5 @@ uq_method:
   lr_scheduler:
     _target_: torch.optim.lr_scheduler.ConstantLR
     _partial_: true
+  loss_fn:
+    _target_: torch.nn.CrossEntropyLoss

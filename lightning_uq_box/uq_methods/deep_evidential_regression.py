@@ -15,6 +15,7 @@ from .loss_functions import DERLoss
 from .utils import (
     _get_num_outputs,
     default_regression_metrics,
+    freeze_model_backbone,
     save_regression_predictions,
 )
 
@@ -69,6 +70,7 @@ class DER(DeterministicModel):
         self,
         model: nn.Module,
         coeff: float = 0.01,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -78,6 +80,7 @@ class DER(DeterministicModel):
             model: pytorch model
             coeff: coefficient for the DER loss
                 from the predictive distribution
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -90,6 +93,10 @@ class DER(DeterministicModel):
 
         # add DER Layer
         self.model = nn.Sequential(self.model, DERLayer())
+
+        self.freeze_backbone = freeze_backbone
+        if self.freeze_backbone:
+            freeze_model_backbone(self.model[0])
 
         # set DER Loss
         # TODO need to give control over the coeff through config or argument

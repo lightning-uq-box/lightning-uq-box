@@ -13,7 +13,11 @@ from torch import Tensor
 
 from .base import DeterministicModel
 from .loss_functions import NLL
-from .utils import default_regression_metrics, save_regression_predictions
+from .utils import (
+    default_regression_metrics,
+    freeze_model_backbone,
+    save_regression_predictions,
+)
 
 
 class MVEBase(DeterministicModel):
@@ -28,6 +32,7 @@ class MVEBase(DeterministicModel):
         self,
         model: nn.Module,
         burnin_epochs: int,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -36,9 +41,11 @@ class MVEBase(DeterministicModel):
         Args:
             model: pytorch model
             burnin_epochs: number of burnin epochs before switiching to NLL
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        self.freeze_backbone = freeze_backbone
         super().__init__(model, None, optimizer, lr_scheduler)
 
         self.loss_fn = NLL()
@@ -48,6 +55,16 @@ class MVEBase(DeterministicModel):
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
+        self.freeze_model()
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        if self.freeze_backbone:
+            freeze_model_backbone(self.model)
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -91,6 +108,7 @@ class MVERegression(MVEBase):
         self,
         model: nn.Module,
         burnin_epochs: int,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -99,11 +117,12 @@ class MVERegression(MVEBase):
         Args:
             model: pytorch model
             burnin_epochs: number of burnin epochs before switiching to NLL
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
         """
-        super().__init__(model, burnin_epochs, optimizer, lr_scheduler)
+        super().__init__(model, burnin_epochs, freeze_backbone, optimizer, lr_scheduler)
         self.save_hyperparameters(
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )

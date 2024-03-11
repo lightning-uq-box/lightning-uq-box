@@ -8,6 +8,7 @@ from .base import (
     DeterministicClassification,
     DeterministicModel,
     DeterministicRegression,
+    DeterministicSegmentation,
     PosthocBase,
 )
 from .bnn_lv_vi import (
@@ -74,6 +75,7 @@ __all__ = (
     "DeterministicModel",
     "DeterministicClassification",
     "DeterministicRegression",
+    "DeterministicSegmentation",
     # CARDS
     "CARDBase",
     "CARDRegression",

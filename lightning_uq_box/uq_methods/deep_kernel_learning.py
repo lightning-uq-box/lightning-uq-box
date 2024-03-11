@@ -295,6 +295,7 @@ class DKLRegression(DKLBase):
         n_inducing_points: int,
         num_targets: int = 1,
         gp_kernel: str = "RBF",
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -307,9 +308,12 @@ class DKLRegression(DKLBase):
             gp_kernel: kernel choice, supports one of
                 ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             elbo_fn: gpytorch elbo function used for optimization
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        self.freeze_backbone = freeze_backbone
+
         super().__init__(
             feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
         )
@@ -324,6 +328,10 @@ class DKLRegression(DKLBase):
             ]
         )
         self.num_targets = num_targets
+
+        if self.freeze_backbone:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -420,6 +428,7 @@ class DKLClassification(DKLBase):
         num_classes: int,
         task: str = "multiclass",
         gp_kernel: str = "RBF",
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -432,6 +441,7 @@ class DKLClassification(DKLBase):
                 'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             num_classes: number of classes
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -441,6 +451,7 @@ class DKLClassification(DKLBase):
         self.num_classes = num_classes
         # number of latent features of the feature extractor
         self.num_features = _get_num_outputs(feature_extractor)
+        self.freeze_backbone = freeze_backbone
 
         super().__init__(
             feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
@@ -455,6 +466,10 @@ class DKLClassification(DKLBase):
                 "elbo_fn",
             ]
         )
+
+        if self.freeze_backbone:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
