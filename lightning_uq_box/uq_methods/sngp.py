@@ -53,6 +53,7 @@ class SNGPBase(BaseModule):
         coeff: float = 0.95,
         n_power_iterations: int = 1,
         input_size: Optional[int] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -72,6 +73,7 @@ class SNGPBase(BaseModule):
                 should be (0, 1)
             n_power_iterations: number of power iterations for spectral normalization
             input_size: image dimension input size needed for spectral normalization
+            freeze_backbone: whether to freeze the feature extractor
             optimizer: Optimizer
             lr_scheduler: Learning rate scheduler
         """
@@ -96,6 +98,8 @@ class SNGPBase(BaseModule):
         self.normalize_gp_features = normalize_gp_features
         self.feature_scale = feature_scale
         self.ridge_penalty = ridge_penalty
+
+        self.freeze_backbone = freeze_backbone
 
         self._build_model()
 
@@ -130,6 +134,11 @@ class SNGPBase(BaseModule):
 
         self.recompute_covariance = True
         self.register_buffer("covariance", torch.eye(self.num_random_features))
+
+        # freeze feature extractor
+        if self.freeze_backbone:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
 
     def forward(self, x: Tensor) -> tuple[Tensor]:
         """Forward pass of the SNGP model.
@@ -245,12 +254,13 @@ class SNGPBase(BaseModule):
             predictions
         """
         pred_dict = self.predict_step(batch[self.input_key])
-
+        pred_dict[self.target_key] = batch[self.target_key]
         loss = self.loss_fn(pred_dict["pred"], batch[self.target_key])
         self.log("test_loss", loss, batch_size=batch[self.input_key].shape[0])
         if batch[self.target_key].shape[0] > 1:
             self.test_metrics(pred_dict["pred"], batch[self.target_key])
 
+        pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
         del pred_dict["pred_cov"]
         return pred_dict
 
@@ -343,6 +353,7 @@ class SNGPClassification(SNGPBase):
         input_size: Optional[int] = None,
         mean_field_factor: Optional[float] = math.pi / 8,
         task: str = "multiclass",
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -363,7 +374,8 @@ class SNGPClassification(SNGPBase):
             n_power_iterations: number of power iterations for spectral normalization
             input_size: image dimension input size needed for spectral normalization
             mean_field_factor: Mean field factor, required for classification problems
-            task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            task: classification task, one of ['binary', 'multiclass']
+            freeze_backbone: whether to freeze the feature extractor
             optimizer: Optimizer
             lr_scheduler: Learning rate scheduler
         """
@@ -382,6 +394,7 @@ class SNGPClassification(SNGPBase):
             coeff,
             n_power_iterations,
             input_size,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )

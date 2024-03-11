@@ -21,46 +21,43 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Single Forward Pass Methods
 
-| UQ-Method            | Regression            | Classification            | Segmentation              | Pixel Wise Regression      |
-|----------------------|:---------------------:|:-------------------------:|:-------------------------:|:--------------------------:|
-| Quantile Regression  |          ✅           |           ❌              |           ❌              |            ⏳            |
-| Deep Evidential      |          ✅           |           ⏳              |           ⏳              |            ⏳            |
-| MVE                  |          ✅           |           ❌              |           ❌              |            ⏳            |
-
+| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+|-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
+| Quantile Regression (QR)                      |     ✅     |       ❌       |      ❌      |          ⏳           |
+| Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ⏳           |
+| Mean Variance Estimation (MVE)                |     ✅     |       ❌       |      ❌      |          ⏳           |
 
 ### Approximate Bayesian Methods
 
-| UQ-Method            | Regression            | Classification            | Segmentation              | Pixel Wise Regression      |
-|----------------------|:---------------------:|:-------------------------:|:-------------------------:|:--------------------------:|
-| BNN_VI_ELBO          |          ✅           |           ✅              |           ✅              |            ⏳            |
-| BNN_VI               |          ✅           |           ⏳              |           ⏳              |            ⏳            |
-| DKL                  |          ✅           |           ✅              |           ❌              |            ⏳            |
-| DUE                  |          ✅           |           ✅              |           ❌              |            ⏳            |
-| Laplace              |          ✅           |           ✅              |           ❌              |            ⏳            |
-| MC-Dropout           |          ✅           |           ✅              |           ✅              |            ⏳            |
-| SGLD                 |          ✅           |           ✅              |           ⏳              |            ⏳            |
-| SNGP                 |          ✅           |           ✅              |           ❌              |            ❌            |
-| SWAG                 |          ✅           |           ✅              |           ✅              |            ⏳            |
-| Deep Ensemble        |          ✅           |           ✅              |           ✅              |            ⏳            |
-
+| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+|-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
+| Bayesian Neural Network VI ELBO (BNN_VI_ELBO) |     ✅     |       ✅       |      ✅      |          ⏳           |
+| Bayesian Neural Network VI (BNN_VI)           |     ✅     |       ⏳       |      ⏳      |          ⏳           |
+| Deep Kernel Learning (DKL)                    |     ✅     |       ✅       |      ❌      |          ❌           |
+| Deterministic Uncertainty Estimation (DUE)    |     ✅     |       ✅       |      ❌      |          ❌           |
+| Laplace Approximation (Laplace)               |     ✅     |       ✅       |      ❌      |          ❌           |
+| Monte Carlo Dropout (MC-Dropout)              |     ✅     |       ✅       |      ✅      |          ⏳           |
+| Stochastic Gradient Langevin Dynamics (SGLD)  |     ✅     |       ✅       |      ⏳      |          ⏳           |
+| Spectral Normalized Gaussian Process (SNGP)   |     ✅     |       ✅       |      ❌      |          ❌           |
+| Stochastic Weight Averaging Gaussian (SWAG)   |     ✅     |       ✅       |      ✅      |          ⏳           |
+| Deep Ensemble                                 |     ✅     |       ✅       |      ✅      |          ⏳           |
 
 ### Generative Models
 
-| UQ-Method                      | Regression | Classification | Segmentation | Pixel Wise Regression |
-|--------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
-| CARD                           |     ✅     |       ✅       |      ❌      |          ❌           |
-| Probabilistic UNet             |     ❌     |       ❌       |      ✅      |          ❌           |
-| Hierarchical Probabilistic UNet|     ❌     |       ❌       |      ✅      |          ❌           |
-
+| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+|-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
+| Classification And Regression Diffusion (CARD)|     ✅     |       ✅       |      ❌      |          ❌           |
+| Probabilistic UNet                            |     ❌     |       ❌       |      ✅      |          ❌           |
+| Hierarchical Probabilistic UNet               |     ❌     |       ❌       |      ✅      |          ❌           |
 
 ### Post-Hoc methods
 
-| UQ-Method            | Regression            | Classification            | Segmentation              | Pixel Wise Regression      |
-|----------------------|:---------------------:|:-------------------------:|:-------------------------:|:--------------------------:|
-| Test Time Augmentation|          ✅            |           ✅              |           ⏳               |            ⏳               |
-| Temperature Scaling  |          ❌           |           ✅              |           ⏳              |            ❌              |
-| Conformal QR         |          ✅           |           ❌              |           ❌              |            ⏳              |
-| RAPS                 |          ❌           |           ✅              |           ❌              |            ❌              |
+| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+|-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
+| Test Time Augmentation (TTA)                  |     ✅     |       ✅       |      ⏳      |          ⏳           |
+| Temperature Scaling                           |     ❌     |       ✅       |      ⏳      |          ❌           |
+| Conformal Quantile Regression (Conformal QR)  |     ✅     |       ❌       |      ❌      |          ⏳           |
+| Regularized Adaptive Prediction Sets (RAPS)   |     ❌     |       ✅       |      ❌      |          ❌           |
 
 
 ## Table of contents

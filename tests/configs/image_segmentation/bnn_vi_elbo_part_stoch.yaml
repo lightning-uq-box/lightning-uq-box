@@ -1,4 +1,4 @@
-model:
+uq_method:
   _target_: lightning_uq_box.uq_methods.BNN_VI_ELBO_Segmentation
   model:
     _target_: torchseg.Unet

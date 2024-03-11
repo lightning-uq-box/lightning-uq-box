@@ -12,6 +12,8 @@ The tutorials have two central goals:
 
 ## Regression 1D targets
 
+These tutorials present the regression methods on a 1D toy dataset. However, the methods are equally equipped to handle other data modalities, for example image regression by swapping out the underlying network architecture.
+
 ```{toctree}
 :maxdepth: 1
 
@@ -19,6 +21,8 @@ tutorials/regression
 ```
 
 ## Classification
+
+These tutorials present the classification methods on a Two Moons toy dataset. However, the methods are equally equipped to handle other data modalities, for example image classification by swapping out the underlying network architecture.
 
 ```{toctree}
 :maxdepth: 1

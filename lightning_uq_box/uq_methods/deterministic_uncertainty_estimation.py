@@ -31,6 +31,7 @@ class DUERegression(DKLRegression):
         gp_kernel: str = "RBF",
         coeff: float = 0.95,
         n_power_iterations: int = 1,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -48,6 +49,7 @@ class DUERegression(DKLRegression):
             coeff: soft normalization only when sigma larger than coeff,
                 should be (0, 1)
             n_power_iterations: number of power iterations for spectral normalization
+            freeze_backbone: whether to freeze the feature extractor or not
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -64,6 +66,7 @@ class DUERegression(DKLRegression):
             n_inducing_points,
             num_targets,
             gp_kernel,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )
@@ -87,6 +90,7 @@ class DUEClassification(DKLClassification):
         task: str = "multiclass",
         coeff: float = 0.95,
         n_power_iterations: int = 1,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -102,6 +106,7 @@ class DUEClassification(DKLClassification):
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             coeff: soft normalization only when sigma larger than coeff should be (0, 1)
             n_power_iterations: number of power iterations for spectral normalization
+            freeze_backbone: whether to freeze the feature extractor or not
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -119,6 +124,7 @@ class DUEClassification(DKLClassification):
             num_classes,
             task,
             gp_kernel,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )

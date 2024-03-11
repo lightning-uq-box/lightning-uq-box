@@ -172,6 +172,8 @@ def process_classification_prediction(
 
     Args:
         preds: prediction logits tensor of shape [batch_size, num_classes, num_samples]
+        aggregate_fn: function to aggregate over the samples
+        eps: small value to prevent log of 0
 
     Returns:
         dictionary with mean [batch_size, num_classes]
@@ -186,7 +188,7 @@ def process_classification_prediction(
 
 
 def process_segmentation_prediction(
-    preds: Tensor, eps: float = 1e-7
+    preds: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
 ) -> dict[str, Tensor]:
     """Process segmentation predictions.
 
@@ -195,17 +197,19 @@ def process_segmentation_prediction(
     Args:
         preds: prediction logits tensor of shape
             [batch_size, num_classes, height, width, num_samples]
+        aggregate_fn: function to aggregate over the samples
+        eps: small value to prevent log of 0
 
     Returns:
         dictionary with mean [batch_size, num_classes, height, width]
             and predictive uncertainty [batch_size, height, width]
     """
     # dim=1 is the expected num classes dimension
-    mean = nn.functional.softmax(preds.mean(-1), dim=1)
+    mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=1)
-    return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
 
 
 def change_inplace_activation(module):
@@ -258,7 +262,9 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     for i in range(logits.shape[1]):
         outputs[f"logit_{i}"] = logits[:, i]
 
-    if "pred_set" in outputs:
+    pred_set_true = True if "pred_set" in outputs else False
+
+    if pred_set_true:
         pred_set = [
             str(tensor.cpu().numpy().tolist()) for tensor in outputs.pop("pred_set")
         ]
@@ -281,7 +287,7 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     # Concatenate the two DataFrames
     df = pd.concat([df_pred, df_outputs], axis=1)
 
-    if "pred_set" in outputs:
+    if pred_set_true:
         df = pd.concat([df, df_pred_set], axis=1)
 
     if os.path.exists(path):
@@ -316,6 +322,8 @@ def map_stochastic_modules(
     module_names = [".".join(name.split(".")[:-1]) for name in ordered_module_params]
     # remove duplicates due to weight/bias
     module_names = list(set(module_names))
+
+    module_names = [name for name in module_names if name != ""]  # remove empty string
 
     if not stochastic_module_names:  # None means fully stochastic
         part_stoch_names = module_names.copy()
@@ -415,3 +423,44 @@ def _get_num_outputs(model: nn.Module) -> int:
     else:
         raise ValueError(f"Module {module} does not have out_features or out_channels.")
     return num_outputs
+
+
+def freeze_model_backbone(model: nn.Module) -> None:
+    """Freeze the backbone of a model.
+
+    Args:
+        model: pytorch model
+    """
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # for timm model
+    if hasattr(model, "get_classifier"):
+        for param in model.get_classifier().parameters():
+            param.requires_grad = True
+    else:
+        # find last layer
+        _, module = _get_output_layer_name_and_module(model)
+        for param in module.parameters():
+            param.requires_grad = True
+
+
+def freeze_segmentation_model(
+    model: nn.Module, freeze_backbone: bool, freeze_decoder: bool
+) -> None:
+    """Freeze the encoder or decoder of a segmentation model.
+
+    Args:
+        model: pytorch model
+        freeze_backbone: whether to freeze the model backbone
+        freeze_decoder: whether to freeze the decoder
+    """
+    # Freeze backbone
+    if hasattr(model, "encoder") and freeze_backbone:
+        for param in model.encoder.parameters():
+            param.requires_grad = False
+
+    # Freeze decoder
+    if hasattr(model, "decoder") and freeze_decoder:
+        for param in model.decoder.parameters():
+            param.requires_grad = False
