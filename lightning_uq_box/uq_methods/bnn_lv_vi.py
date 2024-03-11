@@ -366,56 +366,6 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         Returns:
             prediction dictionary
         """
-        # n_aleatoric = self.hparams.n_mc_samples_epistemic
-
-        # if self.hparams.latent_variable_intro == "first":
-        #     output_dim = self.prediction_head.out_features
-        # else:
-        #     key, module = _get_output_layer_name_and_module(self.prediction_head)
-        #     output_dim = module.out_features
-
-        # in_noise = torch.randn(n_aleatoric)
-        # model_preds_hy = np.zeros(
-        #     (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim)
-        # )
-        # model_preds = np.zeros(
-        #     (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim)
-        # )
-        # o_noise = torch.exp(self.log_aleatoric_std).detach().cpu().numpy()
-        # with torch.no_grad():
-        #     for i in range(self.hparams.n_mc_samples_epistemic):
-        #         self.freeze_layers()
-        #         z = torch.tile(in_noise[i], (X.shape[0], 1))
-        #         pred = self.forward(X, z, training=False).cpu().numpy()
-        #         pred += (
-        #             np.tile(np.random.randn(1, output_dim), [X.shape[0], 1]) * o_noise
-        #         )
-        #         model_preds_hy[i, :, :] = pred
-
-        #     for i in range(self.hparams.n_mc_samples_epistemic):
-        #         # one forward pass to resample
-        #         self.freeze_layers()
-        #         for j in range(n_aleatoric):
-        #             z = torch.tile(in_noise[j], (X.shape[0], 1))
-        #             pred = self.forward(X, z, training=False).cpu().numpy()
-        #             pred += (
-        #                 np.tile(np.random.randn(1, output_dim), [X.shape[0], 1])
-        #                 * o_noise
-        #             )
-        #             model_preds[i, j, :, :] = pred
-        #         self.unfreeze_layers()
-
-        # mean_out = model_preds.mean(axis=(0, 1)).squeeze()
-
-        # def entropy(x, axis=None):
-        #     var_x = x.var(axis=axis)
-        #     # clip variance to avoid numerical issues
-        #     var_x = np.clip(var_x, 1e-6, None)
-        #     return 0.5 * np.log(2 * np.pi * var_x) + 0.5
-
-        # full_uncertainty = entropy(model_preds_hy, axis=0).ravel()
-        # aleatoric_uncertainty = entropy(model_preds, axis=1).mean(axis=0).ravel()
-        # epistemic_uncertainty = full_uncertainty - aleatoric_uncertainty
         n_aleatoric = self.hparams.n_mc_samples_epistemic
 
         if self.hparams.latent_variable_intro == "first":
@@ -503,7 +453,6 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         params = self.exclude_from_wt_decay(self.named_parameters(), weight_decay=0.01)
 
         optimizer = self.optimizer(params)
-        optimizer = self.optimizer(self.parameters())
         if self.lr_scheduler is not None:
             lr_scheduler = self.lr_scheduler(optimizer)
             return {

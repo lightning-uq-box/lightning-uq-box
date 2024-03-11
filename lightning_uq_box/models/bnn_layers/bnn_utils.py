@@ -157,9 +157,9 @@ def calc_log_f_hat(w: Tensor, m_W: Tensor, std_W: Tensor, prior_sigma: float) ->
     """Compute single summand in equation 3.16.
 
     Args:
-        w: weight matrix [num_params]
-        m_W: mean weight matrix at current iteration [num_params]
-        std_W: sigma weight matrix at current iteration [num_params]
+        w: weight matrix [num_params], 64, 3, 7, 7 for conv, 50, 50, 2 for linear
+        m_W: mean weight matrix at current iteration [num_params] 50, 2 for linear, 64, 3, 7, 7 for conv
+        std_W: sigma weight matrix at current iteration [num_params] 64, 3, 7, 7 for conv, 50, 2 for linear
         prior_sigma: Prior variance of weights
 
     Returns:
@@ -169,13 +169,16 @@ def calc_log_f_hat(w: Tensor, m_W: Tensor, std_W: Tensor, prior_sigma: float) ->
     # natural parameters: -1/(2 sigma^2), mu/(sigma^2)
     # \lambda is (\lambda_q - \lambda_prior) / N
     # assuming prior mean is 0 and moving N calculation outside
+    # out has same shape as w
     out = ((v_W - prior_sigma) / (2 * prior_sigma * v_W)) * (w**2) + (m_W / v_W) * w
-    # sum out over all dimension except first
-
-    # this does not support both linear anc conv layers
+    # sum out over all dimension except first, which is sample dimension
     # conv layers have number of filters in first dimension
-    # return torch.sum(out, dim=tuple(range(1, out.ndim)))
-    return torch.atleast_1d(torch.sum(out))  # keep dimension 0
+    if out.ndim == 3:  # linear layers
+        out = torch.sum(out, dim=tuple(range(1, out.ndim)))
+    else:
+        # conv layers do not have a sample dimension so
+        out = torch.atleast_1d(torch.sum(out))
+    return out
 
 
 def calc_log_normalizer(m_W: Tensor, std_W: Tensor) -> Tensor:
