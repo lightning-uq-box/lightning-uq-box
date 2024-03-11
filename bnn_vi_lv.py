@@ -36,8 +36,6 @@ my_temp_dir = tempfile.mkdtemp()
 
 
 # ## Datamodule
-#
-# To demonstrate the method, we will make use of a Toy Regression Example that is defined as a [Lightning Datamodule](https://lightning.ai/docs/pytorch/stable/data/datamodule.html). While this might seem like overkill for a small toy problem, we think it is more helpful how the individual pieces of the library fit together so you can train models on more complex tasks.
 
 
 dm = ToyHeteroscedasticDatamodule(batch_size=32)
@@ -56,8 +54,6 @@ fig = plot_toy_regression_data(X_train, y_train, X_test, y_test)
 
 
 # ## Model
-#
-# For our Toy Regression problem, we will use a simple Multi-layer Perceptron (MLP) that will be converted to a BNN as well as a Latent Variable Network.
 
 
 bnn = MLP(
@@ -69,13 +65,6 @@ latent_net = MLP(
     n_hidden=[20],
     activation_fn=nn.ReLU(),
 )
-bnn, latent_net
-
-
-# With an underlying neural network, we can now use our desired UQ-Method as a sort of wrapper. All UQ-Methods are implemented as [LightningModule](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) that allow us to concisely organize the code and remove as much boilerplate code as possible.
-#
-# The BNN_LV_VI_Batched_Regression model enables us to chose the layers of our network we want to make stochastic via the ```stochastic_module_names``` argument. This can be done by either a list of module names or a list of module numbers. For example, stochastic_module_name = [-1] would only make the last layer stochastic while all other layers remain determinstic.
-# The default value of None makes all layers stochastic. The hyperparameter ```alpha``` determines how the Gaussian approximation of the posterior fits the posterior of the weights, see Figure 1, [Depeweg, 2016](https://arxiv.org/abs/1605.07127).
 
 
 bnn_vi_model = BNN_LV_VI_Batched_Regression(
@@ -96,8 +85,6 @@ bnn_vi_model = BNN_LV_VI_Batched_Regression(
 
 
 # ## Trainer
-#
-# Now that we have a LightningDataModule and a UQ-Method as a LightningModule, we can conduct training with a [Lightning Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html). It has tons of options to make your life easier, so we encourage you to check the documentation.
 
 
 logger = CSVLogger(my_temp_dir)
@@ -120,7 +107,6 @@ trainer.fit(bnn_vi_model, dm)
 
 # ## Training Metrics
 #
-# To get some insights into how the training went, we can use the utility function to plot the training loss and RMSE metric.
 
 
 fig = plot_training_metrics(
@@ -154,14 +140,3 @@ fig = plot_predictions_regression(
 )
 
 plt.show()
-
-
-# For some additional metrics relevant to UQ, we can use the great [uncertainty-toolbox](https://uncertainty-toolbox.github.io/) that gives us some insight into the calibration of our prediction.
-
-
-fig = plot_calibration_uq_toolbox(
-    preds["pred"].numpy(),
-    preds["pred_uct"].numpy(),
-    y_test.cpu().numpy(),
-    X_test.cpu().numpy(),
-)
