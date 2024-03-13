@@ -150,7 +150,7 @@ class DER(DeterministicModel):
     def compute_aleatoric_uct(self, beta: Tensor, alpha: Tensor, nu: Tensor) -> Tensor:
         """Compute the aleatoric uncertainty for DER model.
 
-        Equation 10:
+        Equation 10 of the paper
 
         Args:
             beta: beta output DER model
@@ -160,13 +160,12 @@ class DER(DeterministicModel):
         Returns:
             Aleatoric Uncertainty
         """
-        # Equation 10 from the above paper
         return torch.sqrt(torch.div(beta * (1 + nu), alpha * nu))
 
     def compute_epistemic_uct(self, nu: Tensor) -> Tensor:
         """Compute the aleatoric uncertainty for DER model.
 
-        Equation 10:
+        Equation 10: of the paper
 
         Args:
             nu: nu output DER model
