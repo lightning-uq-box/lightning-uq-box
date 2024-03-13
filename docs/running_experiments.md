@@ -2,7 +2,7 @@
 
 # Running Experiments
 
-One of the main motiviations of the Lightning-UQ-Box is to provide an experiment setup where you can quickly launch experiments at scale and control these through config files for reproducability.
+One of the main motivations of the Lightning-UQ-Box is to provide an experiment setup where you can quickly launch experiments at scale and control these through config files for reproducibility.
 
 ## Lightning-CLI
 
@@ -46,7 +46,7 @@ uq-box fit --config path_to_above_config.yaml
 
 You can of course also create your own Lightning-CLI setup (check their [docs](https://lightning.ai/docs/pytorch/stable/cli/lightning_cli.html) for additional features).
 
-If you would like to use the instantitated Lightning classes in your code, but still use config files you can do:
+If you would like to use the instantiated Lightning classes in your code, but still use config files you can do:
 
 ```python
 from lightning_uq_box.main import get_uq_box_cli
