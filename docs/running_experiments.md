@@ -72,8 +72,8 @@ uq_method:
     _partial_: true
   criterion:
     _target_: torch.nn.CrossEntropyLoss
-  num_mc_samples_train: 3
-  num_mc_samples_test: 3
+  num_mc_samples_train: 10
+  num_mc_samples_test: 25
   prior_mu: 0.0
   prior_sigma: 1.0
   posterior_mu_init: 0.0
