@@ -48,7 +48,6 @@ version = lightning_uq_box.__version__
 release = lightning_uq_box.__version__
 
 # exclude ipynb for jupytext
-# exclude_patterns = ["_build", "**/*.ipynb", "earth_observation/*.ipynb"]
 exclude_patterns = ["_build"]
 html_theme = "sphinx_book_theme"
 html_title = "Lightning-UQ-Box"

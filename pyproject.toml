@@ -98,6 +98,8 @@ dev = [
     "sphinx-togglebutton>=0.3.2",
     # jupytext notebook creation from .py files
     "jupytext>=1.15.2",
+    # ipykernel to run notebooks
+    "ipykernel>=6.29.3",
 
     ## Style
     # black 21.8+ required for Jupyter support
