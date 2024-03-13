@@ -3,11 +3,11 @@
 
 """Lightning-UQ-Box.
 
-A toolbox for uncertainty quantification in deep learning.
+A toolbox for Uncertainty Quantification in Deep Learning.
 
 The :mod:`lightning_uq_box` package consists of various uncertainty quantification
 methods for deep learning models implemented in PyTorch and Lightning.
 """
 
 __author__ = "Nils Lehmann"
-__version__ = "0.0.1.dev0"
+__version__ = "0.1.0"
