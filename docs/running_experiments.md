@@ -2,7 +2,7 @@
 
 # Running Experiments
 
-One of the main motiviations of the Lightning-UQ-Box is to provide an experiment setup where you can quickly launch experiments at scale and control these through config files for reproducability.
+One of the main motiviations of the Lightning-UQ-Box is to provide an experiment setup where you can quickly launch experiments at scale and control these through config files for reproducibility.
 
 ## Lightning-CLI
 

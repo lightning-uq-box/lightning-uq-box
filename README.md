@@ -22,7 +22,7 @@ The goal of this library is threefold:
 2. Make it easy to compare UQ methods on a given dataset
 3. Focus on reproducibility of experiments with miminum boiler plate code and standardized evaluation protocols
 
-To this end, each UQ-Method is essentially just a [Lightning Module](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) which can be used with a [Lightning Data Module](https://lightning.ai/docs/pytorch/stable/data/datamodule.html) and a [Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html) to exectute training, evaluation and inference for your desired task. The library also utilizes the [Lightning Command Line Interface (CLI)](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) for better reproducability of experiments and setting up experiments at scale.
+To this end, each UQ-Method is essentially just a [Lightning Module](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) which can be used with a [Lightning Data Module](https://lightning.ai/docs/pytorch/stable/data/datamodule.html) and a [Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html) to exectute training, evaluation and inference for your desired task. The library also utilizes the [Lightning Command Line Interface (CLI)](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) for better reproducibility of experiments and setting up experiments at scale.
 
 # Installation
 
