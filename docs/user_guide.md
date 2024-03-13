@@ -2,9 +2,9 @@
 
 # Why lightning-uq-box
 
-Over the past decade open-sourcing code alongside publications has luckily become a defacto standard. However, different papers continue to reimplemnt and develop methods in their own frameworks with a lot of boilerplate code. This can make it difficult to understand what the core aspects of a proposed method are. Additionally, this makes it more time-consuming to test various methods on your task of interests as each implementation might have different requirements and custom functionality. We aim to bridge this gap with the lightning-uq-box, which is essentially nothing more than a collection of [Lightning Modules](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) that build on the shoulders of existing implementations and packages and give a common structure across methods.
+Over the past decade open-sourcing code alongside publications has luckily become a de facto standard. However, different papers continue to reimplement and develop methods in their own frameworks with a lot of boilerplate code. This can make it difficult to understand what the core aspects of a proposed method are. Additionally, this makes it more time-consuming to test various methods on your task of interests as each implementation might have different requirements and custom functionality. We aim to bridge this gap with the lightning-uq-box, which is essentially nothing more than a collection of [Lightning Modules](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) that build on the shoulders of existing implementations and packages and give a common structure across methods.
 
-With that comes the integration of [Lightning-CLI](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) which lets you run experiments at scale from the command line through configuration files to ensure reproducability. 
+With that comes the integration of [Lightning-CLI](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) which lets you run experiments at scale from the command line through configuration files to ensure reproducibility.
 
 ## Library Design Choice
 
@@ -43,14 +43,14 @@ The following aims to explain the design choices behind the implementations foun
 
 - modular design aiming to:
   - give enough structure to apply any particular method to a
-    dataset that practicioner might be interested in
+    dataset that practitioner might be interested in
   - give enough flexibility to extend or adapt for particular problem with minimal
     changes
   - support any model architecture for any particular UQ-Method (like pretrained timm models)
 - each UQ-method has its own "Base Class" that implements the commonalities across tasks, for example MCDropoutBase
 - for each different task, the UQ-method will have a subclass specific for that
   task so MCDropoutClassification, MCDropoutRegression etc
-- therefore, we incure code duplication but we prefer this for claritiy of seperation and avoiding long if/else blocks
+- therefore, we incur code duplication but we prefer this for clarity of separation and avoiding long if/else blocks
   for any particular method
 - the common features across tasks like the metrics for example, or
   functionality like computing the mean, can be methods that are forced to be
@@ -65,6 +65,6 @@ The following aims to explain the design choices behind the implementations foun
 - use [Lightning](https://lightning.ai/docs/pytorch/stable/), because:
   - reduces boiler plate code
   - enforces code organization structure
-  - offers flexibilty to introduce functionality, like early stopping, precision
-  - reproducability through standardization
-  - CLI integration for running code from config files for reproducability and scale
+  - offers flexibility to introduce functionality, like early stopping, precision
+  - reproducibility through standardization
+  - CLI integration for running code from config files for reproducibility and scale
