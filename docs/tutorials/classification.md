@@ -7,6 +7,7 @@
 
 classification/dkl
 classification/card
+classification/deterministic
 classification/swag
 classification/sngp
 classification/laplace
