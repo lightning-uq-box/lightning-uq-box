@@ -48,8 +48,4 @@ The documentation is hosted on [Read the Docs](https://readthedocs.org/). If you
 
 ## Tutorials
 
-Guide for writing tutorials coming.
-
-## UQ Methods
-
-Guide for implementing new methods coming.
+We aim to give comprehensive tutorials that illustrate different UQ-Methods. If there are specific use cases you would like to see covered (from whatever domain) please do not hesitate to reach out. The majority of our tuturials utilize toy datasets because they can be used to visualize model predictions easily and see the behavior of different UQ Methods. However, we would also love to support more involved tutorials that showcase the use of UQ in a variety of domains. If you have any ideas or suggestions for tutorials or are looking for help in setting up a tutorial, we would love to help.

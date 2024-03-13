@@ -40,13 +40,15 @@ In the tables that follow below, you can see what UQ-Method/Task combination is 
 - ❌ not designed for this task
 - ⏳ in progress
 
+The implemented methods are of course not exhaustive, as the number of new methods keeps increasing. For an overview of methods that we are tracking or are planning to support, take a look at [this issue](https://github.com/lightning-uq-box/lightning-uq-box/issues/43).
+
 ## Classification of UQ-Methods
 
 The following sections aims to give an overview of different UQ-Methods by grouping them according to some commonalities. We agree that there could be other groupings as well and welcome suggestions to improve this overview. We also follow this grouping for the API documentation in the hopes to make navigation easier.
 
 ### Single Forward Pass Methods
 
-| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
+| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Quantile Regression (QR)                      |     ✅     |       ❌       |      ❌      |          ⏳           |
 | Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ⏳           |
@@ -54,7 +56,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Approximate Bayesian Methods
 
-| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
+| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Bayesian Neural Network VI ELBO (BNN_VI_ELBO) |     ✅     |       ✅       |      ✅      |          ⏳           |
 | Bayesian Neural Network VI (BNN_VI)           |     ✅     |       ⏳       |      ⏳      |          ⏳           |
@@ -69,7 +71,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Generative Models
 
-| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
+| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Classification And Regression Diffusion (CARD)|     ✅     |       ✅       |      ❌      |          ❌           |
 | Probabilistic UNet                            |     ❌     |       ❌       |      ✅      |          ❌           |
@@ -77,23 +79,12 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Post-Hoc methods
 
-| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
+| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Test Time Augmentation (TTA)                  |     ✅     |       ✅       |      ⏳      |          ⏳           |
 | Temperature Scaling                           |     ❌     |       ✅       |      ⏳      |          ❌           |
 | Conformal Quantile Regression (Conformal QR)  |     ✅     |       ❌       |      ❌      |          ⏳           |
 | Regularized Adaptive Prediction Sets (RAPS)   |     ❌     |       ✅       |      ❌      |          ❌           |
-
-## Highlights
-
-Because this library is motivated through the lense of Earth Observation Applications, however, by no means limited to them, we aim to make it easy for users to apply or scale the UQ Methods for larger models. To this end, we would like
-to highlight the following features:
-
-- The library aims to be backbone agnostic in the sense that one can plug in any pytorch model and for example turn it into a Bayesian Neural Network, or apply different Post-hoc methods like SWAG or Conformal Prediction to it.
-- Similarly, certain parts of the training pipeline are by design easily changeable. For example, regression tasks allow for common but also specialized loss functions as an argument for the specific method. Additionally, different optimizers or learning rate schedulers can be customized out of the box. Overall, we have aimed to implement methods in such a way, that if you require more specific customization only minimal parts need to be changed through class inheritance.
-- BNN implementations contain a `stochastic_module_name` argument which lets you specify which layers of your model should be Bayesian and which should remain deterministic. This is available for all BNN implementations but also SWAG and is inspired by the work of [Sharma et al. 2022](https://arxiv.org/abs/2211.06291).
-- The backbone (for regression and classification tasks) or the encoder or decoder (for segmentation and pixel wise regression tasks) can be frozen via class arguments. This should enable fine tuning or transfer learning applications from large pretrained models.
-For example, turning the last linear layer into a Bayesian layer that is trained while the feature extractor is kept frozen, etc.
 
 # Tutorials
 
