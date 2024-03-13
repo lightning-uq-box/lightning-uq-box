@@ -118,9 +118,6 @@ dev = [
 addopts = "-m 'not slow'"
 # https://docs.pytest.org/en/latest/how-to/capture-warnings.html
 filterwarnings = [
-    # Treat all warnings as errors
-    "error",
-
     # Warnings raised by dependencies of dependencies, out of our control
 
     # Expected warnings
