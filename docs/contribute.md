@@ -37,6 +37,14 @@ We use linters to ensure a codebase that follows [PEP-8](https://peps.python.org
 
 Black and isort will automatically change your code, while flake8 and pydocstyle will give you warnings.
 
+You can also use `git pre-commit hooks <https://pre-commit.com/>`_ to automatically apply these checks before each commit. You can setup pre-commit as follows:
+
+```console
+$ pip install pre-commit
+$ pre-commit install
+$ pre-commit run --all-files
+```
+
 ## Documentation
 
 The documentation is hosted on [Read the Docs](https://readthedocs.org/). If you are making changes to the documentation, it can be useful to inspect the changes locally before committing them. You can follow these steps:
