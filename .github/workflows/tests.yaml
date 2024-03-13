@@ -6,7 +6,7 @@ on:
   pull_request:
     branches:
     - main
-  
+
 jobs:
   pytest:
     name: pytest
@@ -32,22 +32,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements/requirements.txt -r requirements/tests.txt
         pip install numpy scipy
-    - name: Run pytest checks (Ubuntu)
+    - name: Run pytest checks
       shell: bash
       run: |
         python -m pytest -v tests --cov=lightning_uq_box --cov-report=xml
-      if: ${{ runner.os == 'Ubuntu' }}
-    - name: Run pytest checks (MacOS)
-      shell: bash
-      # env:
-      #   MKL_THREADING_LAYER: TBB
-      #   OMP_NUM_THREADS: 1
-      #   KMP_DUPLICATE_LIB_OK: true
-      run: |
-        unset MKL_THREADING_LAYER
-        unset OMP_NUM_THREADS
-        python -m pytest -v tests --cov=lightning_uq_box --cov-report=xml
-      if: ${{ runner.os == 'macos' }}
     - name: Report coverage
       uses: codecov/codecov-action@v3.1.1
       with:
