@@ -9,7 +9,7 @@ One of the main motiviations of the Lightning-UQ-Box is to provide an experiment
 The [Lightning-CLI](https://lightning.ai/docs/pytorch/stable/cli/lightning_cli.html#lightning-cli) allows running experiments
 
 ```yaml
-model: # model is the keywoard for the lightning cli
+model: # model is the keyword for the lightning cli
   class_path: lightning_uq_box.uq_methods.DKLRegression
   init_args:
     feature_extractor:
@@ -86,7 +86,7 @@ trainer: # lightning trainer arguments
   max_epochs: 25
 
 datamodule:
-  _target_: lightning_uq_box.datamodules.ToyHeteroscedasticDatamodule
+  _target_: lightning_uq_box.datamodules.ToyImageClassificationDatamodule
   batch_size: 32
 ```
 
