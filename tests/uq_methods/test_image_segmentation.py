@@ -64,7 +64,7 @@ frozen_config_paths = [
 
 class TestFrozenSegmentation:
     @pytest.mark.parametrize("model_name", ["Unet", "DeepLabV3Plus"])
-    @pytest.mark.parametrize("backbone", ["resnet18", "mobilenetv2_035"])
+    @pytest.mark.parametrize("backbone", ["resnet18", "vit_tiny_patch16_224"])
     @pytest.mark.parametrize("model_config_path", frozen_config_paths)
     def test_freeze_backbone(
         self, model_config_path: str, model_name: str, backbone: str
