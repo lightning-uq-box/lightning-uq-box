@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 # adapted from https://github.com/y0ast/DUE/blob/main/due/sngp.py
 
@@ -36,7 +36,12 @@ from .utils import (
 
 
 class SNGPBase(BaseModule):
-    """Specral Normalized Gaussian Process (SNGP)."""
+    """Specral Normalized Gaussian Process (SNGP).
+
+    If you use this code, please cite the following paper:
+
+    * https://arxiv.org/abs/2006.10108
+    """
 
     pred_file_name = "preds.csv"
 
@@ -310,7 +315,12 @@ class SNGPBase(BaseModule):
 
 
 class SNGPRegression(SNGPBase):
-    """SNGP for regression."""
+    """SNGP for regression.
+
+    If you use this code, please cite the following paper:
+
+    * https://arxiv.org/abs/2006.10108
+    """
 
     def setup_task(self) -> None:
         """Set up task."""
@@ -334,7 +344,12 @@ class SNGPRegression(SNGPBase):
 
 
 class SNGPClassification(SNGPBase):
-    """SNGP for classification."""
+    """SNGP for classification.
+
+    If you use this code, please cite the following paper:
+
+    * https://arxiv.org/abs/2006.10108
+    """
 
     valid_tasks = ["binary", "multiclass"]
 

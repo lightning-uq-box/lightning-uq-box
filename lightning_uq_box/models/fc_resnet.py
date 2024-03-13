@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 # adapted from https://github.com/y0ast/DUE/blob/main/due/fc_resnet.py
 

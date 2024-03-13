@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Laplace Approximation model."""
 
@@ -228,9 +228,10 @@ class LaplaceBase(BaseModule):
 class LaplaceRegression(LaplaceBase):
     """Laplace Approximation Wrapper for regression.
 
-    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_. # noqa: E501
+    This is a lightning module wrapper for the
+    `Laplace library <https://aleximmer.github.io/Laplace/>`_.
 
-    If you use this model in your research, please cite the following papers:
+    If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2106.14806
     """
@@ -306,9 +307,10 @@ class LaplaceRegression(LaplaceBase):
 class LaplaceClassification(LaplaceBase):
     """Laplace Approximation Wrapper for classification.
 
-    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_. # noqa: E501
+    This is a lightning module wrapper for the
+    `Laplace library <https://aleximmer.github.io/Laplace/>`_.
 
-    If you use this model in your research, please cite the following papers:
+    If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2106.14806
     """

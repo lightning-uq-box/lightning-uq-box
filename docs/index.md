@@ -15,13 +15,19 @@ In the tables that follow below, you can see what UQ-Method/Task combination is 
 - ❌ not designed for this task
 - ⏳ in progress
 
+To get started, 
+
+```console
+$ pip install lightning-uq-box
+```
+
 ## Classification of UQ-Methods
 
 The following sections aims to give an overview of different UQ-Methods by grouping them according to some commonalities. We agree that there could be other groupings as well and welcome suggestions to improve this overview. We also follow this grouping for the API documentation in the hopes to make navigation easier.
 
 ### Single Forward Pass Methods
 
-| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Quantile Regression (QR)                      |     ✅     |       ❌       |      ❌      |          ⏳           |
 | Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ⏳           |
@@ -29,7 +35,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Approximate Bayesian Methods
 
-| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Bayesian Neural Network VI ELBO (BNN_VI_ELBO) |     ✅     |       ✅       |      ✅      |          ⏳           |
 | Bayesian Neural Network VI (BNN_VI)           |     ✅     |       ⏳       |      ⏳      |          ⏳           |
@@ -44,7 +50,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Generative Models
 
-| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Classification And Regression Diffusion (CARD)|     ✅     |       ✅       |      ❌      |          ❌           |
 | Probabilistic UNet                            |     ❌     |       ❌       |      ✅      |          ❌           |
@@ -52,7 +58,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Post-Hoc methods
 
-| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Test Time Augmentation (TTA)                  |     ✅     |       ✅       |      ⏳      |          ⏳           |
 | Temperature Scaling                           |     ❌     |       ✅       |      ⏳      |          ❌           |

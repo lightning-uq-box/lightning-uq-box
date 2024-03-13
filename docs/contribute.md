@@ -37,6 +37,14 @@ We use linters to ensure a codebase that follows [PEP-8](https://peps.python.org
 
 Black and isort will automatically change your code, while flake8 and pydocstyle will give you warnings.
 
+You can also use `git pre-commit hooks <https://pre-commit.com/>`_ to automatically apply these checks before each commit. You can setup pre-commit as follows:
+
+```console
+$ pip install pre-commit
+$ pre-commit install
+$ pre-commit run --all-files
+```
+
 ## Documentation
 
 The documentation is hosted on [Read the Docs](https://readthedocs.org/). If you are making changes to the documentation, it can be useful to inspect the changes locally before committing them. You can follow these steps:
@@ -48,8 +56,4 @@ The documentation is hosted on [Read the Docs](https://readthedocs.org/). If you
 
 ## Tutorials
 
-Guide for writing tutorials coming.
-
-## UQ Methods
-
-Guide for implementing new methods coming.
+We aim to give comprehensive tutorials that illustrate different UQ-Methods. If there are specific use cases you would like to see covered (from whatever domain) please do not hesitate to reach out. The majority of our tuturials utilize toy datasets because they can be used to visualize model predictions easily and see the behavior of different UQ Methods. However, we would also love to support more involved tutorials that showcase the use of UQ in a variety of domains. If you have any ideas or suggestions for tutorials or are looking for help in setting up a tutorial, we would love to help.

@@ -10,7 +10,7 @@ include = ["lightning_uq_box*"]
 
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 [project]
-name = "lightning_uq_box"
+name = "lightning-uq-box"
 description = "Lighning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -26,7 +26,7 @@ keywords = ["pytorch", "lightning", "uncertainty quantification", "conformal pre
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache License 2.0",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
@@ -98,6 +98,8 @@ dev = [
     "sphinx-togglebutton>=0.3.2",
     # jupytext notebook creation from .py files
     "jupytext>=1.15.2",
+    # ipykernel to run notebooks
+    "ipykernel>=6.29.3",
 
     ## Style
     # black 21.8+ required for Jupyter support

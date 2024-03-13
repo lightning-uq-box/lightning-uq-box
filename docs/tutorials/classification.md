@@ -5,6 +5,7 @@
 ```{toctree}
 :maxdepth: 1
 
+classification/deterministic
 classification/dkl
 classification/card
 classification/swag

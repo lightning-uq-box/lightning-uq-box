@@ -27,9 +27,7 @@ To this end, each UQ-Method is essentially just a [Lightning Module](https://lig
 # Installation
 
 ```console
-$ git clone https://github.com/lightning-uq-box/lightning-uq-box.git
-$ cd lightning-uq-box
-$ pip install .
+$ pip install lightning-uq-box
 ```
 
 # UQ-Methods
@@ -39,6 +37,8 @@ In the tables that follow below, you can see what UQ-Method/Task combination is 
 - ✅ supported
 - ❌ not designed for this task
 - ⏳ in progress
+
+The implemented methods are of course not exhaustive, as the number of new methods keeps increasing. For an overview of methods that we are tracking or are planning to support, take a look at [this issue](https://github.com/lightning-uq-box/lightning-uq-box/issues/43).
 
 ## Classification of UQ-Methods
 

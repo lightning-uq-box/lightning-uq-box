@@ -1,9 +1,9 @@
-# MIT License
+# Apache License 2.0
 # Copyright (c) 2020 Anastasios Angelopoulos
 
 # Implementation adapted from above
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Regularized Adaptive Prediction Sets (RAPS).
 

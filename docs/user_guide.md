@@ -65,6 +65,6 @@ The following aims to explain the design choices behind the implementations foun
 - use [Lightning](https://lightning.ai/docs/pytorch/stable/), because:
   - reduces boiler plate code
   - enforces code organization structure
-  - offers flexibility to introduce functionality, like early stopping, precision
+  - offers flexibilty to introduce functionality, like early stopping, mixed precision, multi-gpu training, logging and many more
   - reproducibility through standardization
   - CLI integration for running code from config files for reproducibility and scale

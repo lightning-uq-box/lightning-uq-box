@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
@@ -242,8 +242,6 @@ class BNN_VI_Base(DeterministicModel):
         #         args.append(name)
         #     return args, defaults
         # args, defaults = get_function_args_defaults(self.optimizer)
-        # import pdb
-        # pdb.set_trace()
         # optimizer_args = getattr(self.optimizer, "keywords")
         # wd = optimizer_args.get("weight_decay", 0.0)
         # TODO this does not work with lightning CLI correctly yet
