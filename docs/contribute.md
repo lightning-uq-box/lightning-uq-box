@@ -18,7 +18,7 @@ We welcome contributions and suggestions to this open-source project. This could
 
 ## Tests
 
-Ligthning-UQ-Box uses [Github Actions](https://docs.github.com/en/actions) as a Continous Integration (CI) tool. This means that on every commit there is a set of unit tests that is being executed in order to check that the changes do not break the current version. All unit tests need to pass before the PR can be merged. Additionally, we check code coverage to make see how many lines of code are covered by the unit tests.
+Lightning-UQ-Box uses [Github Actions](https://docs.github.com/en/actions) as a Continuous Integration (CI) tool. This means that on every commit there is a set of unit tests that is being executed in order to check that the changes do not break the current version. All unit tests need to pass before the PR can be merged. Additionally, we check code coverage to make see how many lines of code are covered by the unit tests.
 
 For example, if you have implemented a new feature or a new method and want to check the coverage of your unit tests, you can run the following command:
 
@@ -44,7 +44,7 @@ The documentation is hosted on [Read the Docs](https://readthedocs.org/). If you
 1. Move to the `docs` directory
 2. In the `conf.py` file look at the very last line and uncomment if you want to speed up the documentation build. This will not execute the notebooks and just build the rest of the documentation. However, when you are making changes to the notebooks as well, you should leave it uncommented as the notebooks won't be updated with your changes otherwise.
 3. Run `make clean` followed by `make html`
-4. Once that command finishes, there will be a `index.html` file under `docs/_build/html`. Paste the full path to that file into your webbrowser to inspect what the documentation would look like with your changes
+4. Once that command finishes, there will be a `index.html` file under `docs/_build/html`. Paste the full path to that file into your web browser to inspect what the documentation would look like with your changes
 
 ## Tutorials
 

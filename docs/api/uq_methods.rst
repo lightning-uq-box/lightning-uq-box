@@ -235,7 +235,7 @@ DUE Regression
 DUE Classification
 ``````````````````
 
-.. autoclass:: DUEClassification    
+.. autoclass:: DUEClassification
 
 
 Deep Ensembles
@@ -256,12 +256,12 @@ Deep Ensemble Regression
 Deep Ensemble Classification
 ````````````````````````````
 
-.. autoclass:: DeepEnsembleClassification   
+.. autoclass:: DeepEnsembleClassification
 
 Deep Ensemble Segmentation
 ``````````````````````````
 
-.. autoclass:: DeepEnsembleSegmentation 
+.. autoclass:: DeepEnsembleSegmentation
 
 
 Generative Models
@@ -304,9 +304,9 @@ Probabilistic UNet
 Hierachical Probabilistic UNet
 ------------------------------
 
-.. currentmodule:: lightning_uq_box.uq_methods.hierachical_prob_unet
+.. currentmodule:: lightning_uq_box.uq_methods.hierarchical_prob_unet
 
-.. autoclass:: HierachicalProbUNet
+.. autoclass:: HierarchicalProbUNet
 
 UQ Calibration Methods
 ======================

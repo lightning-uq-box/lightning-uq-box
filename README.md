@@ -1,5 +1,5 @@
 <p align="center">
-<img src="docs/_static/lettering.png" alt="Lightning-UQ-Box logo" width="500" height="auto" />
+<img src="https://github.com/lightning-uq-box/lightning-uq-box/blob/main/docs/_static/lettering.png" alt="Lightning-UQ-Box logo" width="500" height="auto" />
 </p>
 
 [![docs](https://readthedocs.org/projects/lightning-uq-box/badge/?version=latest)](https://lightning-uq-box.readthedocs.io/en/latest/)
@@ -9,9 +9,9 @@
 
 # lightning-uq-box
 
-The lightning-uq-box is a PyTorch library that provides various Uncertainty Quantification (UQ) techniques for modern neural network architectures. 
+The lightning-uq-box is a PyTorch library that provides various Uncertainty Quantification (UQ) techniques for modern neural network architectures.
 
-We hope to provide the starting point for a collobrative open source effort to make it easier for practicioners to include UQ in their workflows and
+We hope to provide the starting point for a collaborative open source effort to make it easier for practitioners to include UQ in their workflows and
 remove possible barriers of entry. Additionally, we hope this can be a pathway to more easily compare methods across UQ frameworks and potentially enhance the development of new UQ methods for neural networks.
 
 *The project is currently under active development, but we nevertheless hope for early feedback, feature requests, or contributions. Please check the [Contribution Guide](https://lightning-uq-box.readthedocs.io/en/latest/contribute.html) for further information.*
@@ -20,9 +20,13 @@ The goal of this library is threefold:
 
 1. Provide implementations for a variety of Uncertainty Quantification methods for Modern Deep Neural Networks that work with a range of neural network architectures and have different theoretical underpinnings
 2. Make it easy to compare UQ methods on a given dataset
-3. Focus on reproducibility of experiments with miminum boiler plate code and standardized evaluation protocols
+3. Focus on reproducibility of experiments with minimum boiler plate code and standardized evaluation protocols
 
+<<<<<<< HEAD
 To this end, each UQ-Method is essentially just a [Lightning Module](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) which can be used with a [Lightning Data Module](https://lightning.ai/docs/pytorch/stable/data/datamodule.html) and a [Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html) to exectute training, evaluation and inference for your desired task. The library also utilizes the [Lightning Command Line Interface (CLI)](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) for better reproducibility of experiments and setting up experiments at scale.
+=======
+To this end, each UQ-Method is essentially just a [Lightning Module](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) which can be used with a [Lightning Data Module](https://lightning.ai/docs/pytorch/stable/data/datamodule.html) and a [Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html) to execute training, evaluation and inference for your desired task. The library also utilizes the [Lightning Command Line Interface (CLI)](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) for better reproducibility of experiments and setting up experiments at scale.
+>>>>>>> main
 
 # Installation
 
@@ -89,5 +93,5 @@ The following sections aims to give an overview of different UQ-Methods by group
 We try to provide many different tutorials so that users can get a better understanding of implemented methods and get a feel for how they apply to different problems.
 Head over to the [tutorials](https://lightning-uq-box.readthedocs.io/en/latest/tutorial_overview.html) page to get started. These tutorials can also be launched in google colab if you navigate to the rocket icon at the top of a tutorial page.
 
-# Documentation 
-We aim to provide an extensive documentation on all included UQ-methods that provide some theoretical background, as well as tutorials that illustrate these methods on toy datasets. 
+# Documentation
+We aim to provide an extensive documentation on all included UQ-methods that provide some theoretical background, as well as tutorials that illustrate these methods on toy datasets.
