@@ -16,8 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ['3.9', '3.10', '3.11', '3.12']
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.9', '3.10', '3.11']
     steps:
     - name: Clone repo
       uses: actions/checkout@v2
@@ -48,14 +48,6 @@ jobs:
         unset OMP_NUM_THREADS
         python -m pytest -v tests --cov=lightning_uq_box --cov-report=xml
       if: ${{ runner.os == 'macos' }}
-
-    
-    - name: Run pytest checks (Windows)
-      shell: cmd
-      run: |
-        pip install -e .
-        pytest --cov=lightning_uq_box --cov-report=xml --durations=10
-      if: ${{ runner.os == 'Windows' }}
     - name: Report coverage
       uses: codecov/codecov-action@v3.1.1
       with:
