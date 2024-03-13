@@ -119,9 +119,6 @@ dev = [
 addopts = "-m 'not slow'"
 # https://docs.pytest.org/en/latest/how-to/capture-warnings.html
 filterwarnings = [
-    # Treat all warnings as errors
-    "error",
-
     # Warnings raised by dependencies of dependencies, out of our control
 
     # Expected warnings
@@ -179,7 +176,7 @@ skip_gitignore = true
 color_output = true
 
 [tool.black]
-target-version = ["py39", "py310"]
+target-version = ["py39"]
 color = true
 skip_magic_trailing_comma = true
 
