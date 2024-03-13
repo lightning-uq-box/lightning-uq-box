@@ -631,9 +631,6 @@ def update_bn(
         if isinstance(batch, (list, tuple)):
             input = batch[0]
         if isinstance(batch, (dict)):
-            import pdb
-
-            pdb.set_trace()
             input = batch["image"]
         if device is not None:
             input = input.to(device)
