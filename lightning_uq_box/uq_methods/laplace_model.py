@@ -279,9 +279,7 @@ class LaplaceRegression(LaplaceBase):
                 torch.ones_like(laplace_epistemic)
                 * self.laplace_model.sigma_noise.item()
             )
-            laplace_predictive = torch.sqrt(
-                laplace_epistemic**2 + laplace_aleatoric**2
-            )
+            laplace_predictive = torch.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
 
         return {
             "pred": laplace_mean,

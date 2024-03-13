@@ -395,9 +395,11 @@ class DKLRegression(DKLBase):
         self.likelihood.eval()
 
         # TODO make num samples an argument
-        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(
-            64
-        ), gpytorch.settings.fast_pred_var(state=False):
+        with (
+            torch.no_grad(),
+            gpytorch.settings.num_likelihood_samples(64),
+            gpytorch.settings.fast_pred_var(state=False),
+        ):
             output = self.likelihood(self.forward(X))
             mean = output.mean
             std = output.stddev.cpu()
@@ -585,9 +587,11 @@ class DKLClassification(DKLBase):
         self.likelihood.eval()
 
         # TODO make num samples an argument
-        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(
-            64
-        ), gpytorch.settings.fast_pred_var(state=False):
+        with (
+            torch.no_grad(),
+            gpytorch.settings.num_likelihood_samples(64),
+            gpytorch.settings.fast_pred_var(state=False),
+        ):
             gp_dist = self.forward(X)
             output = self.likelihood(gp_dist)
             mean = output.probs.mean(0)  # take mean over sampling dimension
