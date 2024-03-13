@@ -1,5 +1,5 @@
 <p align="center">
-<img src="docs/_static/lettering.png" alt="Lightning-UQ-Box logo" width="500" height="auto" />
+<img src="https://github.com/lightning-uq-box/lightning-uq-box/blob/main/docs/_static/lettering.png" alt="Lightning-UQ-Box logo" width="500" height="auto" />
 </p>
 
 [![docs](https://readthedocs.org/projects/lightning-uq-box/badge/?version=latest)](https://lightning-uq-box.readthedocs.io/en/latest/)
@@ -9,7 +9,7 @@
 
 # lightning-uq-box
 
-The lightning-uq-box is a PyTorch library that provides various Uncertainty Quantification (UQ) techniques for modern neural network architectures. 
+The lightning-uq-box is a PyTorch library that provides various Uncertainty Quantification (UQ) techniques for modern neural network architectures.
 
 We hope to provide the starting point for a collobrative open source effort to make it easier for practicioners to include UQ in their workflows and
 remove possible barriers of entry. Additionally, we hope this can be a pathway to more easily compare methods across UQ frameworks and potentially enhance the development of new UQ methods for neural networks.
@@ -89,5 +89,5 @@ The following sections aims to give an overview of different UQ-Methods by group
 We try to provide many different tutorials so that users can get a better understanding of implemented methods and get a feel for how they apply to different problems.
 Head over to the [tutorials](https://lightning-uq-box.readthedocs.io/en/latest/tutorial_overview.html) page to get started. These tutorials can also be launched in google colab if you navigate to the rocket icon at the top of a tutorial page.
 
-# Documentation 
-We aim to provide an extensive documentation on all included UQ-methods that provide some theoretical background, as well as tutorials that illustrate these methods on toy datasets. 
+# Documentation
+We aim to provide an extensive documentation on all included UQ-methods that provide some theoretical background, as well as tutorials that illustrate these methods on toy datasets.
