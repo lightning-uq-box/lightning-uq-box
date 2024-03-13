@@ -334,6 +334,8 @@ def plot_calibration_uq_toolbox(
     # Adjust subplots spacing
     fig.subplots_adjust(wspace=0.25)
 
-    axs[2].set_title(f"MACE: {mace:.4f}, RMSCE: {rmsce:.4f}, MA: {ma:.4f}")
+    axs[2].set_title(
+        f"MACE: {mace:.4f}, RMSCE: {rmsce:.4f}, MA: {ma:.4f}"  # noqa: E231
+    )
 
     return fig
