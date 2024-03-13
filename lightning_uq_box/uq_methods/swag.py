@@ -17,7 +17,7 @@
 # - enable selections of stochastic modules
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Stochastic Weight Averaging - Gaussian.
 
