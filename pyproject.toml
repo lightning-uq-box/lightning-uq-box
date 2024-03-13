@@ -84,6 +84,8 @@ dev = [
     "omegaconf>=2.3.0",
 
     ### Docs ###
+    # TODO: determine minimum version
+    "ipykernel",
     # sphinx
     "sphinx>=4,<7",
     # ipywidgets 7+ required by nbsphinx

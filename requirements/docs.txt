@@ -1,4 +1,5 @@
 # docs
+ipykernel==6.29.3
 ipywidgets==8.1.2
 nbsphinx==0.9.3
 sphinx_book_theme==1.1.2
