@@ -27,9 +27,7 @@ To this end, each UQ-Method is essentially just a [Lightning Module](https://lig
 # Installation
 
 ```console
-$ git clone https://github.com/lightning-uq-box/lightning-uq-box.git
-$ cd lightning-uq-box
-$ pip install .
+$ pip install lightning-uq-box
 ```
 
 # UQ-Methods

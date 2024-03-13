@@ -10,7 +10,7 @@ include = ["lightning_uq_box*"]
 
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 [project]
-name = "lightning_uq_box"
+name = "lightning-uq-box"
 description = "Lighning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -32,6 +32,7 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [

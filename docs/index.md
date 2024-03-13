@@ -15,6 +15,12 @@ In the tables that follow below, you can see what UQ-Method/Task combination is 
 - ❌ not designed for this task
 - ⏳ in progress
 
+To get started, 
+
+```console
+$ pip install lightning-uq-box
+```
+
 ## Classification of UQ-Methods
 
 The following sections aims to give an overview of different UQ-Methods by grouping them according to some commonalities. We agree that there could be other groupings as well and welcome suggestions to improve this overview. We also follow this grouping for the API documentation in the hopes to make navigation easier.
