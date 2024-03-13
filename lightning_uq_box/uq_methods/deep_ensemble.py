@@ -120,8 +120,8 @@ class DeepEnsembleRegression(DeepEnsemble):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
 
     pred_file_name = "preds.csv"
 
@@ -165,8 +165,8 @@ class DeepEnsembleClassification(DeepEnsemble):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
 
     valid_tasks = ["multiclass", "binary", "multilabel"]
     pred_file_name = "preds.csv"
@@ -234,8 +234,8 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
 
     def setup_task(self) -> None:
         """Set up task for segmentation."""

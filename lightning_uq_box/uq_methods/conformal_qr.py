@@ -56,8 +56,8 @@ class ConformalQR(PosthocBase):
 
     If you use this model, please cite the following paper:
 
-    * https://papers.nips.cc/paper_files/paper/2019/hash/5103c3584b063c431bd1268e9b5e76fb-Abstract.html # noqa: E501
-    """
+    * https://papers.nips.cc/paper_files/paper/2019/hash/5103c3584b063c431bd1268e9b5e76fb-Abstract.html
+    """  # noqa: E501
 
     pred_file_name = "preds.csv"
 
