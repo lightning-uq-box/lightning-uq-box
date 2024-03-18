@@ -141,6 +141,8 @@ class DeterministicModel(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            data_loader_idx: the index of the dataloader
 
         Returns:
             training loss

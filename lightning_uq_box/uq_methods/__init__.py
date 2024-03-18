@@ -52,8 +52,9 @@ from .mc_dropout import (
     MCDropoutSegmentation,
 )
 from .mean_variance_estimation import MVEBase, MVERegression
+from .img2img_conformal import Img2ImgConformal
 from .prob_unet import ProbUNet
-from .quantile_regression import QuantileRegression, QuantileRegressionBase
+from .quantile_regression import QuantileRegression, QuantileRegressionBase, QuantilePxRegression
 from .raps import RAPS
 from .sgld import SGLDBase, SGLDClassification, SGLDRegression
 from .sngp import SNGPBase, SNGPClassification, SNGPRegression
@@ -153,6 +154,8 @@ __all__ = (
     "BNN_LV_VI_Regression",
     "BNN_LV_VI_Batched_Base",
     "BNN_LV_VI_Batched_Regression",
+    # Image-to-Image Conformal Uncertainty Estimation
+    "Img2ImgConformal",
     # Probabilistic Unet
     "ProbUNet",
     # Hierarchical Probabilistic Unet

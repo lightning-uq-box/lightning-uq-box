@@ -18,5 +18,5 @@ __all__ = (
     "ConditionalLinear",
     "ConditionalGuidedLinearModel",
     "ConditionalGuidedConvModel",
-    "DiffusionSequential",
+    "DiffusionSequential"
 )

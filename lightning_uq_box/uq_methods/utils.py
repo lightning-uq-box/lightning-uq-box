@@ -91,6 +91,16 @@ def default_regression_metrics(prefix: str):
         prefix=prefix,
     )
 
+def default_px_regression_metrics(prefix: str):
+    """Return a set of default regression metrics."""
+    return MetricCollection(
+        {
+            "RMSE": MeanSquaredError(squared=False),
+            "MAE": MeanAbsoluteError(),
+        },
+        prefix=prefix,
+    )
+
 
 def default_classification_metrics(prefix: str, task: str, num_classes: int):
     """Return a set of default classification metrics."""
