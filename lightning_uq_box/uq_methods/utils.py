@@ -7,6 +7,7 @@ import os
 from collections import OrderedDict
 from typing import Callable, Optional, Union
 
+import h5py
 import numpy as np
 import pandas as pd
 import torch
@@ -91,13 +92,11 @@ def default_regression_metrics(prefix: str):
         prefix=prefix,
     )
 
+
 def default_px_regression_metrics(prefix: str):
     """Return a set of default regression metrics."""
     return MetricCollection(
-        {
-            "RMSE": MeanSquaredError(squared=False),
-            "MAE": MeanAbsoluteError(),
-        },
+        {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
         prefix=prefix,
     )
 
@@ -226,6 +225,39 @@ def change_inplace_activation(module):
     """Change inplace activation."""
     if hasattr(module, "inplace"):
         module.inplace = False
+
+
+def save_image_predictions(
+    outputs: dict[str, Tensor], batch_idx: int, save_dir: str
+) -> None:
+    """Save segmentation predictions to separate hdf5 files.
+
+    Args:
+        outputs: metrics and values to be saved
+            - pred: predictions of shape [batch_size, ...]
+            - pred_uct: predictive uncertainty of shape [batch_size, ...]
+            - target: targets of shape [batch_size, ...]
+            - logits: logits of shape [batch_size, ...]
+        batch_idx: index of the current batch
+        save_dir: directory where hdf5 files should be saved
+    """
+    for sample_idx in range(outputs["pred"].shape[0]):
+        with h5py.File(
+            f"{save_dir}/batch_{batch_idx}_sample_{sample_idx}.hdf5", "w"
+        ) as f:
+            for key, val in outputs.items():
+                if isinstance(val, Tensor):
+                    data = val[sample_idx].cpu().numpy()
+                    if data.size == 1:  # single element tensor, save as attribute
+                        f.attrs[key] = data.item()
+                    else:  # multi-element tensor, save as dataset
+                        f.create_dataset(key, data=data)
+                else:
+                    data = np.array(val[sample_idx])
+                    if data.size == 1:  # single element array, save as attribute
+                        f.attrs[key] = data.item()
+                    else:  # multi-element array, save as dataset
+                        f.create_dataset(key, data=data)
 
 
 def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:

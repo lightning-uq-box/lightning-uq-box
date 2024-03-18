@@ -37,7 +37,7 @@ class ToyPixelwiseRegressionDataModule(LightningDataModule):
             ToyPixelWiseRegressionDataset(self.num_images, self.image_size),
             batch_size=self.batch_size,
         )
-    
+
     def calib_dataloader(self) -> DataLoader:
         """Return the calib dataloader."""
         return DataLoader(

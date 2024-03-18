@@ -42,6 +42,7 @@ from .deep_kernel_learning import (
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .hierarchical_prob_unet import HierarchicalProbUNet
+from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
 from .loss_functions import NLL, DERLoss, PinballLoss
@@ -52,9 +53,12 @@ from .mc_dropout import (
     MCDropoutSegmentation,
 )
 from .mean_variance_estimation import MVEBase, MVERegression
-from .img2img_conformal import Img2ImgConformal
 from .prob_unet import ProbUNet
-from .quantile_regression import QuantileRegression, QuantileRegressionBase, QuantilePxRegression
+from .quantile_regression import (
+    QuantilePxRegression,
+    QuantileRegression,
+    QuantileRegressionBase,
+)
 from .raps import RAPS
 from .sgld import SGLDBase, SGLDClassification, SGLDRegression
 from .sngp import SNGPBase, SNGPClassification, SNGPRegression

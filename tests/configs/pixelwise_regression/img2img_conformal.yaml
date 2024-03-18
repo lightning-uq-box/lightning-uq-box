@@ -1,28 +1,10 @@
 uq_method:
   _target_: lightning_uq_box.uq_methods.Img2ImgConformal
   model:
-    _target_: torchseg.Unet
-    encoder_name: resnet18
-    encoder_weights: imagenet
-    classes: 4
-    in_channels: 3
-  uq_layer:
-    _target_: lightning_uq_box.models.img2img_conformal.QuantileRegressionLayer
-    n_channels_middle: 4
-    n_channels_out: 1
-    q_lo: 0.1
-    q_hi: 0.9
-  loss_fn:
-    _target_: lightning_uq_box.models.img2img_conformal.QuantileLoss
-    q_lo: 0.1
-    q_hi: 0.9
-    q_lo_weight: 0.4
-    q_hi_weight: 0.4
-    mse_weight: 0.2
-  optimizer:
-    _target_: torch.optim.Adam
-    _partial_: true
-    lr: 0.003
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.ConstantLR
-    _partial_: true
+    _target_: lightning_uq_box.uq_methods.QuantilePxRegression
+    model:
+      _target_: torchseg.Unet
+      encoder_name: resnet18
+      encoder_weights: imagenet
+      classes: 3 # [0.1, 0.5, 0.9] quantile
+      in_channels: 3

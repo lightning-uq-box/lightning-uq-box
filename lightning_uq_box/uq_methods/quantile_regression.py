@@ -4,7 +4,7 @@
 """Implement Quantile Regression Model."""
 
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import torch
 import torch.nn as nn
@@ -17,10 +17,11 @@ from .base import DeterministicModel
 from .loss_functions import PinballLoss
 from .utils import (
     _get_num_outputs,
+    default_px_regression_metrics,
     default_regression_metrics,
     freeze_model_backbone,
+    save_image_predictions,
     save_regression_predictions,
-    default_px_regression_metrics,
 )
 
 
@@ -212,12 +213,15 @@ class QuantilePxRegression(QuantileRegressionBase):
         """Adapt model output to be compatible for metric computation.
 
         Args:
-            out: output from :meth:`self.forward` [batch_size x num_outputs x height x width]
+            out: output from :meth:`self.forward`
+                [batch_size x num_outputs x height x width]
 
         Returns:
             extracted mean used for metric computation [batch_size x 1 x height x width]
         """
-        return out[:, self.median_index: self.median_index+1, ...].contiguous()
+        return out[
+            :, self.median_index : self.median_index + 1, ...  # noqa: E203
+        ].contiguous()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -234,19 +238,24 @@ class QuantilePxRegression(QuantileRegressionBase):
             out = self.model(X)  # [batch_size, len(self.quantiles)]
 
         return {
-            "pred": self.adapt_output_for_metrics(out),
-            "lower_quant": out[:, 0],
-            "upper_quant": out[:, -1],
+            "pred": self.adapt_output_for_metrics(out).squeeze(1),
+            "lower": out[:, 0],
+            "upper": out[:, -1],
         }
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        pass
+        save_image_predictions(outputs, batch_idx, self.trainer.default_root_dir)

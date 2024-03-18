@@ -2,9 +2,7 @@
 # Licensed under the Apache License 2.0.
 """Test pixelwise regression task."""
 
-import glob
 from pathlib import Path
-from typing import Any, Dict
 
 import pytest
 from hydra.utils import instantiate
@@ -12,14 +10,11 @@ from lightning import Trainer
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
-from pytest import TempPathFactory
-
-from lightning_uq_box.datamodules import ToyPixelwiseRegressionDataModule
 
 seed_everything(0)
 
 model_config_paths = [
-    # "tests/configs/pixelwise_regression/img2img_conformal.yaml",
+    "tests/configs/pixelwise_regression/img2img_conformal.yaml",
     "tests/configs/pixelwise_regression/quantile_regression.yaml",
 ]
 
@@ -47,5 +42,10 @@ class TestImageClassificationTask:
 
         trainer.fit(model, datamodule)
         if "conformal" in model_config_path:
-            trainer.validate(ckpt_path="best", dataloader=datamodule.calib_dataloader())
+            trainer.validate(
+                ckpt_path="best", dataloaders=datamodule.calib_dataloader()
+            )
         trainer.test(ckpt_path="best", datamodule=datamodule)
+
+        # TODO write a test that checks batch_0_sample_0 example in hf5py dataset
+        # and check that pred, target and aux data is there
