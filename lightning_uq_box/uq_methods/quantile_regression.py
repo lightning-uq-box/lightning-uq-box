@@ -223,6 +223,26 @@ class QuantilePxRegression(QuantileRegressionBase):
             :, self.median_index : self.median_index + 1, ...  # noqa: E203
         ].contiguous()
 
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Test step.
+
+        Args:
+            batch: batch of testing data
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        pred_dict = self.predict_step(batch[self.input_key])
+        pred_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
+        pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
+
+        self.test_metrics(
+            pred_dict["pred"].contiguous(), pred_dict[self.target_key].squeeze()
+        )
+
+        return pred_dict
+
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
