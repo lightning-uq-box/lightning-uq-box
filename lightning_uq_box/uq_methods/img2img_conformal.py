@@ -38,10 +38,10 @@ class Img2ImgConformal(PosthocBase):
     def __init__(
         self,
         model: nn.Module,
-        alpha: float = 0.9,
+        alpha: float = 0.1,
         delta: float = 0.1,
-        min_lambda: float = 0.01,
-        max_lambda: float = 1.0,
+        min_lambda: float = 0.0,
+        max_lambda: float = 6.0,
         num_lambdas: int = 100,
         freeze_backbone: bool = False,
     ):

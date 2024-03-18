@@ -103,11 +103,11 @@ class QuantileLoss(nn.Module):
 
     def __init__(
         self,
-        q_lo: float,
-        q_hi: float,
-        q_lo_weight: float,
-        q_hi_weight: float,
-        mse_weight: float,
+        q_lo: float = 0.05,
+        q_hi: float = 0.95,
+        q_lo_weight: float = 1.0,
+        q_hi_weight: float = 1.0,
+        mse_weight: float = 1.0,
     ):
         """Initialize the custom loss function.
 
