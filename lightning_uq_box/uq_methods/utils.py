@@ -253,13 +253,13 @@ def save_image_predictions(
                     if data.size == 1:  # single element tensor, save as attribute
                         f.attrs[key] = data.item()
                     else:  # multi-element tensor, save as dataset
-                        f.create_dataset(key, data=data)
+                        f.create_dataset(key, data=data, compression="gzip")
                 else:
                     data = np.array(val[sample_idx])
                     if data.size == 1:  # single element array, save as attribute
                         f.attrs[key] = data.item()
                     else:  # multi-element array, save as dataset
-                        f.create_dataset(key, data=data)
+                        f.create_dataset(key, data=data, compression="gzip")
 
 
 def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
