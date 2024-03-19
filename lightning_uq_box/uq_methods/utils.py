@@ -189,11 +189,12 @@ def process_classification_prediction(
             and predictive uncertainty [batch_size]
             and logits [batch_size, num_classes]
     """
-    mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
+    agg_logits = aggregate_fn(preds, dim=-1)
+    mean = nn.functional.softmax(agg_logits, dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=-1)
-    return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": agg_logits}
 
 
 def process_segmentation_prediction(
@@ -214,11 +215,12 @@ def process_segmentation_prediction(
             and predictive uncertainty [batch_size, height, width]
     """
     # dim=1 is the expected num classes dimension
-    mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
+    agg_logits = aggregate_fn(preds, dim=-1)
+    mean = nn.functional.softmax(agg_logits, dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=1)
-    return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": agg_logits}
 
 
 def change_inplace_activation(module):
