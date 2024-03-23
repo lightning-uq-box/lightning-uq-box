@@ -6,13 +6,14 @@
 
 """Image-to-Image Conformal Uncertainty Estimation."""
 
+import os
 from typing import Any, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
 from scipy.optimize import brentq
-from scipy.stats import binom
+from scipy.stats import binom, spearmanr
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
@@ -35,6 +36,8 @@ class Img2ImgConformal(PosthocBase):
     * https://arxiv.org/abs/2202.05265
     """
 
+    pred_dir_name = "preds"
+
     def __init__(
         self,
         model: nn.Module,
@@ -42,7 +45,7 @@ class Img2ImgConformal(PosthocBase):
         delta: float = 0.1,
         min_lambda: float = 0.0,
         max_lambda: float = 6.0,
-        num_lambdas: int = 100,
+        num_lambdas: int = 1000,
         freeze_backbone: bool = False,
     ):
         """Initialize a new Img2ImgConformal instance.
@@ -80,8 +83,6 @@ class Img2ImgConformal(PosthocBase):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
-        self.train_metrics = default_px_regression_metrics("train")
-        self.val_metrics = default_px_regression_metrics("val")
         self.test_metrics = default_px_regression_metrics("test")
 
     def forward(self, X: Tensor, lam: Optional[float]) -> dict[str, Tensor]:
@@ -99,10 +100,13 @@ class Img2ImgConformal(PosthocBase):
                 pred = self.model.predict_step(X)
                 pred = torch.stack([pred["lower"], pred["pred"], pred["upper"]], dim=1)
             else:
-                pred = self.model(X)
+                pred = self.model(X).squeeze(2)
 
         # conformalize in this step
         pred = self.adjust_model_logits(pred, lam)
+
+        # nested = self.model.nested_sets_from_output(self.model(X).unsqueeze(2), lam=lam)
+        # torch.allclose(nested[0], pred["lower"])
 
         return pred
 
@@ -130,7 +134,6 @@ class Img2ImgConformal(PosthocBase):
         lower_edge = output[:, 1, :, :] - lam * (
             output[:, 1, :, :] - output[:, 0, :, :]
         )
-
         return {"lower": lower_edge, "pred": output[:, 1, :, :], "upper": upper_edge}
 
     def rcps_loss_fn(self, pset: dict[str, Tensor], label: Tensor):
@@ -160,19 +163,20 @@ class Img2ImgConformal(PosthocBase):
         """
         losses = []
         dataloader = DataLoader(
-            logit_dataset,
-            batch_size=self.trainer.datamodule.batch_size,
-            shuffle=False,
-            num_workers=0,
-            pin_memory=True,
+            logit_dataset, batch_size=self.batch_size, shuffle=False, num_workers=0
         )
         for batch in dataloader:
-            x, labels = batch
-            x = x.to(self.model.device)
-            labels = labels.to(self.model.device)
-            sets = self.adjust_model_logits(x, lam)
+            output, labels = batch
+            sets = self.adjust_model_logits(output, lam)
             losses = losses + [self.rcps_loss_fn(sets, labels)]
-        return torch.cat(losses, dim=0)
+        # this part seems correct
+        # nested = self.model.nested_sets_from_output(output.unsqueeze(2), lam)
+        # torch.allclose(nested[0], sets["lower"])
+        # from core.calibration.calibrate_model import fraction_missed_loss
+        # their_loss = fraction_missed_loss(nested, labels)
+        # my_loss = self.rcps_loss_fn(sets, labels)
+        # torch.allclose(their_loss, my_loss)
+        return torch.cat(losses, dim=0).cpu()
 
     def on_validation_epoch_end(self) -> None:
         """Perform Img2Img calibration.
@@ -180,11 +184,12 @@ class Img2ImgConformal(PosthocBase):
         Args:
             outputs: list of dictionaries containing model outputs and labels
         """
+        self.batch_size = self.model_logits[0].shape[0]
         all_logits = torch.cat(self.model_logits, dim=0).detach()
         all_labels = torch.cat(self.labels, dim=0).detach()
 
         # probably store all of this in cpu memory instead
-        out_dataset = TensorDataset(all_logits, all_labels)
+        self.out_dataset = TensorDataset(all_logits, all_labels)
 
         lambdas = torch.linspace(self.min_lambda, self.max_lambda, self.num_lambdas)
 
@@ -193,7 +198,7 @@ class Img2ImgConformal(PosthocBase):
         dlambda = lambdas[1] - lambdas[0]
         self.lam = lambdas[-1] + dlambda - 1e-9
         for lam in reversed(lambdas):
-            losses = self.get_rcps_losses_from_outputs(out_dataset, lam - dlambda)
+            losses = self.get_rcps_losses_from_outputs(self.out_dataset, lam - dlambda)
             self.calib_loss_table[:, np.where(lambdas == lam)[0]] = losses[:, None]
             Rhat = losses.mean()
             RhatPlus = HB_mu_plus(Rhat.item(), losses.shape[0], self.delta)
@@ -201,7 +206,27 @@ class Img2ImgConformal(PosthocBase):
                 self.lam = lam
                 break
 
+        # save the calibration table to log_dir
+        np.save(
+            os.path.join(self.trainer.default_root_dir, "calib_loss_table.npy"),
+            self.calib_loss_table.numpy(),
+        )
+
         self.post_hoc_fitted = True
+
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir_name = os.path.join(
+            self.trainer.default_root_dir, self.pred_dir_name
+        )
+        if not os.path.exists(self.pred_dir_name):
+            os.makedirs(self.pred_dir_name)
+
+        # Initialize metrics
+        self.losses = []
+        self.sizes = []
+        self.residuals = []
+        self.spatial_miscoverages = []
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -214,14 +239,143 @@ class Img2ImgConformal(PosthocBase):
             dataloader_idx: dataloader index
         """
         pred_dict = self.predict_step(batch[self.input_key])
+
+        # torchmetrics
+        self.test_metrics(
+            pred_dict["pred"].contiguous().squeeze(), batch[self.target_key].squeeze()
+        )
+
+        # Compute our metrics
+        self.compute_metrics(pred_dict, batch[self.target_key].squeeze(1))
+
         pred_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
         pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
 
-        self.test_metrics(
-            pred_dict["pred"].contiguous(), pred_dict[self.target_key].squeeze()
+        return pred_dict
+
+    @torch.no_grad()
+    def compute_metrics(self, pred_dict: dict[str, Tensor], labels: Tensor) -> None:
+        """Compute metrics for a batch and append them to the metrics lists."""
+        losses = self.rcps_loss_fn(pred_dict, labels)
+        self.losses.append(losses.cpu())
+
+        sets_full = (pred_dict["upper"] - pred_dict["lower"]).flatten(start_dim=1)
+        # need to take random idxs, because later on during aggregation
+        # quantile is a limiting factor
+        rng = np.random.RandomState(0)
+        size_random_idxs = rng.choice(sets_full.shape[1], size=sets_full.shape[0])
+        size_samples = sets_full[range(sets_full.shape[0]), size_random_idxs]
+        self.sizes.append(size_samples.cpu())
+
+        residuals = (
+            (labels - pred_dict["pred"])
+            .abs()
+            .flatten(start_dim=1)[range(sets_full.shape[0]), size_random_idxs]
+        )
+        self.residuals.append(residuals.cpu())
+
+        spatial_miscoverages = (labels > pred_dict["upper"]).float() + (
+            labels < pred_dict["lower"]
+        ).float()
+        self.spatial_miscoverages.append(spatial_miscoverages.cpu())
+
+        # this compute metrics stuff seems correct, only have to check what the influence of the
+        # computed lambda is, does it find the same and if not why not?
+        path = "/mnt/SSD2/nils/projects/mri/im2im-uq/experiments/fastmri_test/outputs/raw/results_fastmri_quantiles_64_0.001_standard_min-max.pkl"
+        import pickle
+
+        with open(path, "rb") as f:
+            results = pickle.load(f)
+
+    def on_test_end(self) -> None:
+        """Summarize metrics."""
+        self.losses = torch.cat(self.losses, dim=0)
+        sizes = torch.cat(self.sizes, dim=0)
+        self.sizes = sizes + torch.rand_like(sizes) * 1e-6
+        self.residuals = torch.cat(self.residuals, dim=0)
+
+        spatial_miscoverages = torch.cat(self.spatial_miscoverages, dim=0)
+
+        self.spatial_miscoverages = {
+            "mean": spatial_miscoverages.mean(dim=[1, 2]).mean(),
+            "std": spatial_miscoverages.std(dim=[1, 2]).mean(),
+            "min": spatial_miscoverages.min(),
+            "max": spatial_miscoverages.max(),
+        }
+        size_bins = torch.tensor(
+            [
+                0,
+                torch.quantile(self.sizes, 0.25),
+                torch.quantile(self.sizes, 0.5),
+                torch.quantile(self.sizes, 0.75),
+            ]
+        )
+        buckets = torch.bucketize(self.sizes, size_bins) - 1
+        stratified_risks = torch.tensor(
+            [
+                self.losses[buckets == bucket].mean()
+                for bucket in range(size_bins.shape[0])
+            ]
         )
 
-        return pred_dict
+        # now can aggregate the metrics
+        spearman = spearmanr(self.residuals, self.sizes)[0]
+        mse = (self.residuals * self.residuals).mean()
+        losses = self.losses.mean()
+        sizes = self.sizes.mean()
+        res = self.residuals.mean()
+
+        print("MY METRICS")
+        print(f"Losses: {losses}")
+        print(f"Sizes: {sizes}")
+        print(f"Spearman: {spearman}")
+        print(f"Stratified Risks: {stratified_risks}")
+        print(f"MSE: {mse}")
+        print(f"Spatial Miscoverage: {self.spatial_miscoverages}")
+
+        self.model.lhat = self.lam
+
+        from core.calibration.calibrate_model import (
+            fraction_missed_loss,
+            get_rcps_metrics_from_outputs,
+        )
+
+        # dataloader = DataLoader(
+        #     self.out_dataset,
+        #     batch_size=self.batch_size,
+        #     shuffle=False,
+        #     num_workers=8,
+        # )
+        losses, sizes, spearman, stratified_risks, mse, spatial_miscoverage = (
+            get_rcps_metrics_from_outputs(
+                self.model, self.out_dataset, fraction_missed_loss, self.device
+            )
+        )
+
+        print(f"Losses: {losses.mean()}")
+        print(f"Sizes: {sizes.mean()}")
+        print(f"Spearman: {spearman}")
+        print(f"Stratified Risks: {stratified_risks}")
+        print(f"MSE: {mse}")
+        print(f"Spatial Miscoverage: {spatial_miscoverage.mean()}")
+
+        path = "/mnt/SSD2/nils/projects/mri/im2im-uq/experiments/fastmri_test/outputs/raw/results_fastmri_quantiles_64_0.001_standard_min-max.pkl"
+        import pickle
+
+        with open(path, "rb") as f:
+            results = pickle.load(f)
+        print("THEIR METRICS")
+        print(results["mse"])
+        print(results["risk"])
+        print(results["sizes"].mean())
+        print(results["spearman"])
+        print(results["size-stratified risk"])
+
+        import pdb
+
+        pdb.set_trace()
+
+        print(0)
 
     def predict_step(self, X: Tensor, lam: Optional[float] = None) -> dict[str, Tensor]:
         """Prediction step with applied temperature scaling.
@@ -253,7 +407,7 @@ class Img2ImgConformal(PosthocBase):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.trainer.default_root_dir)
+        save_image_predictions(outputs, batch_idx, self.pred_dir_name)
 
 
 def h1(y, mu):

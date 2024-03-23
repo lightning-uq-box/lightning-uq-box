@@ -11,20 +11,14 @@ from torch import Tensor
 class QuantileRegressionLayer(nn.Module):
     """Quantile Regression Layer."""
 
-    def __init__(
-        self, n_channels_middle: int, n_channels_out: int, q_lo: float, q_hi: float
-    ):
+    def __init__(self, n_channels_middle: int, n_channels_out: int):
         """Initialize the QuantileRegressionLayer class.
 
         Args:
             n_channels_middle: The number of middle channels.
             n_channels_out: The number of output channels.
-            q_lo: The lower quantile.
-            q_hi: The upper quantile.
         """
         super().__init__()
-        self.q_lo = q_lo
-        self.q_hi = q_hi
 
         self.lower = nn.Conv2d(
             n_channels_middle, n_channels_out, kernel_size=3, padding=1
@@ -140,10 +134,10 @@ class QuantileLoss(nn.Module):
         """
         loss = (
             self.q_lo_weight
-            * self.q_lo_loss(pred[:, 0, :, :, :].squeeze(), target.squeeze())
+            * self.q_lo_loss(pred[:, 0, :, :].squeeze(), target.squeeze())
             + self.q_hi_weight
-            * self.q_hi_loss(pred[:, 2, :, :, :].squeeze(), target.squeeze())
+            * self.q_hi_loss(pred[:, 2, :, :].squeeze(), target.squeeze())
             + self.mse_weight
-            * self.mse_loss(pred[:, 1, :, :, :].squeeze(), target.squeeze())
+            * self.mse_loss(pred[:, 1, :, :].squeeze(), target.squeeze())
         )
         return loss

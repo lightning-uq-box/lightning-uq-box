@@ -54,9 +54,9 @@ class QuantileRegressionBase(DeterministicModel):
         """
         assert all(i < 1 for i in quantiles), "Quantiles should be less than 1."
         assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
-        assert _get_num_outputs(model) == len(
-            quantiles
-        ), "The num of desired quantiles should match num_outputs of the model."
+        # assert _get_num_outputs(model) == len(
+        #     quantiles
+        # ), "The num of desired quantiles should match num_outputs of the model."
 
         if loss_fn is None:
             loss_fn = PinballLoss(quantiles=quantiles)
@@ -176,6 +176,8 @@ class QuantileRegression(QuantileRegressionBase):
 class QuantilePxRegression(QuantileRegressionBase):
     """Quantile Regression for Pixelwise Regression."""
 
+    pred_dir_name = "preds"
+
     def __init__(
         self,
         model: nn.Module,
@@ -223,6 +225,14 @@ class QuantilePxRegression(QuantileRegressionBase):
             :, self.median_index : self.median_index + 1, ...  # noqa: E203
         ].contiguous()
 
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir_name = os.path.join(
+            self.trainer.default_root_dir, self.pred_dir_name
+        )
+        if not os.path.exists(self.pred_dir_name):
+            os.makedirs(self.pred_dir_name)
+
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
@@ -238,7 +248,7 @@ class QuantilePxRegression(QuantileRegressionBase):
         pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
 
         self.test_metrics(
-            pred_dict["pred"].contiguous(), pred_dict[self.target_key].squeeze()
+            pred_dict["pred"].contiguous(), batch[self.target_key].squeeze()
         )
 
         return pred_dict
@@ -278,4 +288,8 @@ class QuantilePxRegression(QuantileRegressionBase):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.trainer.default_root_dir)
+        save_image_predictions(
+            outputs,
+            batch_idx,
+            os.path.join(self.trainer.default_root_dir, self.pred_dir_name),
+        )

@@ -7,6 +7,7 @@ from .base import (
     BaseModule,
     DeterministicClassification,
     DeterministicModel,
+    DeterministicPixelRegression,
     DeterministicRegression,
     DeterministicSegmentation,
     PosthocBase,
@@ -81,6 +82,7 @@ __all__ = (
     "DeterministicClassification",
     "DeterministicRegression",
     "DeterministicSegmentation",
+    "DeterministicPixelRegression",
     # CARDS
     "CARDBase",
     "CARDRegression",
