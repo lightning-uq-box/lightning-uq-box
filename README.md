@@ -46,7 +46,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Single Forward Pass Methods
 
-| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Quantile Regression (QR)                      |     ✅     |       ❌       |      ❌      |          ⏳           |
 | Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ⏳           |
@@ -54,7 +54,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Approximate Bayesian Methods
 
-| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Bayesian Neural Network VI ELBO (BNN_VI_ELBO) |     ✅     |       ✅       |      ✅      |          ⏳           |
 | Bayesian Neural Network VI (BNN_VI)           |     ✅     |       ⏳       |      ⏳      |          ⏳           |
@@ -69,7 +69,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Generative Models
 
-| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Classification And Regression Diffusion (CARD)|     ✅     |       ✅       |      ❌      |          ❌           |
 | Probabilistic UNet                            |     ❌     |       ❌       |      ✅      |          ❌           |
@@ -77,12 +77,13 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 ### Post-Hoc methods
 
-| Uncertainty Quantification Method (UQ-Method) | Regression | Classification | Segmentation | Pixel Wise Regression |
+| UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Test Time Augmentation (TTA)                  |     ✅     |       ✅       |      ⏳      |          ⏳           |
 | Temperature Scaling                           |     ❌     |       ✅       |      ⏳      |          ❌           |
 | Conformal Quantile Regression (Conformal QR)  |     ✅     |       ❌       |      ❌      |          ⏳           |
 | Regularized Adaptive Prediction Sets (RAPS)   |     ❌     |       ✅       |      ❌      |          ❌           |
+| Image to Image Conformal                      |     ❌     |       ❌       |      ❌      |          ✅           |
 
 # Tutorials
 
