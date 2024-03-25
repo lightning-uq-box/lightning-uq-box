@@ -16,7 +16,6 @@ from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 from .base import DeterministicModel
 from .loss_functions import PinballLoss
 from .utils import (
-    _get_num_outputs,
     default_px_regression_metrics,
     default_regression_metrics,
     freeze_model_backbone,
@@ -54,9 +53,6 @@ class QuantileRegressionBase(DeterministicModel):
         """
         assert all(i < 1 for i in quantiles), "Quantiles should be less than 1."
         assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
-        # assert _get_num_outputs(model) == len(
-        #     quantiles
-        # ), "The num of desired quantiles should match num_outputs of the model."
 
         if loss_fn is None:
             loss_fn = PinballLoss(quantiles=quantiles)
