@@ -32,6 +32,13 @@ class Img2ImgConformal(PosthocBase):
     This module is a wrapper around a base model that provides
     conformal uncertainty estimates for image-to-image tasks.
 
+    This default implementation uses the quantile regression
+    approach, as it demonstrated good results in the original paper.
+
+    But other approaches can be implemented as well, by using a
+    different architecture and overwriting `adjust_model_logits` and
+    `rcps_loss_fn` methods.
+
     If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2202.05265
@@ -111,6 +118,9 @@ class Img2ImgConformal(PosthocBase):
 
         # conformalize in this step
         pred = self.adjust_model_logits(pred, lam)
+
+        # authors define set size as the uncertainty
+        pred["pred_uct"] = pred["upper"] - pred["lower"]
 
         return pred
 
