@@ -1,13 +1,14 @@
-# MIT License
+# Apache License 2.0
 # Copyright (c) 2020 Anastasios Angelopoulos
 
 # Implementation adapted from above
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Regularized Adaptive Prediction Sets (RAPS).
 
 Adapted from https://github.com/aangelopoulos/conformal_classification
+to be integrated with Lightning and port several functions to pytorch.
 """
 
 import os
@@ -24,13 +25,20 @@ from torch import Tensor
 from torch.utils.data import DataLoader, Subset, TensorDataset, random_split
 
 from .base import PosthocBase
-from .metrics import EmpiricalCoverage
+from .metrics import SetSize
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
-from .utils import default_classification_metrics, save_classification_predictions
+from .utils import (
+    default_classification_metrics,
+    process_classification_prediction,
+    save_classification_predictions,
+)
 
 
 class RAPS(PosthocBase):
     """Regularized Adaptive Prediction Sets (RAPS).
+
+    Conformal prediction method for classification tasks, as
+    introduced by `Angelopoulos et al. (2020) <https://arxiv.org/abs/2009.14193>`_.
 
     If you use this method, please cite the following paper:
 
@@ -58,7 +66,7 @@ class RAPS(PosthocBase):
         """Initialize RAPS.
 
         Args:
-            model: model to be calibrated with Temperature S
+            model: model to be calibrated with RAPS
             optim_lr: learning rate for optimizer
             max_iter: maximum number of iterations to run optimizer
             alpha: 1 - alpha is the desired coverage
@@ -77,7 +85,7 @@ class RAPS(PosthocBase):
         self.num_classes = self.num_outputs
         assert task in self.valid_tasks
         self.task = task
-        self.temperature = nn.Parameter(torch.ones(1) * 1.5)
+        self.temperature = nn.Parameter(torch.Tensor([1.3]))
         self.optim_lr = optim_lr
         self.max_iter = max_iter
         self.loss_fn = nn.CrossEntropyLoss()
@@ -112,10 +120,16 @@ class RAPS(PosthocBase):
         # need to set manually because of inference mode
         self.eval()
         pred_dict = self.predict_step(batch[self.input_key])
+        pred_dict[self.target_key] = batch[self.target_key]
 
         # logging metrics
-        self.log("test_loss", self.loss_fn(pred_dict["pred"], batch[self.target_key]))
+        self.log(
+            "test_loss",
+            self.loss_fn(pred_dict["pred"], batch[self.target_key]),
+            batch_size=batch[self.input_key].shape[0],
+        )
         self.test_metrics(pred_dict["pred"], batch[self.target_key])
+        pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
         return pred_dict
 
     def predict_step(
@@ -132,8 +146,6 @@ class RAPS(PosthocBase):
         # need to set manually because of inference mode
         self.eval()
         with torch.no_grad():
-            # TODO (nils): check if the underlying model is a lightning module
-            # and has a predict step, because then RAPs should be applied on top of that
             if hasattr(self.model, "predict_step"):
                 logits = self.model.predict_step(X)["logits"]
             else:
@@ -141,7 +153,14 @@ class RAPS(PosthocBase):
             scores = temp_scale_logits(logits, self.temperature)
             S = self.adjust_model_logits(logits)
 
-        return {"pred": scores, "pred_set": S, "logits": scores}
+        def identity(x, dim=None):
+            return x
+
+        pred_dict = process_classification_prediction(scores, aggregate_fn=identity)
+        pred_dict["pred_set"] = S
+        pred_dict["size"] = torch.tensor([len(x) for x in S])
+
+        return pred_dict
 
     def adjust_model_logits(self, model_logits: Tensor) -> Tensor:
         """Adjust model output according to RAPS with fitted Qhat.
@@ -169,6 +188,7 @@ class RAPS(PosthocBase):
 
     def on_validation_end(self) -> None:
         """Apply RASP conformal method."""
+        self.eval()
         calib_logits = torch.cat(self.model_logits, dim=0).detach()
         calib_labels = torch.cat(self.labels, dim=0).detach()
 
@@ -209,9 +229,9 @@ class RAPS(PosthocBase):
         self.penalties = torch.zeros((1, self.num_classes))
         self.penalties[:, int(self.kreg) :] += self.lamda_param  # noqa: E203
 
-        optimizer = partial(torch.optim.LBFGS, lr=self.optim_lr, max_iter=self.max_iter)
+        optimizer = partial(torch.optim.SGD, lr=self.optim_lr)
         self.temperature = run_temperature_optimization(
-             optimizer, self.temperature, calib_logits, calib_labels, self.loss_fn
+            calib_logits, calib_labels, self.loss_fn, self.temperature, optimizer
         )
 
         self.Qhat = compute_q_hat(
@@ -257,15 +277,10 @@ def compute_q_hat(
     scores = temp_scale_logits(logits, temperature)
     softmax_scores = F.softmax(scores, dim=1)
     sorted_score_indices, ordered, cumsum = sort_sum(softmax_scores)
+
+    # TODO why is this always randomized and allow zero sets to true?
     E = gen_inverse_quantile_function(
-        softmax_scores,
-        targets,
-        sorted_score_indices,
-        ordered,
-        cumsum,
-        penalties,
-        True,
-        True,
+        targets, sorted_score_indices, ordered, cumsum, penalties, True, True
     )
     Qhat = torch.quantile(E, 1 - alpha, interpolation="higher")
     return Qhat
@@ -317,15 +332,8 @@ def find_lamda_param_size(
         allow_zero_sets: whether to allow sets of size zero
     """
     best_size = iter(paramtune_loader).__next__()[0][1].shape[0]  # number of classes
-    # Use the paramtune data to pick lamda.  Does not violate exchangeability.
     lamda_star = 0
-    for temp_lam in [
-        0.001,
-        0.01,
-        0.1,
-        0.2,
-        0.5,
-    ]:  # predefined grid, change if more precision desired.
+    for temp_lam in [0.001, 0.01, 0.1, 0.2, 0.5]:
         conformal_model = ConformalModelLogits(
             model,
             paramtune_loader,
@@ -336,13 +344,12 @@ def find_lamda_param_size(
             randomized=randomized,
             allow_zero_sets=allow_zero_sets,
         )
-        covg_and_size_metric = EmpiricalCoverage()
+        size_metric = SetSize(topk=None)
         for i, (logit, target) in enumerate(paramtune_loader):
             _, S = conformal_model(logit)
-            covg_and_size_metric.update(S, target)
+            size_metric.update(S, target)
 
-        covg_and_size = covg_and_size_metric.compute()
-        size = covg_and_size["set_size"]
+        size = size_metric.compute()
         if size < best_size:
             best_size = size
             lamda_star = temp_lam
@@ -374,16 +381,7 @@ def find_lamda_param_adaptiveness(
     """
     lamda_star = 0
     best_violation = 1
-    for temp_lam in [
-        0,
-        1e-5,
-        1e-4,
-        8e-4,
-        9e-4,
-        1e-3,
-        1.5e-3,
-        2e-3,
-    ]:  # predefined grid, change if more precision desired.
+    for temp_lam in [0, 1e-5, 1e-4, 8e-4, 9e-4, 1e-3, 1.5e-3, 2e-3]:
         conformal_model = ConformalModelLogits(
             model,
             paramtune_loader,
@@ -421,11 +419,7 @@ def get_violation(
     """
     df = pd.DataFrame(columns=["size", "correct"])
     for logit, target in loader_paramtune:
-        # compute output
-        _, S = cmodel(
-            logit
-        )  # This is a 'dummy model' which takes logits, for efficiency.
-        # measure accuracy and record loss
+        _, S = cmodel(logit)
         size = np.array([x.size()[0] for x in S])
         sorted_score_indices, _, _ = sort_sum(logit)
         sorted_score_indices = sorted_score_indices.cpu().numpy()
@@ -441,7 +435,7 @@ def get_violation(
             continue
         stratum_violation = abs(temp_df.correct.mean() - (1 - alpha))
         wc_violation = max(wc_violation, stratum_violation)
-    return wc_violation  # the violation
+    return wc_violation
 
 
 class ConformalModelLogits(nn.Module):
@@ -455,7 +449,7 @@ class ConformalModelLogits(nn.Module):
         alpha: float,
         kreg: Optional[int] = None,
         lamda: Optional[float] = None,
-        randomized: bool = True,
+        randomized: bool = False,
         allow_zero_sets: bool = False,
     ):
         """Initialize ConformalModelLogits.
@@ -489,15 +483,21 @@ class ConformalModelLogits(nn.Module):
             logits = calib_loader.dataset.dataset.tensors[0]
             labels = calib_loader.dataset.dataset.tensors[1]
 
-        self.T = nn.Parameter(torch.ones(1) * 1.5).to(logits.device)
-        self.T = run_temperature_optimization(
-            logits=logits, labels=labels, criterion=loss_fn, temperature=self.T, optimizer=partial(torch.optim.LBFGS, lr=0.01, max_iter=50)
+        optimizer = partial(torch.optim.SGD, lr=0.01)
+        self.temperature = run_temperature_optimization(
+            logits,
+            labels,
+            nn.CrossEntropyLoss(),
+            nn.Parameter(torch.Tensor([1.3]).to(logits.device)),
+            optimizer,
         )
 
         self.penalties = torch.zeros((1, calib_loader.dataset[0][0].shape[0]))
 
         self.penalties[:, kreg:] += lamda
-        self.Qhat = compute_q_hat(logits, labels, self.T, self.penalties, self.alpha)
+        self.Qhat = compute_q_hat(
+            logits, labels, self.temperature, self.penalties, self.alpha
+        )
 
     def forward(
         self,
@@ -522,7 +522,7 @@ class ConformalModelLogits(nn.Module):
 
         with torch.no_grad():
             # logits_numpy = logits.detach().cpu().numpy()
-            scores = F.softmax(logits / self.T.item(), dim=1)
+            scores = F.softmax(logits / self.temperature.item(), dim=1)
             sorted_score_indices, ordered, cumsum = sort_sum(scores)
 
             S = gen_cond_quantile_function(
@@ -540,7 +540,6 @@ class ConformalModelLogits(nn.Module):
 
 
 def gen_inverse_quantile_function(
-    scores: Tensor,
     targets: Tensor,
     sorted_score_indices: Tensor,
     ordered: Tensor,
@@ -554,8 +553,7 @@ def gen_inverse_quantile_function(
     E from equation (7) in Romano, Sesia, Candes.  Find the minimum tau in [0, 1]
     such that the correct label enters.
 
-    Args:
-        scores: shape [batch_size x num_classes]
+    Args:a
         targets: shape [batch_size]
         sorted_score_indices: shape [batch_size x num_classes]
         ordered: shape [batch_size x num_classes]
@@ -567,8 +565,8 @@ def gen_inverse_quantile_function(
     Returns:
         E: generalized inverse quantile conformity score
     """
-    E = -torch.ones((scores.shape[0],))
-    for i in range(scores.shape[0]):
+    E = -torch.ones((targets.shape[0],))
+    for i in range(targets.shape[0]):
         E[i] = get_single_tau(
             targets[i].item(),
             sorted_score_indices[i : i + 1, :],  # noqa: E203
@@ -702,7 +700,12 @@ def sort_sum(scores: Tensor) -> tuple[Tensor, Tensor, Tensor]:
     Returns:
         sorted_score_indices, ordered, cumsum
     """
-    sorted_score_indices = torch.argsort(scores, dim=1, descending=True)
+    # https://stackoverflow.com/questions/66767610/difference-between-numpy-argsort-and-torch-argsort
+    # scores = scores.double() if scores.dtype != torch.float64 else scores
+    # sorted_score_indices = torch.argsort(scores, dim=1, descending=True)
+    device = scores.device
+    sorted_score_indices = scores.cpu().numpy().argsort(axis=1)[:, ::-1]
+    sorted_score_indices = torch.from_numpy(sorted_score_indices.copy()).to(device)
     ordered = torch.sort(scores, dim=1, descending=True).values
     cumsum = torch.cumsum(ordered, dim=1)
     return sorted_score_indices, ordered, cumsum

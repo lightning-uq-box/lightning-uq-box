@@ -1,8 +1,9 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """conformalized Quantile Regression Model."""
 
+import copy
 import math
 import os
 from typing import Dict, Union
@@ -13,19 +14,22 @@ from lightning import LightningModule
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
 
+from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
+
 from .base import PosthocBase
-from .utils import save_regression_predictions
+from .utils import default_regression_metrics, save_regression_predictions
 
 
 def compute_q_hat_with_cqr(
-    cal_preds: Tensor, cal_labels: Tensor, alpha: float
+    lower_quant: Tensor, upper_quant: Tensor, cal_labels: Tensor, alpha: float
 ) -> float:
     """Compute q_hat which is the adjustment factor for quantiles.
 
     Check trusted computation here.
 
     Args:
-        cal_preds: calibration set predictions
+        lower_quant: lower quantile predictions
+        upper_quant: upper quantile predictions
         cal_labels: calibration set targets
         alpha: 1 - alpha is desired error rate for quantile
 
@@ -34,13 +38,10 @@ def compute_q_hat_with_cqr(
         can be adjusted according to cqr
     """
     cal_labels = cal_labels.squeeze()
-
     n = cal_labels.shape[0]
-    cal_upper = cal_preds[:, -1]
-    cal_lower = cal_preds[:, 0]
 
     # Get scores. cal_upper.shape[0] == cal_lower.shape[0] == n
-    cal_scores = torch.maximum(cal_labels - cal_upper, cal_lower - cal_labels)
+    cal_scores = torch.maximum(cal_labels - upper_quant, lower_quant - cal_labels)
 
     # Get the score quantile
     q_hat = torch.quantile(
@@ -55,8 +56,8 @@ class ConformalQR(PosthocBase):
 
     If you use this model, please cite the following paper:
 
-    * https://papers.nips.cc/paper_files/paper/2019/hash/5103c3584b063c431bd1268e9b5e76fb-Abstract.html # noqa: E501
-    """
+    * https://papers.nips.cc/paper_files/paper/2019/hash/5103c3584b063c431bd1268e9b5e76fb-Abstract.html
+    """  # noqa: E501
 
     pred_file_name = "preds.csv"
 
@@ -64,12 +65,14 @@ class ConformalQR(PosthocBase):
         self,
         model: Union[nn.Module, LightningModule],
         quantiles: list[float] = [0.1, 0.5, 0.9],
+        alpha: float = 0.1,
     ) -> None:
         """Initialize a new CQR model.
 
         Args:
             model: underlying model to be wrapped
             quantiles: quantiles to be used for CQR
+            alpha: 1 - alpha is desired error rate for quantile
         """
         super().__init__(model)
 
@@ -77,11 +80,39 @@ class ConformalQR(PosthocBase):
 
         self.quantiles = quantiles
 
-        self.alpha = min(self.hparams.quantiles)
+        assert alpha > 0 and alpha < 1, "alpha must be in (0, 1)"
+        self.alpha = alpha
 
         self.desired_coverage = 1 - self.alpha  # 1-alpha is the desired coverage
 
-    def adjust_model_logits(self, model_output: Tensor) -> Tensor:
+        self.setup_task()
+
+    def setup_task(self) -> None:
+        """Set up task."""
+        self.test_metrics = default_regression_metrics("test")
+
+    def forward(self, X: Tensor) -> dict[str, Tensor]:
+        """Forward pass of model.
+
+        Args:
+            X: input tensor of shape [batch_size x input_dims]
+
+        Returns:
+            model output tensor of shape [batch_size x num_outputs]
+        """
+        with torch.no_grad():
+            if hasattr(self.model, "predict_step"):
+                pred = self.model.predict_step(X)
+            else:
+                pred = self.model(X)
+
+        pred = self.adjust_model_logits(pred)
+
+        return pred
+
+    def adjust_model_logits(
+        self, model_output: Union[dict[str, Tensor], Tensor]
+    ) -> dict[str, Tensor]:
         """Conformalize underlying model output.
 
         Args:
@@ -90,16 +121,34 @@ class ConformalQR(PosthocBase):
         Returns:
             conformalized model predictions
         """
-        # conformalize predictions
-        cqr_sets = torch.stack(
-            [
-                model_output[:, 0] - self.q_hat,
-                model_output[:, 1],
-                model_output[:, -1] + self.q_hat,
-            ],
-            dim=1,
+        if isinstance(model_output, dict):
+            output_dict = copy.deepcopy(model_output)
+            output_dict["pred"] = model_output["pred"].squeeze(-1)
+            output_dict["lower_quant"] = model_output["lower_quant"] - self.q_hat
+            output_dict["upper_quant"] = model_output["upper_quant"] + self.q_hat
+        else:
+            output_dict: dict[str, Tensor] = {}
+            # conformalize predictions assum ordering of quantiles
+            output_dict["lower_quant"] = model_output[:, 0] - self.q_hat
+            output_dict["pred"] = model_output[:, 1]
+            output_dict["upper_quant"] = model_output[:, -1] + self.q_hat
+
+        # compute gaussian assumption std with updated quantiles
+        _, std = compute_sample_mean_std_from_quantile(
+            torch.stack(
+                [
+                    output_dict["lower_quant"],
+                    output_dict["pred"],
+                    output_dict["upper_quant"],
+                ],
+                dim=-1,
+            ),
+            self.quantiles,
         )
-        return cqr_sets
+        output_dict["pred_uct"] = std
+        output_dict["aleatoric_uct"] = std
+
+        return output_dict
 
     def on_validation_epoch_end(self) -> None:
         """Perform CQR computation to obtain q_hat for predictions.
@@ -113,7 +162,9 @@ class ConformalQR(PosthocBase):
 
         # calibration quantiles assume order of outputs corresponds
         # to order of quantiles
-        self.q_hat = compute_q_hat_with_cqr(all_outputs, all_labels, self.alpha)
+        self.q_hat = compute_q_hat_with_cqr(
+            all_outputs[:, 0], all_outputs[:, -1], all_labels, self.alpha
+        )
 
         self.post_hoc_fitted = True
 
@@ -129,14 +180,12 @@ class ConformalQR(PosthocBase):
         """
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
-
-        # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
+        self.test_metrics(out_dict["pred"], out_dict[self.target_key])
+
         # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu()
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         if "out" in out_dict:
             del out_dict["out"]
@@ -153,17 +202,12 @@ class ConformalQR(PosthocBase):
         if not self.post_hoc_fitted:
             raise RuntimeError(
                 "Model has not been post hoc fitted, "
-                "please call trainer.fit(model, datamodule) first."
+                "please call trainer.validate(model, datamodule) first."
             )
 
         cqr_sets = self.forward(X)
 
-        return {
-            "pred": cqr_sets[:, 1],
-            "lower_quant": cqr_sets[:, 0],
-            "upper_quant": cqr_sets[:, -1],
-            "out": cqr_sets,
-        }
+        return cqr_sets
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         """No optimizer needed for Conformal QR."""

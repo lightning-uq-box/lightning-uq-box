@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
@@ -542,7 +542,7 @@ class BNN_LV_VI_Regression(BNN_LV_VI_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
+        del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
@@ -857,7 +857,7 @@ class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
+        del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )

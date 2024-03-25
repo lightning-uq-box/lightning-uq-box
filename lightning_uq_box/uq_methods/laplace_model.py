@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Laplace Approximation model."""
 
@@ -207,6 +207,7 @@ class LaplaceBase(BaseModule):
         self.log(
             "test_loss",
             self.loss_fn(out_dict["pred"], batch[self.target_key].squeeze(-1)),
+            batch_size=batch[self.input_key].shape[0],
         )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))
@@ -214,9 +215,7 @@ class LaplaceBase(BaseModule):
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu()
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         return out_dict
 
@@ -229,9 +228,10 @@ class LaplaceBase(BaseModule):
 class LaplaceRegression(LaplaceBase):
     """Laplace Approximation Wrapper for regression.
 
-    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_. # noqa: E501
+    This is a lightning module wrapper for the
+    `Laplace library <https://aleximmer.github.io/Laplace/>`_.
 
-    If you use this model in your research, please cite the following papers:
+    If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2106.14806
     """
@@ -280,9 +280,7 @@ class LaplaceRegression(LaplaceBase):
                 torch.ones_like(laplace_epistemic)
                 * self.laplace_model.sigma_noise.item()
             )
-            laplace_predictive = torch.sqrt(
-                laplace_epistemic**2 + laplace_aleatoric**2
-            )
+            laplace_predictive = torch.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
 
         return {
             "pred": laplace_mean,
@@ -309,9 +307,10 @@ class LaplaceRegression(LaplaceBase):
 class LaplaceClassification(LaplaceBase):
     """Laplace Approximation Wrapper for classification.
 
-    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_. # noqa: E501
+    This is a lightning module wrapper for the
+    `Laplace library <https://aleximmer.github.io/Laplace/>`_.
 
-    If you use this model in your research, please cite the following papers:
+    If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2106.14806
     """

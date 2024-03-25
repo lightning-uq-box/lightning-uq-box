@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Stochastic Gradient Langevin Dynamics (SGLD) model."""
 # TO DO:
@@ -245,7 +245,9 @@ class SGLDRegression(SGLDBase):
 
         loss = sgld_opt.step(closure=closure)
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         self.train_metrics(self.adapt_output_for_metrics(out), y)
 
         # return loss
@@ -372,7 +374,9 @@ class SGLDClassification(SGLDBase):
 
         loss = sgld_opt.step(closure=closure)
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         self.train_metrics(self.adapt_output_for_metrics(out), y)
 
         return loss

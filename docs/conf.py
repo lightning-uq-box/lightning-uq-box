@@ -48,14 +48,13 @@ version = lightning_uq_box.__version__
 release = lightning_uq_box.__version__
 
 # exclude ipynb for jupytext
-# exclude_patterns = ["_build", "**/*.ipynb", "earth_observation/*.ipynb"]
 exclude_patterns = ["_build"]
 html_theme = "sphinx_book_theme"
 html_title = "Lightning-UQ-Box"
 html_logo = "_static/logo.png"
 html_favicon = "_static/logo.png"
 html_static_path = ["_static"]
-html_css_files = ["css/custom.css"]
+html_css_files = ["my_theme.css"]
 
 html_show_sourcelink = False
 html_theme_options = {
@@ -71,6 +70,7 @@ html_theme_options = {
     "use_issues_button": True,
     "use_repository_button": True,
     "use_download_button": True,
+    "navigation_with_keys": True,
 }
 
 

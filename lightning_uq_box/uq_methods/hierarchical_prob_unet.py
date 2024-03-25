@@ -14,7 +14,7 @@
 
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 # Changes
 # - Removed all references to tensorflow
 # - adapt to lightning training framework
@@ -443,6 +443,8 @@ class HierarchicalProbUNet(BaseModule):
 
         # compute metrics with sampled reconstruction
         self.test_metrics(preds["logits"], batch[self.target_key])
+
+        preds = self.add_aux_data_to_dict(preds, batch)
 
         return preds
 

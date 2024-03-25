@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Base Model for UQ methods."""
 
@@ -16,8 +16,14 @@ from .utils import (
     _get_num_inputs,
     _get_num_outputs,
     default_classification_metrics,
+    default_px_regression_metrics,
     default_regression_metrics,
+    freeze_model_backbone,
+    freeze_segmentation_model,
+    process_classification_prediction,
+    process_segmentation_prediction,
     save_classification_predictions,
+    save_image_predictions,
     save_regression_predictions,
 )
 
@@ -55,6 +61,26 @@ class BaseModule(LightningModule):
             number of output dimension to model
         """
         return _get_num_outputs(self.model)
+
+    def add_aux_data_to_dict(
+        self, out_dict: dict[str, Tensor], batch: dict[str, Tensor]
+    ) -> dict[str, Tensor]:
+        """Add auxiliary data to output dictionary.
+
+        Args:
+            out_dict: output dictionary
+            batch: batch of data
+
+        Returns:
+            updated dict
+        """
+        for key, val in batch.items():
+            if key not in [self.input_key, self.target_key]:
+                if isinstance(val, Tensor):
+                    out_dict[key] = val.detach().squeeze(-1)
+                else:
+                    out_dict[key] = val
+        return out_dict
 
 
 class DeterministicModel(BaseModule):
@@ -117,6 +143,8 @@ class DeterministicModel(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            data_loader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -124,7 +152,9 @@ class DeterministicModel(BaseModule):
         out = self.forward(batch[self.input_key])
         loss = self.loss_fn(out, batch[self.target_key])
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.train_metrics(
                 self.adapt_output_for_metrics(out), batch[self.target_key]
@@ -159,7 +189,9 @@ class DeterministicModel(BaseModule):
         out = self.forward(batch[self.input_key])
         loss = self.loss_fn(out, batch[self.target_key])
 
-        self.log("val_loss", loss)  # logging to Logger
+        self.log(
+            "val_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.val_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
@@ -187,17 +219,13 @@ class DeterministicModel(BaseModule):
 
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(
-                out_dict["pred"].squeeze(), batch[self.target_key].squeeze(-1)
+                out_dict["pred"].squeeze(-1), batch[self.target_key].squeeze(-1)
             )
 
         # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
-        # save metadata
-        # UNIQUE to method
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1)
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         if "out" in out_dict:
             del out_dict["out"]
@@ -285,6 +313,7 @@ class DeterministicClassification(DeterministicModel):
         model: nn.Module,
         loss_fn: nn.Module,
         task: str = "multiclass",
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -295,13 +324,26 @@ class DeterministicClassification(DeterministicModel):
             loss_fn: loss function used for optimization
             task: what kind of classification task, choose one of
                 ["binary", "multiclass", "multilabel"]
+            freeze_backbone: whether to freeze the model backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         self.num_classes = _get_num_outputs(model)
-        assert task in self.valid_tasks
+        assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
         self.task = task
+        self.freeze_backbone = freeze_backbone
         super().__init__(model, loss_fn, optimizer, lr_scheduler)
+
+        self.freeze_model()
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        if self.freeze_backbone:
+            freeze_model_backbone(self.model)
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation.
@@ -338,7 +380,11 @@ class DeterministicClassification(DeterministicModel):
         """
         with torch.no_grad():
             out = self.forward(X)
-        return {"pred": self.adapt_output_for_metrics(out), "logits": out}
+
+        def identity(x, dim=None):
+            return x
+
+        return process_classification_prediction(out, aggregate_fn=identity)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -353,6 +399,142 @@ class DeterministicClassification(DeterministicModel):
         save_classification_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
+
+
+class DeterministicSegmentation(DeterministicClassification):
+    """Deterministic Base Trainer for segmentation as LightningModule."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        task: str = "multiclass",
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+    ) -> None:
+        """Initialize a new Deterministic Segmentation Model.
+
+        Args:
+            model: pytorch model
+            loss_fn: loss function used for optimization
+            task: what kind of classification task, choose one of
+                ["binary", "multiclass", "multilabel"]
+            freeze_backbone: whether to freeze the model backbone, by default this is
+                supported for torchseg Unet models
+            freeze_decoder: whether to freeze the model decoder, by default this is
+                supported for torchseg Unet models
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+        """
+        self.freeze_backbone = freeze_backbone
+        self.freeze_decoder = freeze_decoder
+        super().__init__(model, loss_fn, task, freeze_backbone, optimizer, lr_scheduler)
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        freeze_segmentation_model(self.model, self.freeze_backbone, self.freeze_decoder)
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        with torch.no_grad():
+            out = self.forward(X)
+
+        def identity(x, dim=None):
+            return x
+
+        return process_segmentation_prediction(out, aggregate_fn=identity)
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        pass
+
+
+class DeterministicPixelRegression(DeterministicRegression):
+    """Deterministic Base Trainer for pixel regression as LightningModule."""
+
+    pred_dir_name = "preds"
+
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+    ) -> None:
+        """Initialize a new instance of Deterministic Pixel Regression.
+
+        Args:
+            model: pytorch model
+            loss_fn: loss function used for optimization
+            freeze_backbone: whether to freeze the model backbone
+            freeze_decoder: whether to freeze the model decoder
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+        """
+        self.freeze_backbone = freeze_backbone
+        self.freeze_decoder = freeze_decoder
+        super().__init__(model, loss_fn, optimizer, lr_scheduler)
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        freeze_segmentation_model(self.model, self.freeze_backbone, self.freeze_decoder)
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.train_metrics = default_px_regression_metrics("train")
+        self.val_metrics = default_px_regression_metrics("val")
+        self.test_metrics = default_px_regression_metrics("test")
+
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class PosthocBase(BaseModule):
@@ -427,6 +609,11 @@ class PosthocBase(BaseModule):
     ) -> dict[str, Tensor]:
         """Test step after running posthoc fitting methodology."""
         raise NotImplementedError
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model output according to post-hoc fitting procedure.

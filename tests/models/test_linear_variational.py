@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Test Linear Variational Layer."""
 
@@ -8,6 +8,8 @@ import itertools
 import pytest
 import torch
 from _pytest.fixtures import SubRequest
+from hydra.utils import instantiate
+from omegaconf import OmegaConf
 
 from lightning_uq_box.models.bnn_layers import LinearVariational
 
@@ -31,3 +33,18 @@ class TestLineaerVariational:
         assert out.shape[0] == 5
         assert out.shape[1] == linear_variational_layer.out_features
         print(linear_variational_layer)
+
+    @pytest.mark.parametrize(
+        "stochastic_module_names",
+        [[-1], [0], [0, -1], ["fc"], ["layer4.1.conv1", "fc"]],
+    )
+    def test_partially_stochastic(self, stochastic_module_names) -> None:
+        """Test partially stochastic forward pass."""
+        cfg = OmegaConf.load("tests/configs/image_regression/bnn_vi_elbo.yaml")
+        model = instantiate(cfg.model, stochastic_module_names=stochastic_module_names)
+
+        for name, module in model.model.named_modules():
+            if name in model.stochastic_module_names:
+                assert "Variational" in type(module).__name__
+            else:
+                assert "Variational" not in type(module).__name__

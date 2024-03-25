@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Visualization utils for Lightning-UQ-Box."""
 
@@ -17,7 +17,7 @@ def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.figure:
 
     Args:
         save_dir: path to save directory of CSVLogger
-        metric: metric to plot
+        metrics: list of metrics to plot
     """
     latest_version = sorted(os.listdir(save_dir))[-1]
     metrics_path = os.path.join(save_dir, latest_version, "metrics.csv")
@@ -31,10 +31,11 @@ def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.figure:
         except KeyError:
             print(f"{m} not in metrics, available are {df.columns}")
 
-    fig, ax = plt.subplots(ncols=len(metrics))
+    fig, ax = plt.subplots(ncols=len(metrics), figsize=(5 * len(metrics), 5))
+    ax = np.atleast_1d(ax)
     for idx, (m, p) in enumerate(plot_metric.items()):
         ax[idx].plot(p)
-        ax[idx].set_title(m)     
+        ax[idx].set_title(m)
     return fig
 
 
@@ -63,10 +64,13 @@ def plot_two_moons_data(
     """Plot the two moons dataset.
 
     Args:
-        X_train: Training data features.
-        y_train: Training data labels.
-        X_val: Validation data features.
-        y_val: Validation data labels.
+        X_train: Training data features
+        y_train: Training data labels
+        X_val: Validation data features
+        y_val: Validation data labels
+
+    Returns:
+        figure of twoo moons dataset
     """
     fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
@@ -100,29 +104,45 @@ def plot_predictions_classification(
     num_cols = 3 if pred_uct is not None else 2
 
     fig, axs = plt.subplots(1, num_cols, figsize=(num_cols * 6, 6))
-    cm = plt.cm.viridis
+    cm = plt.cm.plasma
 
     grid_size = int(np.sqrt(test_grid_points.shape[0]))
     xx = test_grid_points[:, 0].reshape(grid_size, grid_size)
     yy = test_grid_points[:, 1].reshape(grid_size, grid_size)
 
     # Create a scatter plot of the input features, colored by the true labels
-    # axs[0].contour(xx, yy, y_pred.reshape(xx.shape), alpha=0.5)
-    axs[0].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm)
+    axs[0].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm, edgecolors="black")
     axs[0].set_title("True Labels")
 
     # Create a scatter plot of the input features, colored by the predicted labels
-    axs[1].contourf(xx, yy, y_pred.reshape(grid_size, grid_size), alpha=0.8, cmap=cm)
-    axs[1].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm)
+    axs[1].imshow(
+        y_pred.reshape(grid_size, grid_size),
+        alpha=0.8,
+        cmap=cm,
+        origin="lower",
+        extent=[xx.min(), xx.max(), yy.min(), yy.max()],
+        interpolation="bicubic",
+        aspect="auto",
+    )
+    axs[1].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm, edgecolors="black")
     axs[1].set_title("Predicted Labels")
 
     if pred_uct is not None:
         # Create a scatter plot of the input features, colored by the uncertainty
-        axs[2].contourf(
-            xx, yy, pred_uct.reshape(grid_size, grid_size), alpha=0.8, cmap=cm
+        im2 = axs[2].imshow(
+            pred_uct.reshape(grid_size, grid_size),
+            alpha=0.8,
+            cmap=cm,
+            origin="lower",
+            extent=[xx.min(), xx.max(), yy.min(), yy.max()],
+            interpolation="bicubic",
+            aspect="auto",
         )
-        axs[2].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm)
+        axs[2].scatter(
+            X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm, edgecolors="black"
+        )
         axs[2].set_title("Uncertainty")
+        fig.colorbar(im2, ax=axs[2], fraction=0.05, pad=0.008)
 
     return fig
 
@@ -157,10 +177,12 @@ def plot_predictions_regression(
         title: title of plot
         show_bands: show uncertainty bands
     """
+    import textwrap
+
     if y_pred.ndim == 2:
         y_pred = y_pred.squeeze(-1)
-    # fig, ax = plt.subplots(ncols=2)
-    fig = plt.figure(figsize=(10, 7))
+
+    fig = plt.figure(figsize=(13, 7))
     ax0 = fig.add_subplot(1, 2, 1)
     if samples is not None:
         ax0.scatter(
@@ -219,13 +241,16 @@ def plot_predictions_regression(
         ax1.set_title("Epistemic Uncertainty")
         ax1.legend()
     else:
+        wrapped_text = textwrap.fill(
+            "This Method does not quantify epistemic uncertainty.", width=30
+        )
         ax1.text(
             0.5,
             0.5,
-            "This Method does not quantify epistemic uncertainty.",
+            wrapped_text,
             horizontalalignment="center",
             verticalalignment="center",
-            fontsize=15,
+            fontsize=12,
         )
 
     # aleatoric uncertainty figure
@@ -253,13 +278,16 @@ def plot_predictions_regression(
 
         ax2.set_title("Aleatoric Uncertainty")
     else:
+        wrapped_text = textwrap.fill(
+            "This Method does not quantify aleatoric uncertainty.", width=30
+        )
         ax2.text(
             0.5,
             0.5,
-            "This Method does not quantify aleatoric uncertainty.",
+            wrapped_text,
             horizontalalignment="center",
             verticalalignment="center",
-            fontsize=15,
+            fontsize=12,
         )
 
     ax0.legend()

@@ -3,7 +3,7 @@ model:
   model:
     _target_: timm.create_model
     model_name: resnet18
-    num_classes: 2
+    num_classes: 4
     drop_rate: 0.1
   max_swag_snapshots: 4
   snapshot_freq: 1

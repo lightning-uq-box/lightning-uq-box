@@ -14,7 +14,7 @@
 
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 # Changes from https://github.com/stefanknegt/Probabilistic-Unet-Pytorch/blob/master/probabilistic_unet.py: # noqa: E501
 # - adapt ProbUnet implementation to lightning training framework
 # - make Unet flexible to be any segmentation model
@@ -312,6 +312,8 @@ class ProbUNet(BaseModule):
 
         # compute metrics with sampled reconstruction
         self.test_metrics(preds["logits"], batch[self.target_key])
+
+        preds = self.add_aux_data_to_dict(preds, batch)
 
         return preds
 

@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Metrics for uncertainty quantification."""
 
@@ -11,10 +11,10 @@ from torch import Tensor
 from torchmetrics import Metric
 
 
-class EmpiricalCoverage(Metric):
+class EmpiricalCoverageBase(Metric):
     """Empirical Coverage."""
 
-    def __init__(self, alpha: float = 0.1, topk: Optional[int] = None, **kwargs):
+    def __init__(self, alpha: float = 0.1, topk: Optional[int] = 1, **kwargs):
         """Initialize a new instance of Empirical Coverage Metric.
 
         Args:
@@ -46,12 +46,17 @@ class EmpiricalCoverage(Metric):
         if isinstance(pred_set, torch.Tensor):
             if self.topk is not None:
                 _, topk_pred_set = pred_set.topk(self.topk, dim=1)
-                covered += torch.isin(targets, topk_pred_set).sum().item()
+                covered += (
+                    (targets.unsqueeze(1) == topk_pred_set).any(dim=1).sum().item()
+                )
                 set_size = self.topk * pred_set.shape[0]
             else:
                 for k in range(1, pred_set.shape[1] + 1):
                     _, topk_pred_set = pred_set.topk(k, dim=1)
-                    batch_covered = torch.isin(targets, topk_pred_set).sum().item()
+                    batch_covered = (
+                        (targets.unsqueeze(1) == topk_pred_set).any(dim=1).sum().item()
+                    )
+                    # batch_covered = torch.isin(topk_pred_set, targets).sum().item()
                     batch_coverage = batch_covered / pred_set.shape[0]
                     if batch_coverage >= 1 - self.alpha:
                         set_size += k * pred_set.shape[0]
@@ -80,3 +85,27 @@ class EmpiricalCoverage(Metric):
             "coverage": self.covered / self.total,
             "set_size": self.set_size / self.total,
         }
+
+
+class EmpiricalCoverage(EmpiricalCoverageBase):
+    """Empirical Coverage."""
+
+    def compute(self) -> Tensor:
+        """Compute the coverage of the prediction sets.
+
+        Returns:
+            The coverage of the prediction sets.
+        """
+        return torch.tensor(self.covered / self.total)
+
+
+class SetSize(EmpiricalCoverageBase):
+    """Set Size."""
+
+    def compute(self) -> Tensor:
+        """Compute the set size of the prediction sets.
+
+        Returns:
+            The set size of the prediction sets.
+        """
+        return torch.tensor(self.set_size / self.total)

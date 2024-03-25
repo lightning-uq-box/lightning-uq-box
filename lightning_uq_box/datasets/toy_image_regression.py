@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Toy Image Regression Dataset."""
 
@@ -16,7 +16,7 @@ class ToyImageRegressionDataset(Dataset):
         super().__init__()
 
         self.num_samples = 10
-        self.images = [torch.ones(3, 64, 64) * val for val in range(self.num_samples)]
+        self.images = [torch.randn(3, 64, 64) for val in range(self.num_samples)]
         self.targets = torch.arange(0, self.num_samples).to(torch.float32)
 
     def __len__(self):
@@ -32,4 +32,6 @@ class ToyImageRegressionDataset(Dataset):
         return {
             "input": self.images[index],
             "target": self.targets[index].unsqueeze(-1),
+            "index": index,
+            "aux": "random_aux_data",
         }

@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Test Classification Tasks."""
 
@@ -25,6 +25,7 @@ model_config_paths = [
     "tests/configs/classification/dkl.yaml",
     "tests/configs/classification/due.yaml",
     "tests/configs/classification/card.yaml",
+    "tests/configs/classification/sngp.yaml",
 ]
 
 data_config_paths = ["tests/configs/classification/toy_classification.yaml"]
@@ -49,6 +50,10 @@ class TestClassificationTask:
             "1",
             "--trainer.default_root_dir",
             str(tmp_path),
+            "--trainer.logger",
+            "CSVLogger",
+            "--trainer.logger.save_dir",
+            str(tmp_path),
         ]
 
         cli = get_uq_box_cli(args)
@@ -59,6 +64,36 @@ class TestClassificationTask:
         assert os.path.exists(
             os.path.join(cli.trainer.default_root_dir, cli.model.pred_file_name)
         )
+
+
+frozen_config_paths = [
+    "tests/configs/classification/mc_dropout.yaml",
+    "tests/configs/classification/bnn_vi_elbo.yaml",
+    "tests/configs/classification/dkl.yaml",
+    "tests/configs/classification/due.yaml",
+    "tests/configs/classification/sngp.yaml",
+]
+
+
+class TestFrozenBackbone:
+    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
+    def test_freeze_backbone(self, model_config_path: str) -> None:
+        cli = get_uq_box_cli(
+            ["--config", model_config_path, "--model.freeze_backbone", "True"]
+        )
+        model = cli.model
+        try:
+            assert not all(
+                [param.requires_grad for param in model.model.model[0].parameters()]
+            )
+            assert all(
+                [param.requires_grad for param in model.model.model[-1].parameters()]
+            )
+        except AttributeError:
+            # check that entire feature extractor is frozen
+            assert not all(
+                [param.requires_grad for param in model.feature_extractor.parameters()]
+            )
 
 
 posthoc_config_paths = [

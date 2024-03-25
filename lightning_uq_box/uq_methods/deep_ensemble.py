@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Implement a Deep Ensemble Model for prediction."""
 
@@ -92,8 +92,6 @@ class DeepEnsemble(BaseModule):
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
 
-        # self.log("test_loss", self.loss_fn(out_dict["pred"],
-        # batch[self.target_key].squeeze(-1)))
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key])
 
@@ -101,9 +99,7 @@ class DeepEnsemble(BaseModule):
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu()
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         return out_dict
 
@@ -124,8 +120,8 @@ class DeepEnsembleRegression(DeepEnsemble):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
 
     pred_file_name = "preds.csv"
 
@@ -169,8 +165,8 @@ class DeepEnsembleClassification(DeepEnsemble):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
 
     valid_tasks = ["multiclass", "binary", "multilabel"]
     pred_file_name = "preds.csv"
@@ -238,8 +234,8 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
 
     def setup_task(self) -> None:
         """Set up task for segmentation."""

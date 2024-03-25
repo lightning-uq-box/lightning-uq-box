@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Datamodule for Toy Heteroscedastic Data."""
 
@@ -8,6 +8,7 @@ from typing import Callable, Union
 import numpy as np
 import torch
 from lightning import LightningDataModule
+from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
 from .utils import collate_fn_tensordataset
@@ -77,12 +78,12 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         for k in range(n_train):
             rnd = np.random.rand()
             if rnd < 1 / 3.0:
-                X[k] = np.random.normal(loc=-4, scale=2.0 / 5.0)
+                X[k] = np.random.normal(loc=x_min, scale=2.0 / 5.0)
             else:
                 if rnd < 2.0 / 3.0:
                     X[k] = np.random.normal(loc=0.0, scale=0.9)
                 else:
-                    X[k] = np.random.normal(loc=4.0, scale=2.0 / 5.0)
+                    X[k] = np.random.normal(loc=x_max, scale=2.0 / 5.0)
 
             Y[k] = generate_y(X[k])
 
@@ -95,7 +96,17 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
         self.X_train = torch.from_numpy(X_n).unsqueeze(-1).type(torch.float32)
         self.y_train = torch.from_numpy(Y_n).unsqueeze(-1).type(torch.float32)
-        X_test = np.linspace(X.min(), X.max(), n_true)
+
+        # Split the training data into training and validation sets
+        self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
+            self.X_train, self.y_train, test_size=0.2, random_state=42
+        )
+
+        self.X_val, self.X_calib, self.y_val, self.y_calib = train_test_split(
+            self.X_val, self.y_val, test_size=0.4, random_state=42
+        )
+
+        X_test = np.linspace(X.min() * 1.2, X.max() * 1.2, n_true)
         Y_test = X_test * 0.0
         for k in range(len(X_test)):
             Y_test[k] = generate_y(X_test[k], noise=False)
@@ -118,9 +129,16 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
     def val_dataloader(self) -> DataLoader:
         """Return val dataloader."""
-        # TODO Validation data
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train),
+            TensorDataset(self.X_val, self.y_val),
+            batch_size=self.batch_size,
+            collate_fn=collate_fn_tensordataset,
+        )
+
+    def calibration_dataloader(self) -> DataLoader:
+        """Return calibration dataloader."""
+        return DataLoader(
+            TensorDataset(self.X_calib, self.y_calib),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )

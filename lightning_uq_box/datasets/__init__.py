@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """UQ-Regression-Box Datasets."""
 
@@ -9,6 +9,7 @@ from .toy_gaussian_sideways import ToyGaussianSideWays
 from .toy_image_classification import ToyImageClassificationDataset
 from .toy_image_regression import ToyImageRegressionDataset
 from .toy_image_segmentation import ToySegmentationDataset
+from .toy_pixelwise_regression import ToyPixelWiseRegressionDataset
 
 __all__ = (
     # Toy Image dataset
@@ -19,6 +20,8 @@ __all__ = (
     "Toy8GaussiansDataset",
     # Toy Gaussian dataset
     "ToyGaussianSideWays",
+    # Toy Pixel-wise Regression dataset
+    "ToyPixelWiseRegressionDataset",
     # Toy Donut dataset
     "ToyDonut",
 )

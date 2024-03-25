@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Spectral Normalization Layers and conversion tools.
 
@@ -18,6 +18,59 @@ from torch.nn.utils.spectral_norm import (
     SpectralNormLoadStateDictPreHook,
     SpectralNormStateDictHook,
 )
+
+from .utils import _get_input_layer_name_and_module
+
+
+def collect_input_sizes(feature_extractor, input_size) -> dict[str, torch.Size]:
+    """Spectral Normalization needs input sizes to each layer.
+
+    Args:
+        feature_extractor: feature extractor model
+        input_size: input size of image data to the model
+
+    Returns:
+        input_dimensions: dictionary of input dimensions to each layer
+    """
+    _, module = _get_input_layer_name_and_module(feature_extractor)
+
+    if isinstance(module, torch.nn.Linear):
+        input_tensor = torch.zeros(1, module.in_features)
+    elif isinstance(module, torch.nn.Conv2d):
+        input_tensor = torch.zeros(1, module.in_channels, input_size, input_size)
+
+    input_dimensions = {}
+
+    hook_handles = []
+
+    def hook_fn(layer_name):
+        def forward_hook(module, input, output):
+            layer_name = f"{id(module)}"  # register unique id for each module
+            input_dimensions[layer_name] = input[0].shape[
+                1:
+            ]  # Assuming input is a tuple
+
+            input_dimensions[layer_name] = input[0].shape[
+                1:
+            ]  # Assuming input is a tuple
+
+        return forward_hook
+
+    # Register the forward hooks for each convolutional layer in the model
+    for name, module in feature_extractor.named_modules():
+        if isinstance(module, nn.Conv2d):
+            hook = hook_fn(name)
+            handle = module.register_forward_hook(hook)
+            hook_handles.append(handle)
+
+    # Perform a forward pass
+    _ = feature_extractor(input_tensor)
+
+    # Remove the hooks
+    for handle in hook_handles:
+        handle.remove()
+
+    return input_dimensions
 
 
 def spectral_normalize_model_layers(
@@ -157,9 +210,11 @@ class _SpectralBatchNorm(_NormBase):
         return F.batch_norm(
             input,
             # If buffers are not to be tracked, ensure that they won't be updated
-            self.running_mean
-            if not self.training or self.track_running_stats
-            else None,
+            (
+                self.running_mean
+                if not self.training or self.track_running_stats
+                else None
+            ),
             self.running_var if not self.training or self.track_running_stats else None,
             weight,
             self.bias,

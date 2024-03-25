@@ -1,12 +1,14 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Utilities for UQ-Method Implementations."""
 
 import os
 from collections import OrderedDict
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
+import h5py
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
@@ -14,6 +16,7 @@ from lightning import LightningModule
 from torch import Tensor
 from torchmetrics import (
     Accuracy,
+    CalibrationError,
     F1Score,
     JaccardIndex,
     MeanAbsoluteError,
@@ -28,6 +31,8 @@ from lightning_uq_box.eval_utils import (
     compute_predictive_uncertainty,
     compute_quantiles_from_std,
 )
+
+from .metrics import EmpiricalCoverage
 
 
 def checkpoint_loader(
@@ -45,7 +50,7 @@ def checkpoint_loader(
     """
     state_dict = {
         k.replace("model.", ""): v
-        for k, v in torch.load(ckpt_path)["state_dict"].items()
+        for k, v in torch.load(ckpt_path, map_location="cpu")["state_dict"].items()
     }
     model_class.model.load_state_dict(state_dict)
     if return_model:
@@ -88,12 +93,21 @@ def default_regression_metrics(prefix: str):
     )
 
 
+def default_px_regression_metrics(prefix: str):
+    """Return a set of default regression metrics."""
+    return MetricCollection(
+        {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
+        prefix=prefix,
+    )
+
+
 def default_classification_metrics(prefix: str, task: str, num_classes: int):
     """Return a set of default classification metrics."""
     return MetricCollection(
         {
             "Acc": Accuracy(task=task, num_classes=num_classes),
-            "F1Score": F1Score(task, num_classes=num_classes),
+            "Calibration": CalibrationError(task, num_classes=num_classes),
+            "Empirical Coverage": EmpiricalCoverage(),
         },
         prefix=prefix,
     )
@@ -111,19 +125,22 @@ def default_segmentation_metrics(prefix: str, task: str, num_classes: int):
 
 
 def process_regression_prediction(
-    preds: Tensor, quantiles: Optional[list[float]] = None
+    preds: Tensor,
+    quantiles: Optional[list[float]] = None,
+    aggregate_fn: Callable = torch.mean,
 ) -> dict[str, Tensor]:
     """Process regression predictions that could be mse or nll predictions.
 
     Args:
         preds: prediction tensor of shape [batch_size, num_outputs, num_samples]
         quantiles: quantiles to compute
+        aggregate_fn: function to aggregate over the samples to form a mean
 
     Returns:
         dictionary with mean prediction and predictive uncertainty
     """
     mean_samples = preds[:, 0, :].cpu()
-    mean = preds[:, 0:1, :].mean(-1)
+    mean = aggregate_fn(preds[:, 0:1, :], dim=-1)
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
         log_sigma_2_samples = preds[:, 1, :].cpu()
@@ -155,26 +172,34 @@ def process_regression_prediction(
     return pred_dict
 
 
-def process_classification_prediction(preds: Tensor) -> dict[str, Tensor]:
+def process_classification_prediction(
+    preds: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
+) -> dict[str, Tensor]:
     """Process classification predictions.
 
     Applies softmax to logit and computes mean over the samples and entropy.
 
     Args:
         preds: prediction logits tensor of shape [batch_size, num_classes, num_samples]
+        aggregate_fn: function to aggregate over the samples
+        eps: small value to prevent log of 0
 
     Returns:
         dictionary with mean [batch_size, num_classes]
             and predictive uncertainty [batch_size]
             and logits [batch_size, num_classes]
     """
-    mean = nn.functional.softmax(preds.mean(-1), dim=-1)
+    agg_logits = aggregate_fn(preds, dim=-1)
+    mean = nn.functional.softmax(agg_logits, dim=-1)
+    # prevent log of 0 -> nan
+    mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=-1)
+    return {"pred": mean, "pred_uct": entropy, "logits": agg_logits}
 
-    return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
 
-
-def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
+def process_segmentation_prediction(
+    preds: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
+) -> dict[str, Tensor]:
     """Process segmentation predictions.
 
     Applies softmax to logit and computes mean over the samples and entropy.
@@ -182,21 +207,59 @@ def process_segmentation_prediction(preds: Tensor) -> dict[str, Tensor]:
     Args:
         preds: prediction logits tensor of shape
             [batch_size, num_classes, height, width, num_samples]
+        aggregate_fn: function to aggregate over the samples
+        eps: small value to prevent log of 0
 
     Returns:
         dictionary with mean [batch_size, num_classes, height, width]
             and predictive uncertainty [batch_size, height, width]
     """
     # dim=1 is the expected num classes dimension
-    mean = nn.functional.softmax(preds.mean(-1), dim=1)
+    agg_logits = aggregate_fn(preds, dim=-1)
+    mean = nn.functional.softmax(agg_logits, dim=-1)
+    # prevent log of 0 -> nan
+    mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=1)
-    return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": agg_logits}
 
 
 def change_inplace_activation(module):
     """Change inplace activation."""
     if hasattr(module, "inplace"):
         module.inplace = False
+
+
+def save_image_predictions(
+    outputs: dict[str, Tensor], batch_idx: int, save_dir: str
+) -> None:
+    """Save segmentation predictions to separate hdf5 files.
+
+    Args:
+        outputs: metrics and values to be saved
+            - pred: predictions of shape [batch_size, ...]
+            - pred_uct: predictive uncertainty of shape [batch_size, ...]
+            - target: targets of shape [batch_size, ...]
+            - logits: logits of shape [batch_size, ...]
+        batch_idx: index of the current batch
+        save_dir: directory where hdf5 files should be saved
+    """
+    for sample_idx in range(outputs["pred"].shape[0]):
+        with h5py.File(
+            f"{save_dir}/batch_{batch_idx}_sample_{sample_idx}.hdf5", "w"
+        ) as f:
+            for key, val in outputs.items():
+                if isinstance(val, Tensor):
+                    data = val[sample_idx].cpu().numpy()
+                    if data.size == 1:  # single element tensor, save as attribute
+                        f.attrs[key] = data.item()
+                    else:  # multi-element tensor, save as dataset
+                        f.create_dataset(key, data=data, compression="gzip")
+                else:
+                    data = np.array(val[sample_idx])
+                    if data.size == 1:  # single element array, save as attribute
+                        f.attrs[key] = data.item()
+                    else:  # multi-element array, save as dataset
+                        f.create_dataset(key, data=data, compression="gzip")
 
 
 def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
@@ -212,8 +275,14 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
             - upper_quant: upper quantile of shape [batch_size]
         path: path where csv should be saved
     """
-    outputs = {k: v.cpu().numpy() for k, v in outputs.items()}
-    df = pd.DataFrame.from_dict(outputs)
+    cpu_outputs = {}
+    for key, val in outputs.items():
+        if isinstance(val, Tensor):
+            cpu_outputs[key] = val.squeeze(-1).cpu().numpy()
+        else:
+            cpu_outputs[key] = np.array(val)
+
+    df = pd.DataFrame.from_dict(cpu_outputs)
 
     # check if path already exists, then just append
     if os.path.exists(path):
@@ -237,7 +306,9 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     for i in range(logits.shape[1]):
         outputs[f"logit_{i}"] = logits[:, i]
 
-    if "pred_set" in outputs:
+    pred_set_true = True if "pred_set" in outputs else False
+
+    if pred_set_true:
         pred_set = [
             str(tensor.cpu().numpy().tolist()) for tensor in outputs.pop("pred_set")
         ]
@@ -245,17 +316,22 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
 
     pred = torch.argmax(outputs.pop("pred"), dim=1).cpu().numpy()
 
-    outputs = {k: v.cpu().numpy() for k, v in outputs.items()}
+    cpu_outputs = {}
+    for key, val in outputs.items():
+        if isinstance(val, Tensor):
+            cpu_outputs[key] = val.squeeze(-1).cpu().numpy()
+        else:
+            cpu_outputs[key] = np.array(val)
 
     df_pred = pd.DataFrame(pred, columns=["pred"])
 
     # Create DataFrame for the rest of the outputs
-    df_outputs = pd.DataFrame.from_dict(outputs)
+    df_outputs = pd.DataFrame.from_dict(cpu_outputs)
 
     # Concatenate the two DataFrames
     df = pd.concat([df_pred, df_outputs], axis=1)
 
-    if "pred_set" in outputs:
+    if pred_set_true:
         df = pd.concat([df, df_pred_set], axis=1)
 
     if os.path.exists(path):
@@ -291,6 +367,8 @@ def map_stochastic_modules(
     # remove duplicates due to weight/bias
     module_names = list(set(module_names))
 
+    module_names = [name for name in module_names if name != ""]  # remove empty string
+
     if not stochastic_module_names:  # None means fully stochastic
         part_stoch_names = module_names.copy()
     elif all(isinstance(elem, int) for elem in stochastic_module_names):
@@ -302,7 +380,7 @@ def map_stochastic_modules(
             f"Model only contains these parameter modules {module_names}, "
             f"and you requested {stochastic_module_names}."
         )
-        part_stoch_names = module_names.copy()
+        part_stoch_names = stochastic_module_names
     else:
         raise ValueError
     return part_stoch_names
@@ -337,16 +415,20 @@ def _get_output_layer_name_and_module(model: nn.Module) -> tuple[str, nn.Module]
     Returns:
         output key and module
     """
-    keys = []
-    children = list(model.named_children())
-    while children != []:
-        name, module = children[-1]
-        keys.append(name)
-        children = list(module.named_children())
+    queue = list(model.named_modules())
+    last_module_with_out = None
+    last_keys_with_out = None
 
-    key = ".".join(keys)
+    while queue:
+        name, module = queue.pop(0)
+        if hasattr(module, "out_features") or hasattr(module, "out_channels"):
+            last_module_with_out = module
+            last_keys_with_out = name
 
-    return key, module
+    if last_module_with_out is None:
+        raise ValueError("No layer with out_features found.")
+
+    return last_keys_with_out, last_module_with_out
 
 
 def _get_num_inputs(model: nn.Module) -> int:
@@ -382,9 +464,47 @@ def _get_num_outputs(model: nn.Module) -> int:
         num_outputs = module.out_features
     elif hasattr(module, "out_channels"):  # Conv Layer
         num_outputs = module.out_channels
-    elif "segmentation_models_pytorch" in str(type(model)):
-        _, seg_module = _get_input_layer_name_and_module(model.segmentation_head)
-        num_outputs = seg_module.out_channels
     else:
         raise ValueError(f"Module {module} does not have out_features or out_channels.")
     return num_outputs
+
+
+def freeze_model_backbone(model: nn.Module) -> None:
+    """Freeze the backbone of a model.
+
+    Args:
+        model: pytorch model
+    """
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # for timm model
+    if hasattr(model, "get_classifier"):
+        for param in model.get_classifier().parameters():
+            param.requires_grad = True
+    else:
+        # find last layer
+        _, module = _get_output_layer_name_and_module(model)
+        for param in module.parameters():
+            param.requires_grad = True
+
+
+def freeze_segmentation_model(
+    model: nn.Module, freeze_backbone: bool, freeze_decoder: bool
+) -> None:
+    """Freeze the encoder or decoder of a segmentation model.
+
+    Args:
+        model: pytorch model
+        freeze_backbone: whether to freeze the model backbone
+        freeze_decoder: whether to freeze the decoder
+    """
+    # Freeze backbone
+    if hasattr(model, "encoder") and freeze_backbone:
+        for param in model.encoder.parameters():
+            param.requires_grad = False
+
+    # Freeze decoder
+    if hasattr(model, "decoder") and freeze_decoder:
+        for param in model.decoder.parameters():
+            param.requires_grad = False

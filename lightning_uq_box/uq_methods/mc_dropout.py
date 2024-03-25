@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Mc-Dropout module."""
 
@@ -7,7 +7,6 @@ import os
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
@@ -17,6 +16,8 @@ from .utils import (
     default_classification_metrics,
     default_regression_metrics,
     default_segmentation_metrics,
+    freeze_model_backbone,
+    freeze_segmentation_model,
     process_classification_prediction,
     process_regression_prediction,
     process_segmentation_prediction,
@@ -93,7 +94,9 @@ class MCDropoutBase(DeterministicModel):
         out = self.forward(batch[self.input_key])
         loss = self.loss_fn(out, batch[self.target_key])
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         self.train_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
@@ -131,6 +134,7 @@ class MCDropoutRegression(MCDropoutBase):
         loss_fn: nn.Module,
         burnin_epochs: int = 0,
         dropout_layer_names: list[str] = [],
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -142,10 +146,12 @@ class MCDropoutRegression(MCDropoutBase):
             loss_fn: loss function
             burnin_epochs: number of burnin epochs before using the loss_fn
             dropout_layer_names: names of dropout layers to activate during prediction
+            freeze_backbone: freeze backbone during training
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
                 from the predictive distribution
         """
+        self.freeze_backbone = freeze_backbone
         super().__init__(
             model, num_mc_samples, loss_fn, dropout_layer_names, optimizer, lr_scheduler
         )
@@ -153,11 +159,22 @@ class MCDropoutRegression(MCDropoutBase):
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )
 
+        self.freeze_model()
+
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        if self.freeze_backbone:
+            freeze_model_backbone(self.model)
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation.."""
@@ -184,7 +201,9 @@ class MCDropoutRegression(MCDropoutBase):
         else:
             loss = self.loss_fn(out, batch[self.target_key])
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         self.train_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
 
         return loss
@@ -241,6 +260,7 @@ class MCDropoutClassification(MCDropoutBase):
         loss_fn: nn.Module,
         task: str = "multiclass",
         dropout_layer_names: list[str] = [],
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -252,12 +272,14 @@ class MCDropoutClassification(MCDropoutBase):
             loss_fn: loss function
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             dropout_layer_names: names of dropout layers to activate during prediction
+            freeze_backbone: freeze backbone during training
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = _get_num_outputs(model)
+        self.freeze_backbone = freeze_backbone
         super().__init__(
             model, num_mc_samples, loss_fn, dropout_layer_names, optimizer, lr_scheduler
         )
@@ -265,6 +287,8 @@ class MCDropoutClassification(MCDropoutBase):
         self.save_hyperparameters(
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )
+
+        self.freeze_model()
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -277,6 +301,15 @@ class MCDropoutClassification(MCDropoutBase):
         self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
         )
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        if self.freeze_backbone:
+            freeze_model_backbone(self.model)
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Extract mean output from model."""
@@ -298,11 +331,7 @@ class MCDropoutClassification(MCDropoutBase):
         self.activate_dropout()  # activate dropout during prediction
         with torch.no_grad():
             preds = torch.stack(
-                [
-                    F.softmax(self.model(X), dim=1)
-                    for _ in range(self.hparams.num_mc_samples)
-                ],
-                dim=-1,
+                [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
         return process_classification_prediction(preds)
@@ -325,6 +354,46 @@ class MCDropoutClassification(MCDropoutBase):
 class MCDropoutSegmentation(MCDropoutClassification):
     """MC-Dropout Model for Segmentation."""
 
+    def __init__(
+        self,
+        model: nn.Module,
+        num_mc_samples: int,
+        loss_fn: nn.Module,
+        task: str = "multiclass",
+        dropout_layer_names: list[str] = [],
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+    ) -> None:
+        """Initialize a new instance of MC-Dropout Model for Segmentation.
+
+        Args:
+            model: pytorch model with dropout layers
+            num_mc_samples: number of MC samples during prediction
+            loss_fn: loss function
+            task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            dropout_layer_names: names of dropout layers to activate during prediction
+            freeze_backbone: whether to freeze the model backbone, by default this is
+                supported for torchseg Unet models
+            freeze_decoder: whether to freeze the model decoder, by default this is
+                supported for torchseg Unet models
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+        """
+        self.freeze_backbone = freeze_backbone
+        self.freeze_decoder = freeze_decoder
+        super().__init__(
+            model,
+            num_mc_samples,
+            loss_fn,
+            task,
+            dropout_layer_names,
+            freeze_backbone,
+            optimizer,
+            lr_scheduler,
+        )
+
     def setup_task(self) -> None:
         """Set up task specific attributes for segmentation."""
         self.train_metrics = default_segmentation_metrics(
@@ -336,6 +405,14 @@ class MCDropoutSegmentation(MCDropoutClassification):
         self.test_metrics = default_segmentation_metrics(
             "test", self.task, self.num_classes
         )
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        freeze_segmentation_model(self.model, self.freeze_backbone, self.freeze_decoder)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0

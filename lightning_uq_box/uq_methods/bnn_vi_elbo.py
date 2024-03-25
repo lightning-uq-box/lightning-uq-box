@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Bayesian Neural Networks with Variational Inference."""
 
@@ -22,6 +22,8 @@ from .utils import (
     default_classification_metrics,
     default_regression_metrics,
     default_segmentation_metrics,
+    freeze_model_backbone,
+    freeze_segmentation_model,
     map_stochastic_modules,
     process_classification_prediction,
     process_regression_prediction,
@@ -53,6 +55,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         posterior_rho_init: float = -5.0,
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[list[Union[int, str]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -76,6 +79,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             bayesian_layer_type: `flipout` or `reparameterization`
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -106,9 +110,17 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         self.criterion = criterion
         self.lr_scheduler = lr_scheduler
 
+        self.freeze_backbone = freeze_backbone
+        self.freeze_model()
+
     def setup_task(self) -> None:
         """Set up task."""
         pass
+
+    def freeze_model(self) -> None:
+        """Freeze the model backbone."""
+        if self.freeze_backbone:
+            freeze_model_backbone(self.model)
 
     def _setup_bnn_with_vi(self) -> None:
         """Configure setup of the BNN Model."""
@@ -158,7 +170,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
 
         elbo_loss, mean_output = self.compute_elbo_loss(X, y)
 
-        self.log("train_loss", elbo_loss)  # logging to Logger
+        self.log("train_loss", elbo_loss, batch_size=X.shape[0])  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.train_metrics(mean_output, y)
 
@@ -180,7 +192,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
 
         elbo_loss, mean_output = self.compute_elbo_loss(X, y)
 
-        self.log("val_loss", elbo_loss)  # logging to Logger
+        self.log("val_loss", elbo_loss, batch_size=X.shape[0])  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.val_metrics(mean_output, y)
 
@@ -309,6 +321,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -333,6 +346,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             bayesian_layer_type: `flipout` or `reparameterization`
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -353,6 +367,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             posterior_rho_init,
             bayesian_layer_type,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )
@@ -414,7 +429,6 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
@@ -446,6 +460,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -470,6 +485,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             bayesian_layer_type: `flipout` or `reparameterization`
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
 
@@ -495,6 +511,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             posterior_rho_init,
             bayesian_layer_type,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )
@@ -570,6 +587,83 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
 
     * https://arxiv.org/abs/1505.05424
     """
+
+    def __init__(
+        self,
+        model: nn.Module,
+        criterion: nn.Module,
+        task: str = "multiclass",
+        beta: float = 100,
+        num_mc_samples_train: int = 10,
+        num_mc_samples_test: int = 50,
+        output_noise_scale: float = 1.3,
+        prior_mu: float = 0,
+        prior_sigma: float = 1,
+        posterior_mu_init: float = 0,
+        posterior_rho_init: float = -5,
+        bayesian_layer_type: str = "reparameterization",
+        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+    ) -> None:
+        """Initialize a new BNN VI ELBO Segmentation instance.
+
+        Args:
+            model: pytorch model that will be converted into a BNN
+            criterion: loss function used for optimization
+            task: classification task, one of `binary`, `multiclass`, `multilabel`
+            beta: beta factor for negative elbo loss computation,
+                should be number of weights and biases
+            num_mc_samples_train: number of MC samples during training when computing
+                the negative ELBO loss. When setting num_mc_samples_train=1, this
+                is just Bayes by Backprop.
+            num_mc_samples_test: number of MC samples during test and prediction
+            output_noise_scale: scale of predicted sigmas
+            prior_mu: prior mean value for bayesian layer
+            prior_sigma: prior variance value for bayesian layer
+            posterior_mu_init: mean initialization value for approximate posterior
+            posterior_rho_init: variance initialization value for approximate posterior
+                through softplus σ = log(1 + exp(ρ))
+            bayesian_layer_type: `flipout` or `reparameterization`
+            stochastic_module_names: list of module names or indices that should
+                be converted to variational layers
+            freeze_backbone: whether to freeze the model backbone, by default this is
+                supported for torchseg Unet models
+            freeze_decoder: whether to freeze the model decoder, by default this is
+                supported for torchseg Unet models
+            lr_scheduler: learning rate scheduler
+            optimizer: optimizer used for training
+        """
+        self.freeze_backbone = freeze_backbone
+        self.freeze_decoder = freeze_decoder
+        super().__init__(
+            model,
+            criterion,
+            task,
+            beta,
+            num_mc_samples_train,
+            num_mc_samples_test,
+            output_noise_scale,
+            prior_mu,
+            prior_sigma,
+            posterior_mu_init,
+            posterior_rho_init,
+            bayesian_layer_type,
+            stochastic_module_names,
+            freeze_backbone,
+            optimizer,
+            lr_scheduler,
+        )
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        freeze_segmentation_model(self.model, self.freeze_backbone, self.freeze_decoder)
 
     def setup_task(self) -> None:
         """Set up task specific attributes for segmentation."""

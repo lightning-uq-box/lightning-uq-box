@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Two Moons Toy Classification Datamodule."""
 
@@ -38,9 +38,10 @@ class TwoMoonsDataModule(LightningDataModule):
             stage: The stage ('fit' or 'test'). Defaults to None.
         """
         # Generate the half-moon dataset
-        X, y = make_moons(n_samples=self.n_samples, noise=0.1)
+        X, y = make_moons(n_samples=self.n_samples, noise=0.1, random_state=0)
+        min_x0, max_x0 = X[:, 0].min(), X[:, 0].max()
+        min_x1, max_x1 = X[:, 1].min(), X[:, 1].max()
 
-        # Convert the numpy arrays to PyTorch tensors
         X_tensor = torch.tensor(X, dtype=torch.float32)
         y_tensor = torch.tensor(y, dtype=torch.long)
 
@@ -53,11 +54,12 @@ class TwoMoonsDataModule(LightningDataModule):
         )
 
         # Create a grid of test points
-        x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
-        y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+        x_min, x_max = min_x0 - 1, max_x0 + 1
+        y_min, y_max = min_x1 - 1, max_x1 + 1
         xx, yy = np.meshgrid(
-            np.linspace(x_min, x_max, 50), np.linspace(y_min, y_max, 50)
+            np.linspace(x_min, x_max, 100), np.linspace(y_min, y_max, 100)
         )
+
         self.test_grid_points = torch.from_numpy(np.c_[xx.ravel(), yy.ravel()]).to(
             torch.float32
         )

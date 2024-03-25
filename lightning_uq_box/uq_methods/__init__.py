@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """UQ-Methods as Lightning Modules."""
 
@@ -7,7 +7,9 @@ from .base import (
     BaseModule,
     DeterministicClassification,
     DeterministicModel,
+    DeterministicPixelRegression,
     DeterministicRegression,
+    DeterministicSegmentation,
     PosthocBase,
 )
 from .bnn_lv_vi import (
@@ -45,8 +47,10 @@ from .deep_kernel_learning import (
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .hierarchical_prob_unet import HierarchicalProbUNet
+from .img2img_conformal import Img2ImgConformal
+from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
-from .loss_functions import NLL, DERLoss, HuberQLoss, PinballLoss, QuantileLoss
+from .loss_functions import NLL, DERLoss, PinballLoss
 from .mc_dropout import (
     MCDropoutBase,
     MCDropoutClassification,
@@ -55,9 +59,14 @@ from .mc_dropout import (
 )
 from .mean_variance_estimation import MVEBase, MVERegression
 from .prob_unet import ProbUNet
-from .quantile_regression import QuantileRegression, QuantileRegressionBase
+from .quantile_regression import (
+    QuantilePxRegression,
+    QuantileRegression,
+    QuantileRegressionBase,
+)
 from .raps import RAPS
 from .sgld import SGLDBase, SGLDClassification, SGLDRegression
+from .sngp import SNGPBase, SNGPClassification, SNGPRegression
 from .spectral_normalized_layers import (
     SpectralBatchNorm1d,
     SpectralBatchNorm2d,
@@ -76,6 +85,8 @@ __all__ = (
     "DeterministicModel",
     "DeterministicClassification",
     "DeterministicRegression",
+    "DeterministicSegmentation",
+    "DeterministicPixelRegression",
     # Conformal Risk Control
     "ConformalRiskControl",
     "ConformalRiskControlSegmentation",
@@ -126,6 +137,10 @@ __all__ = (
     "SGLDBase",
     "SGLDRegression",
     "SGLDClassification",
+    # SNGP Model
+    "SNGPBase",
+    "SNGPRegression",
+    "SNGPClassification",
     # RAPS Model
     "RAPS",
     # Temperature Scaling
@@ -152,14 +167,18 @@ __all__ = (
     "BNN_LV_VI_Regression",
     "BNN_LV_VI_Batched_Base",
     "BNN_LV_VI_Batched_Regression",
+    # Image-to-Image Conformal Uncertainty Estimation
+    "Img2ImgConformal",
     # Probabilistic Unet
     "ProbUNet",
     # Hierarchical Probabilistic Unet
     "HierarchicalProbUNet",
     # Loss Functions
     "NLL",
-    "QuantileLoss",
     "DERLoss",
-    "HuberQLoss",
     "PinballLoss",
+    # Test time augmentation
+    "TTABase",
+    "TTARegression",
+    "TTAClassification",
 )

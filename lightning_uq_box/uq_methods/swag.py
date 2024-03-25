@@ -17,7 +17,7 @@
 # - enable selections of stochastic modules
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Stochastic Weight Averaging - Gaussian.
 
@@ -347,8 +347,8 @@ class SWAGRegression(SWAGBase):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    """  # noqa: E501
 
     pred_file_name = "preds.csv"
 
@@ -434,8 +434,8 @@ class SWAGClassification(SWAGBase):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    """  # noqa: E501
 
     pred_file_name = "preds.csv"
     valid_tasks = ["binary", "multiclass", "multilable"]
@@ -631,9 +631,6 @@ def update_bn(
         if isinstance(batch, (list, tuple)):
             input = batch[0]
         if isinstance(batch, (dict)):
-            import pdb
-
-            pdb.set_trace()
             input = batch["image"]
         if device is not None:
             input = input.to(device)

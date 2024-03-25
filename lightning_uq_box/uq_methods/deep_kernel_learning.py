@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Deep Kernel Learning."""
 
@@ -178,7 +178,9 @@ class DKLBase(gpytorch.Module, BaseModule):
         y_pred = self.forward(X)
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.train_metrics(y_pred.mean, y.squeeze(-1))
         return loss
@@ -213,7 +215,9 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
-        self.log("val_loss", loss)  # logging to Logger
+        self.log(
+            "val_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
 
         if batch[self.input_key].shape[0] > 1:
             self.val_metrics(y_pred.mean, y.squeeze(-1))
@@ -229,6 +233,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.log(
             "test_loss",
             -self.elbo_fn(out_dict["out"], batch[self.target_key].squeeze(-1)),
+            batch_size=batch[self.input_key].shape[0],
         )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))
@@ -238,9 +243,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         out_dict["pred"] = out_dict["pred"].detach().cpu()
 
         # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                out_dict[key] = val.detach().squeeze(-1).cpu()
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
         return out_dict
 
     def on_validation_epoch_end(self) -> None:
@@ -292,6 +295,7 @@ class DKLRegression(DKLBase):
         n_inducing_points: int,
         num_targets: int = 1,
         gp_kernel: str = "RBF",
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -304,9 +308,12 @@ class DKLRegression(DKLBase):
             gp_kernel: kernel choice, supports one of
                 ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             elbo_fn: gpytorch elbo function used for optimization
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        self.freeze_backbone = freeze_backbone
+
         super().__init__(
             feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
         )
@@ -321,6 +328,10 @@ class DKLRegression(DKLBase):
             ]
         )
         self.num_targets = num_targets
+
+        if self.freeze_backbone:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -384,9 +395,11 @@ class DKLRegression(DKLBase):
         self.likelihood.eval()
 
         # TODO make num samples an argument
-        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(
-            64
-        ), gpytorch.settings.fast_pred_var(state=False):
+        with (
+            torch.no_grad(),
+            gpytorch.settings.num_likelihood_samples(64),
+            gpytorch.settings.fast_pred_var(state=False),
+        ):
             output = self.likelihood(self.forward(X))
             mean = output.mean
             std = output.stddev.cpu()
@@ -417,6 +430,7 @@ class DKLClassification(DKLBase):
         num_classes: int,
         task: str = "multiclass",
         gp_kernel: str = "RBF",
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -429,6 +443,7 @@ class DKLClassification(DKLBase):
                 'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             num_classes: number of classes
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -438,6 +453,7 @@ class DKLClassification(DKLBase):
         self.num_classes = num_classes
         # number of latent features of the feature extractor
         self.num_features = _get_num_outputs(feature_extractor)
+        self.freeze_backbone = freeze_backbone
 
         super().__init__(
             feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
@@ -452,6 +468,10 @@ class DKLClassification(DKLBase):
                 "elbo_fn",
             ]
         )
+
+        if self.freeze_backbone:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -506,7 +526,9 @@ class DKLClassification(DKLBase):
         y_pred = self.forward(X)
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         scores = self.likelihood(y_pred).probs.mean(0)
         self.train_metrics(scores, y.squeeze(-1))
         return loss
@@ -536,7 +558,9 @@ class DKLClassification(DKLBase):
 
         loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
 
-        self.log("val_loss", loss)  # logging to Logger
+        self.log(
+            "val_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         scores = self.likelihood(y_pred).probs.mean(0)
         self.val_metrics(scores, y.squeeze(-1))
         return loss
@@ -563,9 +587,11 @@ class DKLClassification(DKLBase):
         self.likelihood.eval()
 
         # TODO make num samples an argument
-        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(
-            64
-        ), gpytorch.settings.fast_pred_var(state=False):
+        with (
+            torch.no_grad(),
+            gpytorch.settings.num_likelihood_samples(64),
+            gpytorch.settings.fast_pred_var(state=False),
+        ):
             gp_dist = self.forward(X)
             output = self.likelihood(gp_dist)
             mean = output.probs.mean(0)  # take mean over sampling dimension

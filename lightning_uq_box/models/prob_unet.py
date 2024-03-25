@@ -14,7 +14,7 @@
 
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 # Changes from https://github.com/stefanknegt/Probabilistic-Unet-Pytorch/blob/master/probabilistic_unet.py: # noqa: E501
 # - add doc strings and type hints
 # - remove unused intializer args for Encoder and AxisAlignedConvGaussian
@@ -53,7 +53,7 @@ def init_weights(m: nn.Module) -> None:
     Args:
         m: Model whose weights need to be initialized
     """
-    if type(m) == nn.Conv2d or type(m) == nn.ConvTranspose2d:
+    if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
         truncated_normal_(m.bias, mean=0, std=0.001)
 
@@ -64,7 +64,7 @@ def init_weights_orthogonal_normal(m: nn.Module) -> None:
     Args:
         m: Model whose weights need to be initialized
     """
-    if type(m) == nn.Conv2d or type(m) == nn.ConvTranspose2d:
+    if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         nn.init.orthogonal_(m.weight)
         truncated_normal_(m.bias, mean=0, std=0.001)
         # nn.init.normal_(m.bias, std=0.001)

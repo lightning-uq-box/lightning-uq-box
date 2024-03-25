@@ -4,7 +4,7 @@ model:
     _target_: timm.create_model
     model_name: "resnet18"
     in_chans: 3
-    num_classes: 2
+    num_classes: 4
     pretrained: True
   guidance_model:
     _target_: lightning_uq_box.models.ConditionalGuidedConvModel
@@ -13,13 +13,13 @@ model:
       # all arguments to initiate the mlp for example
       model_name: "resnet18"
       in_chans: 3
-      num_classes: 2
+      num_classes: 4
       pretrained: True
     cond_guide_model:
       _target_: lightning_uq_box.models.ConditionalGuidedLinearModel
       n_steps: 5
-      x_dim: 2 # encoder output dim * 2
-      y_dim: 2
+      x_dim: 4 # encoder output dim * 2
+      y_dim: 4
       n_hidden: [20, 20]
       cat_x: false
       cat_y_pred: false

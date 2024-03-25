@@ -1,0 +1,14 @@
+model:
+  class_path: lightning_uq_box.uq_methods.SNGPRegression
+  init_args:
+    feature_extractor:
+      class_path: lightning_uq_box.models.fc_resnet.FCResNet
+      init_args:
+        input_dim: 1
+        features: 64
+        depth: 4
+        activation: "elu"
+    num_targets: 1
+    loss_fn:
+      class_path: torch.nn.MSELoss
+    feature_scale: null
