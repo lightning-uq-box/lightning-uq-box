@@ -1,0 +1,12 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.DERPxRegression
+  model:
+    _target_: torchseg.Unet
+    encoder_name: resnet18
+    encoder_weights: imagenet
+    classes: 4 # Deep Evidential Loss Output
+    in_channels: 3
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003

@@ -33,7 +33,7 @@ from .deep_ensemble import (
     DeepEnsembleRegression,
     DeepEnsembleSegmentation,
 )
-from .deep_evidential_regression import DER
+from .deep_evidential_regression import DER, DERPxRegression
 from .deep_kernel_learning import (
     DKLBase,
     DKLClassification,
@@ -141,6 +141,7 @@ __all__ = (
     "TempScaling",
     # Deep Evidential Regression Model
     "DER",
+    "DERPxRegression",
     # Spectral Normalization Layers
     "SpectralBatchNorm1d",
     "SpectralBatchNorm2d",

@@ -166,7 +166,7 @@ class MVERegression(MVEBase):
         )
 
 
-class MVEPxREgression(DeterministicPixelRegression):
+class MVEPxRegression(DeterministicPixelRegression):
     """Mean Variance Estimation Model for Pixelwise Regression with NLL."""
 
     def __init__(
@@ -178,6 +178,27 @@ class MVEPxREgression(DeterministicPixelRegression):
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
+        """Initialize a new instance of MVE for Pixelwise Regression.
+
+        Args:
+            model: pytorch model
+            loss_fn: loss function
+            freeze_backbone: whether to freeze the backbone
+            freeze_decoder: whether to freeze the decoder
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+        """
         super().__init__(
             model, loss_fn, freeze_backbone, freeze_decoder, optimizer, lr_scheduler
         )
+
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
+
+        Args:
+            out: output from the model
+
+        Returns:
+            mean output
+        """
+        return out[:, 0:1, ...].contiguous()

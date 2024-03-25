@@ -106,7 +106,8 @@ class EnergyAlphaDivergence(nn.Module):
 #         """Compute LowRankMultivariateNormal_NLL Loss.
 
 #         Args:
-#           preds: batch_size x (rank + 2) x tager_shape, consisting of mu,Gamma and Psi
+#           preds: batch_size x (rank + 2) x target_shape, consisting of
+#                mu,Gamma and Psi
 #           target: batch_size x target_shape, regression targets
 
 #         Returns:
@@ -116,7 +117,7 @@ class EnergyAlphaDivergence(nn.Module):
 #         mu, gamma, psi = (
 #             preds[:, 0:1],
 #             preds[:, 1 : self.rank + 1],
-#             preds[:, self.tran + 1].exp() + self.eps,
+#             preds[:, self.rank + 1].exp() + self.eps,
 #         )
 
 #         [b, w, h] = target.shape
@@ -144,18 +145,17 @@ class NLL(nn.Module):
         """Compute NLL Loss.
 
         Args:
-          preds: batch_size x 2, consisting of mu and log_sigma_2
-          target: batch_size x 1, regression targets
+          preds: batch_size x 2 x other dims, consisting of mu and log_sigma_2
+          target: batch_size x 1 x other dims, regression targets
 
         Returns:
           computed loss for the entire batch
         """
-        mu, log_sigma_2 = preds[:, 0].unsqueeze(-1), preds[:, 1].unsqueeze(-1)
+        mu, log_sigma_2 = preds[:, 0:1, ...], preds[:, 1:2, ...]
         loss = 0.5 * log_sigma_2 + (
             0.5 * torch.exp(-log_sigma_2) * torch.pow((target - mu), 2)
         )
-        loss = torch.mean(loss, dim=0)
-        return loss
+        return loss.mean()
 
 
 class PinballLoss(nn.Module):
@@ -230,14 +230,19 @@ class DERLoss(nn.Module):
         """DER Loss.
 
         Args:
-          logits: predicted tensor from model [batch_size x 4]
-          y_true: true regression target of shape [batch_size x 1]
+          logits: predicted tensor from model [batch_size x 4 x other dims]
+          y_true: true regression target of shape [batch_size x 1 x other dims]
 
         Returns:
           DER loss
         """
         y_true = y_true.squeeze(-1)
-        gamma, nu, _, beta = logits[:, 0], logits[:, 1], logits[:, 2], logits[:, 3]
+        gamma, nu, _, beta = (
+            logits[:, 0:1, ...],
+            logits[:, 1:2, ...],
+            logits[:, 2:3, ...],
+            logits[:, 3:4, ...],
+        )
         error = gamma - y_true
         var = beta / nu
 
