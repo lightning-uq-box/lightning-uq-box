@@ -7,6 +7,7 @@ from .base import (
     BaseModule,
     DeterministicClassification,
     DeterministicModel,
+    DeterministicPixelRegression,
     DeterministicRegression,
     DeterministicSegmentation,
     PosthocBase,
@@ -42,6 +43,7 @@ from .deep_kernel_learning import (
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .hierarchical_prob_unet import HierarchicalProbUNet
+from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
 from .loss_functions import NLL, DERLoss, PinballLoss
@@ -53,7 +55,11 @@ from .mc_dropout import (
 )
 from .mean_variance_estimation import MVEBase, MVERegression
 from .prob_unet import ProbUNet
-from .quantile_regression import QuantileRegression, QuantileRegressionBase
+from .quantile_regression import (
+    QuantilePxRegression,
+    QuantileRegression,
+    QuantileRegressionBase,
+)
 from .raps import RAPS
 from .sgld import SGLDBase, SGLDClassification, SGLDRegression
 from .sngp import SNGPBase, SNGPClassification, SNGPRegression
@@ -76,6 +82,7 @@ __all__ = (
     "DeterministicClassification",
     "DeterministicRegression",
     "DeterministicSegmentation",
+    "DeterministicPixelRegression",
     # CARDS
     "CARDBase",
     "CARDRegression",
@@ -153,6 +160,8 @@ __all__ = (
     "BNN_LV_VI_Regression",
     "BNN_LV_VI_Batched_Base",
     "BNN_LV_VI_Batched_Regression",
+    # Image-to-Image Conformal Uncertainty Estimation
+    "Img2ImgConformal",
     # Probabilistic Unet
     "ProbUNet",
     # Hierarchical Probabilistic Unet

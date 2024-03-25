@@ -64,6 +64,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Temperature Scaling                           |     ❌     |       ✅       |      ⏳      |          ❌           |
 | Conformal Quantile Regression (Conformal QR)  |     ✅     |       ❌       |      ❌      |          ⏳           |
 | Regularized Adaptive Prediction Sets (RAPS)   |     ❌     |       ✅       |      ❌      |          ❌           |
+| Image to Image Conformal                      |     ❌     |       ❌       |      ❌      |          ✅           |
 
 
 ## Table of contents

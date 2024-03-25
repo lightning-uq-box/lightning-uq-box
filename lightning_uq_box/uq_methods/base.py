@@ -16,12 +16,14 @@ from .utils import (
     _get_num_inputs,
     _get_num_outputs,
     default_classification_metrics,
+    default_px_regression_metrics,
     default_regression_metrics,
     freeze_model_backbone,
     freeze_segmentation_model,
     process_classification_prediction,
     process_segmentation_prediction,
     save_classification_predictions,
+    save_image_predictions,
     save_regression_predictions,
 )
 
@@ -141,6 +143,8 @@ class DeterministicModel(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            data_loader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -443,6 +447,72 @@ class DeterministicSegmentation(DeterministicClassification):
             dataloader_idx: dataloader index
         """
         pass
+
+
+class DeterministicPixelRegression(DeterministicRegression):
+    """Deterministic Base Trainer for pixel regression as LightningModule."""
+
+    pred_dir_name = "preds"
+
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+    ) -> None:
+        """Initialize a new instance of Deterministic Pixel Regression.
+
+        Args:
+            model: pytorch model
+            loss_fn: loss function used for optimization
+            freeze_backbone: whether to freeze the model backbone
+            freeze_decoder: whether to freeze the model decoder
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+        """
+        self.freeze_backbone = freeze_backbone
+        self.freeze_decoder = freeze_decoder
+        super().__init__(model, loss_fn, optimizer, lr_scheduler)
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        freeze_segmentation_model(self.model, self.freeze_backbone, self.freeze_decoder)
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.train_metrics = default_px_regression_metrics("train")
+        self.val_metrics = default_px_regression_metrics("val")
+        self.test_metrics = default_px_regression_metrics("test")
+
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class PosthocBase(BaseModule):

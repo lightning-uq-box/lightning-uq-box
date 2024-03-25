@@ -34,6 +34,11 @@ Quantile Regression
 
 .. autoclass:: QuantileRegression
 
+Quantile Pixelwise Regression
+`````````````````````````````
+
+.. autoclass:: QuantilePxRegression
+
 Deep Evidential Regression
 --------------------------
 
@@ -340,3 +345,10 @@ Regularized Adaptive Prediction Sets (RAPS)
 .. currentmodule:: lightning_uq_box.uq_methods.raps
 
 .. autoclass:: RAPS
+
+Image to Image Conformal
+------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.img2img_conformal
+
+.. autoclass:: Img2ImgConformal

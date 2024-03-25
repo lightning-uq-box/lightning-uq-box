@@ -37,6 +37,9 @@ from .utils import (
 class RAPS(PosthocBase):
     """Regularized Adaptive Prediction Sets (RAPS).
 
+    Conformal prediction method for classification tasks, as
+    introduced by `Angelopoulos et al. (2020) <https://arxiv.org/abs/2009.14193>`_.
+
     If you use this method, please cite the following paper:
 
     * https://arxiv.org/abs/2009.14193
@@ -63,7 +66,7 @@ class RAPS(PosthocBase):
         """Initialize RAPS.
 
         Args:
-            model: model to be calibrated with Temperature S
+            model: model to be calibrated with RAPS
             optim_lr: learning rate for optimizer
             max_iter: maximum number of iterations to run optimizer
             alpha: 1 - alpha is the desired coverage
