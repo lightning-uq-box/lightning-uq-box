@@ -52,10 +52,15 @@ class Img2ImgConformal(PosthocBase):
     ):
         """Initialize a new Img2ImgConformal instance.
 
+        The user can select a risk level α ∈ (0, 1), and an error level
+        δ ∈ (0, 1), such as α = δ = 0.1. Then, the conformal procedure construct
+        intervals that contain at least 1 − α of the ground-truth pixel values
+        with probability 1 − δ.
+
         Args:
             model: the base model to be conformalized
-            alpha: the significance level for the conformal prediction
-            delta: the
+            alpha: the risk level
+            delta: the error level
             min_lambda: the minimum lambda value
             max_lambda: the maximum lambda value
             num_lambdas: the number of lambda values to search
@@ -106,9 +111,6 @@ class Img2ImgConformal(PosthocBase):
 
         # conformalize in this step
         pred = self.adjust_model_logits(pred, lam)
-
-        # nested = self.model.nested_sets_from_output(self.model(X).unsqueeze(2), lam=lam)
-        # torch.allclose(nested[0], pred["lower"])
 
         return pred
 
@@ -171,21 +173,11 @@ class Img2ImgConformal(PosthocBase):
             output, labels = batch
             sets = self.adjust_model_logits(output, lam)
             losses = losses + [self.rcps_loss_fn(sets, labels)]
-        # this part seems correct
-        # nested = self.model.nested_sets_from_output(output.unsqueeze(2), lam)
-        # torch.allclose(nested[0], sets["lower"])
-        # from core.calibration.calibrate_model import fraction_missed_loss
-        # their_loss = fraction_missed_loss(nested, labels)
-        # my_loss = self.rcps_loss_fn(sets, labels)
-        # torch.allclose(their_loss, my_loss)
+
         return torch.cat(losses, dim=0).cpu()
 
     def on_validation_epoch_end(self) -> None:
-        """Perform Img2Img calibration.
-
-        Args:
-            outputs: list of dictionaries containing model outputs and labels
-        """
+        """Perform Img2Img calibration."""
         self.batch_size = self.model_logits[0].shape[0]
         all_logits = torch.cat(self.model_logits, dim=0).detach()
         all_labels = torch.cat(self.labels, dim=0).detach()
@@ -239,6 +231,9 @@ class Img2ImgConformal(PosthocBase):
             batch: batch of testing data
             batch_idx: batch index
             dataloader_idx: dataloader index
+
+        Returns:
+            test step dictionary with predictions
         """
         pred_dict = self.predict_step(batch[self.input_key])
 
@@ -257,7 +252,12 @@ class Img2ImgConformal(PosthocBase):
 
     @torch.no_grad()
     def compute_metrics(self, pred_dict: dict[str, Tensor], labels: Tensor) -> None:
-        """Compute metrics for a batch and append them to the metrics lists."""
+        """Compute metrics for a batch and append them to the metrics lists.
+
+        Args:
+            pred_dict: The prediction dictionary from predict_step for a batch
+            labels: The corresponding batch labels
+        """
         losses = self.rcps_loss_fn(pred_dict, labels)
         self.losses.append(losses.cpu())
 
@@ -280,14 +280,6 @@ class Img2ImgConformal(PosthocBase):
             labels < pred_dict["lower"]
         ).float()
         self.spatial_miscoverages.append(spatial_miscoverages.cpu())
-
-        # this compute metrics stuff seems correct, only have to check what the influence of the
-        # computed lambda is, does it find the same and if not why not?
-        path = "/mnt/SSD2/nils/projects/mri/im2im-uq/experiments/fastmri_test/outputs/raw/results_fastmri_quantiles_64_0.001_standard_min-max.pkl"
-        import pickle
-
-        with open(path, "rb") as f:
-            results = pickle.load(f)
 
     def on_test_end(self) -> None:
         """Summarize metrics."""
@@ -346,60 +338,15 @@ class Img2ImgConformal(PosthocBase):
         ) as f:
             json.dump(metrics, f)
 
-        print("MY METRICS")
-        print(f"Losses: {losses}")
-        print(f"Sizes: {sizes}")
-        print(f"Spearman: {spearman}")
-        print(f"Stratified Risks: {stratified_risks}")
-        print(f"MSE: {mse}")
-        print(f"Spatial Miscoverage: {self.spatial_miscoverages}")
-
-        self.model.lhat = self.lam
-
-        from core.calibration.calibrate_model import (
-            fraction_missed_loss,
-            get_rcps_metrics_from_outputs,
-        )
-
-        # dataloader = DataLoader(
-        #     self.out_dataset,
-        #     batch_size=self.batch_size,
-        #     shuffle=False,
-        #     num_workers=8,
-        # )
-        losses, sizes, spearman, stratified_risks, mse, spatial_miscoverage = (
-            get_rcps_metrics_from_outputs(
-                self.model, self.out_dataset, fraction_missed_loss, self.device
-            )
-        )
-
-        print(f"Losses: {losses.mean()}")
-        print(f"Sizes: {sizes.mean()}")
-        print(f"Spearman: {spearman}")
-        print(f"Stratified Risks: {stratified_risks}")
-        print(f"MSE: {mse}")
-        print(f"Spatial Miscoverage: {spatial_miscoverage.mean()}")
-
-        path = "/mnt/SSD2/nils/projects/mri/im2im-uq/experiments/fastmri_test/outputs/raw/results_fastmri_quantiles_64_0.001_standard_min-max.pkl"
-        import pickle
-
-        with open(path, "rb") as f:
-            results = pickle.load(f)
-        print("THEIR METRICS")
-        print(results["mse"])
-        print(results["risk"])
-        print(results["sizes"].mean())
-        print(results["spearman"])
-        print(results["size-stratified risk"])
-
-        print(0)
-
     def predict_step(self, X: Tensor, lam: Optional[float] = None) -> dict[str, Tensor]:
         """Prediction step with applied temperature scaling.
 
         Args:
             X: input tensor of shape [batch_size x num_channels x height x width]
             lam: The lambda parameter
+
+        Returns:
+            prediction dictionary
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
@@ -427,7 +374,7 @@ class Img2ImgConformal(PosthocBase):
         save_image_predictions(outputs, batch_idx, self.pred_dir_name)
 
 
-def h1(y, mu):
+def h1(y: "np.typing.NDArray[np.float32]", mu: "np.typing.NDArray[np.float32]"):
     """Compute the h1 function.
 
     Args:
@@ -438,12 +385,16 @@ def h1(y, mu):
 
 
 # Log tail inequalities of mean
-def hoeffding_plus(mu, x, n):
+def hoeffding_plus(
+    mu: "np.typing.NDArray[np.float32]", x: "np.typing.NDArray[np.float32]", n: int
+):
     """Compute the hoeffding tail inequality for the mean."""
     return -n * h1(np.minimum(mu, x), mu)
 
 
-def bentkus_plus(mu, x, n):
+def bentkus_plus(
+    mu: "np.typing.NDArray[np.float32]", x: "np.typing.NDArray[np.float32]", n: int
+):
     """Bentkus tail inequality for the mean.
 
     Args:
@@ -455,13 +406,15 @@ def bentkus_plus(mu, x, n):
 
 
 # UCB of mean via Hoeffding-Bentkus hybridization
-def HB_mu_plus(muhat, n, delta, maxiters=1000):
+def HB_mu_plus(
+    muhat: "np.typing.NDArray[np.float32]", n: int, delta: float, maxiters: int = 1000
+):
     """Upper Confidence Bound (UCB) of mean via Hoeffding-Bentkus hybridization.
 
     Args:
         muhat: Estimated mean.
         n: Number of samples.
-        delta: Confidence level.
+        delta: the error level
         maxiters: Maximum number of iterations for the brentq method.
 
     Returns:
