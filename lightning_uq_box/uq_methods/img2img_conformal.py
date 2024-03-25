@@ -72,12 +72,14 @@ class Img2ImgConformal(PosthocBase):
             num_lambdas: the number of lambda values to search
         """
         super().__init__(model)
-        self.delta = delta
         self.min_lambda = min_lambda
         self.max_lambda = max_lambda
         self.num_lambdas = num_lambdas
 
         self.model = model
+        assert alpha > 0 and alpha < 1, "alpha must be in (0, 1)"
+        assert delta > 0 and delta < 1, "delta must be in (0, 1)"
+        self.delta = delta
         self.alpha = alpha
 
         self.setup_task()
