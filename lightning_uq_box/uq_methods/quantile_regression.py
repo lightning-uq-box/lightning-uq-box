@@ -223,11 +223,9 @@ class QuantilePxRegression(QuantileRegressionBase):
 
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
-        self.pred_dir_name = os.path.join(
-            self.trainer.default_root_dir, self.pred_dir_name
-        )
-        if not os.path.exists(self.pred_dir_name):
-            os.makedirs(self.pred_dir_name)
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -284,8 +282,4 @@ class QuantilePxRegression(QuantileRegressionBase):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(
-            outputs,
-            batch_idx,
-            os.path.join(self.trainer.default_root_dir, self.pred_dir_name),
-        )
+        save_image_predictions(outputs, batch_idx, self.pred_dir)

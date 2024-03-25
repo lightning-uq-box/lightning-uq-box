@@ -8,11 +8,12 @@
 
 import json
 import os
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
+from lightning import LightningModule
 from scipy.optimize import brentq
 from scipy.stats import binom, spearmanr
 from torch import Tensor
@@ -49,7 +50,7 @@ class Img2ImgConformal(PosthocBase):
 
     def __init__(
         self,
-        model: nn.Module,
+        model: Union[LightningModule, nn.Module],
         alpha: float = 0.1,
         delta: float = 0.1,
         min_lambda: float = 0.0,
@@ -220,11 +221,9 @@ class Img2ImgConformal(PosthocBase):
 
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
-        self.pred_dir_name = os.path.join(
-            self.trainer.default_root_dir, self.pred_dir_name
-        )
-        if not os.path.exists(self.pred_dir_name):
-            os.makedirs(self.pred_dir_name)
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
 
         # Initialize metrics
         self.losses = []
@@ -381,7 +380,7 @@ class Img2ImgConformal(PosthocBase):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir_name)
+        save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 def h1(y: "np.typing.NDArray[np.float32]", mu: "np.typing.NDArray[np.float32]"):

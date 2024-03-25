@@ -63,7 +63,7 @@ class RAPS(PosthocBase):
         """Initialize RAPS.
 
         Args:
-            model: model to be calibrated with Temperature S
+            model: model to be calibrated with RAPS
             optim_lr: learning rate for optimizer
             max_iter: maximum number of iterations to run optimizer
             alpha: 1 - alpha is the desired coverage

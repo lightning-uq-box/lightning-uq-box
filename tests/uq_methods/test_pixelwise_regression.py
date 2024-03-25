@@ -2,8 +2,10 @@
 # Licensed under the Apache License 2.0.
 """Test pixelwise regression task."""
 
+import os
 from pathlib import Path
 
+import h5py
 import pytest
 from hydra.utils import instantiate
 from lightning import Trainer
@@ -42,12 +44,14 @@ class TestImageClassificationTask:
             logger=CSVLogger(str(tmp_path)),
         )
 
-        trainer.fit(model, datamodule)
         if "conformal" in model_config_path:
-            trainer.validate(
-                ckpt_path="best", dataloaders=datamodule.calib_dataloader()
-            )
-        trainer.test(ckpt_path="best", datamodule=datamodule)
+            trainer.validate(model, datamodule.calib_dataloader())
+        else:
+            trainer.fit(model, datamodule=datamodule)
+        trainer.test(model, datamodule=datamodule)
 
         # TODO write a test that checks batch_0_sample_0 example in hf5py dataset
         # and check that pred, target and aux data is there
+        with h5py.File(os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r") as f:
+            assert "pred" in f
+            assert "target" in f

@@ -452,6 +452,8 @@ class DeterministicSegmentation(DeterministicClassification):
 class DeterministicPixelRegression(DeterministicRegression):
     """Deterministic Base Trainer for pixel regression as LightningModule."""
 
+    pred_dir_name = "preds"
+
     def __init__(
         self,
         model: nn.Module,
@@ -489,6 +491,12 @@ class DeterministicPixelRegression(DeterministicRegression):
         self.val_metrics = default_px_regression_metrics("val")
         self.test_metrics = default_px_regression_metrics("test")
 
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
+
     def on_test_batch_end(
         self,
         outputs: dict[str, Tensor],
@@ -504,7 +512,7 @@ class DeterministicPixelRegression(DeterministicRegression):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.trainer.default_root_dir)
+        save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class PosthocBase(BaseModule):
