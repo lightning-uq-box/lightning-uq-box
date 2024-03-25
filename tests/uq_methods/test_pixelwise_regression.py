@@ -15,6 +15,8 @@ seed_everything(0)
 
 model_config_paths = [
     "tests/configs/pixelwise_regression/img2img_conformal.yaml",
+    "tests/configs/pixelwise_regression/img2img_conformal_torchseg.yaml",
+    "tests/configs/pixelwise_regression/deterministic.yaml",
     "tests/configs/pixelwise_regression/quantile_regression.yaml",
 ]
 
