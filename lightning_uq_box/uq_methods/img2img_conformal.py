@@ -6,6 +6,7 @@
 
 """Image-to-Image Conformal Uncertainty Estimation."""
 
+import json
 import os
 from typing import Any, Optional
 
@@ -37,6 +38,7 @@ class Img2ImgConformal(PosthocBase):
     """
 
     pred_dir_name = "preds"
+    metrics_file_name = "test_metrics.json"
 
     def __init__(
         self,
@@ -325,6 +327,25 @@ class Img2ImgConformal(PosthocBase):
         sizes = self.sizes.mean()
         res = self.residuals.mean()
 
+        # save all these metrics to a file
+        metrics = {
+            "risk": losses.item(),
+            "Sizes": sizes.item(),
+            "Spearman": spearman,
+            "Stratified Risks": stratified_risks.tolist(),
+            "Size bins": size_bins.tolist(),
+            "MSE": mse.item(),
+            "Residuals": res.item(),
+            "Spatial Miscoverage": {
+                key: val.item() for key, val in self.spatial_miscoverages.items()
+            },
+        }
+
+        with open(
+            os.path.join(self.trainer.default_root_dir, self.metrics_file_name), "w"
+        ) as f:
+            json.dump(metrics, f)
+
         print("MY METRICS")
         print(f"Losses: {losses}")
         print(f"Sizes: {sizes}")
@@ -370,10 +391,6 @@ class Img2ImgConformal(PosthocBase):
         print(results["sizes"].mean())
         print(results["spearman"])
         print(results["size-stratified risk"])
-
-        import pdb
-
-        pdb.set_trace()
 
         print(0)
 
