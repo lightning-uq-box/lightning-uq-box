@@ -34,6 +34,11 @@ Quantile Regression
 
 .. autoclass:: QuantileRegression
 
+Quantile Pixelwise Regression
+`````````````````````````````
+
+.. autoclass:: QuantilePxRegression
+
 Deep Evidential Regression
 --------------------------
 

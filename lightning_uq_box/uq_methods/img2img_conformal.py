@@ -79,7 +79,6 @@ class Img2ImgConformal(PosthocBase):
 
         self.model = model
         self.alpha = alpha
-        self.freeze_model()
 
         self.setup_task()
 
