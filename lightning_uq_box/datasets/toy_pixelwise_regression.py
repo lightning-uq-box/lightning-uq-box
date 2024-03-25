@@ -28,8 +28,11 @@ class ToyPixelWiseRegressionDataset(Dataset):
         return self.num_images
 
     def __getitem__(self, idx: int) -> Dict[str, Tensor]:
-        """Generate a random grayscale image and corresponding target."""
-        # Generate a random grayscale image and corresponding target
+        """Generate a random grayscale image and corresponding target.
+
+        Args:
+            idx: index of the sample
+        """
         image = torch.randint(
             0, 1, (3, self.image_size, self.image_size), dtype=torch.float32
         )

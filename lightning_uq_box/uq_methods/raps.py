@@ -37,6 +37,9 @@ from .utils import (
 class RAPS(PosthocBase):
     """Regularized Adaptive Prediction Sets (RAPS).
 
+    Conformal prediction method for classification tasks, as
+    introduced by `Angelopoulos et al. (2020) <https://arxiv.org/abs/2009.14193>`_.
+
     If you use this method, please cite the following paper:
 
     * https://arxiv.org/abs/2009.14193

@@ -1,6 +1,8 @@
 # Adapted from https://github.com/aangelopoulos/im2im-uq?tab=readme-ov-file
+# to be compatible with Lightning.
 # MIT License
 # Copyright (c) 2021 Anastasios Angelopoulos
+
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the Apache License 2.0.
 
@@ -20,18 +22,15 @@ from torch import Tensor
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
 from .base import PosthocBase
-from .utils import (
-    default_px_regression_metrics,
-    freeze_model_backbone,
-    save_image_predictions,
-)
+from .utils import default_px_regression_metrics, save_image_predictions
 
 
 class Img2ImgConformal(PosthocBase):
     """Image-to-Image Conformal Uncertainty Estimation.
 
     This module is a wrapper around a base model that provides
-    conformal uncertainty estimates for image-to-image tasks.
+    conformal uncertainty estimates for image-to-image tasks, as
+    introduced by `Angelopoulos et al. (2022) <https://arxiv.org/abs/2202.05265>`_.
 
     This default implementation uses the quantile regression
     approach, as it demonstrated good results in the original paper.
@@ -56,7 +55,6 @@ class Img2ImgConformal(PosthocBase):
         min_lambda: float = 0.0,
         max_lambda: float = 6.0,
         num_lambdas: int = 1000,
-        freeze_backbone: bool = False,
     ):
         """Initialize a new Img2ImgConformal instance.
 
@@ -72,7 +70,6 @@ class Img2ImgConformal(PosthocBase):
             min_lambda: the minimum lambda value
             max_lambda: the maximum lambda value
             num_lambdas: the number of lambda values to search
-            freeze_backbone: whether to freeze the backbone
         """
         super().__init__(model)
         self.delta = delta
@@ -82,19 +79,9 @@ class Img2ImgConformal(PosthocBase):
 
         self.model = model
         self.alpha = alpha
-        self.freeze_backbone = freeze_backbone
         self.freeze_model()
 
         self.setup_task()
-
-    def freeze_model(self) -> None:
-        """Freeze model backbone.
-
-        By default, assumes a timm model with a backbone and head.
-        Alternatively, selected the last layer with parameters to freeze.
-        """
-        if self.freeze_backbone:
-            freeze_model_backbone(self.model)
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -168,6 +155,7 @@ class Img2ImgConformal(PosthocBase):
         d = len(misses.shape)
         return misses.mean(dim=tuple(range(1, d)))
 
+    @torch.no_grad()
     def get_rcps_losses_from_outputs(self, logit_dataset: Dataset, lam: float):
         """Compute the RCPS loss from the model outputs.
 
