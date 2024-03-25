@@ -489,21 +489,6 @@ class DeterministicPixelRegression(DeterministicRegression):
         self.val_metrics = default_px_regression_metrics("val")
         self.test_metrics = default_px_regression_metrics("test")
 
-    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
-        """Adapt model output to be compatible for metric computation.
-
-        Args:
-            out: output from :meth:`self.forward`
-                [batch_size x num_outputs x height x width]
-
-        Returns:
-            extracted mean used for metric computation [batch_size x 1 x height x width]
-        """
-        self.median_index = 1
-        return out[
-            :, self.median_index : self.median_index + 1, ...  # noqa: E203
-        ].contiguous()
-
     def on_test_batch_end(
         self,
         outputs: dict[str, Tensor],
