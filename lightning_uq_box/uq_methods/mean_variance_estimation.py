@@ -11,7 +11,7 @@ import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
-from .base import DeterministicModel
+from .base import DeterministicModel, DeterministicPixelRegression
 from .loss_functions import NLL
 from .utils import (
     default_regression_metrics,
@@ -163,4 +163,21 @@ class MVERegression(MVEBase):
         """
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
+
+class MVEPxREgression(DeterministicPixelRegression):
+    """Mean Variance Estimation Model for Pixelwise Regression with NLL."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+    ) -> None:
+        super().__init__(
+            model, loss_fn, freeze_backbone, freeze_decoder, optimizer, lr_scheduler
         )

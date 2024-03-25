@@ -53,7 +53,7 @@ from .mc_dropout import (
     MCDropoutRegression,
     MCDropoutSegmentation,
 )
-from .mean_variance_estimation import MVEBase, MVERegression
+from .mean_variance_estimation import MVEBase, MVEPxRegression, MVERegression
 from .prob_unet import ProbUNet
 from .quantile_regression import (
     QuantilePxRegression,
@@ -111,6 +111,7 @@ __all__ = (
     # Mean Variance Estimation Network
     "MVEBase",
     "MVERegression",
+    "MVEPxRegression",
     # Deep Uncertainty Estimation Model
     "DUERegression",
     "DUEClassification",
