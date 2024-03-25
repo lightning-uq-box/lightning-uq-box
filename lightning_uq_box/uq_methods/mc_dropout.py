@@ -446,3 +446,7 @@ class MCDropoutSegmentation(MCDropoutClassification):
             dataloader_idx: dataloader index
         """
         pass
+
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation."""
+        return out.argmax(dim=1).float()

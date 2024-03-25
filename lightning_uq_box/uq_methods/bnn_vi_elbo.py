@@ -677,6 +677,24 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
             "test", self.task, self.num_classes
         )
 
+    # def compute_task_loss(self, pred: Tensor, y: Tensor) -> Tensor:
+    #     """Compute the loss for the respective task for a single sampling iteration.
+
+    #     Args:
+    #         X: model_prediction
+    #         y: target
+
+    #     Returns:
+    #         nll loss for the task
+    #     """
+    #     # make sure segmentation output and target are of same shape
+    #     if y.dim() == 4 and pred.dim() == 3:
+    #         y = y.argmax(dim=1)
+    #     elif y.dim() == 3 and pred.dim() == 4:
+    #         pred = pred.argmax(dim=1)
+    #     loss = self.criterion(pred.float(), y)
+    #     return loss
+
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
