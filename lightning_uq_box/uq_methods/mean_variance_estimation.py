@@ -145,7 +145,7 @@ class MVERegression(MVEBase):
         with torch.no_grad():
             preds = self.model(X)
 
-        mean, log_sigma_2 = preds[:, 0], preds[:, 1].cpu()
+        mean, log_sigma_2 = preds[:, 0:1], preds[:, 1:2].cpu()
         eps = torch.ones_like(log_sigma_2) * 1e-6
         std = torch.sqrt(eps + np.exp(log_sigma_2))
 
@@ -201,4 +201,5 @@ class MVEPxRegression(DeterministicPixelRegression):
         Returns:
             mean output
         """
+        assert out.shape[1] <= 2, "Gaussian output."
         return out[:, 0:1, ...].contiguous()

@@ -420,7 +420,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             ]
         # model_preds [batch_size, output_dim]
         model_preds = torch.stack(model_preds, dim=0).detach()
-        mean_out = model_preds.mean(dim=0).squeeze()
+        mean_out = model_preds.mean(dim=0)
 
         # how can this happen that there is so little sample diversity
         # there should be at least a little numerical difference?
@@ -578,7 +578,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         with torch.no_grad():
             model_preds = self.forward(X, self.hparams.n_mc_samples_test)
 
-        mean_out = model_preds.mean(dim=0).squeeze()
+        mean_out = model_preds.mean(dim=0)
 
         std_epistemic = model_preds.std(dim=0).squeeze()
         std_epistemic[std_epistemic <= 0] = 1e-6

@@ -204,8 +204,7 @@ class DeterministicModel(BaseModule):
 
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(
-                self.adapt_output_for_metrics(out_dict["pred"]),
-                batch[self.target_key].squeeze(-1),
+                self.adapt_output_for_metrics(out_dict["pred"]), batch[self.target_key]
             )
 
         # turn mean to np array
