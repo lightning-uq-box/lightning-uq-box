@@ -1,4 +1,4 @@
-model:
+uq_method:
   _target_: lightning_uq_box.uq_methods.SWAGRegression
   model:
     _target_: lightning_uq_box.uq_methods.MVERegression

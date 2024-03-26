@@ -38,6 +38,8 @@ class BNN_VI_Base(DeterministicModel):
     * https://proceedings.mlr.press/v80/depeweg18a
     """
 
+    pred_file_name = "preds.csv"
+
     def __init__(
         self,
         model: nn.Module,
@@ -51,6 +53,7 @@ class BNN_VI_Base(DeterministicModel):
         alpha: float = 1.0,
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -71,6 +74,7 @@ class BNN_VI_Base(DeterministicModel):
             bayesian_layer_type: `flipout` or `reparameterization`
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -78,7 +82,7 @@ class BNN_VI_Base(DeterministicModel):
             AssertionError: if ``n_mc_samples_train`` is not positive.
             AssertionError: if ``n_mc_samples_test`` is not positive.
         """
-        super().__init__(model, None, optimizer, lr_scheduler)
+        super().__init__(model, None, False, optimizer, lr_scheduler)
         assert n_mc_samples_train > 0, "Need to sample at least once during training."
         assert n_mc_samples_test > 0, "Need to sample at least once during testing."
 
@@ -92,9 +96,8 @@ class BNN_VI_Base(DeterministicModel):
             self.model, stochastic_module_names
         )
 
+        self.freeze_backbone = freeze_backbone
         self._setup_bnn_with_vi()
-
-        self.pred_file_name = "predictions.csv"
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -121,6 +124,9 @@ class BNN_VI_Base(DeterministicModel):
         self.log_aleatoric_std = nn.Parameter(
             torch.tensor([-2.5 for _ in range(1)], device=self.device)
         )
+
+        # only call model after it has been setup
+        self.freeze_model()
 
     def forward(self, X: Tensor) -> Tensor:
         """Forward pass BNN+LI.
@@ -286,6 +292,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         alpha: float = 1,
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -308,6 +315,7 @@ class BNN_VI_Regression(BNN_VI_Base):
                 be converted to variational layers
             bayesian_layer_type: reparameterization layer type,
                 "reparametrization" or "flipout"
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -328,6 +336,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             alpha,
             bayesian_layer_type,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )

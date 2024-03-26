@@ -13,11 +13,7 @@ from torch import Tensor
 
 from .base import DeterministicModel, DeterministicPixelRegression
 from .loss_functions import NLL
-from .utils import (
-    default_regression_metrics,
-    freeze_model_backbone,
-    save_regression_predictions,
-)
+from .utils import default_regression_metrics, save_regression_predictions
 
 
 class MVEBase(DeterministicModel):
@@ -45,26 +41,13 @@ class MVEBase(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
-        self.freeze_backbone = freeze_backbone
-        super().__init__(model, None, optimizer, lr_scheduler)
-
-        self.loss_fn = NLL()
+        super().__init__(model, NLL(), freeze_backbone, optimizer, lr_scheduler)
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
-        self.freeze_model()
-
-    def freeze_model(self) -> None:
-        """Freeze model backbone.
-
-        By default, assumes a timm model with a backbone and head.
-        Alternatively, selected the last layer with parameters to freeze.
-        """
-        if self.freeze_backbone:
-            freeze_model_backbone(self.model)
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -168,6 +151,8 @@ class MVERegression(MVEBase):
 
 class MVEPxRegression(DeterministicPixelRegression):
     """Mean Variance Estimation Model for Pixelwise Regression with NLL."""
+
+    pred_dir_name = "preds"
 
     def __init__(
         self,

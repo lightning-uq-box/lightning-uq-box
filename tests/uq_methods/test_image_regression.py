@@ -52,7 +52,7 @@ class TestImageRegressionTask:
         # TODO
         # match = "No dropout layers found in model*"
         # with pytest.warns(UserWarning):
-        model = instantiate(model_conf.model)
+        model = instantiate(model_conf.uq_method)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
             max_epochs=2,
@@ -77,8 +77,10 @@ frozen_config_paths = [
     "tests/configs/image_regression/mean_variance_estimation.yaml",
     "tests/configs/image_regression/mc_dropout_nll.yaml",
     "tests/configs/image_regression/bnn_vi_elbo.yaml",
+    "tests/configs/image_regression/bnn_vi.yaml",
     "tests/configs/image_regression/due.yaml",
     "tests/configs/image_regression/sngp.yaml",
+    "tests/configs/image_regression/der.yaml",
 ]
 
 
@@ -89,8 +91,8 @@ class TestFrozenBackbone:
         model_conf = OmegaConf.load(model_config_path)
 
         try:
-            model_conf.model.model.model_name = model_name
-            model = instantiate(model_conf.model, freeze_backbone=True)
+            model_conf.uq_method.model.model_name = model_name
+            model = instantiate(model_conf.uq_method, freeze_backbone=True)
             assert not all([param.requires_grad for param in model.model.parameters()])
             assert all(
                 [
@@ -99,9 +101,9 @@ class TestFrozenBackbone:
                 ]
             )
         except AttributeError:
-            model_conf.model.feature_extractor.model_name = model_name
-            model_conf.model.input_size = 224
-            model = instantiate(model_conf.model, freeze_backbone=True)
+            model_conf.uq_method.feature_extractor.model_name = model_name
+            model_conf.uq_method.input_size = 224
+            model = instantiate(model_conf.uq_method, freeze_backbone=True)
             # check that entire feature extractor is frozen
             assert not all(
                 [param.requires_grad for param in model.feature_extractor.parameters()]
@@ -131,7 +133,7 @@ class TestDeepEnsemble:
         for i in range(5):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
-            model = instantiate(model_conf.model)
+            model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
@@ -178,7 +180,7 @@ class TestTTAModel:
         self, model_config_path: str, merge_strategy: str, tmp_path: Path
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
-        base_model = instantiate(model_conf.model)
+        base_model = instantiate(model_conf.uq_method)
         tta_model = TTARegression(base_model, merge_strategy=merge_strategy)
         datamodule = ToyImageRegressionDatamodule()
 

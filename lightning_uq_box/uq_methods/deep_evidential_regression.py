@@ -17,7 +17,6 @@ from .utils import (
     _get_num_outputs,
     default_px_regression_metrics,
     default_regression_metrics,
-    freeze_model_backbone,
     freeze_segmentation_model,
     save_image_predictions,
     save_regression_predictions,
@@ -33,8 +32,6 @@ class DERLayer(nn.Module):
     def __init__(self):
         """Initialize a new Deep Evidential Regression Layer."""
         super().__init__()
-        self.in_features = 4
-        self.out_features = 4
 
     def forward(self, x):
         """Compute the DER parameters.
@@ -87,26 +84,22 @@ class DER(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
-        super().__init__(model, None, optimizer, lr_scheduler)
+        # add DER Layer
+        super().__init__(model, None, freeze_backbone, optimizer, lr_scheduler)
 
         self.save_hyperparameters(ignore=["model", "optimizer", "lr_scheduler"])
 
         # check that output is 4 dimensional
         assert _get_num_outputs(model) == 4, "DER model expects 4 outputs."
 
-        # add DER Layer
-        self.model = nn.Sequential(self.model, DERLayer())
-
-        self.freeze_backbone = freeze_backbone
-        self.freeze_model()
-
         # set DER Loss
         self.loss_fn = DERLoss(coeff)
 
-    def freeze_model(self) -> None:
-        """Freeze the model."""
-        if self.freeze_backbone:
-            freeze_model_backbone(self.model[0])
+        self.der_layer = DERLayer()
+
+    def forward(self, X: Tensor) -> Any:
+        """Forward pass of the model."""
+        return self.der_layer(self.model(X))
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -234,6 +227,7 @@ class DERPxRegression(DER):
         By default, assumes a timm model with a backbone and head.
         Alternatively, selected the last layer with parameters to freeze.
         """
+        # self.model[0] is the model without the DER Layer
         freeze_segmentation_model(self.model, self.freeze_backbone, self.freeze_decoder)
 
     def setup_task(self) -> None:

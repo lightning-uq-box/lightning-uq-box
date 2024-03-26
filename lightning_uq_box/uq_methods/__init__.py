@@ -50,6 +50,7 @@ from .loss_functions import NLL, DERLoss, PinballLoss
 from .mc_dropout import (
     MCDropoutBase,
     MCDropoutClassification,
+    MCDropoutPxRegression,
     MCDropoutRegression,
     MCDropoutSegmentation,
 )
@@ -112,6 +113,7 @@ __all__ = (
     "MVEBase",
     "MVERegression",
     "MVEPxRegression",
+    "MCDropoutPxRegression",
     # Deep Uncertainty Estimation Model
     "DUERegression",
     "DUEClassification",

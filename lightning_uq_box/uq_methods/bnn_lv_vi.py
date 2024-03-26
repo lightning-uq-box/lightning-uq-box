@@ -65,6 +65,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
         stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -95,6 +96,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             init_scaling: init scaling factor for q(z) in latent variable network
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -114,6 +116,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             alpha,
             bayesian_layer_type,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )

@@ -90,6 +90,7 @@ class DeterministicModel(BaseModule):
         self,
         model: nn.Module,
         loss_fn: nn.Module,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> None:
@@ -98,6 +99,7 @@ class DeterministicModel(BaseModule):
         Args:
             model: pytorch model
             loss_fn: loss function used for optimization
+            freeze_backbone: whether to freeze the model backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -107,8 +109,20 @@ class DeterministicModel(BaseModule):
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.loss_fn = loss_fn
+        self.freeze_backbone = freeze_backbone
 
         self.setup_task()
+
+        self.freeze_model()
+
+    def freeze_model(self) -> None:
+        """Freeze model backbone.
+
+        By default, assumes a timm model with a backbone and head.
+        Alternatively, selected the last layer with parameters to freeze.
+        """
+        if self.freeze_backbone:
+            freeze_model_backbone(self.model)
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -309,19 +323,7 @@ class DeterministicClassification(DeterministicModel):
         self.num_classes = _get_num_outputs(model)
         assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
         self.task = task
-        self.freeze_backbone = freeze_backbone
-        super().__init__(model, loss_fn, optimizer, lr_scheduler)
-
-        self.freeze_model()
-
-    def freeze_model(self) -> None:
-        """Freeze model backbone.
-
-        By default, assumes a timm model with a backbone and head.
-        Alternatively, selected the last layer with parameters to freeze.
-        """
-        if self.freeze_backbone:
-            freeze_model_backbone(self.model)
+        super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation.
@@ -473,9 +475,8 @@ class DeterministicPixelRegression(DeterministicRegression):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
-        self.freeze_backbone = freeze_backbone
         self.freeze_decoder = freeze_decoder
-        super().__init__(model, loss_fn, optimizer, lr_scheduler)
+        super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
 
     def freeze_model(self) -> None:
         """Freeze model backbone.

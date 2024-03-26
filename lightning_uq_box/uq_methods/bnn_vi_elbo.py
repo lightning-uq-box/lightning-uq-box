@@ -22,7 +22,6 @@ from .utils import (
     default_classification_metrics,
     default_regression_metrics,
     default_segmentation_metrics,
-    freeze_model_backbone,
     freeze_segmentation_model,
     map_stochastic_modules,
     process_classification_prediction,
@@ -87,19 +86,25 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             AssertionError: if ``num_mc_samples_train`` is not positive.
             AssertionError: if ``num_mc_samples_test`` is not positive.
         """
-        super().__init__(model, criterion, optimizer, lr_scheduler)
+        self.bnn_args = {
+            "prior_mu": prior_mu,
+            "prior_sigma": prior_sigma,
+            "posterior_mu_init": posterior_mu_init,
+            "posterior_rho_init": posterior_rho_init,
+            "layer_type": bayesian_layer_type,
+        }
+        self.stochastic_module_names = map_stochastic_modules(
+            model, stochastic_module_names
+        )
+        self._setup_bnn_with_vi(model)
+        super().__init__(model, criterion, freeze_backbone, optimizer, lr_scheduler)
 
         assert num_mc_samples_train > 0, "Need to sample at least once during training."
         assert num_mc_samples_test > 0, "Need to sample at least once during testing."
 
-        self.stochastic_module_names = map_stochastic_modules(
-            self.model, stochastic_module_names
-        )
-
         self.save_hyperparameters(
             ignore=["model", "criterion", "optimizer", "lr_scheduler"]
         )
-        self._setup_bnn_with_vi()
 
         # update hyperparameters
         self.hparams["weight_decay"] = 1e-5
@@ -111,31 +116,16 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         self.lr_scheduler = lr_scheduler
 
         self.freeze_backbone = freeze_backbone
-        self.freeze_model()
 
     def setup_task(self) -> None:
         """Set up task."""
         pass
 
-    def freeze_model(self) -> None:
-        """Freeze the model backbone."""
-        if self.freeze_backbone:
-            freeze_model_backbone(self.model)
-
-    def _setup_bnn_with_vi(self) -> None:
+    def _setup_bnn_with_vi(self, model: nn.Module) -> None:
         """Configure setup of the BNN Model."""
-        self.bnn_args = {
-            "prior_mu": self.hparams.prior_mu,
-            "prior_sigma": self.hparams.prior_sigma,
-            "posterior_mu_init": self.hparams.posterior_mu_init,
-            "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.bayesian_layer_type,
-        }
         # convert deterministic model to BNN
         convert_deterministic_to_bnn(
-            self.model,
-            self.bnn_args,
-            stochastic_module_names=self.stochastic_module_names,
+            model, self.bnn_args, stochastic_module_names=self.stochastic_module_names
         )
 
     def forward(self, X: Tensor) -> Tensor:
