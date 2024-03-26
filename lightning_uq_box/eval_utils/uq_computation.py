@@ -132,7 +132,7 @@ def compute_quantiles_from_std(
     return quantiles
 
 
-def compute_empirical_coverage(quantile_preds: np.ndarray, targets: np.ndarray):
+def compute_empirical_coverage(quantile_preds: Tensor, targets: Tensor):
     """Compute the empirical coverage.
 
     Args:
@@ -142,7 +142,8 @@ def compute_empirical_coverage(quantile_preds: np.ndarray, targets: np.ndarray):
     Returns:
       computed empirical coverage over all samples
     """
-    targets = targets.squeeze()
+    assert quantile_preds.dim() == targets.dim(), "Dimension mismatch."
     return (
-        (targets >= quantile_preds[:, 0]) & (targets <= quantile_preds[:, -1])
-    ).mean()
+        (targets >= quantile_preds[:, 0:1, ...])
+        & (targets <= quantile_preds[:, -1, ...].unsqueeze(1))
+    ).sum() / targets.shape[0]
