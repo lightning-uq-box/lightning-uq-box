@@ -52,6 +52,44 @@ def test_empirical_coverage_base(pred_set, expected_coverage, expected_set_size)
 
 
 @pytest.mark.parametrize(
+    "pred_set, expected_set_size, expected_coverage",
+    [
+        (
+            torch.tensor(
+                [
+                    [0.1, 0.2, 0.3, 0.4, 0.5],
+                    [0.5, 0.4, 0.3, 0.2, 0.1],
+                    [0.2, 0.3, 0.4, 0.5, 0.1],
+                    [0.3, 0.4, 0.5, 0.1, 0.2],
+                ]
+            ),
+            4.0,
+            1.0,
+        ),
+        (
+            [
+                torch.tensor([0, 1]),
+                torch.tensor([1, 2, 3]),
+                torch.tensor([0, 1, 2]),
+                torch.tensor([2, 3, 4]),
+            ],
+            2.75,
+            0.75,
+        ),
+    ],
+)
+def test_set_size_no_topk(pred_set, expected_set_size, expected_coverage):
+    metric = EmpiricalCoverageBase(alpha=0.1, topk=None)
+    targets = torch.tensor([[2], [1], [0], [2]])
+
+    metric.update(pred_set, targets)
+    result = metric.compute()
+
+    assert result["coverage"] == expected_coverage
+    assert result["set_size"] == expected_set_size
+
+
+@pytest.mark.parametrize(
     "pred_set, expected",
     [
         (
