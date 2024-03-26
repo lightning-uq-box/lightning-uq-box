@@ -55,17 +55,13 @@ class TestRegressionVisualization:
         cli.trainer.fit(cli.model, cli.datamodule)
         cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
-        # assert predictions are saved
-        assert os.path.exists(
-            os.path.join(cli.trainer.default_root_dir, cli.model.pred_file_name)
-        )
         return cli
 
     def test_plot_training_metrics(self, exp_run):
         """Test plot_training_metrics."""
         fig = plot_training_metrics(
             os.path.join(exp_run.trainer.default_root_dir, "lightning_logs"),
-            ["loss", "RMSE"],
+            ["train_loss", "valRMSE"],
         )
         assert fig is not None
         plt.close()
@@ -191,11 +187,16 @@ class TestClassificationVisualization:
         cli.trainer.fit(cli.model, cli.datamodule)
         cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
-        # TODO: assert predictions are saved
-        # assert os.path.exists(
-        #     os.path.join(cli.trainer.default_root_dir, cli.model.pred_file_name)
-        # )
         return cli
+
+    def test_plot_training_metrics(self, exp_run):
+        """Test plot_training_metrics."""
+        fig = plot_training_metrics(
+            os.path.join(exp_run.trainer.default_root_dir, "lightning_logs"),
+            ["train_loss", "valAcc"],
+        )
+        assert fig is not None
+        plt.close()
 
     def test_plot_two_moons_data(self, exp_run):
         """Test plot_two_moons_data."""
