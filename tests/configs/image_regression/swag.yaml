@@ -17,3 +17,4 @@ uq_method:
   swag_lr: 0.001
   loss_fn:
     _target_: lightning_uq_box.uq_methods.NLL
+  num_datapoints_for_bn_update: 2

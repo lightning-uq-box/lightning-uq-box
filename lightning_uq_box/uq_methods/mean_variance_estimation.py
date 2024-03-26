@@ -157,7 +157,6 @@ class MVEPxRegression(DeterministicPixelRegression):
     def __init__(
         self,
         model: nn.Module,
-        loss_fn: nn.Module,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -167,14 +166,13 @@ class MVEPxRegression(DeterministicPixelRegression):
 
         Args:
             model: pytorch model
-            loss_fn: loss function
             freeze_backbone: whether to freeze the backbone
             freeze_decoder: whether to freeze the decoder
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
         super().__init__(
-            model, loss_fn, freeze_backbone, freeze_decoder, optimizer, lr_scheduler
+            model, NLL(), freeze_backbone, freeze_decoder, optimizer, lr_scheduler
         )
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:

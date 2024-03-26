@@ -13,12 +13,14 @@ from torch import Tensor
 from .base import BaseModule
 from .utils import (
     default_classification_metrics,
+    default_px_regression_metrics,
     default_regression_metrics,
     default_segmentation_metrics,
     process_classification_prediction,
     process_regression_prediction,
     process_segmentation_prediction,
     save_classification_predictions,
+    save_image_predictions,
     save_regression_predictions,
 )
 
@@ -270,3 +272,41 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
             dataloader_idx: dataloader index
         """
         pass
+
+
+class DeepEnsemblePxRegression(DeepEnsembleRegression):
+    """Deep Ensemble Model for pixelwise regression.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
+
+    pred_dir_name = "preds"
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.test_metrics = default_px_regression_metrics("test")
+
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_image_predictions(outputs, batch_idx, self.pred_dir)

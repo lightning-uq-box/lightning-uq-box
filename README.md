@@ -48,9 +48,9 @@ The following sections aims to give an overview of different UQ-Methods by group
 
 | UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
-| Quantile Regression (QR)                      |     ✅     |       ❌       |      ❌      |          ⏳           |
-| Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ⏳           |
-| Mean Variance Estimation (MVE)                |     ✅     |       ❌       |      ❌      |          ⏳           |
+| Quantile Regression (QR)                      |     ✅     |       ❌       |      ❌      |          ✅           |
+| Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ✅           |
+| Mean Variance Estimation (MVE)                |     ✅     |       ❌       |      ❌      |          ✅           |
 
 ### Approximate Bayesian Methods
 
@@ -61,11 +61,11 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Deep Kernel Learning (DKL)                    |     ✅     |       ✅       |      ❌      |          ❌           |
 | Deterministic Uncertainty Estimation (DUE)    |     ✅     |       ✅       |      ❌      |          ❌           |
 | Laplace Approximation (Laplace)               |     ✅     |       ✅       |      ❌      |          ❌           |
-| Monte Carlo Dropout (MC-Dropout)              |     ✅     |       ✅       |      ✅      |          ⏳           |
+| Monte Carlo Dropout (MC-Dropout)              |     ✅     |       ✅       |      ✅      |          ✅           |
 | Stochastic Gradient Langevin Dynamics (SGLD)  |     ✅     |       ✅       |      ⏳      |          ⏳           |
 | Spectral Normalized Gaussian Process (SNGP)   |     ✅     |       ✅       |      ❌      |          ❌           |
-| Stochastic Weight Averaging Gaussian (SWAG)   |     ✅     |       ✅       |      ✅      |          ⏳           |
-| Deep Ensemble                                 |     ✅     |       ✅       |      ✅      |          ⏳           |
+| Stochastic Weight Averaging Gaussian (SWAG)   |     ✅     |       ✅       |      ✅      |          ✅           |
+| Deep Ensemble                                 |     ✅     |       ✅       |      ✅      |          ✅           |
 
 ### Generative Models
 

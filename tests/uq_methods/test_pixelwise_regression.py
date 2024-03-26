@@ -2,8 +2,10 @@
 # Licensed under the Apache License 2.0.
 """Test pixelwise regression task."""
 
+import glob
 import os
 from pathlib import Path
+from typing import Any, Dict
 
 import h5py
 import pytest
@@ -12,6 +14,10 @@ from lightning import Trainer
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
+from pytest import TempPathFactory
+
+from lightning_uq_box.datamodules import ToyPixelwiseRegressionDataModule
+from lightning_uq_box.uq_methods import DeepEnsemblePxRegression
 
 seed_everything(0)
 
@@ -23,6 +29,7 @@ model_config_paths = [
     "tests/configs/pixelwise_regression/img2img_conformal.yaml",
     "tests/configs/pixelwise_regression/img2img_conformal_torchseg.yaml",
     "tests/configs/pixelwise_regression/mc_dropout.yaml",
+    "tests/configs/pixelwise_regression/swag.yaml",
 ]
 
 data_config_paths = ["tests/configs/pixelwise_regression/toy_pixelwise_regression.yaml"]
@@ -56,6 +63,9 @@ class TestImageClassificationTask:
         with h5py.File(os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r") as f:
             assert "pred" in f
             assert "target" in f
+            for key, value in f.items():
+                assert value.shape[-1] == 64
+                assert value.shape[-2] == 64
             assert "aux" in f.attrs
             assert "index" in f.attrs
 
@@ -69,7 +79,7 @@ frozen_config_paths = [
 ]
 
 
-class TestFrozenSegmentation:
+class TestFrozenPxRegression:
     @pytest.mark.parametrize("model_name", ["Unet", "DeepLabV3Plus"])
     @pytest.mark.parametrize("backbone", ["resnet18", "vit_tiny_patch16_224"])
     @pytest.mark.parametrize("model_config_path", frozen_config_paths)
@@ -107,3 +117,57 @@ class TestFrozenSegmentation:
         assert all(
             [param.requires_grad for param in seg_model.segmentation_head.parameters()]
         )
+
+
+ensemble_model_config_paths = [
+    "tests/configs/pixelwise_regression/mve.yaml",
+    "tests/configs/pixelwise_regression/mc_dropout.yaml",
+]
+
+
+class TestDeepEnsemble:
+    @pytest.fixture(
+        params=[
+            (model_config_path, data_config_path)
+            for model_config_path in ensemble_model_config_paths
+            for data_config_path in data_config_paths
+        ]
+    )
+    def ensemble_members_dict(self, request, tmp_path_factory: TempPathFactory) -> None:
+        model_config_path, data_config_path = request.param
+        model_conf = OmegaConf.load(model_config_path)
+        data_conf = OmegaConf.load(data_config_path)
+        # train networks for deep ensembles
+        ckpt_paths = []
+        for i in range(5):
+            tmp_path = tmp_path_factory.mktemp(f"run_{i}")
+
+            model = instantiate(model_conf.uq_method)
+            datamodule = instantiate(data_conf.data)
+            trainer = Trainer(
+                max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+            )
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
+
+            # Find the .ckpt file in the lightning_logs directory
+            ckpt_file = glob.glob(
+                f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
+            )[0]
+            ckpt_paths.append({"base_model": model, "ckpt_path": ckpt_file})
+
+        return ckpt_paths
+
+    def test_deep_ensemble(
+        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+    ) -> None:
+        """Test Deep Ensemble."""
+        ensemble_model = DeepEnsemblePxRegression(
+            len(ensemble_members_dict), ensemble_members_dict
+        )
+        datamodule = ToyPixelwiseRegressionDataModule()
+        trainer = Trainer(default_root_dir=str(tmp_path))
+        trainer.test(ensemble_model, datamodule=datamodule)
+
+        # check that predictions are saved
+        assert os.path.exists(ensemble_model.pred_dir)

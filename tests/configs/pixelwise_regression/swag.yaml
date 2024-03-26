@@ -1,0 +1,16 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.SWAGPxRegression
+  model:
+    _target_: lightning_uq_box.uq_methods.MVEPxRegression
+    model:
+      _target_: torchseg.Unet
+      encoder_name: resnet18
+      encoder_weights: imagenet
+      classes: 2 # NLL output
+      in_channels: 3
+  max_swag_snapshots: 4
+  snapshot_freq: 1
+  num_mc_samples: 10
+  swag_lr: 0.001
+  loss_fn:
+    _target_: lightning_uq_box.uq_methods.NLL

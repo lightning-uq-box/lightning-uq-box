@@ -40,6 +40,7 @@ from .base import DeterministicModel
 from .utils import (
     _get_num_outputs,
     default_classification_metrics,
+    default_px_regression_metrics,
     default_regression_metrics,
     default_segmentation_metrics,
     map_stochastic_modules,
@@ -47,6 +48,7 @@ from .utils import (
     process_regression_prediction,
     process_segmentation_prediction,
     save_classification_predictions,
+    save_image_predictions,
     save_regression_predictions,
 )
 
@@ -574,6 +576,73 @@ class SWAGSegmentation(SWAGClassification):
             dataloader_idx: dataloader index
         """
         pass
+
+
+class SWAGPxRegression(SWAGRegression):
+    """SWAG Model for Pixelwise Regression."""
+
+    pred_dir_name = "preds"
+
+    def __init__(
+        self,
+        model: nn.Module,
+        max_swag_snapshots: int,
+        snapshot_freq: int,
+        num_mc_samples: int,
+        swag_lr: float,
+        loss_fn: nn.Module,
+        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        num_datapoints_for_bn_update: int = 0,
+    ) -> None:
+        """Initialize a new instance of SWAG Model for Pixelwise Regression.
+
+        Args:
+            model: pytorch model
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            stochastic_module_names: names of modules that are partially stochastic
+            num_datapoints_for_bn_update: num of datapoints to use for batchnorm update
+        """
+        super().__init__(
+            model,
+            max_swag_snapshots,
+            snapshot_freq,
+            num_mc_samples,
+            swag_lr,
+            loss_fn,
+            stochastic_module_names,
+            num_datapoints_for_bn_update,
+        )
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.test_metrics = default_px_regression_metrics("test")
+
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 # Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501

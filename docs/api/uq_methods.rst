@@ -44,7 +44,14 @@ Deep Evidential Regression
 
 .. currentmodule:: lightning_uq_box.uq_methods.deep_evidential_regression
 
+Deep Evidential Regression
+``````````````````````````
 .. autoclass:: DER
+
+Deep Evidential Pixelwise Regression
+````````````````````````````````````
+
+.. autoclass:: DERPxRegression
 
 Approximate Bayesian Methods
 ============================
@@ -73,6 +80,11 @@ MC-Dropout Segmentation
 ```````````````````````
 
 .. autoclass:: MCDropoutSegmentation
+
+MC-Dropout Pixelwise Regression
+```````````````````````````````
+
+.. autoclass:: MCDropoutPxRegression
 
 Laplace Approximation
 ---------------------
@@ -180,6 +192,11 @@ SWAG Segmentation
 
 .. autoclass:: SWAGSegmentation
 
+SWAG Pixelwise Regression
+`````````````````````````
+
+.. autoclass:: SWAGPxRegression
+
 
 Stochastic Gradient Langevin Dynamics (SGLD)
 --------------------------------------------
@@ -267,6 +284,11 @@ Deep Ensemble Segmentation
 ``````````````````````````
 
 .. autoclass:: DeepEnsembleSegmentation
+
+Deep Ensemble Pixelwise Regression
+``````````````````````````````````
+
+.. autoclass:: DeepEnsemblePxRegression
 
 
 Generative Models

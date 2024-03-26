@@ -30,6 +30,7 @@ from .conformal_qr import ConformalQR
 from .deep_ensemble import (
     DeepEnsemble,
     DeepEnsembleClassification,
+    DeepEnsemblePxRegression,
     DeepEnsembleRegression,
     DeepEnsembleSegmentation,
 )
@@ -71,7 +72,13 @@ from .spectral_normalized_layers import (
     SpectralNormFC,
     spectral_normalize_model_layers,
 )
-from .swag import SWAGBase, SWAGClassification, SWAGRegression, SWAGSegmentation
+from .swag import (
+    SWAGBase,
+    SWAGClassification,
+    SWAGPxRegression,
+    SWAGRegression,
+    SWAGSegmentation,
+)
 from .temp_scaling import TempScaling
 
 __all__ = (
@@ -109,6 +116,7 @@ __all__ = (
     "DeepEnsembleRegression",
     "DeepEnsembleClassification",
     "DeepEnsembleSegmentation",
+    "DeepEnsemblePxRegression",
     # Mean Variance Estimation Network
     "MVEBase",
     "MVERegression",
@@ -129,6 +137,7 @@ __all__ = (
     "SWAGRegression",
     "SWAGClassification",
     "SWAGSegmentation",
+    "SWAGPxRegression",
     # SGLD Model.
     "SGLDBase",
     "SGLDRegression",
