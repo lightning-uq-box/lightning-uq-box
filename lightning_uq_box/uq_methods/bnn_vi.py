@@ -469,6 +469,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         alpha: float = 1,
         bayesian_layer_type: str = "reparameterization",
         stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -490,6 +491,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
                 "reparametrization" or "flipout"
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
 
@@ -509,6 +511,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             alpha,
             bayesian_layer_type,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )

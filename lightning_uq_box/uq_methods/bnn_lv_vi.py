@@ -137,6 +137,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
         self.prediction_head = prediction_head
 
+        self.freeze_backbone = freeze_backbone
         self._setup_bnn_with_vi_lv(latent_net)
 
     def setup_task(self) -> None:
@@ -197,10 +198,10 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             first_module_args = retrieve_module_init_args(module)
             if "in_features" in first_module_args:
                 data_dim = first_module_args["in_features"]  # first layer lin
-                test_x = torch.randn(5, 5, data_dim)
+                test_x = torch.randn(5, data_dim)
             else:
                 data_dim = first_module_args["in_channels"]  # first layer conv
-                test_x = torch.randn(5, 3, data_dim, data_dim)
+                test_x = torch.randn(5, data_dim, 224, 224)
 
             with torch.no_grad():
                 feature_output = self.model(test_x)
@@ -531,6 +532,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
         stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -559,9 +561,9 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             lv_latent_dim: number of latent dimension
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
-
 
         Raises:
             AssertionError: if ``n_mc_samples_train`` is not positive
@@ -588,6 +590,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             lv_latent_dim,
             init_scaling,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )
