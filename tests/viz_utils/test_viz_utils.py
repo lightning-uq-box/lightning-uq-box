@@ -64,7 +64,8 @@ class TestRegressionVisualization:
     def test_plot_training_metrics(self, exp_run):
         """Test plot_training_metrics."""
         fig = plot_training_metrics(
-            os.path.join(exp_run.trainer.default_root_dir, "lightning_logs"), "RMSE"
+            os.path.join(exp_run.trainer.default_root_dir, "lightning_logs"),
+            ["loss", "RMSE"],
         )
         assert fig is not None
         plt.close()
