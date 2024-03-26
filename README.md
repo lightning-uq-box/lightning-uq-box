@@ -1,5 +1,5 @@
 <p align="center">
-<img src="https://github.com/lightning-uq-box/lightning-uq-box/blob/main/docs/_static/lettering.jpeg?raw=true" alt="Lightning-UQ-Box logo" width="500" height="auto" />
+<img src="https://github.com/lightning-uq-box/lightning-uq-box/blob/main/docs/_static/lettering.jpeg?raw=true" alt="Lightning-UQ-Box logo" width="600" height="auto" />
 </p>
 
 [![docs](https://readthedocs.org/projects/lightning-uq-box/badge/?version=latest)](https://lightning-uq-box.readthedocs.io/en/latest/)
