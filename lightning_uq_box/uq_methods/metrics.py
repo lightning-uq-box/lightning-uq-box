@@ -41,9 +41,8 @@ class EmpiricalCoverageBase(Metric):
                 in which case you take topk to get the predicted labels
             targets: Tensor of true labels shape [batch_size, num_classes]
         """
-        assert (
-            targets.dim() > 1
-        ), "Targets should be of shape [batch_size, num_classes] or [batch_size, num_classes, height, width]"  # noqa: E501
+        if targets.dim() == 1:
+            targets = targets.unsqueeze(1)
         covered = 0
         set_size = 0
         if isinstance(pred_set, torch.Tensor):
