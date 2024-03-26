@@ -119,7 +119,7 @@ class DER(DeterministicModel):
             dictionary with predictions and uncertainty measures
         """
         with torch.no_grad():
-            pred = self.model(X)  # [batch_size x 4 x othe_dims]
+            pred = self.forward(X)  # [batch_size x 4 x othe_dims]
 
         gamma, nu, alpha, beta = (
             pred[:, 0:1, ...],
