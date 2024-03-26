@@ -30,10 +30,11 @@ from .conformal_qr import ConformalQR
 from .deep_ensemble import (
     DeepEnsemble,
     DeepEnsembleClassification,
+    DeepEnsemblePxRegression,
     DeepEnsembleRegression,
     DeepEnsembleSegmentation,
 )
-from .deep_evidential_regression import DER
+from .deep_evidential_regression import DER, DERPxRegression
 from .deep_kernel_learning import (
     DKLBase,
     DKLClassification,
@@ -50,10 +51,11 @@ from .loss_functions import NLL, DERLoss, PinballLoss
 from .mc_dropout import (
     MCDropoutBase,
     MCDropoutClassification,
+    MCDropoutPxRegression,
     MCDropoutRegression,
     MCDropoutSegmentation,
 )
-from .mean_variance_estimation import MVEBase, MVERegression
+from .mean_variance_estimation import MVEBase, MVEPxRegression, MVERegression
 from .prob_unet import ProbUNet
 from .quantile_regression import (
     QuantilePxRegression,
@@ -70,7 +72,13 @@ from .spectral_normalized_layers import (
     SpectralNormFC,
     spectral_normalize_model_layers,
 )
-from .swag import SWAGBase, SWAGClassification, SWAGRegression, SWAGSegmentation
+from .swag import (
+    SWAGBase,
+    SWAGClassification,
+    SWAGPxRegression,
+    SWAGRegression,
+    SWAGSegmentation,
+)
 from .temp_scaling import TempScaling
 
 __all__ = (
@@ -108,9 +116,12 @@ __all__ = (
     "DeepEnsembleRegression",
     "DeepEnsembleClassification",
     "DeepEnsembleSegmentation",
+    "DeepEnsemblePxRegression",
     # Mean Variance Estimation Network
     "MVEBase",
     "MVERegression",
+    "MVEPxRegression",
+    "MCDropoutPxRegression",
     # Deep Uncertainty Estimation Model
     "DUERegression",
     "DUEClassification",
@@ -126,6 +137,7 @@ __all__ = (
     "SWAGRegression",
     "SWAGClassification",
     "SWAGSegmentation",
+    "SWAGPxRegression",
     # SGLD Model.
     "SGLDBase",
     "SGLDRegression",
@@ -140,6 +152,7 @@ __all__ = (
     "TempScaling",
     # Deep Evidential Regression Model
     "DER",
+    "DERPxRegression",
     # Spectral Normalization Layers
     "SpectralBatchNorm1d",
     "SpectralBatchNorm2d",

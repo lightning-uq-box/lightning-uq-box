@@ -1,5 +1,5 @@
 model:
-  class_path: lightning_uq_box.uq_methods.BNN_LV_VI_Regression
+  class_path: lightning_uq_box.uq_methods.BNN_LV_VI_Batched_Regression
   init_args:
     model:
       class_path: lightning_uq_box.models.MLP

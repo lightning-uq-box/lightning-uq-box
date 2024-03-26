@@ -139,11 +139,11 @@ def process_regression_prediction(
     Returns:
         dictionary with mean prediction and predictive uncertainty
     """
-    mean_samples = preds[:, 0, :].cpu()
-    mean = aggregate_fn(preds[:, 0:1, :], dim=-1)
+    mean_samples = preds[:, 0, ...].cpu()
+    mean = aggregate_fn(preds[:, 0:1, ...], dim=-1)
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
-        log_sigma_2_samples = preds[:, 1, :].cpu()
+        log_sigma_2_samples = preds[:, 1, ...].cpu()
         eps = torch.ones_like(log_sigma_2_samples) * 1e-6
         sigma_samples = torch.sqrt(eps + torch.exp(log_sigma_2_samples))
         std = compute_predictive_uncertainty(mean_samples, sigma_samples)
@@ -250,16 +250,12 @@ def save_image_predictions(
             for key, val in outputs.items():
                 if isinstance(val, Tensor):
                     data = val[sample_idx].cpu().numpy()
-                    if data.size == 1:  # single element tensor, save as attribute
-                        f.attrs[key] = data.item()
-                    else:  # multi-element tensor, save as dataset
-                        f.create_dataset(key, data=data, compression="gzip")
                 else:
                     data = np.array(val[sample_idx])
-                    if data.size == 1:  # single element array, save as attribute
-                        f.attrs[key] = data.item()
-                    else:  # multi-element array, save as dataset
-                        f.create_dataset(key, data=data, compression="gzip")
+                if data.size == 1:  # single element array, save as attribute
+                    f.attrs[key] = data.item()
+                else:  # multi-element array, save as dataset
+                    f.create_dataset(key, data=data, compression="gzip")
 
 
 def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:

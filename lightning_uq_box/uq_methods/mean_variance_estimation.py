@@ -11,13 +11,9 @@ import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
-from .base import DeterministicModel
+from .base import DeterministicModel, DeterministicPixelRegression
 from .loss_functions import NLL
-from .utils import (
-    default_regression_metrics,
-    freeze_model_backbone,
-    save_regression_predictions,
-)
+from .utils import default_regression_metrics, save_regression_predictions
 
 
 class MVEBase(DeterministicModel):
@@ -45,26 +41,13 @@ class MVEBase(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
-        self.freeze_backbone = freeze_backbone
-        super().__init__(model, None, optimizer, lr_scheduler)
-
-        self.loss_fn = NLL()
+        super().__init__(model, NLL(), freeze_backbone, optimizer, lr_scheduler)
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
-        self.freeze_model()
-
-    def freeze_model(self) -> None:
-        """Freeze model backbone.
-
-        By default, assumes a timm model with a backbone and head.
-        Alternatively, selected the last layer with parameters to freeze.
-        """
-        if self.freeze_backbone:
-            freeze_model_backbone(self.model)
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -145,7 +128,7 @@ class MVERegression(MVEBase):
         with torch.no_grad():
             preds = self.model(X)
 
-        mean, log_sigma_2 = preds[:, 0], preds[:, 1].cpu()
+        mean, log_sigma_2 = preds[:, 0:1], preds[:, 1:2].cpu()
         eps = torch.ones_like(log_sigma_2) * 1e-6
         std = torch.sqrt(eps + np.exp(log_sigma_2))
 
@@ -164,3 +147,42 @@ class MVERegression(MVEBase):
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
+
+
+class MVEPxRegression(DeterministicPixelRegression):
+    """Mean Variance Estimation Model for Pixelwise Regression with NLL."""
+
+    pred_dir_name = "preds"
+
+    def __init__(
+        self,
+        model: nn.Module,
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+    ) -> None:
+        """Initialize a new instance of MVE for Pixelwise Regression.
+
+        Args:
+            model: pytorch model
+            freeze_backbone: whether to freeze the backbone
+            freeze_decoder: whether to freeze the decoder
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+        """
+        super().__init__(
+            model, NLL(), freeze_backbone, freeze_decoder, optimizer, lr_scheduler
+        )
+
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
+
+        Args:
+            out: output from the model
+
+        Returns:
+            mean output
+        """
+        assert out.shape[1] <= 2, "Gaussian output."
+        return out[:, 0:1, ...].contiguous()

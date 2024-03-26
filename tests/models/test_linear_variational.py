@@ -41,7 +41,9 @@ class TestLineaerVariational:
     def test_partially_stochastic(self, stochastic_module_names) -> None:
         """Test partially stochastic forward pass."""
         cfg = OmegaConf.load("tests/configs/image_regression/bnn_vi_elbo.yaml")
-        model = instantiate(cfg.model, stochastic_module_names=stochastic_module_names)
+        model = instantiate(
+            cfg.uq_method, stochastic_module_names=stochastic_module_names
+        )
 
         for name, module in model.model.named_modules():
             if name in model.stochastic_module_names:
