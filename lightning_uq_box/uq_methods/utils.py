@@ -48,7 +48,9 @@ def checkpoint_loader(
     Returns:
         model_class or model
     """
-    model_class.load_state_dict(torch.load(ckpt_path, map_location="cpu")["state_dict"])
+    model_class.load_state_dict(
+        state_dict=torch.load(ckpt_path, map_location="cpu")["state_dict"]
+    )
     if return_model:
         return model_class.model
     else:
