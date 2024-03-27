@@ -106,7 +106,6 @@ def spectral_normalize_model_layers(
                 ),
             )
         elif "Conv2d" in model._modules[name].__class__.__name__:
-            # TODO: need to get input dimension (3,32,32) for example to this conv layer
             setattr(
                 model,
                 name,
@@ -116,6 +115,10 @@ def spectral_normalize_model_layers(
                     input_dim=input_dimensions[str(id(model._modules[name]))],
                     n_power_iterations=n_power_iterations,
                 ),
+            )
+        elif "BatchNorm" in model._modules[name].__class__.__name__:
+            setattr(
+                model, name, spectral_norm_batch_norm(model._modules[name], coeff=coeff)
             )
         else:
             pass
@@ -240,6 +243,45 @@ class SpectralBatchNorm3d(_SpectralBatchNorm, nn.BatchNorm3d):
     """Spectral Normalized Batch Norm 3D."""
 
     pass
+
+
+def spectral_norm_batch_norm(
+    module: nn.Module,
+    coeff: float,
+    eps: float = 1e-5,
+    momentum: float = 0.01,
+    affine: bool = True,
+) -> nn.Module:
+    """Replace Batch Norm layer with Spectral Normalized Batch Norm layer.
+
+    Args:
+        module: module
+        coeff: soft normalization only when sigma larger than coeff
+        eps: a value added to the denominator for numerical stability.
+            Default: 1e-5
+        momentum: the value used for the running_mean and running_var
+            computation. Can be set to ``None`` for cumulative moving average
+            (i.e. simple average).
+        affine: a boolean value that when set to ``True``, this module has
+            learnable affine parameters.
+
+    Returns:
+        The replaced module with SpectralBatchNorm
+    """
+    if isinstance(module, nn.BatchNorm1d):
+        return SpectralBatchNorm1d(
+            module.num_features, coeff, eps=eps, momentum=momentum, affine=affine
+        )
+    elif isinstance(module, nn.BatchNorm2d):
+        return SpectralBatchNorm2d(
+            module.num_features, coeff, eps=eps, momentum=momentum, affine=affine
+        )
+    elif isinstance(module, nn.BatchNorm3d):
+        return SpectralBatchNorm3d(
+            module.num_features, coeff, eps=eps, momentum=momentum, affine=affine
+        )
+    else:
+        raise ValueError(f"BatchNorm type {module.__class__.__name__} not supported")
 
 
 """
