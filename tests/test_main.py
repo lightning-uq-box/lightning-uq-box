@@ -2,7 +2,8 @@
 # Licensed under the Apache License 2.0.
 
 import subprocess
+import sys
 
 
 def test_uq_box_script() -> None:
-    subprocess.run(["uq-box", "--help"], check=True)
+    subprocess.run([sys.executable, "-m", "lightning_uq_box", "--help"], check=True)
