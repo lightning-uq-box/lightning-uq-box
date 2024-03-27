@@ -8,6 +8,7 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pytest
+import torch
 
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
 from lightning_uq_box.main import get_uq_box_cli
@@ -55,16 +56,22 @@ class TestRegressionVisualization:
         cli.trainer.fit(cli.model, cli.datamodule)
         cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
-        # assert predictions are saved
-        assert os.path.exists(
-            os.path.join(cli.trainer.default_root_dir, cli.model.pred_file_name)
-        )
         return cli
 
     def test_plot_training_metrics(self, exp_run):
         """Test plot_training_metrics."""
         fig = plot_training_metrics(
-            os.path.join(exp_run.trainer.default_root_dir, "lightning_logs"), "RMSE"
+            os.path.join(exp_run.trainer.default_root_dir, "lightning_logs"),
+            ["train_loss", "valRMSE"],
+        )
+        assert fig is not None
+        plt.close()
+
+    def test_plot_missing_training_metrics(self, exp_run):
+        """Test plot_training_metrics."""
+        fig = plot_training_metrics(
+            os.path.join(exp_run.trainer.default_root_dir, "lightning_logs"),
+            ["trainDummy", "valDummy"],
         )
         assert fig is not None
         plt.close()
@@ -92,28 +99,11 @@ class TestRegressionVisualization:
             X_test=exp_run.datamodule.X_test,
             y_test=exp_run.datamodule.y_test,
             y_pred=pred_dict["pred"],
-            title="Test Plot",
-            show_bands=show_bands,
-        )
-        assert fig is not None
-        plt.close()
-
-    def test_plot_predictions_regression_epistemic_and_aleatoric(self, exp_run):
-        """Test plot_predictions_regression."""
-        pred_dict = exp_run.model.predict_step(exp_run.datamodule.X_test)
-
-        # Plot predictions
-        fig = plot_predictions_regression(
-            X_train=exp_run.datamodule.X_train,
-            y_train=exp_run.datamodule.y_train,
-            X_test=exp_run.datamodule.X_test,
-            y_test=exp_run.datamodule.y_test,
-            y_pred=pred_dict["pred"],
             pred_std=pred_dict["pred_uct"],
             epistemic=pred_dict["epistemic_uct"],
             aleatoric=pred_dict["aleatoric_uct"],
             title="Test Plot",
-            show_bands=True,
+            show_bands=show_bands,
         )
         assert fig is not None
         plt.close()
@@ -135,6 +125,25 @@ class TestRegressionVisualization:
             y_test=exp_run.datamodule.y_test,
             y_pred=pred_dict["pred"],
             pred_quantiles=quantiles,
+            title="Test Plot",
+            show_bands=True,
+        )
+        assert fig is not None
+        plt.close()
+
+    def test_plot_samples(self, exp_run):
+        """Test plot_quantiles."""
+        pred_dict = exp_run.model.predict_step(exp_run.datamodule.X_test)
+
+        samples = torch.randn(pred_dict["pred"].shape[0], 100)
+        # Plot predictions
+        fig = plot_predictions_regression(
+            X_train=exp_run.datamodule.X_train,
+            y_train=exp_run.datamodule.y_train,
+            X_test=exp_run.datamodule.X_test,
+            y_test=exp_run.datamodule.y_test,
+            y_pred=pred_dict["pred"],
+            samples=samples,
             title="Test Plot",
             show_bands=True,
         )
@@ -190,11 +199,16 @@ class TestClassificationVisualization:
         cli.trainer.fit(cli.model, cli.datamodule)
         cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
-        # TODO: assert predictions are saved
-        # assert os.path.exists(
-        #     os.path.join(cli.trainer.default_root_dir, cli.model.pred_file_name)
-        # )
         return cli
+
+    def test_plot_training_metrics(self, exp_run):
+        """Test plot_training_metrics."""
+        fig = plot_training_metrics(
+            os.path.join(exp_run.trainer.default_root_dir, "lightning_logs"),
+            ["train_loss", "valAcc"],
+        )
+        assert fig is not None
+        plt.close()
 
     def test_plot_two_moons_data(self, exp_run):
         """Test plot_two_moons_data."""

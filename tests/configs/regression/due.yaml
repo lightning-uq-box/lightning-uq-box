@@ -7,12 +7,10 @@ model:
         n_outputs: 10
         n_hidden: [50]
     num_targets: 1
-    gp_kernel: "RBF"
+    gp_kernel: "Matern52"
     optimizer:
       class_path: torch.optim.Adam
       init_args:
         lr: 0.003
-    lr_scheduler:
-      class_path: torch.optim.lr_scheduler.ConstantLR
     n_inducing_points: 50
     input_size: 2

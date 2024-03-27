@@ -21,7 +21,7 @@ model:
     num_training_points: 200
     n_mc_samples_train: 4
     n_mc_samples_test: 5
-    n_mc_samples_epistemic: 2
+    n_mc_samples_epistemic: 10
     output_noise_scale: 1.3
     prior_mu: 0.0
     prior_sigma: 1.0

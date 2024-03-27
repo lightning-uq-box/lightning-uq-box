@@ -166,14 +166,14 @@ def plot_predictions_regression(
     Args:
         X_train: training inputs
         y_train: training targets
-        X_test: testing inputs
-        y_test: testing targets
-        y_pred: predicted targets
+        X_test: testing inputs [batch_size, 1]
+        y_test: testing targets [batch_size, 1]
+        y_pred: predicted targets [batch_size, 1]
         pred_std: predicted standard deviation
         pred_quantiles: predicted quantiles
         epistemic: epistemic uncertainy
         aleatoric: aleatoric uncertainty
-        samples: samples from posterior
+        samples: samples from posterior ofh shape [batch_size, num_samples]
         title: title of plot
         show_bands: show uncertainty bands
     """
@@ -186,10 +186,10 @@ def plot_predictions_regression(
     ax0 = fig.add_subplot(1, 2, 1)
     if samples is not None:
         ax0.scatter(
-            X_test, samples[0], color="black", label="samples", s=0.1, alpha=0.7
+            X_test, samples[:, 0], color="black", label="samples", s=0.1, alpha=0.7
         )
-        for i in range(1, len(samples)):
-            ax0.scatter(X_test, samples[i], color="black", s=0.1, alpha=0.7)
+        for i in range(1, samples.shape[-1]):
+            ax0.scatter(X_test, samples[:, i], color="black", s=0.1, alpha=0.7)
 
     # model predictive uncertainty bands on the left
     ax0.scatter(X_test, y_test, color="gray", label="ground truth", s=0.5, alpha=0.5)

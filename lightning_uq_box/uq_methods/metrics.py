@@ -41,21 +41,19 @@ class EmpiricalCoverageBase(Metric):
                 in which case you take topk to get the predicted labels
             targets: Tensor of true labels shape [batch_size, num_classes]
         """
+        if targets.dim() == 1:
+            targets = targets.unsqueeze(1)
         covered = 0
         set_size = 0
         if isinstance(pred_set, torch.Tensor):
             if self.topk is not None:
                 _, topk_pred_set = pred_set.topk(self.topk, dim=1)
-                covered += (
-                    (targets.unsqueeze(1) == topk_pred_set).any(dim=1).sum().item()
-                )
+                covered += (targets == topk_pred_set).any(dim=1).sum().item()
                 set_size = self.topk * pred_set.shape[0]
             else:
                 for k in range(1, pred_set.shape[1] + 1):
                     _, topk_pred_set = pred_set.topk(k, dim=1)
-                    batch_covered = (
-                        (targets.unsqueeze(1) == topk_pred_set).any(dim=1).sum().item()
-                    )
+                    batch_covered = (targets == topk_pred_set).any(dim=1).sum().item()
                     # batch_covered = torch.isin(topk_pred_set, targets).sum().item()
                     batch_coverage = batch_covered / pred_set.shape[0]
                     if batch_coverage >= 1 - self.alpha:
@@ -69,7 +67,6 @@ class EmpiricalCoverageBase(Metric):
                 if targets[i].item() in pred_set[i]:
                     covered += 1
                 set_size += len(pred_set[i])
-
         self.covered += covered
         self.set_size += set_size
         self.total += targets.shape[0]
