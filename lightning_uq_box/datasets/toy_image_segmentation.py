@@ -39,5 +39,4 @@ class ToySegmentationDataset(Dataset):
         mask = torch.randint(
             0, self.num_classes, (self.image_size, self.image_size), dtype=torch.long
         )
-
-        return {"input": image, "target": mask}
+        return {"input": image, "target": mask, "index": idx, "aux": "random_aux_data"}

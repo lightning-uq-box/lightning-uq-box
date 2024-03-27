@@ -524,6 +524,8 @@ class SWAGClassification(SWAGBase):
 class SWAGSegmentation(SWAGClassification):
     """SWAG Model for Segmentation."""
 
+    pred_dir_name = "preds"
+
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         self.test_metrics = default_segmentation_metrics(
@@ -550,17 +552,28 @@ class SWAGSegmentation(SWAGClassification):
         preds = self.sample_predictions(X)
         return process_segmentation_prediction(preds)
 
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
+
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        pass
+        save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class SWAGPxRegression(SWAGRegression):

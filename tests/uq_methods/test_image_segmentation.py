@@ -3,9 +3,11 @@
 """Test image segmentation task."""
 
 import glob
+import os
 from pathlib import Path
 from typing import Any, Dict
 
+import h5py
 import pytest
 from hydra.utils import instantiate
 from lightning import Trainer
@@ -53,6 +55,15 @@ class TestImageClassificationTask:
 
         trainer.fit(model, datamodule)
         trainer.test(ckpt_path="best", datamodule=datamodule)
+
+        with h5py.File(os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r") as f:
+            assert "pred" in f
+            assert "target" in f
+            for key, value in f.items():
+                assert value.shape[-1] == 64
+                assert value.shape[-2] == 64
+            assert "aux" in f.attrs
+            assert "index" in f.attrs
 
 
 frozen_config_paths = [
@@ -151,3 +162,14 @@ class TestDeepEnsemble:
         trainer = Trainer(default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
+
+        with h5py.File(
+            os.path.join(ensemble_model.pred_dir, "batch_0_sample_0.hdf5"), "r"
+        ) as f:
+            assert "pred" in f
+            assert "target" in f
+            for key, value in f.items():
+                assert value.shape[-1] == 64
+                assert value.shape[-2] == 64
+            assert "aux" in f.attrs
+            assert "index" in f.attrs

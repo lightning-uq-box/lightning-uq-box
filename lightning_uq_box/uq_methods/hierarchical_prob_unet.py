@@ -22,6 +22,7 @@
 
 """Hierarchical Probabilistic U-Net."""
 
+import os
 from typing import Any, Callable, Dict, Optional, Tuple
 
 import torch
@@ -38,7 +39,11 @@ from ..models.hierarchical_prob_unet import (
     _HierarchicalCore,
     _StitchingDecoder,
 )
-from .utils import default_segmentation_metrics, process_segmentation_prediction
+from .utils import (
+    default_segmentation_metrics,
+    process_segmentation_prediction,
+    save_image_predictions,
+)
 
 
 class HierarchicalProbUNet(BaseModule):
@@ -51,6 +56,7 @@ class HierarchicalProbUNet(BaseModule):
 
     valid_loss_types = ["elbo", "geco"]
     valid_tasks = ["multiclass", "binary"]
+    pred_dir_name = "preds"
 
     def __init__(
         self,
@@ -398,7 +404,11 @@ class HierarchicalProbUNet(BaseModule):
         self.log("train_rec_loss", loss_dict["rec_loss"])
 
         # compute metrics with reconstruction
-        self.train_metrics(loss_dict["reconstruction"], batch[self.target_key])
+        self.train_metrics(
+            loss_dict["reconstruction"],
+            batch[self.target_key],
+            batch_size=batch[self.input_key].shape[0],
+        )
 
         return loss_dict["loss"]
 
@@ -422,7 +432,11 @@ class HierarchicalProbUNet(BaseModule):
         self.log("val_rec_loss", loss_dict["rec_loss"])
 
         # compute metrics with reconstruction
-        self.val_metrics(loss_dict["reconstruction"], batch[self.target_key])
+        self.val_metrics(
+            loss_dict["reconstruction"],
+            batch[self.target_key],
+            batch_size=batch[self.input_key].shape[0],
+        )
 
         return loss_dict["loss"]
 
@@ -442,11 +456,40 @@ class HierarchicalProbUNet(BaseModule):
         preds = self.predict_step(batch[self.input_key])
 
         # compute metrics with sampled reconstruction
-        self.test_metrics(preds["logits"], batch[self.target_key])
+        self.test_metrics(
+            preds["logits"],
+            batch[self.target_key],
+            batch_size=batch[self.input_key].shape[0],
+        )
 
         preds = self.add_aux_data_to_dict(preds, batch)
 
+        preds[self.target_key] = batch[self.target_key]
+
         return preds
+
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_image_predictions(outputs, batch_idx, self.pred_dir)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
