@@ -2,8 +2,7 @@
 # Licensed under the Apache License 2.0.
 
 import subprocess
-import sys
 
 
-def test_help() -> None:
-    subprocess.run([sys.executable, "-m", "uq-box", "--help"], check=True)
+def test_uq_box_script() -> None:
+    subprocess.run(["uq-box", "--help"], check=True)
