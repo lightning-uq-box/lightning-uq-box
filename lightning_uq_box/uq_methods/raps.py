@@ -23,15 +23,12 @@ import torch.nn.functional as F
 from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader, Subset, TensorDataset, random_split
+from torchmetrics import Accuracy, CalibrationError, MetricCollection
 
 from .base import PosthocBase
-from .metrics import SetSize
+from .metrics import EmpiricalCoverage, SetSize
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
-from .utils import (
-    default_classification_metrics,
-    process_classification_prediction,
-    save_classification_predictions,
-)
+from .utils import process_classification_prediction, save_classification_predictions
 
 
 class RAPS(PosthocBase):
@@ -109,8 +106,16 @@ class RAPS(PosthocBase):
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
-        self.test_metrics = default_classification_metrics(
-            "test", self.task, self.num_classes
+        self.test_metrics = MetricCollection(
+            {
+                "Acc": Accuracy(task=self.task, num_classes=self.num_classes),
+                "Calibration": CalibrationError(
+                    self.task, num_classes=self.num_classes
+                ),
+                "Empirical Coverage": EmpiricalCoverage(alpha=self.alpha),
+                "Set Size": SetSize(alpha=self.alpha),
+            },
+            prefix="test",
         )
 
     def test_step(
