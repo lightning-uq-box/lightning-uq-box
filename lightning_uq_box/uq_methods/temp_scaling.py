@@ -75,7 +75,7 @@ class TempScaling(PosthocBase):
         """
         return temp_scale_logits(model_logits, self.temperature)
 
-    def on_validation_epoch_end(self) -> None:
+    def on_train_epoch_end(self) -> None:
         """Perform CQR computation to obtain q_hat for predictions.
 
         Args:

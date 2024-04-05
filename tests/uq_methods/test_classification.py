@@ -129,7 +129,7 @@ class TestPosthoc:
         cli = get_uq_box_cli(args)
         model = cli.model
         # use validation for testing, should be calibration loader for conformal
-        cli.trainer.validate(model, cli.datamodule.val_dataloader())
+        cli.trainer.fit(model, train_dataloaders=cli.datamodule.val_dataloader())
         cli.trainer.test(model, datamodule=cli.datamodule)
 
 

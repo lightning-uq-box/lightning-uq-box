@@ -150,7 +150,7 @@ class ConformalQR(PosthocBase):
 
         return output_dict
 
-    def on_validation_epoch_end(self) -> None:
+    def on_train_end(self) -> None:
         """Perform CQR computation to obtain q_hat for predictions.
 
         Args:
