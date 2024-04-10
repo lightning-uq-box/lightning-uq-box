@@ -202,7 +202,8 @@ class ConformalQR(PosthocBase):
         if not self.post_hoc_fitted:
             raise RuntimeError(
                 "Model has not been post hoc fitted, "
-                "please call trainer.validate(model, datamodule) first."
+                "please call "
+                "trainer.fit(model, train_dataloaders=dm.calib_dataloader()) first."
             )
 
         cqr_sets = self.forward(X)

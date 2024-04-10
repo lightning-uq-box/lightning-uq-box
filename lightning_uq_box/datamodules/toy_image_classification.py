@@ -25,6 +25,10 @@ class ToyImageClassificationDatamodule(LightningDataModule):
         """Return Val Dataloader."""
         return DataLoader(ToyImageClassificationDataset(**self.kwargs), batch_size=10)
 
+    def calib_dataloader(self) -> DataLoader:
+        """Return Calib Dataloader."""
+        return DataLoader(ToyImageClassificationDataset(**self.kwargs), batch_size=10)
+
     def test_dataloader(self) -> DataLoader:
         """Return Test Dataloader."""
         return DataLoader(ToyImageClassificationDataset(**self.kwargs), batch_size=10)

@@ -66,53 +66,6 @@ class TestImageClassificationTask:
             assert "index" in f.attrs
 
 
-frozen_config_paths = [
-    "tests/configs/image_segmentation/base.yaml",
-    "tests/configs/image_segmentation/mc_dropout.yaml",
-    "tests/configs/image_segmentation/bnn_vi_elbo.yaml",
-]
-
-
-class TestFrozenSegmentation:
-    @pytest.mark.parametrize("model_name", ["Unet", "DeepLabV3Plus"])
-    @pytest.mark.parametrize("backbone", ["resnet18", "vit_tiny_patch16_224"])
-    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
-    def test_freeze_backbone(
-        self, model_config_path: str, model_name: str, backbone: str
-    ) -> None:
-        model_conf = OmegaConf.load(model_config_path)
-        model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
-        model_conf.uq_method.model["encoder_name"] = backbone
-
-        module = instantiate(model_conf.uq_method, freeze_backbone=True)
-        seg_model = module.model
-
-        assert all(
-            [param.requires_grad is False for param in seg_model.encoder.parameters()]
-        )
-        assert all([param.requires_grad for param in seg_model.decoder.parameters()])
-        assert all(
-            [param.requires_grad for param in seg_model.segmentation_head.parameters()]
-        )
-
-    @pytest.mark.parametrize("model_name", ["Unet", "DeepLabV3Plus"])
-    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
-    def test_freeze_decoder(self, model_config_path: str, model_name: str) -> None:
-        model_conf = OmegaConf.load(model_config_path)
-        model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
-
-        module = instantiate(model_conf.uq_method, freeze_decoder=True)
-        seg_model = module.model
-
-        assert all(
-            [param.requires_grad is False for param in seg_model.decoder.parameters()]
-        )
-        assert all([param.requires_grad for param in seg_model.encoder.parameters()])
-        assert all(
-            [param.requires_grad for param in seg_model.segmentation_head.parameters()]
-        )
-
-
 ensemble_model_config_paths = ["tests/configs/image_segmentation/mc_dropout.yaml"]
 
 
@@ -173,3 +126,50 @@ class TestDeepEnsemble:
                 assert value.shape[-2] == 64
             assert "aux" in f.attrs
             assert "index" in f.attrs
+
+
+frozen_config_paths = [
+    "tests/configs/image_segmentation/base.yaml",
+    "tests/configs/image_segmentation/mc_dropout.yaml",
+    "tests/configs/image_segmentation/bnn_vi_elbo.yaml",
+]
+
+
+class TestFrozenSegmentation:
+    @pytest.mark.parametrize("model_name", ["Unet", "DeepLabV3Plus"])
+    @pytest.mark.parametrize("backbone", ["resnet18", "vit_tiny_patch16_224"])
+    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
+    def test_freeze_backbone(
+        self, model_config_path: str, model_name: str, backbone: str
+    ) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
+        model_conf.uq_method.model["encoder_name"] = backbone
+
+        module = instantiate(model_conf.uq_method, freeze_backbone=True)
+        seg_model = module.model
+
+        assert all(
+            [param.requires_grad is False for param in seg_model.encoder.parameters()]
+        )
+        assert all([param.requires_grad for param in seg_model.decoder.parameters()])
+        assert all(
+            [param.requires_grad for param in seg_model.segmentation_head.parameters()]
+        )
+
+    @pytest.mark.parametrize("model_name", ["Unet", "DeepLabV3Plus"])
+    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
+    def test_freeze_decoder(self, model_config_path: str, model_name: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
+
+        module = instantiate(model_conf.uq_method, freeze_decoder=True)
+        seg_model = module.model
+
+        assert all(
+            [param.requires_grad is False for param in seg_model.decoder.parameters()]
+        )
+        assert all([param.requires_grad for param in seg_model.encoder.parameters()])
+        assert all(
+            [param.requires_grad for param in seg_model.segmentation_head.parameters()]
+        )

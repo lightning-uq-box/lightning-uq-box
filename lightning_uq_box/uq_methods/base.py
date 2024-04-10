@@ -593,6 +593,10 @@ class PosthocBase(BaseModule):
         self.model_logits.append(self.model(batch[self.input_key]))
         self.labels.append(batch[self.target_key])
 
+    # def validation_step(self, *args: Any, **kwargs: Any) -> None:
+    #     """Validation step."""
+    #     pass
+
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
@@ -626,8 +630,9 @@ class PosthocBase(BaseModule):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call "
-                "trainer.validate(model, datamodule) first."
+                "Model has not been post hoc fitted, "
+                "please call "
+                "trainer.fit(model, train_dataloaders=dm.calib_dataloader()) first."
             )
 
         # predict with underlying model

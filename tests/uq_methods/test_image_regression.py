@@ -22,7 +22,6 @@ model_config_paths = [
     "tests/configs/image_regression/mc_dropout_nll.yaml",
     "tests/configs/image_regression/mean_variance_estimation.yaml",
     "tests/configs/image_regression/qr_model.yaml",
-    "tests/configs/image_regression/conformal_qr.yaml",
     "tests/configs/image_regression/der.yaml",
     "tests/configs/image_regression/bnn_vi_elbo.yaml",
     "tests/configs/image_regression/bnn_vi.yaml",
@@ -73,41 +72,26 @@ class TestImageRegressionTask:
         )
 
 
-frozen_config_paths = [
-    "tests/configs/image_regression/mean_variance_estimation.yaml",
-    "tests/configs/image_regression/mc_dropout_nll.yaml",
-    "tests/configs/image_regression/bnn_vi_elbo.yaml",
-    "tests/configs/image_regression/bnn_vi.yaml",
-    "tests/configs/image_regression/due.yaml",
-    "tests/configs/image_regression/sngp.yaml",
-    "tests/configs/image_regression/der.yaml",
-]
+posthoc_config_paths = ["tests/configs/image_regression/conformal_qr.yaml"]
 
 
-class TestFrozenBackbone:
-    @pytest.mark.parametrize("model_name", ["resnet18", "vit_small_patch8_224"])
-    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
-    def test_freeze_backbone(self, model_config_path: str, model_name: str) -> None:
+class TestPosthoc:
+    @pytest.mark.parametrize("model_config_path", posthoc_config_paths)
+    @pytest.mark.parametrize("data_config_path", data_config_paths)
+    def test_trainer(
+        self, model_config_path: str, data_config_path: str, tmp_path: Path
+    ) -> None:
         model_conf = OmegaConf.load(model_config_path)
+        data_conf = OmegaConf.load(data_config_path)
 
-        try:
-            model_conf.uq_method.model.model_name = model_name
-            model = instantiate(model_conf.uq_method, freeze_backbone=True)
-            assert not all([param.requires_grad for param in model.model.parameters()])
-            assert all(
-                [
-                    param.requires_grad
-                    for param in model.model.get_classifier().parameters()
-                ]
-            )
-        except AttributeError:
-            model_conf.uq_method.feature_extractor.model_name = model_name
-            model_conf.uq_method.input_size = 224
-            model = instantiate(model_conf.uq_method, freeze_backbone=True)
-            # check that entire feature extractor is frozen
-            assert not all(
-                [param.requires_grad for param in model.feature_extractor.parameters()]
-            )
+        model = instantiate(model_conf.uq_method)
+        datamodule = instantiate(data_conf.data)
+        trainer = Trainer(
+            default_root_dir=str(tmp_path), max_epochs=1, log_every_n_steps=1
+        )
+        # use validation for testing, should be calibration loader for conformal
+        trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
+        trainer.test(model, datamodule=datamodule)
 
 
 ensemble_model_config_paths = [
@@ -187,3 +171,40 @@ class TestTTAModel:
         trainer = Trainer(default_root_dir=str(tmp_path))
 
         trainer.test(tta_model, datamodule)
+
+
+frozen_config_paths = [
+    "tests/configs/image_regression/mean_variance_estimation.yaml",
+    "tests/configs/image_regression/mc_dropout_nll.yaml",
+    "tests/configs/image_regression/bnn_vi_elbo.yaml",
+    "tests/configs/image_regression/bnn_vi.yaml",
+    "tests/configs/image_regression/due.yaml",
+    "tests/configs/image_regression/sngp.yaml",
+    "tests/configs/image_regression/der.yaml",
+]
+
+
+class TestFrozenBackbone:
+    @pytest.mark.parametrize("model_name", ["resnet18", "vit_small_patch8_224"])
+    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
+    def test_freeze_backbone(self, model_config_path: str, model_name: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+
+        try:
+            model_conf.uq_method.model.model_name = model_name
+            model = instantiate(model_conf.uq_method, freeze_backbone=True)
+            assert not all([param.requires_grad for param in model.model.parameters()])
+            assert all(
+                [
+                    param.requires_grad
+                    for param in model.model.get_classifier().parameters()
+                ]
+            )
+        except AttributeError:
+            model_conf.uq_method.feature_extractor.model_name = model_name
+            model_conf.uq_method.input_size = 224
+            model = instantiate(model_conf.uq_method, freeze_backbone=True)
+            # check that entire feature extractor is frozen
+            assert not all(
+                [param.requires_grad for param in model.feature_extractor.parameters()]
+            )

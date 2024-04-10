@@ -176,7 +176,7 @@ class Img2ImgConformal(PosthocBase):
 
         return torch.cat(losses, dim=0).cpu()
 
-    def on_validation_epoch_end(self) -> None:
+    def on_train_end(self) -> None:
         """Perform Img2Img calibration."""
         self.batch_size = self.model_logits[0].shape[0]
         all_logits = torch.cat(self.model_logits, dim=0).detach()
@@ -349,7 +349,8 @@ class Img2ImgConformal(PosthocBase):
         if not self.post_hoc_fitted:
             raise RuntimeError(
                 "Model has not been post hoc fitted, "
-                "please call trainer.validate(model, datamodule) first."
+                "please call "
+                "trainer.fit(model, train_dataloaders=dm.calib_dataloader()) first."
             )
 
         return self.forward(X, lam)

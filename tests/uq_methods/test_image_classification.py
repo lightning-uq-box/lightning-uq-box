@@ -81,9 +81,11 @@ class TestPosthoc:
 
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
-        trainer = Trainer(default_root_dir=str(tmp_path), inference_mode=False)
+        trainer = Trainer(
+            default_root_dir=str(tmp_path), max_epochs=1, log_every_n_steps=1
+        )
         # use validation for testing, should be calibration loader for conformal
-        trainer.validate(model, datamodule.val_dataloader())
+        trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
         trainer.test(model, datamodule=datamodule)
 
 

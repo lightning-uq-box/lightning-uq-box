@@ -101,7 +101,9 @@ class TempScaling(PosthocBase):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call trainer.fit(model, datamodule) first."  # noqa: E501
+                "Model has not been post hoc fitted, "
+                "please call "
+                "trainer.fit(model, train_dataloaders=dm.calib_dataloader()) first."
             )
         with torch.no_grad():
             temp_scaled_outputs = self.forward(X)
