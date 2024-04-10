@@ -28,7 +28,7 @@ repos:
             args: [--max-line-length=88]
 
     -   repo: https://github.com/pycqa/pydocstyle
-        rev: 6.1.1
+        rev: 6.3.0
         hooks:
         -   id: pydocstyle
             exclude: (tests|docs|experiments)
