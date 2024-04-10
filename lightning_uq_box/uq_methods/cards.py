@@ -750,7 +750,8 @@ class NoiseScheduler:
     def quadratic_schedule(self) -> Tensor:
         """Quadratic Schedule."""
         return (
-            torch.linspace(self.beta_start**0.5, self.beta_end**0.5, self.n_steps) ** 2
+            torch.linspace(self.beta_start**0.5, self.beta_end**0.5, self.n_steps)
+            ** 2
         )
 
     def sigmoid_schedule(self) -> Tensor:

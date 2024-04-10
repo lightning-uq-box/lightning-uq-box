@@ -12,24 +12,17 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
-
-from lightning_uq_box.models.adf_layers.adf_layers import Softmax_adf
-from .base import PosthocBase
-from lightning_uq_box.models.adf_layers.adf_utils import (
-    convert_deterministic_to_adf, 
-    )
-
 from lightning_uq_box.eval_utils import (
     compute_aleatoric_uncertainty,
     compute_epistemic_uncertainty,
     compute_predictive_uncertainty,
     compute_quantiles_from_std,
 )
+from lightning_uq_box.models.adf_layers.adf_layers import Softmax_adf
+from lightning_uq_box.models.adf_layers.adf_utils import convert_deterministic_to_adf
 
-from .utils import (
-    save_classification_predictions,
-    save_regression_predictions,
-)
+from .base import PosthocBase
+from .utils import save_classification_predictions, save_regression_predictions
 
 
 def keep_variance(x, min_variance):
@@ -43,36 +36,34 @@ class ADFClassification(PosthocBase):
 
     * https://rpg.ifi.uzh.ch/docs/RAL20_Loquercio.pdf
     """
-    def __init__(
-        self,
-        model: nn.Module,
-        min_variance: float = 1e-4,
-    ) -> None:
+
+    def __init__(self, model: nn.Module, min_variance: float = 1e-4) -> None:
         """Initialize a new Model instance.
 
         Args:
             model: pytorch model that will be converted into an adf model
         """
-        
+
         super().__init__(model)
 
         self.model = model
         self.min_variance = min_variance
-        self.save_hyperparameters(
-            ignore=["model"]
-        )
+        self.save_hyperparameters(ignore=["model"])
         self._setup_adf_net()
 
     def _setup_adf_net(self) -> None:
         """Configure setup of the ADF Model."""
 
         # convert deterministic model to adf net
-        convert_deterministic_to_adf(
-            self.model,
-        )
+        convert_deterministic_to_adf(self.model)
 
     def predict_step(
-        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
+        self,
+        X: Tensor,
+        batch_idx: int = 0,
+        dataloader_idx: int = 0,
+        aggregate_fn: Callable = torch.mean,
+        eps: float = 1e-7,
     ) -> dict[str, Tensor]:
         """Prediction step.
 
@@ -82,12 +73,12 @@ class ADFClassification(PosthocBase):
             dataloader_idx: dataloader index
         """
         with torch.no_grad():
-            preds = self.model(X) # shape [batch_size, num_classes, num_classes]
+            preds = self.model(X)  # shape [batch_size, num_classes, num_classes]
 
         keep_variance_fn = lambda x: keep_variance(x, min_variance=self.min_variance)
 
         adf_softmax = Softmax_adf(dim=1, keep_variance_fn=keep_variance_fn)
-    
+
         logit = [logit for (logit, logit_var) in preds]
         agg_logits = aggregate_fn(logit, dim=-1)
         outputs = [adf_softmax(preds) for outs in preds]
@@ -101,7 +92,7 @@ class ADFClassification(PosthocBase):
         entropy = -(outputs_mean * outputs_mean.log()).sum(dim=-1)
 
         return {"pred": outputs_mean, "pred_uct": entropy, "logits": agg_logits}
-    
+
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> None:
@@ -116,8 +107,6 @@ class ADFClassification(PosthocBase):
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
 
-
-
     def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model output according to post-hoc fitting procedure.
 
@@ -128,7 +117,7 @@ class ADFClassification(PosthocBase):
             adjusted model output tensor of shape [batch_size x num_outputs]
         """
         raise NotImplementedError
-       
+
 
 class ADFRegression(PosthocBase):
     """Assumed Density Filtering.
@@ -137,39 +126,34 @@ class ADFRegression(PosthocBase):
 
     * https://rpg.ifi.uzh.ch/docs/RAL20_Loquercio.pdf
     """
-    def __init__(
-        self,
-        model: nn.Module,
-    ) -> None:
+
+    def __init__(self, model: nn.Module) -> None:
         """Initialize a new Model instance.
 
         Args:
             model: pytorch model that will be converted into an adf model
         """
-        
+
         super().__init__(model)
 
         self.model = model
-        self.save_hyperparameters(
-            ignore=["model"]
-        )
+        self.save_hyperparameters(ignore=["model"])
         self._setup_adf_net()
 
     def _setup_adf_net(self) -> None:
         """Configure setup of the ADF Model."""
 
         # convert deterministic model to adf net
-        convert_deterministic_to_adf(
-            self.model,
-        )
+        convert_deterministic_to_adf(self.model)
 
     def predict_step(
-        self, X: Tensor, 
-        batch_idx: int = 0, 
+        self,
+        X: Tensor,
+        batch_idx: int = 0,
         dataloader_idx: int = 0,
         quantiles: Optional[list[float]] = None,
         aggregate_fn: Callable = torch.mean,
-        ) -> dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Prediction step and process regression adf predictions.
 
         Args:
@@ -181,25 +165,20 @@ class ADFRegression(PosthocBase):
             dictionary with mean prediction and predictive uncertainty
         """
         with torch.no_grad():
-            preds = self.model(X) # shape [batch_size, num_outputs]
+            preds = self.model(X)  # shape [batch_size, num_outputs]
 
         mean = aggregate_fn(preds[:, 0], dim=-1)
 
         # adf yields two num outputs for 1d regression
         if preds.shape[1] == 2:
-            aleatoric = preds[:, 1].cpu() #do we need cpu here
-            
+            aleatoric = preds[:, 1].cpu()  # do we need cpu here
 
-        pred_dict = {
-            "pred": mean,
-            "pred_uct": aleatoric,
-            "aleatoric_uct": aleatoric,
-        }
+        pred_dict = {"pred": mean, "pred_uct": aleatoric, "aleatoric_uct": aleatoric}
 
         # check if quantiles are present
         if quantiles is not None:
             quantiles = compute_quantiles_from_std(
-            mean.detach().cpu().numpy(), aleatoric, quantiles
+                mean.detach().cpu().numpy(), aleatoric, quantiles
             )
             pred_dict["lower_quant"] = torch.from_numpy(quantiles[:, 0])
             pred_dict["upper_quant"] = torch.from_numpy(quantiles[:, -1])
@@ -219,10 +198,6 @@ class ADFRegression(PosthocBase):
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
-    
-
-
-
 
     def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model output according to post-hoc fitting procedure.
@@ -234,7 +209,3 @@ class ADFRegression(PosthocBase):
             adjusted model output tensor of shape [batch_size x num_outputs]
         """
         raise NotImplementedError
-    
-
-
-
