@@ -176,8 +176,10 @@ class Img2ImgConformal(PosthocBase):
 
         return torch.cat(losses, dim=0).cpu()
 
+    @torch.no_grad()
     def on_train_end(self) -> None:
         """Perform Img2Img calibration."""
+        self.eval()
         self.batch_size = self.model_logits[0].shape[0]
         all_logits = torch.cat(self.model_logits, dim=0).detach()
         all_labels = torch.cat(self.labels, dim=0).detach()
