@@ -21,7 +21,7 @@
 
 """Model Parts for Hierarchical Probabilistic U-Net."""
 
-from typing import Callable, Optional, Union, dict
+from typing import Callable, Optional, Union
 
 import torch
 import torch.nn as nn
