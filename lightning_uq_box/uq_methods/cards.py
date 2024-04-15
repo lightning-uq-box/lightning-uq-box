@@ -140,6 +140,8 @@ class CARDBase(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -162,6 +164,8 @@ class CARDBase(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             validation loss
@@ -187,6 +191,8 @@ class CARDBase(BaseModule):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             diffusion samples for each time step
@@ -268,8 +274,8 @@ class CARDBase(BaseModule):
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
             t: time step
-            alphas:
-            one_minus_alphas_bar_sqrt:
+            alphas: noise schedule alpha
+            one_minus_alphas_bar_sqrt: noise schedule one minus alpha sqrt
 
         Returns:
             reverse process sample
@@ -332,11 +338,11 @@ class CARDBase(BaseModule):
         """Reverse sample function, sample y_0 given y_1.
 
         Args:
-            x:
+            x: input
             y: sampled y at time step t, y_t.
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
-            one_minus_alphas_bar_sqrt:
+            one_minus_alphas_bar_sqrt: noise schedule one minus alpha bar sqrt
 
         Returns:
             y_0 sample
@@ -372,7 +378,7 @@ class CARDBase(BaseModule):
         """P sample loop for the entire chain.
 
         Args:
-            x:
+            x: input
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
             n_steps: number of diffusion steps
@@ -482,6 +488,8 @@ class CARDBase(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             test loss
@@ -656,6 +664,8 @@ class CARDClassification(CARDBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             predictions

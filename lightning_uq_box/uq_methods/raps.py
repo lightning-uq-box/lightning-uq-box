@@ -144,6 +144,8 @@ class RAPS(PosthocBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             logits and conformalized prediction sets
@@ -664,13 +666,13 @@ def get_single_tau(
     """Get tau for one example.
 
     Args:
-        target:
-        sorted_score_indices:
-        ordered:
-        cumsum:
-        penalty:
-        randomized:
-        allow_zero_sets:
+        target: target label
+        sorted_score_indices: shape [batch_size x num_classes]
+        ordered: shape [batch_size x num_classes]
+        cumsum: shape [batch_size x num_classes]
+        penalty: shape [1 x num_classes]
+        randomized: whether to use randomized version of conformal prediction
+        allow_zero_sets: whether to allow sets of size zero
 
     Returns:
         single tau

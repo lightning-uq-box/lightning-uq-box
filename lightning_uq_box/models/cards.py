@@ -196,7 +196,7 @@ class ConditionalGuidedConvModel(nn.Module):
         Args:
             x: input data
             y_t: target data
-            y_0_hat:
+            y_0_hat: y_0_hat
             t: time step
 
         Returns:

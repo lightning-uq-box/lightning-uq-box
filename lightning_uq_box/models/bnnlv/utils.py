@@ -14,7 +14,8 @@ def get_log_normalizer(models: list[nn.Module]):
     """Compute terms for energy functional.
 
     Args:
-        model: bnn with lvs model.
+        models: list of models like the bnn and lvs model
+            to retrieve the log normalizer from
 
     Returns:
         log_normalizer: (3.18) in [1].
@@ -37,7 +38,8 @@ def get_log_f_hat(models: list[nn.Module]):
     """Compute summed log_f_hat.
 
     Args:
-        model: bnn with lvs model.
+        models: list of models like the bnn and lvs model
+            to retrieve the log_f_hat term from
 
     Returns:
         log_f_hat: log of (3.16) in [1].
@@ -60,7 +62,8 @@ def get_log_Z_prior(models: list[nn.Module]):
     """Compute summed log_Z_prior.
 
     Args:
-        model: bnn with lvs model.
+        models: list of models like the bnn and lvs model
+            to retrieve the summed log_Z_prior from
 
     Returns:
         summed log_Z_prior.
@@ -98,7 +101,7 @@ def retrieve_module_init_args(
     """Reinitialize a new layer with arguments.
 
     Args:
-        new_module: nn.Module class to initialize the new layer
+        current_module: nn.Module class to initialize the new layer
 
     Returns:
         nn.Modules init args
