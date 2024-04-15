@@ -28,16 +28,20 @@ $ pytest --cov=lightning_uq_box/uq_methods --cov-report=term-missing tests/uq_me
 
 ## Linters
 
-We use linters to ensure a codebase that follows [PEP-8](https://peps.python.org/pep-0008/) standards.
+We use a linter to ensure a codebase that follows [PEP-8](https://peps.python.org/pep-0008/) standards.
 
-* [black](https://black.readthedocs.io/) for code formatting
-* [isort](https://pycqa.github.io/isort/) for import ordering
-* [flake8](https://flake8.pycqa.org/) for code formatting
-* [pydocstyle](https://www.pydocstyle.org/) for docstrings
+* `ruff <https://docs.astral.sh/ruff/>`_ for code formatting
 
-Black and isort will automatically change your code, while flake8 and pydocstyle will give you warnings.
+You can apply these tools from the project root where the necessary configuration files are found. To test with ruff, you can do:
 
-You can also use `git pre-commit hooks <https://pre-commit.com/>`_ to automatically apply these checks before each commit. You can setup pre-commit as follows:
+```console
+$ ruff check
+$ ruff format
+```
+
+These tools should be used from the root of the project to ensure that our configuration files are found. Ruff is relatively easy to use, and will automatically fix most issues it encounters:
+
+You can also use `git pre-commit hooks <https://pre-commit.com/>`_ to automatically apply these checks before each commit. You can use pre-commit as follows:
 
 ```console
 $ pip install pre-commit

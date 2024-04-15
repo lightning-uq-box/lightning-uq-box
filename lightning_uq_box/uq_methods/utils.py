@@ -4,7 +4,7 @@
 """Utilities for UQ-Method Implementations."""
 
 import os
-from collections import Ordereddict
+from collections import OrderedDict
 from typing import Callable, Optional, Union
 
 import h5py
@@ -329,7 +329,7 @@ def map_stochastic_modules(
     for name, val in model.named_parameters():
         # module = getattr(model, )
         ordered_module_names.append(".".join(name.split(".")[:-1]))
-    ordered_module_names = list(Ordereddict.fromkeys(ordered_module_names))
+    ordered_module_names = list(OrderedDict.fromkeys(ordered_module_names))
 
     # split of weight/bias
     ordered_module_params = [

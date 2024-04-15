@@ -27,7 +27,7 @@ for support of partial stochasticity and integration to lightning.
 
 import math
 import os
-from collections import Ordereddict
+from collections import OrderedDict
 from copy import deepcopy
 from typing import Any, Optional, Union
 
@@ -202,7 +202,7 @@ class SWAGBase(DeterministicModel):
         Returns:
             state_dict
         """
-        full_state_dict = Ordereddict({**state_dict, **self._untracked_state_dict()})
+        full_state_dict = OrderedDict({**state_dict, **self._untracked_state_dict()})
         full_state_dict._metadata = getattr(self.model.state_dict(), "_metadata", None)
 
         self.model.load_state_dict(full_state_dict)
