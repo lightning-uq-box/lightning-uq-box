@@ -37,6 +37,7 @@ These are based on the Bayesian-torch library
 https://github.com/IntelLabs/bayesian-torch (BSD-3 clause) but
 adjusted to be trained with the Energy Loss and support batched inputs.
 """
+
 import math
 
 import torch
