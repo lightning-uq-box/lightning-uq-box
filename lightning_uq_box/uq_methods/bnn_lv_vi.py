@@ -5,7 +5,7 @@
 
 import math
 import os
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import einops
 import numpy as np
@@ -313,7 +313,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         batch_size = X.shape[0]
         return torch.randn(batch_size, self.hparams.lv_latent_dim).to(self.device)
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -366,6 +366,8 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
 
         Returns:
             prediction dictionary
@@ -548,6 +550,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             n_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
             n_mc_samples_test: number of MC samples during test and prediction
+            n_mc_samples_epistemic: number of epistemic samples during prediction
             output_noise_scale: scale of predicted sigmas
             prior_mu: prior mean value for bayesian layer
             prior_sigma: prior variance value for bayesian layer
@@ -559,6 +562,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             lv_prior_mu: prior mean for latent variable network
             lv_prior_std: prior std for latent variable network
             lv_latent_dim: number of latent dimension
+            init_scaling: init scaling factor for q(z) in latent variable network
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
             freeze_backbone: whether to freeze the backbone
@@ -622,6 +626,8 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             X: input data
             y: target
             n_samples: number of samples to compute
+            training: if yes, sample from lv posterior,
+                else use sample from prior or provide z
 
         Returns:
             bnn output [batch_size, output_dim, num_samples]
@@ -648,7 +654,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             self.device
         )
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -683,18 +689,24 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         X: Tensor,
         batch_idx: int = 0,
         dataloader_idx: int = 0,
-        n_samples_pred: int = 100,
+        n_samples_pred: Optional[int] = None,
     ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the data loader
+            n_samples_pred: number of samples to use for prediction
 
         Returns:
             prediction dictionary
         """
         n_aleatoric = self.hparams.n_mc_samples_epistemic
-        n_samples = self.hparams.n_mc_samples_test
+        if n_samples_pred is None:
+            n_samples = self.hparams.n_mc_samples_test
+        else:
+            n_samples = n_samples_pred
 
         if self.hparams.latent_variable_intro == "first":
             output_dim = self.prediction_head.out_features

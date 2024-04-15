@@ -5,7 +5,7 @@ Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperat
 
 import os
 from functools import partial
-from typing import Dict, Optional, Union
+from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -93,7 +93,7 @@ class TempScaling(PosthocBase):
 
         self.post_hoc_fitted = True
 
-    def predict_step(self, X: Tensor) -> Dict[str, Tensor]:
+    def predict_step(self, X: Tensor) -> dict[str, Tensor]:
         """Prediction step with applied temperature scaling.
 
         Args:

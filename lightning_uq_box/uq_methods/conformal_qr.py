@@ -6,7 +6,7 @@
 import copy
 import math
 import os
-from typing import Dict, Union
+from typing import Union
 
 import torch
 import torch.nn as nn
@@ -191,7 +191,7 @@ class ConformalQR(PosthocBase):
             del out_dict["out"]
         return out_dict
 
-    def predict_step(self, X: Tensor) -> Dict[str, Tensor]:
+    def predict_step(self, X: Tensor) -> dict[str, Tensor]:
         """Prediction step that produces conformalized prediction sets.
 
         Args:

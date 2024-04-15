@@ -3,9 +3,8 @@
 
 """Test Time Augmentation (TTA)."""
 
-
 import os
-from typing import Any, Callable, List, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, Union
 
 import kornia.augmentation as K
 import torch
@@ -245,7 +244,7 @@ class TTARegression(TTABase):
         """Merge predictions according to `merge_strategy`.
 
         Args:
-            aug_tensors: The tensor containing predictions from different
+            aug_tensor: The tensor containing predictions from different
                 augmentations
 
         Returns:
@@ -294,7 +293,7 @@ class TTAClassification(TTABase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks: List[str] = ["binary", "multiclass", "multilable"]
+    valid_tasks: list[str] = ["binary", "multiclass", "multilable"]
 
     def __init__(
         self,
@@ -342,7 +341,7 @@ class TTAClassification(TTABase):
         """Merge predictions according to `merge_strategy`.
 
         Args:
-            aug_tensors: The tensor containing predictions from different
+            aug_tensor: The tensor containing predictions from different
                 augmentations
 
         Returns:

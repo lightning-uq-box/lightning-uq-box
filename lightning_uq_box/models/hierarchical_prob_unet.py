@@ -21,7 +21,7 @@
 
 """Model Parts for Hierarchical Probabilistic U-Net."""
 
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Optional, Union, dict
 
 import torch
 import torch.nn as nn
@@ -40,9 +40,9 @@ class _HierarchicalCore(nn.Module):
 
     def __init__(
         self,
-        latent_dims: List[int],
-        channels_per_block: List[int],
-        down_channels_per_block: Optional[List[int]] = None,
+        latent_dims: list[int],
+        channels_per_block: list[int],
+        down_channels_per_block: Optional[list[int]] = None,
         activation_fn: Callable[[Tensor], Tensor] = F.relu,
         convs_per_block: int = 3,
         blocks_per_level: int = 3,
@@ -77,9 +77,9 @@ class _HierarchicalCore(nn.Module):
     def forward(
         self,
         inputs: Tensor,
-        mean: Union[bool, List[bool]] = False,
+        mean: Union[bool, list[bool]] = False,
         z_q: Optional[Tensor] = None,
-    ) -> Dict[str, Union[Tensor, List[Tensor]]]:
+    ) -> dict[str, Union[Tensor, list[Tensor]]]:
         """Forward pass through the HierarchicalCore.
 
         Args:
@@ -175,10 +175,10 @@ class _StitchingDecoder(nn.Module):
 
     def __init__(
         self,
-        latent_dims: List[int],
-        channels_per_block: List[int],
+        latent_dims: list[int],
+        channels_per_block: list[int],
         num_classes: int,
-        down_channels_per_block: Optional[List[int]] = None,
+        down_channels_per_block: Optional[list[int]] = None,
         activation_fn: Callable[[Tensor], Tensor] = F.relu,
         convs_per_block: int = 3,
         blocks_per_level: int = 3,
@@ -216,7 +216,7 @@ class _StitchingDecoder(nn.Module):
         )
 
     def forward(
-        self, encoder_features: List[Tensor], decoder_features: Tensor
+        self, encoder_features: list[Tensor], decoder_features: Tensor
     ) -> Tensor:
         """Forward pass through the StitchingDecoder.
 
