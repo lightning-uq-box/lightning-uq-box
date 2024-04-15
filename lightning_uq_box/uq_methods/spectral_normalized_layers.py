@@ -13,8 +13,8 @@ from torch.nn.functional import conv2d, conv_transpose2d, normalize
 from torch.nn.modules.batchnorm import _NormBase
 from torch.nn.utils.spectral_norm import (
     SpectralNorm,
-    SpectralNormLoadStatedictPreHook,
-    SpectralNormStatedictHook,
+    SpectralNormLoadStateDictPreHook,
+    SpectralNormStateDictHook,
 )
 
 from .utils import _get_input_layer_name_and_module
@@ -439,8 +439,8 @@ class SpectralNormConv(SpectralNorm):
 
         module.register_forward_pre_hook(fn)
 
-        module._register_state_dict_hook(SpectralNormStatedictHook(fn))
-        module._register_load_state_dict_pre_hook(SpectralNormLoadStatedictPreHook(fn))
+        module._register_state_dict_hook(SpectralNormStateDictHook(fn))
+        module._register_load_state_dict_pre_hook(SpectralNormLoadStateDictPreHook(fn))
         return fn
 
 
@@ -579,8 +579,8 @@ class SpectralNormFC(SpectralNorm):
         module.register_buffer(fn.name + "_sigma", torch.ones(1))
 
         module.register_forward_pre_hook(fn)
-        module._register_state_dict_hook(SpectralNormStatedictHook(fn))
-        module._register_load_state_dict_pre_hook(SpectralNormLoadStatedictPreHook(fn))
+        module._register_state_dict_hook(SpectralNormStateDictHook(fn))
+        module._register_load_state_dict_pre_hook(SpectralNormLoadStateDictPreHook(fn))
         return fn
 
 
