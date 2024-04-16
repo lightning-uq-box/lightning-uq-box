@@ -42,7 +42,7 @@ class TestUQMethods:
             "CSVLogger",
             "--trainer.logger.save_dir",
             str(tmp_path),
-            "--trainer.callbacks+=" "ModelCheckpoint",
+            "--trainer.callbacks+=ModelCheckpoint",
             "--trainer.callbacks.dirpath",
             str(tmp_path),
         ]
