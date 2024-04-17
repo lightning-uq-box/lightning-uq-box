@@ -1,0 +1,10 @@
+model:
+  class_path: lightning_uq_box.uq_methods.VBLLRegression
+  init_args:
+    model:
+      class_path: lightning_uq_box.models.MLP
+      init_args:
+        n_outputs: 20
+        n_hidden: [50]
+    regularization_weight: 0.001
+    num_targets: 1
