@@ -186,7 +186,7 @@ class VBLLRegression(DeterministicRegression):
 
         return {
             "pred": pred.predictive.mean,
-            "pred_std": torch.sqrt(pred.predictive.covariance).squeeze(-1),
+            "pred_uct": torch.sqrt(pred.predictive.covariance).squeeze(-1),
             "out": pred,
         }
 

@@ -19,7 +19,11 @@ class ToyDUE(LightningDataModule):
     """Toy Dataset from DUE repository."""
 
     def __init__(
-        self, n_samples: int = 500, noise: float = 0.2, batch_size: int = 200
+        self,
+        n_samples: int = 500,
+        noise: float = 0.2,
+        batch_size: int = 200,
+        normalize=False,
     ) -> None:
         """Initialize a new Toy Data Module instance.
 
@@ -27,6 +31,7 @@ class ToyDUE(LightningDataModule):
             n_samples: number of samples for dataset
             noise: gaussian noise variance
             batch_size: batch size for data loaders
+            normalize: whether to normalize the data
         """
         super().__init__()
 
@@ -45,11 +50,17 @@ class ToyDUE(LightningDataModule):
         y = np.cos(W * x + b).sum(0) + noise * np.random.randn(n_samples)
 
         x_test = np.linspace(-10, 10, 500)
-        # x_test = np.sort(
-        #     6.5 * np.sign(np.random.randn(n_samples))
-        #     + np.random.randn(n_samples)
-        # )
         y_test = np.cos(W * x_test + b).sum(0)  # + noise * np.random.randn(n_samples)
+
+        if normalize:
+            x_mean = x.mean()
+            x_std = x.std()
+            y_mean = y.mean()
+            y_std = y.std()
+            x = (x - x_mean) / x_std
+            y = (y - y_mean) / y_std
+            x_test = (x_test - x_mean) / x_std
+            y_test = (y_test - y_mean) / y_std
 
         self.X_train = torch.from_numpy(x).unsqueeze(-1).to(torch.float32)
         self.y_train = torch.from_numpy(y).unsqueeze(-1).to(torch.float32)
