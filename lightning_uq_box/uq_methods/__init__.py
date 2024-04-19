@@ -80,7 +80,7 @@ from .swag import (
     SWAGSegmentation,
 )
 from .temp_scaling import TempScaling
-from .vbll import VBLLRegression
+from .vbll import VBLLClassification, VBLLRegression
 
 __all__ = (
     # Base Module
@@ -175,6 +175,7 @@ __all__ = (
     "BNN_LV_VI_Batched_Base",
     "BNN_LV_VI_Batched_Regression",
     # Variational Bayes Last Layer
+    "VBLLClassification",
     "VBLLRegression",
     # Image-to-Image Conformal Uncertainty Estimation
     "Img2ImgConformal",

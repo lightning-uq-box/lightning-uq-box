@@ -13,7 +13,7 @@ from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 from torch.nn.modules import Module
 
-from .base import DeterministicRegression
+from .base import DeterministicClassification, DeterministicRegression
 from .utils import _get_output_layer_name_and_module
 
 
@@ -63,17 +63,24 @@ class VBLLRegression(DeterministicRegression):
         super().__init__(model, None, freeze_backbone, optimizer, lr_scheduler)
 
         try:
-            from vbll import Regression as VBLLReg  # noqa: F401
+            import vbll  # noqa: F401
         except ImportError:
             raise ImportError(
                 "You need to install the vbll package: 'pip install vbll'."
             )
 
         self.regularization_weight = regularization_weight
+        self.num_targets = num_targets
         self.parameterization = parameterization
         self.prior_scale = prior_scale
         self.wishart_scale = wishart_scale
         self.dof = dof
+
+        self.build_model()
+
+    def build_model(self) -> None:
+        """Build model."""
+        from vbll import Regression as VBLLReg
 
         _, last_module_backbone = _get_output_layer_name_and_module(self.model)
 
@@ -81,12 +88,12 @@ class VBLLRegression(DeterministicRegression):
             self.model,
             VBLLReg(
                 in_features=last_module_backbone.out_features,
-                out_features=num_targets,
-                regularization_weight=regularization_weight,
-                parameterization=parameterization,
-                prior_scale=prior_scale,
-                wishart_scale=wishart_scale,
-                dof=dof,
+                out_features=self.num_targets,
+                regularization_weight=self.regularization_weight,
+                parameterization=self.parameterization,
+                prior_scale=self.prior_scale,
+                wishart_scale=self.wishart_scale,
+                dof=self.dof,
             ),
         )
 
@@ -117,9 +124,7 @@ class VBLLRegression(DeterministicRegression):
         out = self.model(batch[self.input_key])
         loss = out.train_loss_fn(batch[self.target_key])
 
-        self.log(
-            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
-        )  # logging to Logger
+        self.log("train_loss", loss, batch_size=batch[self.input_key].shape[0])
         if batch[self.input_key].shape[0] > 1:
             self.train_metrics(
                 self.adapt_output_for_metrics(out), batch[self.target_key]
@@ -189,6 +194,184 @@ class VBLLRegression(DeterministicRegression):
             "pred_uct": torch.sqrt(pred.predictive.covariance).squeeze(-1),
             "out": pred,
         }
+
+    def configure_optimizers(self) -> dict[str, Any]:
+        """Configure Optimizers."""
+        # exclude vbll parameters from weight decay
+        optimizer = self.optimizer(
+            [
+                {"params": self.model[0].parameters()},
+                {"params": self.model[-1].parameters(), "weight_decay": 0.0},
+            ]
+        )
+        if self.lr_scheduler is not None:
+            scheduler = self.lr_scheduler(optimizer)
+            return {"optimizer": optimizer, "lr_scheduler": scheduler}
+        return {"optimizer": optimizer}
+
+
+class VBLLClassification(DeterministicClassification):
+    """Variational Bayes Last Layer (VBLL) for Classification."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+        regularization_weight: float,
+        num_targets: int,
+        parameterization: str = "dense",
+        prior_scale: float = 1,
+        wishart_scale: float = 0.01,
+        dof: int = 1,
+        freeze_backbone: bool = False,
+        task: "str" = "multiclass",
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: Any | None = None,
+    ) -> None:
+        """Initialize a new instance of VBLL Classification.
+
+        Args:
+            model: The backbone model
+            regularization_weight : regularization weight term in ELBO, and should be
+                1 / (dataset size) by default. This term impacts the epistemic
+                uncertainty estimate.
+        """
+        super().__init__(model, None, task, freeze_backbone, optimizer, lr_scheduler)
+
+        try:
+            import vbll  # noqa: F401
+        except ImportError:
+            raise ImportError(
+                "You need to install the vbll package: 'pip install vbll'."
+            )
+
+        self.regularization_weight = regularization_weight
+        self.num_targets = num_targets
+        self.parameterization = parameterization
+        self.prior_scale = prior_scale
+        self.wishart_scale = wishart_scale
+        self.dof = dof
+
+        self.build_model()
+
+    def build_model(self) -> None:
+        """Build Classification Model."""
+        from vbll import DiscClassification as VBLLDiscClass
+
+        _, last_module_backbone = _get_output_layer_name_and_module(self.model)
+
+        self.model = nn.Sequential(
+            self.model,
+            VBLLDiscClass(
+                in_features=last_module_backbone.out_features,
+                out_features=self.num_targets,
+                regularization_weight=self.regularization_weight,
+                parameterization=self.parameterization,
+                prior_scale=self.prior_scale,
+                wishart_scale=self.wishart_scale,
+                dof=self.dof,
+            ),
+        )
+
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt the output for metrics."""
+        return out.predictive.probs
+
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> torch.Tensor:
+        """Training step.
+
+        Args:
+            batch: The batch of data
+            batch_idx: The index of the batch
+            dataloader_idx: The index of the dataloader
+
+        Returns:
+            training loss
+        """
+        out = self.model(batch[self.input_key])
+        loss = out.train_loss_fn(batch[self.target_key])
+
+        self.log("train_loss", loss, batch_size=batch[self.input_key].shape[0])
+        if batch[self.input_key].shape[0] > 1:
+            self.train_metrics(
+                self.adapt_output_for_metrics(out), batch[self.target_key]
+            )
+
+        return loss
+
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> torch.Tensor:
+        """Validation step.
+
+        Args:
+            batch: The batch of data
+            batch_idx: The index of the batch
+            dataloader_idx: The index of the dataloader
+
+        Returns:
+            validation loss
+        """
+        out = self.model(batch[self.input_key])
+        loss = out.val_loss_fn(batch[self.target_key])
+
+        self.log("val_loss", loss, batch_size=batch[self.input_key].shape[0])
+        if batch[self.input_key].shape[0] > 1:
+            self.val_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
+
+        return loss
+
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> torch.Tensor:
+        """Test step.
+
+        Args:
+            batch: The batch of data
+            batch_idx: The index of the batch
+            dataloader_idx: The index of the dataloader
+
+        Returns:
+            test loss
+        """
+        pred_dict = self.predict_step(batch[self.input_key])
+
+        test_loss = pred_dict["out"].val_loss_fn(batch[self.target_key])
+
+        self.log("test_loss", test_loss, batch_size=batch[self.input_key].shape[0])
+        if batch[self.input_key].shape[0] > 1:
+            self.test_metrics(
+                self.adapt_output_for_metrics(pred_dict["out"]), batch[self.target_key]
+            )
+
+        pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
+        # delete out from pred_dict
+        del pred_dict["out"]
+        return pred_dict
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Any]:
+        """Predict step with VBLL model.
+
+        Args:
+            X: The input data
+            batch_idx: The index of the batch
+            dataloader_idx: The index of the dataloader
+
+        Returns:
+            prediction dictionary
+        """
+        with torch.no_grad():
+            pred = self.model(X)
+
+        probs = pred.predictive.probs
+        softmax_probs = nn.functional.softmax(probs, dim=-1)
+
+        entropy = -(softmax_probs * softmax_probs.log()).sum(dim=-1)
+
+        return {"pred": softmax_probs, "pred_uct": entropy, "logits": probs}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Configure Optimizers."""
