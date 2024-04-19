@@ -76,6 +76,7 @@ class DDPM(BaseModule):
         diffusion_model: "GaussianDiffusion",
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
+        log_samples_every_n_steps: int = 100,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: Optional[LRSchedulerCallable] = None,
     ) -> Any:
@@ -85,7 +86,8 @@ class DDPM(BaseModule):
             diffusion_model: diffusion model
             ema_decay: exponential moving average decay
             ema_update_every: update EMA every this many update calls
-            optimizer: optimizer
+            log_samples_every_n_steps: log samples every n steps
+            optimizer: optimizer to use
             lr_scheduler: learning rate scheduler
         """
         super().__init__()
@@ -106,6 +108,7 @@ class DDPM(BaseModule):
             beta=self.ema_decay,
             update_every=self.ema_update_every,
         )
+        self.log_samples_every_n_steps = log_samples_every_n_steps
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
 
@@ -128,35 +131,22 @@ class DDPM(BaseModule):
         Returns:
             training loss
         """
-        batch_size, device = (
-            batch[self.input_key].shape[0],
-            batch[self.input_key].device,
-        )
-        t = torch.randint(
-            0, self.diffusion_model.num_timesteps, (batch_size,), device=device
-        ).long()
-        loss = self.diffusion_model.p_losses(batch[self.input_key], t)
+        loss = self.diffusion_model.forward(batch[self.input_key])
 
         self.log("train_loss", loss)
+
+        if self.trainer.global_step % self.log_samples_every_n_steps == 0:
+            # log samples
+            img = torch.randn(16, 3, 256, 256).to(self.device)
+            import pdb
+            pdb.set_trace()
+
 
         return loss
 
     def on_after_backward(self):
         """Update EMA after each backward pass."""
         self.ema.update()
-
-    def validation_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Tensor:
-        """No validation step.
-
-        Args:
-            batch: the output of your DataLoader
-
-        Returns:
-            training loss
-        """
-        pass
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -381,16 +371,17 @@ class ClassFreeGuidanceDDPM(DDPM):
         Returns:
             training loss
         """
-        batch_size, device = (
-            batch[self.input_key].shape[0],
-            batch[self.input_key].device,
-        )
-        t = torch.randint(
-            0, self.diffusion_model.num_timesteps, (batch_size,), device=device
-        ).long()
-        loss = self.diffusion_model.p_losses(
-            batch[self.input_key], t, classes=batch[self.target_key]
-        )
+        # batch_size, device = (
+        #     batch[self.input_key].shape[0],
+        #     batch[self.input_key].device,
+        # )
+        # t = torch.randint(
+        #     0, self.diffusion_model.num_timesteps, (batch_size,), device=device
+        # ).long()
+        # loss = self.diffusion_model.p_losses(
+        #     batch[self.input_key], t, classes=batch[self.target_key]
+        # )
+        loss = self.diffusion_model.forward(batch[self.input_key], classes=batch[self.target_key])
 
         self.log("train_loss", loss)
 
