@@ -4,7 +4,7 @@
 """Implement a Deep Ensemble Model for prediction."""
 
 import os
-from typing import Any, Union
+from typing import Any
 
 import torch
 from lightning import LightningModule
@@ -36,7 +36,7 @@ class DeepEnsemble(BaseModule):
     def __init__(
         self,
         n_ensemble_members: int,
-        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
+        ensemble_members: list[dict[str, type[LightningModule] | str]],
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
@@ -59,7 +59,7 @@ class DeepEnsemble(BaseModule):
         """Set up task."""
         pass
 
-    def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
+    def forward(self, X: Tensor) -> Tensor:
         """Forward step of Deep Ensemble.
 
         Args:
@@ -138,6 +138,8 @@ class DeepEnsembleRegression(DeepEnsemble):
 
         Args:
             X: input tensor of shape [batch_size, input_di]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             mean and standard deviation of MC predictions
@@ -176,7 +178,7 @@ class DeepEnsembleClassification(DeepEnsemble):
     def __init__(
         self,
         n_ensemble_members: int,
-        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
+        ensemble_members: list[dict[str, type[LightningModule] | str]],
         num_classes: int,
         task: str = "multiclass",
     ) -> None:
@@ -207,6 +209,8 @@ class DeepEnsembleClassification(DeepEnsemble):
 
         Args:
             X: input tensor of shape [batch_size, input_di]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             mean and standard deviation of MC predictions
@@ -254,6 +258,8 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
 
         Args:
             X: input tensor of shape [batch_size, input_di]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             mean and standard deviation of MC predictions
@@ -319,7 +325,7 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
         Args:
             outputs: dictionary of model outputs and aux variables
             batch: batch from dataloader
-            batch_idx: batch index
-            dataloader_idx: dataloader index
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
         """
         save_image_predictions(outputs, batch_idx, self.pred_dir)

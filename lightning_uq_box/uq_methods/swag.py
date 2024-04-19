@@ -29,7 +29,7 @@ import math
 import os
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -69,7 +69,7 @@ class SWAGBase(DeterministicModel):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        stochastic_module_names: Optional[list[Union[int, str]]] = None,
+        stochastic_module_names: list[int | str] | None = None,
     ) -> None:
         """Initialize a new instance of SWAG Model Wrapper.
 
@@ -353,7 +353,7 @@ class SWAGRegression(SWAGBase):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        stochastic_module_names: list[int] | list[str] | None = None,
     ) -> None:
         """Initialize a new instance of SWAG Model for Regression.
 
@@ -398,7 +398,7 @@ class SWAGRegression(SWAGBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Prediction step that with SWAG uncertainty.
 
         Args:
@@ -439,7 +439,7 @@ class SWAGClassification(SWAGBase):
         swag_lr: float,
         loss_fn: nn.Module,
         task: str = "multiclass",
-        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        stochastic_module_names: list[int] | list[str] | None = None,
     ) -> None:
         """Initialize a new instance of SWAG Model for Classification.
 
@@ -488,11 +488,13 @@ class SWAGClassification(SWAGBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Prediction step with SWAG uncertainty.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             prediction dictionary
@@ -534,7 +536,7 @@ class SWAGSegmentation(SWAGClassification):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Prediction step with SWAG uncertainty.
 
         Args:

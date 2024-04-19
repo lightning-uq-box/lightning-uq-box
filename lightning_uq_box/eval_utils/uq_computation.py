@@ -137,7 +137,7 @@ def compute_empirical_coverage(quantile_preds: Tensor, targets: Tensor):
 
     Args:
       quantile_preds: predicted quantiles
-      labels: regression targets
+      targets: regression targets
 
     Returns:
       computed empirical coverage over all samples

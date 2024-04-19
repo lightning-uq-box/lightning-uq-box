@@ -13,7 +13,6 @@ to be integrated with Lightning and port several functions to pytorch.
 
 import os
 from functools import partial
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -48,12 +47,12 @@ class RAPS(PosthocBase):
 
     def __init__(
         self,
-        model: Union[LightningModule, nn.Module],
+        model: LightningModule | nn.Module,
         optim_lr: float = 0.01,
         max_iter: int = 50,
         alpha: float = 0.1,
-        kreg: Optional[int] = None,
-        lamda_param: Optional[float] = None,
+        kreg: int | None = None,
+        lamda_param: float | None = None,
         randomized: bool = False,
         allow_zero_sets: bool = False,
         pct_param_tune: float = 0.3,
@@ -144,6 +143,8 @@ class RAPS(PosthocBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             logits and conformalized prediction sets
@@ -452,8 +453,8 @@ class ConformalModelLogits(nn.Module):
         calib_loader: DataLoader,
         loss_fn: nn.Module,
         alpha: float,
-        kreg: Optional[int] = None,
-        lamda: Optional[float] = None,
+        kreg: int | None = None,
+        lamda: float | None = None,
         randomized: bool = False,
         allow_zero_sets: bool = False,
     ):
@@ -507,8 +508,8 @@ class ConformalModelLogits(nn.Module):
     def forward(
         self,
         logits: Tensor,
-        randomized: Optional[bool] = None,
-        allow_zero_sets: Optional[bool] = None,
+        randomized: bool | None = None,
+        allow_zero_sets: bool | None = None,
     ):
         """Forward pass.
 
@@ -664,13 +665,13 @@ def get_single_tau(
     """Get tau for one example.
 
     Args:
-        target:
-        sorted_score_indices:
-        ordered:
-        cumsum:
-        penalty:
-        randomized:
-        allow_zero_sets:
+        target: target label
+        sorted_score_indices: shape [batch_size x num_classes]
+        ordered: shape [batch_size x num_classes]
+        cumsum: shape [batch_size x num_classes]
+        penalty: shape [1 x num_classes]
+        randomized: whether to use randomized version of conformal prediction
+        allow_zero_sets: whether to allow sets of size zero
 
     Returns:
         single tau

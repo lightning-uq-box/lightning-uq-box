@@ -56,6 +56,8 @@ class MVEBase(DeterministicModel):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss

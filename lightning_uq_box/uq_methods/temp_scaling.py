@@ -5,7 +5,6 @@ Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperat
 
 import os
 from functools import partial
-from typing import Dict, Optional, Union
 
 import torch
 import torch.nn as nn
@@ -32,7 +31,7 @@ class TempScaling(PosthocBase):
 
     def __init__(
         self,
-        model: Union[LightningModule, nn.Module],
+        model: LightningModule | nn.Module,
         optim_lr: float = 0.01,
         max_iter: int = 50,
         task: str = "multiclass",
@@ -93,7 +92,7 @@ class TempScaling(PosthocBase):
 
         self.post_hoc_fitted = True
 
-    def predict_step(self, X: Tensor) -> Dict[str, Tensor]:
+    def predict_step(self, X: Tensor) -> dict[str, Tensor]:
         """Prediction step with applied temperature scaling.
 
         Args:
@@ -167,7 +166,7 @@ def run_temperature_optimization(
     criterion: nn.Module,
     temperature: nn.Parameter,
     optimizer: type[torch.optim.Optimizer] = partial(LBFGS, lr=0.01, max_iter=50),
-    max_iter: Optional[int] = 50,
+    max_iter: int | None = 50,
 ) -> Tensor:
     """Run temperature optimization.
 

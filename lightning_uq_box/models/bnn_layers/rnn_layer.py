@@ -158,7 +158,8 @@ class LSTMVariational(BaseVariationalLayer_):
         """Forward pass through layer.
 
         Args:
-            x: input.
+            X: input
+            hidden_states: hidden states
 
         Returns:
             outputs of layer.

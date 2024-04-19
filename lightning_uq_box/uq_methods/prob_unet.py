@@ -22,7 +22,7 @@
 """Probabilistic U-Net."""
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -57,7 +57,7 @@ class ProbUNet(BaseModule):
         self,
         model: nn.Module,
         latent_dim: int = 6,
-        num_filters: List[int] = [32, 64, 128, 192],
+        num_filters: list[int] = [32, 64, 128, 192],
         num_convs_per_block: int = 3,
         num_convs_fcomb: int = 4,
         fcomb_filter_size: int = 32,
@@ -65,7 +65,7 @@ class ProbUNet(BaseModule):
         num_samples: int = 5,
         task: str = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of ProbUNet.
 
@@ -140,11 +140,11 @@ class ProbUNet(BaseModule):
             prefix="test", num_classes=self.num_classes, task=self.task
         )
 
-    def compute_loss(self, batch: Dict[str, Tensor]) -> Dict[str, Tensor]:
+    def compute_loss(self, batch: dict[str, Tensor]) -> dict[str, Tensor]:
         """Compute the evidence lower bound (ELBO) of the log-likelihood of P(Y|X).
 
         Args:
-            seg_mask: segmentation target mask
+            batch: batch of data with input and target key
 
         Returns:
             A dictionary containing the total loss,
@@ -190,7 +190,7 @@ class ProbUNet(BaseModule):
         }
 
     def kl_divergence(
-        self, analytic: bool = True, z_posterior: Optional[Tensor] = None
+        self, analytic: bool = True, z_posterior: Tensor | None = None
     ) -> Tensor:
         """Compute the KL divergence between the posterior and prior KL(Q||P).
 
@@ -217,7 +217,7 @@ class ProbUNet(BaseModule):
         return kl_div
 
     def reconstruct(
-        self, use_posterior_mean: bool = False, z_posterior: Optional[Tensor] = None
+        self, use_posterior_mean: bool = False, z_posterior: Tensor | None = None
     ) -> Tensor:
         """Reconstruct a segmentation from a posterior sample.
 
@@ -261,6 +261,8 @@ class ProbUNet(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -312,7 +314,7 @@ class ProbUNet(BaseModule):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Compute and return the test loss.
 
         Args:
@@ -363,7 +365,7 @@ class ProbUNet(BaseModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Compute and return the prediction.
 
         Args:

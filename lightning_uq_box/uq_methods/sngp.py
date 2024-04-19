@@ -7,7 +7,6 @@
 
 import math
 import os
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -57,7 +56,7 @@ class SNGPBase(BaseModule):
         ridge_penalty: float = 1.0,
         coeff: float = 0.95,
         n_power_iterations: int = 1,
-        input_size: Optional[int] = None,
+        input_size: int | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -365,8 +364,8 @@ class SNGPClassification(SNGPBase):
         ridge_penalty: float = 1,
         coeff: float = 0.95,
         n_power_iterations: int = 1,
-        input_size: Optional[int] = None,
-        mean_field_factor: Optional[float] = math.pi / 8,
+        input_size: int | None = None,
+        mean_field_factor: float | None = math.pi / 8,
         task: str = "multiclass",
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = Adam,
@@ -493,10 +492,7 @@ class RandomFourierFeatures(nn.Module):
     """Random Fourier Features for Gaussian Processes."""
 
     def __init__(
-        self,
-        in_dim: int,
-        num_random_features: int,
-        feature_scale: Optional[float] = None,
+        self, in_dim: int, num_random_features: int, feature_scale: float | None = None
     ):
         """Initialize a new instance Random Fourier Features for GP.
 
