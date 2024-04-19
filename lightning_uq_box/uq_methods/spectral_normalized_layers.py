@@ -621,11 +621,9 @@ def spectral_norm_fc(
     if dim is None:
         if isinstance(
             module,
-            (
-                torch.nn.ConvTranspose1d,
-                torch.nn.ConvTranspose2d,
-                torch.nn.ConvTranspose3d,
-            ),
+            torch.nn.ConvTranspose1d
+            | torch.nn.ConvTranspose2d
+            | torch.nn.ConvTranspose3d,
         ):
             dim = 1
         else:
