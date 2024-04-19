@@ -10,7 +10,7 @@
 
 import json
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch
@@ -49,7 +49,7 @@ class Img2ImgConformal(PosthocBase):
 
     def __init__(
         self,
-        model: Union[LightningModule, nn.Module],
+        model: LightningModule | nn.Module,
         alpha: float = 0.1,
         delta: float = 0.1,
         min_lambda: float = 0.0,
@@ -88,7 +88,7 @@ class Img2ImgConformal(PosthocBase):
         """Set up task specific attributes."""
         self.test_metrics = default_px_regression_metrics("test")
 
-    def forward(self, X: Tensor, lam: Optional[float]) -> dict[str, Tensor]:
+    def forward(self, X: Tensor, lam: float | None) -> dict[str, Tensor]:
         """Forward pass of model.
 
         Args:
@@ -113,7 +113,7 @@ class Img2ImgConformal(PosthocBase):
 
         return pred
 
-    def adjust_model_logits(self, output: Tensor, lam: Optional[float] = None) -> tuple:
+    def adjust_model_logits(self, output: Tensor, lam: float | None = None) -> tuple:
         """Compute the nested sets from the output of the model.
 
         Args:
@@ -336,7 +336,7 @@ class Img2ImgConformal(PosthocBase):
         ) as f:
             json.dump(metrics, f)
 
-    def predict_step(self, X: Tensor, lam: Optional[float] = None) -> dict[str, Tensor]:
+    def predict_step(self, X: Tensor, lam: float | None = None) -> dict[str, Tensor]:
         """Prediction step with applied temperature scaling.
 
         Args:

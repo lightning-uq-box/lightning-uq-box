@@ -4,7 +4,7 @@
 """Implement a Deep Ensemble Model for prediction."""
 
 import os
-from typing import Any, Union
+from typing import Any
 
 import torch
 from lightning import LightningModule
@@ -36,7 +36,7 @@ class DeepEnsemble(BaseModule):
     def __init__(
         self,
         n_ensemble_members: int,
-        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
+        ensemble_members: list[dict[str, type[LightningModule] | str]],
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
@@ -178,7 +178,7 @@ class DeepEnsembleClassification(DeepEnsemble):
     def __init__(
         self,
         n_ensemble_members: int,
-        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
+        ensemble_members: list[dict[str, type[LightningModule] | str]],
         num_classes: int,
         task: str = "multiclass",
     ) -> None:

@@ -4,7 +4,6 @@
 """Metrics for uncertainty quantification."""
 
 # TODO eventually these can hopefully be moved to torchmetrics
-from typing import Optional, Union
 
 import torch
 from torch import Tensor
@@ -14,7 +13,7 @@ from torchmetrics import Metric
 class EmpiricalCoverageBase(Metric):
     """Empirical Coverage."""
 
-    def __init__(self, alpha: float = 0.1, topk: Optional[int] = 1, **kwargs):
+    def __init__(self, alpha: float = 0.1, topk: int | None = 1, **kwargs):
         """Initialize a new instance of Empirical Coverage Metric.
 
         Args:
@@ -32,7 +31,7 @@ class EmpiricalCoverageBase(Metric):
         self.topk = topk
 
     def update(
-        self, pred_set: Union[list[torch.Tensor], Tensor], targets: torch.Tensor
+        self, pred_set: list[torch.Tensor] | Tensor, targets: torch.Tensor
     ) -> None:
         """Update the state with the prediction set and targets.
 

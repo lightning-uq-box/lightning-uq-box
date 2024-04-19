@@ -4,7 +4,6 @@
 """Visualization utils for Lightning-UQ-Box."""
 
 import os
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -153,11 +152,11 @@ def plot_predictions_regression(
     X_test: np.ndarray,
     y_test: np.ndarray,
     y_pred: np.ndarray,
-    pred_std: Optional[np.ndarray] = None,
-    pred_quantiles: Optional[np.ndarray] = None,
-    epistemic: Optional[np.ndarray] = None,
-    aleatoric: Optional[np.ndarray] = None,
-    samples: Optional[np.ndarray] = None,
+    pred_std: np.ndarray | None = None,
+    pred_quantiles: np.ndarray | None = None,
+    epistemic: np.ndarray | None = None,
+    aleatoric: np.ndarray | None = None,
+    samples: np.ndarray | None = None,
     title: str = None,
     show_bands: bool = True,
 ) -> plt.Figure:
