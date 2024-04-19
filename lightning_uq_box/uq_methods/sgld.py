@@ -55,18 +55,18 @@ class SGLD(Optimizer):
         super().__init__(params, defaults)
         self.lr = lr
 
-    def step(self, closure: callable | None = None):
+    def step(self, closure: callable):
         """Perform a single optimization step.
 
         Args:
-            closure (callable, optional): A closure that reevaluates the model
+            closure: A closure that reevaluates the model
 
         Returns:
             updated loss
         """
         loss = None
-        if closure is not None:
-            loss = closure()
+        # if closure is not None:
+        loss = closure()
 
         for group in self.param_groups:
             weight_decay = group["weight_decay"]
