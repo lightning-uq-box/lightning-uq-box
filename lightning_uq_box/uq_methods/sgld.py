@@ -7,7 +7,7 @@
 
 import os
 from collections.abc import Iterator
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -55,7 +55,7 @@ class SGLD(Optimizer):
         super().__init__(params, defaults)
         self.lr = lr
 
-    def step(self, closure: Optional[callable] = None):
+    def step(self, closure: callable | None = None):
         """Perform a single optimization step.
 
         Args:
