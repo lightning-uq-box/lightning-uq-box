@@ -5,7 +5,7 @@
 
 import math
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 import einops
 import numpy as np
@@ -48,7 +48,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         model: nn.Module,
         latent_net: nn.Module,
         num_training_points: int,
-        prediction_head: Optional[nn.Module] = None,
+        prediction_head: nn.Module | None = None,
         latent_variable_intro: str = "first",
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
@@ -64,7 +64,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         lv_prior_std: float = 1.0,
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        stochastic_module_names: list[str | int] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -168,7 +168,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                 )
 
             lv_init_std = math.sqrt(module.in_features)
-            new_init_args: dict[str, Union[str, int, float]] = {}
+            new_init_args: dict[str, str | int | float] = {}
             new_init_args["in_features"] = (
                 module.in_features + self.hparams.lv_latent_dim
             )
@@ -254,7 +254,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         )
 
     def forward(
-        self, X: Tensor, y: Optional[Tensor] = None, training: bool = True
+        self, X: Tensor, y: Tensor | None = None, training: bool = True
     ) -> Tensor:
         """Forward pass BNN LV.
 
@@ -517,7 +517,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         model: nn.Module,
         latent_net: nn.Module,
         num_training_points: int,
-        prediction_head: Optional[nn.Module] = None,
+        prediction_head: nn.Module | None = None,
         latent_variable_intro: str = "first",
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
@@ -533,7 +533,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         lv_prior_std: float = 1,
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        stochastic_module_names: list[str | int] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -616,7 +616,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
     def forward(
         self,
         X: Tensor,
-        y: Optional[Tensor] = None,
+        y: Tensor | None = None,
         n_samples: int = 5,
         training: bool = True,
     ) -> Tensor:
@@ -689,7 +689,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         X: Tensor,
         batch_idx: int = 0,
         dataloader_idx: int = 0,
-        n_samples_pred: Optional[int] = None,
+        n_samples_pred: int | None = None,
     ) -> dict[str, Tensor]:
         """Prediction step.
 

@@ -6,7 +6,6 @@
 import copy
 import math
 import os
-from typing import Union
 
 import torch
 import torch.nn as nn
@@ -63,7 +62,7 @@ class ConformalQR(PosthocBase):
 
     def __init__(
         self,
-        model: Union[nn.Module, LightningModule],
+        model: nn.Module | LightningModule,
         quantiles: list[float] = [0.1, 0.5, 0.9],
         alpha: float = 0.1,
     ) -> None:
@@ -111,7 +110,7 @@ class ConformalQR(PosthocBase):
         return pred
 
     def adjust_model_logits(
-        self, model_output: Union[dict[str, Tensor], Tensor]
+        self, model_output: dict[str, Tensor] | Tensor
     ) -> dict[str, Tensor]:
         """Conformalize underlying model output.
 

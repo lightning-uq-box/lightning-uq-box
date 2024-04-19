@@ -39,7 +39,7 @@ adjusted to be trained with the Energy Loss and support batched inputs.
 """
 
 import math
-from typing import Any, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -62,7 +62,7 @@ def bnn_linear_layer(params: dict[str, Any], linear_layer: nn.Linear) -> nn.Modu
 
 
 def bnn_conv_layer(
-    params: dict[str, Any], conv_layer: Union[nn.Conv1d, nn.Conv2d, nn.Conv3d]
+    params: dict[str, Any], conv_layer: nn.Conv1d | nn.Conv2d | nn.Conv3d
 ) -> nn.Module:
     """Convert deterministic convolutional layer to bayesian convolutional layer."""
     layer = conv_layer.__class__.__name__ + "Variational"

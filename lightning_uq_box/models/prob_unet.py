@@ -22,7 +22,7 @@
 
 """Probabilistic UNet Model parts."""
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -196,7 +196,7 @@ class AxisAlignedConvGaussian(nn.Module):
         )
         nn.init.normal_(self.conv_layer.bias)
 
-    def forward(self, input: Tensor, segm: Optional[Tensor] = None) -> Independent:
+    def forward(self, input: Tensor, segm: Tensor | None = None) -> Independent:
         """Forward pass of the AxisAlignedConvGaussian network.
 
         Args:
