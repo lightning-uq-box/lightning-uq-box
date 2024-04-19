@@ -28,6 +28,7 @@ model_config_paths = [
     "tests/configs/image_classification/laplace.yaml",
     "tests/configs/image_classification/card.yaml",
     "tests/configs/image_classification/sngp.yaml",
+    "tests/configs/image_classification/vbll.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_classification/toy_classification.yaml"]

@@ -5,7 +5,7 @@
 
 """Variational Bayesian Last Layer (VBLL)."""
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -14,7 +14,7 @@ from torch import Tensor
 from torch.nn.modules import Module
 
 from .base import DeterministicClassification, DeterministicRegression
-from .utils import _get_output_layer_name_and_module
+from .utils import _get_output_layer_name_and_module, default_classification_metrics
 
 
 class VBLLRegression(DeterministicRegression):
@@ -37,7 +37,7 @@ class VBLLRegression(DeterministicRegression):
         dof: int = 1,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize the VBLL regression model.
 
@@ -75,7 +75,6 @@ class VBLLRegression(DeterministicRegression):
         self.prior_scale = prior_scale
         self.wishart_scale = wishart_scale
         self.dof = dof
-
         self.build_model()
 
     def build_model(self) -> None:
@@ -234,7 +233,21 @@ class VBLLClassification(DeterministicClassification):
             regularization_weight : regularization weight term in ELBO, and should be
                 1 / (dataset size) by default. This term impacts the epistemic
                 uncertainty estimate.
+            num_targets : Number of targets
+            parameterization : Parameterization of covariance matrix. One of
+                ['dense','diagonal']
+            prior_scale : prior covariance matrix scale
+                Scale of prior covariance matrix
+            wishart_scale : Scale of Wishart prior on noise covariance. This term
+                has an impact on the aleatoric uncertainty estimate.
+            dof : Degrees of freedom of Wishart prior on noise covariance
+            freeze_backbone: If True, the backbone model will be frozen
+                and only the VBBL layer will be trained
+            task: The type of task. One of ['binary', 'multiclass']
+            optimizer: The optimizer to use for training
+            lr_scheduler: The learning rate scheduler to use for training
         """
+        self.num_targets = num_targets
         super().__init__(model, None, task, freeze_backbone, optimizer, lr_scheduler)
 
         try:
@@ -245,7 +258,6 @@ class VBLLClassification(DeterministicClassification):
             )
 
         self.regularization_weight = regularization_weight
-        self.num_targets = num_targets
         self.parameterization = parameterization
         self.prior_scale = prior_scale
         self.wishart_scale = wishart_scale
@@ -270,6 +282,20 @@ class VBLLClassification(DeterministicClassification):
                 wishart_scale=self.wishart_scale,
                 dof=self.dof,
             ),
+        )
+
+        self.num_classes = self.num_targets
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.train_metrics = default_classification_metrics(
+            "train", self.task, self.num_targets
+        )
+        self.val_metrics = default_classification_metrics(
+            "val", self.task, self.num_targets
+        )
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, self.num_targets
         )
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
@@ -367,11 +393,10 @@ class VBLLClassification(DeterministicClassification):
             pred = self.model(X)
 
         probs = pred.predictive.probs
-        softmax_probs = nn.functional.softmax(probs, dim=-1)
 
-        entropy = -(softmax_probs * softmax_probs.log()).sum(dim=-1)
+        entropy = -(probs * probs.log()).sum(dim=-1)
 
-        return {"pred": softmax_probs, "pred_uct": entropy, "logits": probs}
+        return {"pred": probs, "pred_uct": entropy, "out": pred}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Configure Optimizers."""
