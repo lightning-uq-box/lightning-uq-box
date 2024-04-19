@@ -4,7 +4,7 @@
 """Implement Quantile Regression Model."""
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -35,7 +35,7 @@ class QuantileRegressionBase(DeterministicModel):
     def __init__(
         self,
         model: nn.Module,
-        loss_fn: Optional[nn.Module] = None,
+        loss_fn: nn.Module | None = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -82,7 +82,7 @@ class QuantileRegression(QuantileRegressionBase):
     def __init__(
         self,
         model: nn.Module,
-        loss_fn: Optional[nn.Module] = None,
+        loss_fn: nn.Module | None = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -183,7 +183,7 @@ class QuantilePxRegression(QuantileRegressionBase):
     def __init__(
         self,
         model: nn.Module,
-        loss_fn: Optional[nn.Module] = None,
+        loss_fn: nn.Module | None = None,
         quantiles: list[float] = [0.1, 0.5, 0.9],
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,

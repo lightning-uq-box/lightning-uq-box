@@ -4,7 +4,7 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 import einops
 import torch
@@ -52,7 +52,7 @@ class BNN_VI_Base(DeterministicModel):
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
         bayesian_layer_type: str = "reparameterization",
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        stochastic_module_names: list[str | int] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -295,7 +295,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         posterior_rho_init: float = -5,
         alpha: float = 1,
         bayesian_layer_type: str = "reparameterization",
-        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        stochastic_module_names: list[int] | list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -472,7 +472,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         posterior_rho_init: float = -5,
         alpha: float = 1,
         bayesian_layer_type: str = "reparameterization",
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        stochastic_module_names: list[str | int] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,

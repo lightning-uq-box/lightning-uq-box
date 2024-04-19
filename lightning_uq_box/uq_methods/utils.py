@@ -5,7 +5,7 @@
 
 import os
 from collections import OrderedDict
-from typing import Callable, Optional, Union
+from collections.abc import Callable
 
 import h5py
 import numpy as np
@@ -37,7 +37,7 @@ from .metrics import EmpiricalCoverage
 
 def checkpoint_loader(
     model_class: LightningModule, ckpt_path: str, return_model: bool = False
-) -> Union[LightningModule, nn.Module]:
+) -> LightningModule | nn.Module:
     """Load state dict checkpoint for LightningModule.
 
     Args:
@@ -102,7 +102,7 @@ def default_segmentation_metrics(prefix: str, task: str, num_classes: int):
 
 def process_regression_prediction(
     preds: Tensor,
-    quantiles: Optional[list[float]] = None,
+    quantiles: list[float] | None = None,
     aggregate_fn: Callable = torch.mean,
 ) -> dict[str, Tensor]:
     """Process regression predictions that could be mse or nll predictions.
@@ -313,7 +313,7 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
 
 
 def map_stochastic_modules(
-    model: nn.Module, stochastic_module_names: Union[None, list[str, int]]
+    model: nn.Module, stochastic_module_names: None | list[str, int]
 ) -> list[str]:
     """Retrieve desired stochastic module names from user arg.
 

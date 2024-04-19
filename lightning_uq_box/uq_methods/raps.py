@@ -13,7 +13,6 @@ to be integrated with Lightning and port several functions to pytorch.
 
 import os
 from functools import partial
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -48,12 +47,12 @@ class RAPS(PosthocBase):
 
     def __init__(
         self,
-        model: Union[LightningModule, nn.Module],
+        model: LightningModule | nn.Module,
         optim_lr: float = 0.01,
         max_iter: int = 50,
         alpha: float = 0.1,
-        kreg: Optional[int] = None,
-        lamda_param: Optional[float] = None,
+        kreg: int | None = None,
+        lamda_param: float | None = None,
         randomized: bool = False,
         allow_zero_sets: bool = False,
         pct_param_tune: float = 0.3,
@@ -454,8 +453,8 @@ class ConformalModelLogits(nn.Module):
         calib_loader: DataLoader,
         loss_fn: nn.Module,
         alpha: float,
-        kreg: Optional[int] = None,
-        lamda: Optional[float] = None,
+        kreg: int | None = None,
+        lamda: float | None = None,
         randomized: bool = False,
         allow_zero_sets: bool = False,
     ):
@@ -509,8 +508,8 @@ class ConformalModelLogits(nn.Module):
     def forward(
         self,
         logits: Tensor,
-        randomized: Optional[bool] = None,
-        allow_zero_sets: Optional[bool] = None,
+        randomized: bool | None = None,
+        allow_zero_sets: bool | None = None,
     ):
         """Forward pass.
 

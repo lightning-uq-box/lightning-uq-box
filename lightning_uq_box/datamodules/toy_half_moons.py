@@ -3,8 +3,6 @@
 
 """Two Moons Toy Classification Datamodule."""
 
-from typing import Optional
-
 import numpy as np
 import torch
 from lightning import LightningDataModule
@@ -31,7 +29,7 @@ class TwoMoonsDataModule(LightningDataModule):
 
         self.setup()
 
-    def setup(self, stage: Optional[str] = None):
+    def setup(self, stage: str | None = None):
         """Set up the DataModule.
 
         Args:

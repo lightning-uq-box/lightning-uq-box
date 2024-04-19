@@ -4,7 +4,7 @@
 """Bayesian Neural Networks with Variational Inference."""
 
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -54,7 +54,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         posterior_mu_init: float = 0.0,
         posterior_rho_init: float = -5.0,
         bayesian_layer_type: str = "reparameterization",
-        stochastic_module_names: Optional[list[Union[int, str]]] = None,
+        stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -315,7 +315,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
-        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        stochastic_module_names: list[int] | list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -454,7 +454,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
-        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        stochastic_module_names: list[int] | list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -599,7 +599,7 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
         posterior_mu_init: float = 0,
         posterior_rho_init: float = -5,
         bayesian_layer_type: str = "reparameterization",
-        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        stochastic_module_names: list[int] | list[str] | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
