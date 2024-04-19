@@ -4,7 +4,6 @@
 """Utility functions for BNN+VI/LV implementation."""
 
 import inspect
-from typing import Union
 
 import torch.nn as nn
 
@@ -97,7 +96,7 @@ def replace_module(model: nn.Module, module_name: str, new_module: nn.Module) ->
 
 def retrieve_module_init_args(
     current_module: type[nn.Module],
-) -> dict[str, Union[str, float, int, bool]]:
+) -> dict[str, str | float | int | bool]:
     """Reinitialize a new layer with arguments.
 
     Args:
@@ -107,7 +106,7 @@ def retrieve_module_init_args(
         nn.Modules init args
     """
     current_init_arg_names = list(inspect.signature(current_module.__init__).parameters)
-    current_args: dict[str, Union[str, float, int, bool]] = {}
+    current_args: dict[str, str | float | int | bool] = {}
     for name in current_init_arg_names:
         if name == "bias":
             current_args[name] = current_module.bias is not None

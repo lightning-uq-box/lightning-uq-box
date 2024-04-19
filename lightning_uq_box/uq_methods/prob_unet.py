@@ -22,7 +22,7 @@
 """Probabilistic U-Net."""
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -65,7 +65,7 @@ class ProbUNet(BaseModule):
         num_samples: int = 5,
         task: str = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of ProbUNet.
 
@@ -190,7 +190,7 @@ class ProbUNet(BaseModule):
         }
 
     def kl_divergence(
-        self, analytic: bool = True, z_posterior: Optional[Tensor] = None
+        self, analytic: bool = True, z_posterior: Tensor | None = None
     ) -> Tensor:
         """Compute the KL divergence between the posterior and prior KL(Q||P).
 
@@ -217,7 +217,7 @@ class ProbUNet(BaseModule):
         return kl_div
 
     def reconstruct(
-        self, use_posterior_mean: bool = False, z_posterior: Optional[Tensor] = None
+        self, use_posterior_mean: bool = False, z_posterior: Tensor | None = None
     ) -> Tensor:
         """Reconstruct a segmentation from a posterior sample.
 

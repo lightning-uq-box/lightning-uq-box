@@ -8,7 +8,7 @@ Based on official PyTorch implementation from https://github.com/XzwHan/CARD # n
 
 import math
 import os
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import torch
@@ -426,7 +426,7 @@ class CARDBase(BaseModule):
         alphas_bar_sqrt: Tensor,
         one_minus_alphas_bar_sqrt: Tensor,
         t: int,
-        noise: Optional[Tensor] = None,
+        noise: Tensor | None = None,
     ) -> Tensor:
         """Q sampling process.
 

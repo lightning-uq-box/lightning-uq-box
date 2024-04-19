@@ -4,7 +4,8 @@
 """Test Time Augmentation (TTA)."""
 
 import os
-from typing import Any, Callable, Literal, Optional, Union
+from collections.abc import Callable
+from typing import Any, Literal
 
 import kornia.augmentation as K
 import torch
@@ -61,8 +62,8 @@ class TTABase(PosthocBase):
 
     def __init__(
         self,
-        model: Union[LightningModule, nn.Module],
-        tt_augmentation: Optional[list[Callable]] = None,
+        model: LightningModule | nn.Module,
+        tt_augmentation: list[Callable] | None = None,
         merge_strategy: Literal["mean", "median", "sum", "max", "min"] = "mean",
     ) -> None:
         """Initialize a new instance of TTA module.
@@ -137,7 +138,7 @@ class TTABase(PosthocBase):
         """
         self.eval()
 
-        def yield_prediction(X: Tensor) -> Union[Tensor, dict[str, Tensor]]:
+        def yield_prediction(X: Tensor) -> Tensor | dict[str, Tensor]:
             """Yield prediction depending on underlying model."""
             with torch.no_grad():
                 if hasattr(self.model, "predict_step"):
@@ -146,7 +147,7 @@ class TTABase(PosthocBase):
                     pred = self.model(X)
             return pred
 
-        aug_predictions: Union[list[Tensor], list[dict[str, Tensor]]] = []
+        aug_predictions: list[Tensor] | list[dict[str, Tensor]] = []
         if aug is None:
             aug = self.tt_augmentation
         # first prediction with no augmentation
@@ -208,8 +209,8 @@ class TTARegression(TTABase):
 
     def __init__(
         self,
-        model: Union[LightningModule, nn.Module],
-        tt_augmentation: Optional[list[Callable[..., Any]]] = None,
+        model: LightningModule | nn.Module,
+        tt_augmentation: list[Callable[..., Any]] | None = None,
         merge_strategy: Literal["mean", "median", "sum", "max", "min"] = "mean",
     ) -> None:
         """Initialize a new instance of TTA Regression module.
@@ -297,8 +298,8 @@ class TTAClassification(TTABase):
 
     def __init__(
         self,
-        model: Union[LightningModule, nn.Module],
-        tt_augmentation: Optional[list[Callable[..., Any]]] = None,
+        model: LightningModule | nn.Module,
+        tt_augmentation: list[Callable[..., Any]] | None = None,
         merge_strategy: Literal["mean", "median", "sum", "max", "min"] = "mean",
         task: Literal["binary", "multiclass", "multilable"] = "multiclass",
     ) -> None:
