@@ -162,6 +162,8 @@ class ProbUNet(BaseModule):
 
             # channel dimension for concatenation
             seg_mask = seg_mask.unsqueeze(1)
+        else:
+            seg_mask_target = seg_mask
 
         self.posterior_latent_space = self.posterior.forward(img, seg_mask)
         self.prior_latent_space = self.prior.forward(img)
@@ -179,7 +181,7 @@ class ProbUNet(BaseModule):
         rec_loss_sum = torch.sum(rec_loss)
         rec_loss_mean = torch.mean(rec_loss)
 
-        loss = (rec_loss_sum + self.beta * kl_loss)
+        loss = rec_loss_sum + self.beta * kl_loss
 
         return {
             "loss": loss,
