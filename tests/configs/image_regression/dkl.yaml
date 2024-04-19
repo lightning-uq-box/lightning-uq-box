@@ -1,11 +1,11 @@
-model:
+uq_method:
   _target_: lightning_uq_box.uq_methods.DKLRegression
   feature_extractor:
     _target_: timm.create_model
     model_name: resnet18
     num_classes: 1
   num_targets: 1
-  gp_kernel: "RBF"
+  gp_kernel: "Matern12"
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true

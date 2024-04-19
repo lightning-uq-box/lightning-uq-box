@@ -12,7 +12,7 @@ from omegaconf import OmegaConf
 from torch import Tensor
 
 model_config_paths = [
-    "tests/configs/diffusion_models/ddpm.yaml",
+    "tests/configs/diffusion_models/ddpm.yaml"
     # "tests/configs/diffusion_models/guided_ddpm.yaml",
     # "tests/configs/diffusion_models/guidance_free_ddpm.yaml",
 ]

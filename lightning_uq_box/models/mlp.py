@@ -1,9 +1,7 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Simple MLP for Toy Problems."""
-
-from typing import Optional
 
 import torch.nn as nn
 from torch import Tensor
@@ -18,7 +16,7 @@ class MLP(nn.Module):
         n_inputs: int = 1,
         n_hidden: list[int] = [100],
         n_outputs: int = 1,
-        activation_fn: Optional[nn.Module] = None,
+        activation_fn: nn.Module | None = None,
     ) -> None:
         """Initialize a new instance of MLP.
 

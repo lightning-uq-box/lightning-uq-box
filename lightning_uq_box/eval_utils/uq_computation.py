@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Utilities for computing Uncertainties."""
 
@@ -38,8 +38,8 @@ def compute_epistemic_uncertainty(sample_mean_preds: Tensor) -> Tensor:
     Returns:
       epistemic uncertainty for each sample
     """
-    right_term = sample_mean_preds.mean(1) ** 2
-    return torch.sqrt((sample_mean_preds**2).mean(axis=1) - right_term)
+    right_term = sample_mean_preds.mean(-1) ** 2
+    return torch.sqrt((sample_mean_preds**2).mean(axis=-1) - right_term)
 
 
 def compute_aleatoric_uncertainty(sample_sigma_preds: Tensor) -> Tensor:
@@ -132,17 +132,18 @@ def compute_quantiles_from_std(
     return quantiles
 
 
-def compute_empirical_coverage(quantile_preds: np.ndarray, targets: np.ndarray):
+def compute_empirical_coverage(quantile_preds: Tensor, targets: Tensor):
     """Compute the empirical coverage.
 
     Args:
       quantile_preds: predicted quantiles
-      labels: regression targets
+      targets: regression targets
 
     Returns:
       computed empirical coverage over all samples
     """
-    targets = targets.squeeze()
+    assert quantile_preds.dim() == targets.dim(), "Dimension mismatch."
     return (
-        (targets >= quantile_preds[:, 0]) & (targets <= quantile_preds[:, -1])
-    ).mean()
+        (targets >= quantile_preds[:, 0:1, ...])
+        & (targets <= quantile_preds[:, -1, ...].unsqueeze(1))
+    ).sum() / targets.shape[0]

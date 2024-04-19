@@ -1,6 +1,6 @@
 # BSD 3-Clause License
 
-# Copyright (c) 2023, Intel Labs
+# Copyright (c) 2024, Intel Labs
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,12 +28,16 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the Apache License 2.0.
+
 """Base Variational Layers.
 
 These are based on the Bayesian-torch library
 https://github.com/IntelLabs/bayesian-torch (BSD-3 clause) but
 adjusted to be trained with the Energy Loss and support batched inputs.
 """
+
 import math
 
 import torch

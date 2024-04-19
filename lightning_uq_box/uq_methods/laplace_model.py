@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Laplace Approximation model."""
 
@@ -38,8 +38,9 @@ def tune_prior_precision(
         tune_precision_lr: learning rate for tuning prior precision
         n_epochs_tune_precision: number of epochs to tune prior precision
     """
-    log_prior, log_sigma = torch.ones(1, requires_grad=True), torch.ones(
-        1, requires_grad=True
+    log_prior, log_sigma = (
+        torch.ones(1, requires_grad=True),
+        torch.ones(1, requires_grad=True),
     )
     hyper_optimizer = torch.optim.Adam([log_prior, log_sigma], lr=tune_precision_lr)
     bar = trange(n_epochs_tune_precision)
@@ -133,6 +134,7 @@ class LaplaceBase(BaseModule):
 
         Args:
             X: tensor of data to run through the model [batch_size, input_dim]
+            kwargs: additional arguments for laplace forward pass
 
         Returns:
             output from the laplace model
@@ -228,9 +230,10 @@ class LaplaceBase(BaseModule):
 class LaplaceRegression(LaplaceBase):
     """Laplace Approximation Wrapper for regression.
 
-    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_. # noqa: E501
+    This is a lightning module wrapper for the
+    `Laplace library <https://aleximmer.github.io/Laplace/>`_.
 
-    If you use this model in your research, please cite the following papers:
+    If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2106.14806
     """
@@ -258,6 +261,8 @@ class LaplaceRegression(LaplaceBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             prediction dictionary
@@ -279,9 +284,7 @@ class LaplaceRegression(LaplaceBase):
                 torch.ones_like(laplace_epistemic)
                 * self.laplace_model.sigma_noise.item()
             )
-            laplace_predictive = torch.sqrt(
-                laplace_epistemic**2 + laplace_aleatoric**2
-            )
+            laplace_predictive = torch.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
 
         return {
             "pred": laplace_mean,
@@ -308,9 +311,10 @@ class LaplaceRegression(LaplaceBase):
 class LaplaceClassification(LaplaceBase):
     """Laplace Approximation Wrapper for classification.
 
-    This is a lightning module wrapper for the `Laplace library <https://aleximmer.github.io/Laplace/>`_. # noqa: E501
+    This is a lightning module wrapper for the
+    `Laplace library <https://aleximmer.github.io/Laplace/>`_.
 
-    If you use this model in your research, please cite the following papers:
+    If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2106.14806
     """
@@ -346,6 +350,8 @@ class LaplaceClassification(LaplaceBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             prediction dictionary

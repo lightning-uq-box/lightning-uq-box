@@ -8,19 +8,20 @@ on:
     branches:
     - main
     - release**
+
 jobs:
-  style:
-    name: style-checks
+  ruff:
+    name: ruff
     runs-on: ubuntu-latest
     steps:
     - name: Clone repo
-      uses: actions/checkout@v3.3.0
+      uses: actions/checkout@v4.1.2
     - name: Set up python
-      uses: actions/setup-python@v4.5.0
+      uses: actions/setup-python@v5.1.0
       with:
-        python-version: '3.10'
+        python-version: '3.12'
     - name: Cache dependencies
-      uses: actions/cache@v3.2.6
+      uses: actions/cache@v4.0.2
       id: cache
       with:
         path: ${{ env.pythonLocation }}
@@ -29,15 +30,13 @@ jobs:
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
         pip install -r requirements/style.txt
-        pip list
-    - name: Run black checks
-      run: black . --check --diff --line-length 88 --skip-magic-trailing-comma
-    - name: Run flake8 checks
-      run: flake8 --max-line-length=88
-    - name: Run isort checks
-      run: isort . --check --diff --profile "black"
-    - name: Run pydocstyle checks
-      run: pydocstyle
+        pip cache purge
+    - name: List pip dependencies
+      run: pip list
+    - name: Run ruff checks
+      run: |
+        ruff check --output-format=github --no-fix .
+        ruff format --diff
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

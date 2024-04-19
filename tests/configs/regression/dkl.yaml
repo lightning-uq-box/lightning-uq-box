@@ -7,7 +7,7 @@ model:
         n_outputs: 10
         n_hidden: [50]
     num_targets: 1
-    gp_kernel: "RBF"
+    gp_kernel: "Matern32"
     optimizer:
       class_path: torch.optim.Adam
       init_args:

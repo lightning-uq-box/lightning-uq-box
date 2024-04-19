@@ -6,7 +6,7 @@ on:
   pull_request:
     branches:
     - main
-  
+
 jobs:
   pytest:
     name: pytest
@@ -16,8 +16,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ['3.9', '3.10', '3.11']
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ['3.10', '3.11', '3.12']
     steps:
     - name: Clone repo
       uses: actions/checkout@v2
@@ -32,17 +32,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements/requirements.txt -r requirements/tests.txt
         pip install numpy scipy
-    - name: Run pytest checks (Ubuntu and macOS)
+    - name: Run pytest checks
       shell: bash
       run: |
         python -m pytest -v tests --cov=lightning_uq_box --cov-report=xml
-      if: ${{ runner.os != 'Windows' }}
-    - name: Run pytest checks (Windows)
-      shell: cmd
-      run: |
-        pip install -e .
-        pytest --cov=lightning_uq_box --cov-report=xml --durations=10
-      if: ${{ runner.os == 'Windows' }}
     - name: Report coverage
       uses: codecov/codecov-action@v3.1.1
       with:

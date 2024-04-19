@@ -2,32 +2,27 @@
 
 # Running Experiments
 
-One of the main motiviations of the Lightning-UQ-Box is to provide an experiment setup where you can quickly launch experiments at scale and control these through config files for reproducability.
+One of the main motivations of the Lightning-UQ-Box is to provide an experiment setup where you can quickly launch experiments at scale and control these through config files for reproducibility.
 
 ## Lightning-CLI
 
 The [Lightning-CLI](https://lightning.ai/docs/pytorch/stable/cli/lightning_cli.html#lightning-cli) allows running experiments
 
 ```yaml
-model: # 'model' is keyword for Lightning-CLI model used in Trainer
-  class_path: lightning_uq_box.uq_methods.MCDropoutRegression
+model: # model is the keyword for the lightning cli
+  class_path: lightning_uq_box.uq_methods.DKLRegression
   init_args:
-    model:
+    feature_extractor:
       class_path: lightning_uq_box.models.MLP
       init_args:
-        n_outputs: 1
+        n_outputs: 10
         n_hidden: [50]
-        dropout_p: 0.1
-        activation_fn:
-          class_path: torch.nn.ReLU
+    num_targets: 1
+    gp_kernel: "RBF"
     optimizer:
       class_path: torch.optim.Adam
       init_args:
         lr: 0.003
-    loss_fn:
-      class_path: torch.nn.MSELoss
-    num_mc_samples: 10
-    burnin_epochs: 1
 
 data: # datamodule arguments
   class_path: lightning_uq_box.datamodules.ToyHeteroscedasticDatamodule
@@ -46,7 +41,7 @@ uq-box fit --config path_to_above_config.yaml
 
 You can of course also create your own Lightning-CLI setup (check their [docs](https://lightning.ai/docs/pytorch/stable/cli/lightning_cli.html) for additional features).
 
-If you would like to use the instantitated Lightning classes in your code, but still use config files you can do:
+If you would like to use the instantiated Lightning classes in your code, but still use config files you can do:
 
 ```python
 from lightning_uq_box.main import get_uq_box_cli
@@ -63,20 +58,27 @@ the setup of the config file follows a different notation. For example, given th
 
 ```yaml
 uq_method:
-  _target_: lightning_uq_box.uq_methods.MCDropoutRegression
+  _target_: lightning_uq_box.uq_methods.BNN_VI_ELBO_Classification
   model:
-    _target_: lightning_uq_box.models.MLP
-    n_outputs: 1
-    n_hidden: [50]
-    dropout_p: 0.1
+    _target_: timm.create_model # calling timm library
+    model_name: resnet18
+    num_classes: 4
   optimizer:
-    _target_: torch.optim.Adam
+    _target_: torch.optim.SGD
     _partial_: true
     lr: 0.003
-  loss_fn:
-    _target_: torch.nn.MSELoss
-  num_mc_samples: 10
-  burnin_epochs: 5
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+    _partial_: true
+  criterion:
+    _target_: torch.nn.CrossEntropyLoss
+  num_mc_samples_train: 10
+  num_mc_samples_test: 25
+  prior_mu: 0.0
+  prior_sigma: 1.0
+  posterior_mu_init: 0.0
+  posterior_rho_init: -3.0
+  bayesian_layer_type: "reparameterization"
 
 trainer: # lightning trainer arguments
   _target_: lightning.pytorch.Trainer
@@ -84,7 +86,7 @@ trainer: # lightning trainer arguments
   max_epochs: 25
 
 datamodule:
-  _target_: lightning_uq_box.datamodules.ToyHeteroscedasticDatamodule
+  _target_: lightning_uq_box.datamodules.ToyImageClassificationDatamodule
   batch_size: 32
 ```
 

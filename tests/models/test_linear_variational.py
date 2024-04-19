@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Test Linear Variational Layer."""
 
@@ -41,7 +41,9 @@ class TestLineaerVariational:
     def test_partially_stochastic(self, stochastic_module_names) -> None:
         """Test partially stochastic forward pass."""
         cfg = OmegaConf.load("tests/configs/image_regression/bnn_vi_elbo.yaml")
-        model = instantiate(cfg.model, stochastic_module_names=stochastic_module_names)
+        model = instantiate(
+            cfg.uq_method, stochastic_module_names=stochastic_module_names
+        )
 
         for name, module in model.model.named_modules():
             if name in model.stochastic_module_names:

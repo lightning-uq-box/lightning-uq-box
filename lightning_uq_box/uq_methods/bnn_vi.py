@@ -1,10 +1,10 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 import os
-from typing import Any, Optional, Tuple, Union
+from typing import Any
 
 import einops
 import torch
@@ -38,6 +38,8 @@ class BNN_VI_Base(DeterministicModel):
     * https://proceedings.mlr.press/v80/depeweg18a
     """
 
+    pred_file_name = "preds.csv"
+
     def __init__(
         self,
         model: nn.Module,
@@ -50,7 +52,8 @@ class BNN_VI_Base(DeterministicModel):
         posterior_rho_init: float = -5.0,
         alpha: float = 1.0,
         bayesian_layer_type: str = "reparameterization",
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        stochastic_module_names: list[str | int] | None = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -71,6 +74,7 @@ class BNN_VI_Base(DeterministicModel):
             bayesian_layer_type: `flipout` or `reparameterization`
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -78,7 +82,7 @@ class BNN_VI_Base(DeterministicModel):
             AssertionError: if ``n_mc_samples_train`` is not positive.
             AssertionError: if ``n_mc_samples_test`` is not positive.
         """
-        super().__init__(model, None, optimizer, lr_scheduler)
+        super().__init__(model, None, False, optimizer, lr_scheduler)
         assert n_mc_samples_train > 0, "Need to sample at least once during training."
         assert n_mc_samples_test > 0, "Need to sample at least once during testing."
 
@@ -92,9 +96,8 @@ class BNN_VI_Base(DeterministicModel):
             self.model, stochastic_module_names
         )
 
+        self.freeze_backbone = freeze_backbone
         self._setup_bnn_with_vi()
-
-        self.pred_file_name = "predictions.csv"
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -121,6 +124,9 @@ class BNN_VI_Base(DeterministicModel):
         self.log_aleatoric_std = nn.Parameter(
             torch.tensor([-2.5 for _ in range(1)], device=self.device)
         )
+
+        # only call model after it has been setup
+        self.freeze_model()
 
     def forward(self, X: Tensor) -> Tensor:
         """Forward pass BNN+LI.
@@ -149,6 +155,8 @@ class BNN_VI_Base(DeterministicModel):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the data loader
 
         Returns:
             training loss
@@ -170,6 +178,7 @@ class BNN_VI_Base(DeterministicModel):
         Args:
             batch: the output of your DataLoader
             batch_idx: the index of this batch
+            dataloader_idx: the index of the data loader
 
         Returns:
             validation loss
@@ -195,14 +204,15 @@ class BNN_VI_Base(DeterministicModel):
                 module.unfreeze_layer()
 
     def exclude_from_wt_decay(
-        self, named_params, weight_decay, skip_list=("mu", "rho")
+        self, named_params, weight_decay: float, skip_list: list[str] = ("mu", "rho")
     ):
         """Exclude non VI parameters from weight_decay optimization.
 
         Args:
-            named_params:
-            weight_decay:
-            skip_list:
+            named_params: named parameters of the model
+            weight_decay: weight decay factor
+            skip_list: list of strings that if found in parameter name
+                excludes the parameter from weight decay
 
         Returns:
             split parameter groups for optimization with and without
@@ -242,8 +252,6 @@ class BNN_VI_Base(DeterministicModel):
         #         args.append(name)
         #     return args, defaults
         # args, defaults = get_function_args_defaults(self.optimizer)
-        # import pdb
-        # pdb.set_trace()
         # optimizer_args = getattr(self.optimizer, "keywords")
         # wd = optimizer_args.get("weight_decay", 0.0)
         # TODO this does not work with lightning CLI correctly yet
@@ -287,7 +295,8 @@ class BNN_VI_Regression(BNN_VI_Base):
         posterior_rho_init: float = -5,
         alpha: float = 1,
         bayesian_layer_type: str = "reparameterization",
-        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
+        stochastic_module_names: list[int] | list[str] | None = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -310,6 +319,7 @@ class BNN_VI_Regression(BNN_VI_Base):
                 be converted to variational layers
             bayesian_layer_type: reparameterization layer type,
                 "reparametrization" or "flipout"
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -330,6 +340,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             alpha,
             bayesian_layer_type,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )
@@ -422,7 +433,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             ]
         # model_preds [batch_size, output_dim]
         model_preds = torch.stack(model_preds, dim=0).detach()
-        mean_out = model_preds.mean(dim=0).squeeze()
+        mean_out = model_preds.mean(dim=0)
 
         # how can this happen that there is so little sample diversity
         # there should be at least a little numerical difference?
@@ -461,7 +472,8 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         posterior_rho_init: float = -5,
         alpha: float = 1,
         bayesian_layer_type: str = "reparameterization",
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        stochastic_module_names: list[str | int] | None = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -483,6 +495,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
                 "reparametrization" or "flipout"
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
 
@@ -502,6 +515,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             alpha,
             bayesian_layer_type,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )
@@ -535,7 +549,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         batched_sample_X = einops.repeat(X, "b f -> s b f", s=n_samples)
         return self.model(batched_sample_X)
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -580,7 +594,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         with torch.no_grad():
             model_preds = self.forward(X, self.hparams.n_mc_samples_test)
 
-        mean_out = model_preds.mean(dim=0).squeeze()
+        mean_out = model_preds.mean(dim=0)
 
         std_epistemic = model_preds.std(dim=0).squeeze()
         std_epistemic[std_epistemic <= 0] = 1e-6

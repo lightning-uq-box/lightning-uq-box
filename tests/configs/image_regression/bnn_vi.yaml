@@ -1,4 +1,4 @@
-model:
+uq_method:
   _target_: lightning_uq_box.uq_methods.BNN_VI_Regression
   model:
     _target_: timm.create_model
@@ -8,9 +8,6 @@ model:
     _target_: torch.optim.Adam
     _partial_: true
     lr: 0.003 
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.ConstantLR
-    _partial_: true
   n_mc_samples_train: 4
   n_mc_samples_test: 5
   output_noise_scale: 1.3

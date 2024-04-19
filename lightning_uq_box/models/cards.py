@@ -1,9 +1,7 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """CARDS Model Utilities."""
-
-from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -103,6 +101,7 @@ class ConditionalEncoder(nn.Module):
 
         Args:
             X: input data
+            t: time tensor
 
         Returns:
             output of the conditional encoder
@@ -121,7 +120,7 @@ class ConditionalGuidedLinearModel(nn.Module):
         n_hidden: list[int] = [64, 64],
         cat_x: bool = False,
         cat_y_pred: bool = False,
-        activation_fn: Optional[nn.Module] = None,
+        activation_fn: nn.Module | None = None,
     ) -> None:
         """Initialize a new instance of Conditional Guided Model.
 
@@ -239,7 +238,7 @@ class ConditionalGuidedConvModel(nn.Module):
         Args:
             x: input data
             y_t: target data
-            y_0_hat:
+            y_0_hat: y_0_hat
             t: time step
 
         Returns:

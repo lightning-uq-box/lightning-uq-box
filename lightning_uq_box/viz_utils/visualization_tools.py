@@ -1,10 +1,9 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Visualization utils for Lightning-UQ-Box."""
 
 import os
-from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -153,11 +152,11 @@ def plot_predictions_regression(
     X_test: np.ndarray,
     y_test: np.ndarray,
     y_pred: np.ndarray,
-    pred_std: Optional[np.ndarray] = None,
-    pred_quantiles: Optional[np.ndarray] = None,
-    epistemic: Optional[np.ndarray] = None,
-    aleatoric: Optional[np.ndarray] = None,
-    samples: Optional[np.ndarray] = None,
+    pred_std: np.ndarray | None = None,
+    pred_quantiles: np.ndarray | None = None,
+    epistemic: np.ndarray | None = None,
+    aleatoric: np.ndarray | None = None,
+    samples: np.ndarray | None = None,
     title: str = None,
     show_bands: bool = True,
 ) -> plt.Figure:
@@ -166,14 +165,14 @@ def plot_predictions_regression(
     Args:
         X_train: training inputs
         y_train: training targets
-        X_test: testing inputs
-        y_test: testing targets
-        y_pred: predicted targets
+        X_test: testing inputs [batch_size, 1]
+        y_test: testing targets [batch_size, 1]
+        y_pred: predicted targets [batch_size, 1]
         pred_std: predicted standard deviation
         pred_quantiles: predicted quantiles
         epistemic: epistemic uncertainy
         aleatoric: aleatoric uncertainty
-        samples: samples from posterior
+        samples: samples from posterior ofh shape [batch_size, num_samples]
         title: title of plot
         show_bands: show uncertainty bands
     """
@@ -186,10 +185,10 @@ def plot_predictions_regression(
     ax0 = fig.add_subplot(1, 2, 1)
     if samples is not None:
         ax0.scatter(
-            X_test, samples[0], color="black", label="samples", s=0.1, alpha=0.7
+            X_test, samples[:, 0], color="black", label="samples", s=0.1, alpha=0.7
         )
-        for i in range(1, len(samples)):
-            ax0.scatter(X_test, samples[i], color="black", s=0.1, alpha=0.7)
+        for i in range(1, samples.shape[-1]):
+            ax0.scatter(X_test, samples[:, i], color="black", s=0.1, alpha=0.7)
 
     # model predictive uncertainty bands on the left
     ax0.scatter(X_test, y_test, color="gray", label="ground truth", s=0.5, alpha=0.5)

@@ -1,12 +1,12 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Test Image Regression Tasks."""
 
 import glob
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from hydra.utils import instantiate
@@ -60,10 +60,11 @@ class TestImageRegressionTask:
         # TODO
         # match = "No dropout layers found in model*"
         # with pytest.warns(UserWarning):
-        model = instantiate(full_conf.model)
+        model = instantiate(full_conf.uq_method)
         datamodule = instantiate(full_conf.data)
-        trainer = instantiate(
-            full_conf.trainer,
+        trainer = Trainer(
+            max_epochs=2,
+            log_every_n_steps=1,
             default_root_dir=str(tmp_path),
             logger=CSVLogger(str(tmp_path)),
         )
@@ -78,6 +79,43 @@ class TestImageRegressionTask:
         assert os.path.exists(
             os.path.join(trainer.default_root_dir, model.pred_file_name)
         )
+
+
+frozen_config_paths = [
+    "tests/configs/image_regression/mean_variance_estimation.yaml",
+    "tests/configs/image_regression/mc_dropout_nll.yaml",
+    "tests/configs/image_regression/bnn_vi_elbo.yaml",
+    "tests/configs/image_regression/bnn_vi.yaml",
+    "tests/configs/image_regression/due.yaml",
+    "tests/configs/image_regression/sngp.yaml",
+    "tests/configs/image_regression/der.yaml",
+]
+
+
+class TestFrozenBackbone:
+    @pytest.mark.parametrize("model_name", ["resnet18", "vit_small_patch8_224"])
+    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
+    def test_freeze_backbone(self, model_config_path: str, model_name: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+
+        try:
+            model_conf.uq_method.model.model_name = model_name
+            model = instantiate(model_conf.uq_method, freeze_backbone=True)
+            assert not all([param.requires_grad for param in model.model.parameters()])
+            assert all(
+                [
+                    param.requires_grad
+                    for param in model.model.get_classifier().parameters()
+                ]
+            )
+        except AttributeError:
+            model_conf.uq_method.feature_extractor.model_name = model_name
+            model_conf.uq_method.input_size = 224
+            model = instantiate(model_conf.uq_method, freeze_backbone=True)
+            # check that entire feature extractor is frozen
+            assert not all(
+                [param.requires_grad for param in model.feature_extractor.parameters()]
+            )
 
 
 ensemble_model_config_paths = [
@@ -103,7 +141,7 @@ class TestDeepEnsemble:
         for i in range(5):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
-            model = instantiate(model_conf.model)
+            model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
@@ -120,7 +158,7 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(
@@ -150,7 +188,7 @@ class TestTTAModel:
         self, model_config_path: str, merge_strategy: str, tmp_path: Path
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
-        base_model = instantiate(model_conf.model)
+        base_model = instantiate(model_conf.uq_method)
         tta_model = TTARegression(base_model, merge_strategy=merge_strategy)
         datamodule = ToyImageRegressionDatamodule()
 

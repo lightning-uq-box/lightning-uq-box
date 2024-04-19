@@ -8,7 +8,7 @@
 
 """Implement a Lightning Module Wrapper for Diffusion."""
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 import torch
 import torch.nn as nn
@@ -78,7 +78,7 @@ class DDPM(BaseModule):
         ema_update_every: float = 10,
         log_samples_every_n_steps: int = 100,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> Any:
         """Initialize a new instance of DDPM.
 
@@ -127,6 +127,8 @@ class DDPM(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: index of batch
+            dataloader_idx: index of dataloader
 
         Returns:
             training loss
@@ -138,9 +140,7 @@ class DDPM(BaseModule):
         if self.trainer.global_step % self.log_samples_every_n_steps == 0:
             # log samples
             img = torch.randn(16, 3, 256, 256).to(self.device)
-            import pdb
-            pdb.set_trace()
-
+            self.logger.add_image("gen images", img, self.trainer.global_step)
 
         return loss
 
@@ -197,7 +197,7 @@ class GuidedDDPM(DDPM):
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> Any:
         """Initialize a new instance of Guided DDPM."""
         super().__init__(
@@ -221,6 +221,8 @@ class GuidedDDPM(DDPM):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: index of batch
+            dataloader_idx: index of dataloader
 
         Returns:
             training loss
@@ -255,7 +257,7 @@ class GuidedDDPM(DDPM):
         batch_size: int,
         classifier_scale: float = 1.0,
         cond_fn=classifier_cond_fn,
-        y: Optional[Tensor] = None,
+        y: Tensor | None = None,
         **kwargs: Any,
     ) -> Any:
         """Forward pass of Guided DDPM model for inference is sampling.
@@ -265,6 +267,7 @@ class GuidedDDPM(DDPM):
             classifier_scale: scale the classifier guidance gradient
             cond_fn: conditional function
             y: conditional classes tensor
+            kwargs: arguments for guidance
 
         Returns:
             sampled images
@@ -320,7 +323,7 @@ class ClassFreeGuidanceDDPM(DDPM):
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> Any:
         """Initialize a new instance of Guidance Free DDPM.
 
@@ -354,6 +357,7 @@ class ClassFreeGuidanceDDPM(DDPM):
             cond_scale: scale the conditional where values > 1 strengthen
                 the classifier free guidance
             rescaled_phi: rescale phi
+            kwargs: additional arguments for diffusion sampling
 
         """
         return self.diffusion_model.sample(
@@ -367,21 +371,15 @@ class ClassFreeGuidanceDDPM(DDPM):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: index of batch
+            dataloader_idx: index of dataloader
 
         Returns:
             training loss
         """
-        # batch_size, device = (
-        #     batch[self.input_key].shape[0],
-        #     batch[self.input_key].device,
-        # )
-        # t = torch.randint(
-        #     0, self.diffusion_model.num_timesteps, (batch_size,), device=device
-        # ).long()
-        # loss = self.diffusion_model.p_losses(
-        #     batch[self.input_key], t, classes=batch[self.target_key]
-        # )
-        loss = self.diffusion_model.forward(batch[self.input_key], classes=batch[self.target_key])
+        loss = self.diffusion_model.forward(
+            batch[self.input_key], classes=batch[self.target_key]
+        )
 
         self.log("train_loss", loss)
 

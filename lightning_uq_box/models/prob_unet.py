@@ -14,7 +14,7 @@
 
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 # Changes from https://github.com/stefanknegt/Probabilistic-Unet-Pytorch/blob/master/probabilistic_unet.py: # noqa: E501
 # - add doc strings and type hints
 # - remove unused intializer args for Encoder and AxisAlignedConvGaussian
@@ -22,7 +22,7 @@
 
 """Probabilistic UNet Model parts."""
 
-from typing import Callable, Dict, List, Optional
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -53,7 +53,7 @@ def init_weights(m: nn.Module) -> None:
     Args:
         m: Model whose weights need to be initialized
     """
-    if type(m) == nn.Conv2d or type(m) == nn.ConvTranspose2d:
+    if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
         truncated_normal_(m.bias, mean=0, std=0.001)
 
@@ -64,7 +64,7 @@ def init_weights_orthogonal_normal(m: nn.Module) -> None:
     Args:
         m: Model whose weights need to be initialized
     """
-    if type(m) == nn.Conv2d or type(m) == nn.ConvTranspose2d:
+    if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         nn.init.orthogonal_(m.weight)
         truncated_normal_(m.bias, mean=0, std=0.001)
         # nn.init.normal_(m.bias, std=0.001)
@@ -82,7 +82,7 @@ class Encoder(nn.Module):
     def __init__(
         self,
         input_channels: int,
-        num_filters: List[int],
+        num_filters: list[int],
         no_convs_per_block: int,
         padding: bool = True,
         posterior: bool = False,
@@ -154,7 +154,7 @@ class AxisAlignedConvGaussian(nn.Module):
     def __init__(
         self,
         input_channels: int,
-        num_filters: List[int],
+        num_filters: list[int],
         no_convs_per_block: int,
         latent_dim: int,
         posterior: bool = False,
@@ -166,7 +166,7 @@ class AxisAlignedConvGaussian(nn.Module):
             num_filters: List of number of filters for each layer
             no_convs_per_block: Number of convolutions per block
             latent_dim: Dimension of the latent space
-            initializers: Dictionary of initializers for the layers
+            initializers: dictionary of initializers for the layers
             posterior: Whether this is a posterior network or not
         """
         super().__init__()
@@ -196,7 +196,7 @@ class AxisAlignedConvGaussian(nn.Module):
         )
         nn.init.normal_(self.conv_layer.bias)
 
-    def forward(self, input: Tensor, segm: Optional[Tensor] = None) -> Independent:
+    def forward(self, input: Tensor, segm: Tensor | None = None) -> Independent:
         """Forward pass of the AxisAlignedConvGaussian network.
 
         Args:
@@ -253,7 +253,7 @@ class Fcomb(nn.Module):
         filter_size: int,
         num_classes: int,
         no_convs_fcomb: int,
-        initializers: Dict[str, Callable],
+        initializers: dict[str, Callable],
         use_tile: bool = True,
     ) -> None:
         """Initialize a new instance of Fcomb.
@@ -263,7 +263,7 @@ class Fcomb(nn.Module):
             filter_size: filter size
             num_classes: Number of classes
             no_convs_fcomb: Number of 1x1 convolutions
-            initializers: Dictionary of initializers for the layers
+            initializers: dictionary of initializers for the layers
             use_tile: Whether to use tiling
         """
         # TODO combine filter size with no_convs_fcomb as a list because

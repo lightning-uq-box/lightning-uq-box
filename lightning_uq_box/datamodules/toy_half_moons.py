@@ -1,9 +1,7 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Two Moons Toy Classification Datamodule."""
-
-from typing import Optional
 
 import numpy as np
 import torch
@@ -31,7 +29,7 @@ class TwoMoonsDataModule(LightningDataModule):
 
         self.setup()
 
-    def setup(self, stage: Optional[str] = None):
+    def setup(self, stage: str | None = None):
         """Set up the DataModule.
 
         Args:

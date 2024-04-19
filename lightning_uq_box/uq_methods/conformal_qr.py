@@ -1,12 +1,11 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """conformalized Quantile Regression Model."""
 
 import copy
 import math
 import os
-from typing import Dict, Union
 
 import torch
 import torch.nn as nn
@@ -56,14 +55,14 @@ class ConformalQR(PosthocBase):
 
     If you use this model, please cite the following paper:
 
-    * https://papers.nips.cc/paper_files/paper/2019/hash/5103c3584b063c431bd1268e9b5e76fb-Abstract.html # noqa: E501
-    """
+    * https://papers.nips.cc/paper_files/paper/2019/hash/5103c3584b063c431bd1268e9b5e76fb-Abstract.html
+    """  # noqa: E501
 
     pred_file_name = "preds.csv"
 
     def __init__(
         self,
-        model: Union[nn.Module, LightningModule],
+        model: nn.Module | LightningModule,
         quantiles: list[float] = [0.1, 0.5, 0.9],
         alpha: float = 0.1,
     ) -> None:
@@ -111,7 +110,7 @@ class ConformalQR(PosthocBase):
         return pred
 
     def adjust_model_logits(
-        self, model_output: Union[dict[str, Tensor], Tensor]
+        self, model_output: dict[str, Tensor] | Tensor
     ) -> dict[str, Tensor]:
         """Conformalize underlying model output.
 
@@ -191,7 +190,7 @@ class ConformalQR(PosthocBase):
             del out_dict["out"]
         return out_dict
 
-    def predict_step(self, X: Tensor) -> Dict[str, Tensor]:
+    def predict_step(self, X: Tensor) -> dict[str, Tensor]:
         """Prediction step that produces conformalized prediction sets.
 
         Args:
@@ -202,7 +201,7 @@ class ConformalQR(PosthocBase):
         if not self.post_hoc_fitted:
             raise RuntimeError(
                 "Model has not been post hoc fitted, "
-                "please call trainer.fit(model, datamodule) first."
+                "please call trainer.validate(model, datamodule) first."
             )
 
         cqr_sets = self.forward(X)

@@ -1,6 +1,6 @@
 # BSD 3-Clause License
 
-# Copyright (c) 2023, Intel Labs
+# Copyright (c) 2024, Intel Labs
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,14 +28,15 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the Apache License 2.0.
+
 """Linear Variational Layers.
 
 These are based on the Bayesian-torch library
 https://github.com/IntelLabs/bayesian-torch (BSD-3 clause) but
 adjusted to be trained with the Energy Loss and have batched samples.
 """
-
-from typing import Optional
 
 import torch
 import torch.nn.functional as F
@@ -61,7 +62,7 @@ class LinearVariational(BaseVariationalLayer_):
         bias: bool = True,
         layer_type: str = "reparameterization",
         batched_samples: bool = False,
-        max_n_samples: Optional[int] = None,
+        max_n_samples: int | None = None,
     ):
         """Initialize a new instance of LinearVariational layer.
 
@@ -244,7 +245,7 @@ class LinearVariational(BaseVariationalLayer_):
             delta_bias = bias_eps * sigma_bias
         return delta_weight, delta_bias
 
-    def freeze_layer(self, n_samples: Optional[int] = None) -> None:
+    def freeze_layer(self, n_samples: int | None = None) -> None:
         """Freeze Variational Layers.
 
         This is useful when using BNN+LV to fix the BNN parameters
@@ -267,6 +268,4 @@ class LinearVariational(BaseVariationalLayer_):
 
     def extra_repr(self) -> str:
         """Representation when printing out Layer."""
-        return "in_features={}, out_features={}, bias={}, is_frozen={}".format(
-            self.in_features, self.out_features, self.bias is not None, self.is_frozen
-        )
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, is_frozen={self.is_frozen}"

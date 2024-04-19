@@ -34,12 +34,24 @@ Quantile Regression
 
 .. autoclass:: QuantileRegression
 
+Quantile Pixelwise Regression
+`````````````````````````````
+
+.. autoclass:: QuantilePxRegression
+
 Deep Evidential Regression
 --------------------------
 
 .. currentmodule:: lightning_uq_box.uq_methods.deep_evidential_regression
 
+Deep Evidential Regression
+``````````````````````````
 .. autoclass:: DER
+
+Deep Evidential Pixelwise Regression
+````````````````````````````````````
+
+.. autoclass:: DERPxRegression
 
 Approximate Bayesian Methods
 ============================
@@ -68,6 +80,11 @@ MC-Dropout Segmentation
 ```````````````````````
 
 .. autoclass:: MCDropoutSegmentation
+
+MC-Dropout Pixelwise Regression
+```````````````````````````````
+
+.. autoclass:: MCDropoutPxRegression
 
 Laplace Approximation
 ---------------------
@@ -175,6 +192,11 @@ SWAG Segmentation
 
 .. autoclass:: SWAGSegmentation
 
+SWAG Pixelwise Regression
+`````````````````````````
+
+.. autoclass:: SWAGPxRegression
+
 
 Stochastic Gradient Langevin Dynamics (SGLD)
 --------------------------------------------
@@ -235,7 +257,7 @@ DUE Regression
 DUE Classification
 ``````````````````
 
-.. autoclass:: DUEClassification    
+.. autoclass:: DUEClassification
 
 
 Deep Ensembles
@@ -256,12 +278,17 @@ Deep Ensemble Regression
 Deep Ensemble Classification
 ````````````````````````````
 
-.. autoclass:: DeepEnsembleClassification   
+.. autoclass:: DeepEnsembleClassification
 
 Deep Ensemble Segmentation
 ``````````````````````````
 
-.. autoclass:: DeepEnsembleSegmentation 
+.. autoclass:: DeepEnsembleSegmentation
+
+Deep Ensemble Pixelwise Regression
+``````````````````````````````````
+
+.. autoclass:: DeepEnsemblePxRegression
 
 
 Generative Models
@@ -324,9 +351,9 @@ Probabilistic UNet
 Hierachical Probabilistic UNet
 ------------------------------
 
-.. currentmodule:: lightning_uq_box.uq_methods.hierachical_prob_unet
+.. currentmodule:: lightning_uq_box.uq_methods.hierarchical_prob_unet
 
-.. autoclass:: HierachicalProbUNet
+.. autoclass:: HierarchicalProbUNet
 
 UQ Calibration Methods
 ======================
@@ -360,3 +387,10 @@ Regularized Adaptive Prediction Sets (RAPS)
 .. currentmodule:: lightning_uq_box.uq_methods.raps
 
 .. autoclass:: RAPS
+
+Image to Image Conformal
+------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.img2img_conformal
+
+.. autoclass:: Img2ImgConformal

@@ -1,10 +1,10 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Implement a Deep Ensemble Model for prediction."""
 
 import os
-from typing import Any, Union
+from typing import Any
 
 import torch
 from lightning import LightningModule
@@ -13,12 +13,14 @@ from torch import Tensor
 from .base import BaseModule
 from .utils import (
     default_classification_metrics,
+    default_px_regression_metrics,
     default_regression_metrics,
     default_segmentation_metrics,
     process_classification_prediction,
     process_regression_prediction,
     process_segmentation_prediction,
     save_classification_predictions,
+    save_image_predictions,
     save_regression_predictions,
 )
 
@@ -34,7 +36,7 @@ class DeepEnsemble(BaseModule):
     def __init__(
         self,
         n_ensemble_members: int,
-        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
+        ensemble_members: list[dict[str, type[LightningModule] | str]],
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
@@ -57,7 +59,7 @@ class DeepEnsemble(BaseModule):
         """Set up task."""
         pass
 
-    def forward(self, X: Tensor, **kwargs: Any) -> Tensor:
+    def forward(self, X: Tensor) -> Tensor:
         """Forward step of Deep Ensemble.
 
         Args:
@@ -120,8 +122,8 @@ class DeepEnsembleRegression(DeepEnsemble):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
 
     pred_file_name = "preds.csv"
 
@@ -136,6 +138,8 @@ class DeepEnsembleRegression(DeepEnsemble):
 
         Args:
             X: input tensor of shape [batch_size, input_di]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             mean and standard deviation of MC predictions
@@ -165,8 +169,8 @@ class DeepEnsembleClassification(DeepEnsemble):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
 
     valid_tasks = ["multiclass", "binary", "multilabel"]
     pred_file_name = "preds.csv"
@@ -174,7 +178,7 @@ class DeepEnsembleClassification(DeepEnsemble):
     def __init__(
         self,
         n_ensemble_members: int,
-        ensemble_members: list[dict[str, Union[type[LightningModule], str]]],
+        ensemble_members: list[dict[str, type[LightningModule] | str]],
         num_classes: int,
         task: str = "multiclass",
     ) -> None:
@@ -205,6 +209,8 @@ class DeepEnsembleClassification(DeepEnsemble):
 
         Args:
             X: input tensor of shape [batch_size, input_di]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             mean and standard deviation of MC predictions
@@ -234,8 +240,10 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
 
     If you use this model in your work, please cite:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
+
+    pred_dir_name = "preds"
 
     def setup_task(self) -> None:
         """Set up task for segmentation."""
@@ -250,6 +258,8 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
 
         Args:
             X: input tensor of shape [batch_size, input_di]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             mean and standard deviation of MC predictions
@@ -259,14 +269,63 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
 
         return process_segmentation_prediction(preds)
 
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
+
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        pass
+        save_image_predictions(outputs, batch_idx, self.pred_dir)
+
+
+class DeepEnsemblePxRegression(DeepEnsembleRegression):
+    """Deep Ensemble Model for pixelwise regression.
+
+    If you use this model in your work, please cite:
+
+    * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+    """  # noqa: E501
+
+    pred_dir_name = "preds"
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.test_metrics = default_px_regression_metrics("test")
+
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
+        """
+        save_image_predictions(outputs, batch_idx, self.pred_dir)

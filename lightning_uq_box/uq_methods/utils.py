@@ -1,12 +1,13 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Utilities for UQ-Method Implementations."""
 
 import os
 from collections import OrderedDict
-from typing import Callable, Optional, Union
+from collections.abc import Callable
 
+import h5py
 import numpy as np
 import pandas as pd
 import torch
@@ -36,7 +37,7 @@ from .metrics import EmpiricalCoverage
 
 def checkpoint_loader(
     model_class: LightningModule, ckpt_path: str, return_model: bool = False
-) -> Union[LightningModule, nn.Module]:
+) -> LightningModule | nn.Module:
     """Load state dict checkpoint for LightningModule.
 
     Args:
@@ -47,37 +48,13 @@ def checkpoint_loader(
     Returns:
         model_class or model
     """
-    state_dict = {
-        k.replace("model.", ""): v
-        for k, v in torch.load(ckpt_path, map_location="cpu")["state_dict"].items()
-    }
-    model_class.model.load_state_dict(state_dict)
+    model_class.load_state_dict(
+        state_dict=torch.load(ckpt_path, map_location="cpu")["state_dict"]
+    )
     if return_model:
         return model_class.model
     else:
         return model_class
-
-
-def compute_coverage_and_set_size(
-    pred_set: list[Tensor], targets: Tensor
-) -> tuple[float, float]:
-    """Compute the coverage and size of the predictions sets.
-
-    Args:
-        pred_set: List of tensors of predicted labels for each sample in the batch
-            with class labels
-        targets: Tensor of true labels shape [batch_size, num_classes]
-
-    Returns:
-        coverage of the prediction sets and the average size of the prediction sets
-    """
-    covered = 0
-    size = 0
-    for i in range(targets.shape[0]):
-        if targets[i].item() in pred_set[i]:
-            covered += 1
-        size = size + pred_set[i].shape[0]
-    return float(covered) / targets.shape[0], size / targets.shape[0]
 
 
 def default_regression_metrics(prefix: str):
@@ -88,6 +65,14 @@ def default_regression_metrics(prefix: str):
             "MAE": MeanAbsoluteError(),
             "R2": R2Score(),
         },
+        prefix=prefix,
+    )
+
+
+def default_px_regression_metrics(prefix: str):
+    """Return a set of default regression metrics."""
+    return MetricCollection(
+        {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()},
         prefix=prefix,
     )
 
@@ -117,7 +102,7 @@ def default_segmentation_metrics(prefix: str, task: str, num_classes: int):
 
 def process_regression_prediction(
     preds: Tensor,
-    quantiles: Optional[list[float]] = None,
+    quantiles: list[float] | None = None,
     aggregate_fn: Callable = torch.mean,
 ) -> dict[str, Tensor]:
     """Process regression predictions that could be mse or nll predictions.
@@ -130,11 +115,11 @@ def process_regression_prediction(
     Returns:
         dictionary with mean prediction and predictive uncertainty
     """
-    mean_samples = preds[:, 0, :].cpu()
-    mean = aggregate_fn(preds[:, 0:1, :], dim=-1)
+    mean_samples = preds[:, 0, ...].cpu()
+    mean = aggregate_fn(preds[:, 0:1, ...], dim=-1)
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
-        log_sigma_2_samples = preds[:, 1, :].cpu()
+        log_sigma_2_samples = preds[:, 1, ...].cpu()
         eps = torch.ones_like(log_sigma_2_samples) * 1e-6
         sigma_samples = torch.sqrt(eps + torch.exp(log_sigma_2_samples))
         std = compute_predictive_uncertainty(mean_samples, sigma_samples)
@@ -172,21 +157,24 @@ def process_classification_prediction(
 
     Args:
         preds: prediction logits tensor of shape [batch_size, num_classes, num_samples]
+        aggregate_fn: function to aggregate over the samples
+        eps: small value to prevent log of 0
 
     Returns:
         dictionary with mean [batch_size, num_classes]
             and predictive uncertainty [batch_size]
             and logits [batch_size, num_classes]
     """
-    mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
+    agg_logits = aggregate_fn(preds, dim=-1)
+    mean = nn.functional.softmax(agg_logits, dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=-1)
-    return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": agg_logits}
 
 
 def process_segmentation_prediction(
-    preds: Tensor, eps: float = 1e-7
+    preds: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
 ) -> dict[str, Tensor]:
     """Process segmentation predictions.
 
@@ -195,23 +183,55 @@ def process_segmentation_prediction(
     Args:
         preds: prediction logits tensor of shape
             [batch_size, num_classes, height, width, num_samples]
+        aggregate_fn: function to aggregate over the samples
+        eps: small value to prevent log of 0
 
     Returns:
         dictionary with mean [batch_size, num_classes, height, width]
             and predictive uncertainty [batch_size, height, width]
     """
     # dim=1 is the expected num classes dimension
-    mean = nn.functional.softmax(preds.mean(-1), dim=1)
+    agg_logits = aggregate_fn(preds, dim=-1)
+    mean = nn.functional.softmax(agg_logits, dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=1)
-    return {"pred": mean, "pred_uct": entropy, "logits": preds.mean(-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": agg_logits}
 
 
 def change_inplace_activation(module):
     """Change inplace activation."""
     if hasattr(module, "inplace"):
         module.inplace = False
+
+
+def save_image_predictions(
+    outputs: dict[str, Tensor], batch_idx: int, save_dir: str
+) -> None:
+    """Save segmentation predictions to separate hdf5 files.
+
+    Args:
+        outputs: metrics and values to be saved
+            - pred: predictions of shape [batch_size, ...]
+            - pred_uct: predictive uncertainty of shape [batch_size, ...]
+            - target: targets of shape [batch_size, ...]
+            - logits: logits of shape [batch_size, ...]
+        batch_idx: index of the current batch
+        save_dir: directory where hdf5 files should be saved
+    """
+    for sample_idx in range(outputs["pred"].shape[0]):
+        with h5py.File(
+            f"{save_dir}/batch_{batch_idx}_sample_{sample_idx}.hdf5", "w"
+        ) as f:
+            for key, val in outputs.items():
+                if isinstance(val, Tensor):
+                    data = val[sample_idx].cpu().numpy()
+                else:
+                    data = np.array(val[sample_idx])
+                if data.size == 1:  # single element array, save as attribute
+                    f.attrs[key] = data.item()
+                else:  # multi-element array, save as dataset
+                    f.create_dataset(key, data=data, compression="gzip")
 
 
 def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
@@ -258,7 +278,9 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     for i in range(logits.shape[1]):
         outputs[f"logit_{i}"] = logits[:, i]
 
-    if "pred_set" in outputs:
+    pred_set_true = True if "pred_set" in outputs else False
+
+    if pred_set_true:
         pred_set = [
             str(tensor.cpu().numpy().tolist()) for tensor in outputs.pop("pred_set")
         ]
@@ -281,7 +303,7 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     # Concatenate the two DataFrames
     df = pd.concat([df_pred, df_outputs], axis=1)
 
-    if "pred_set" in outputs:
+    if pred_set_true:
         df = pd.concat([df, df_pred_set], axis=1)
 
     if os.path.exists(path):
@@ -291,7 +313,7 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
 
 
 def map_stochastic_modules(
-    model: nn.Module, stochastic_module_names: Union[None, list[str, int]]
+    model: nn.Module, stochastic_module_names: None | list[str, int]
 ) -> list[str]:
     """Retrieve desired stochastic module names from user arg.
 
@@ -316,6 +338,8 @@ def map_stochastic_modules(
     module_names = [".".join(name.split(".")[:-1]) for name in ordered_module_params]
     # remove duplicates due to weight/bias
     module_names = list(set(module_names))
+
+    module_names = [name for name in module_names if name != ""]  # remove empty string
 
     if not stochastic_module_names:  # None means fully stochastic
         part_stoch_names = module_names.copy()
@@ -415,3 +439,44 @@ def _get_num_outputs(model: nn.Module) -> int:
     else:
         raise ValueError(f"Module {module} does not have out_features or out_channels.")
     return num_outputs
+
+
+def freeze_model_backbone(model: nn.Module) -> None:
+    """Freeze the backbone of a model.
+
+    Args:
+        model: pytorch model
+    """
+    for param in model.parameters():
+        param.requires_grad = False
+
+    # for timm model
+    if hasattr(model, "get_classifier"):
+        for param in model.get_classifier().parameters():
+            param.requires_grad = True
+    else:
+        # find last layer
+        _, module = _get_output_layer_name_and_module(model)
+        for param in module.parameters():
+            param.requires_grad = True
+
+
+def freeze_segmentation_model(
+    model: nn.Module, freeze_backbone: bool, freeze_decoder: bool
+) -> None:
+    """Freeze the encoder or decoder of a segmentation model.
+
+    Args:
+        model: pytorch model
+        freeze_backbone: whether to freeze the model backbone
+        freeze_decoder: whether to freeze the decoder
+    """
+    # Freeze backbone
+    if hasattr(model, "encoder") and freeze_backbone:
+        for param in model.encoder.parameters():
+            param.requires_grad = False
+
+    # Freeze decoder
+    if hasattr(model, "decoder") and freeze_decoder:
+        for param in model.decoder.parameters():
+            param.requires_grad = False

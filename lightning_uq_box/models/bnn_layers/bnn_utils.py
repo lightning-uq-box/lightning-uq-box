@@ -1,6 +1,6 @@
 # BSD 3-Clause License
 
-# Copyright (c) 2023, Intel Labs
+# Copyright (c) 2024, Intel Labs
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,9 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+# Copyright (c) 2023 lightning-uq-box. All rights reserved.
+# Licensed under the Apache License 2.0.
+
 """Utility functions for BNN Layers.
 
 These are based on the Bayesian-torch library
@@ -36,7 +39,7 @@ adjusted to be trained with the Energy Loss and support batched inputs.
 """
 
 import math
-from typing import Any, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -59,7 +62,7 @@ def bnn_linear_layer(params: dict[str, Any], linear_layer: nn.Linear) -> nn.Modu
 
 
 def bnn_conv_layer(
-    params: dict[str, Any], conv_layer: Union[nn.Conv1d, nn.Conv2d, nn.Conv3d]
+    params: dict[str, Any], conv_layer: nn.Conv1d | nn.Conv2d | nn.Conv3d
 ) -> nn.Module:
     """Convert deterministic convolutional layer to bayesian convolutional layer."""
     layer = conv_layer.__class__.__name__ + "Variational"

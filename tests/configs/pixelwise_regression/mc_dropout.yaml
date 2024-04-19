@@ -1,0 +1,16 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.MCDropoutPxRegression
+  model:
+    _target_: torchseg.Unet
+    encoder_name: resnet18
+    encoder_weights: imagenet
+    classes: 2 # NLL output
+    in_channels: 3
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  loss_fn:
+    _target_: lightning_uq_box.uq_methods.NLL
+  num_mc_samples: 10
+  burnin_epochs: 1

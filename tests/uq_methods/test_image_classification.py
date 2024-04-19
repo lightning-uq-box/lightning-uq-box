@@ -1,11 +1,11 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Test Image Classification Tasks."""
 
 import glob
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from hydra.utils import instantiate
@@ -18,6 +18,7 @@ from lightning_uq_box.datamodules import ToyImageClassificationDatamodule
 from lightning_uq_box.uq_methods import DeepEnsembleClassification, TTAClassification
 
 model_config_paths = [
+    "tests/configs/image_classification/base.yaml",
     "tests/configs/image_classification/mc_dropout.yaml",
     "tests/configs/image_classification/bnn_vi_elbo.yaml",
     "tests/configs/image_classification/swag.yaml",
@@ -94,6 +95,41 @@ class TestPosthoc:
         trainer.test(model, datamodule=datamodule)
 
 
+frozen_config_paths = [
+    "tests/configs/image_classification/base.yaml",
+    "tests/configs/image_classification/mc_dropout.yaml",
+    "tests/configs/image_classification/bnn_vi_elbo.yaml",
+    "tests/configs/image_classification/due.yaml",
+    "tests/configs/image_classification/sngp.yaml",
+]
+
+
+class TestFrozenBackbone:
+    @pytest.mark.parametrize("model_name", ["resnet18", "vit_small_patch8_224"])
+    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
+    def test_freeze_backbone(self, model_config_path: str, model_name: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+
+        try:
+            model_conf.model.model.model_name = model_name
+            model = instantiate(model_conf.model, freeze_backbone=True)
+            assert not all([param.requires_grad for param in model.model.parameters()])
+            assert all(
+                [
+                    param.requires_grad
+                    for param in model.model.get_classifier().parameters()
+                ]
+            )
+        except AttributeError:
+            model_conf.model.feature_extractor.model_name = model_name
+            model_conf.model.input_size = 224
+            model = instantiate(model_conf.model, freeze_backbone=True)
+            # check that entire feature extractor is frozen
+            assert not all(
+                [param.requires_grad for param in model.feature_extractor.parameters()]
+            )
+
+
 ensemble_model_config_paths = ["tests/configs/image_classification/mc_dropout.yaml"]
 
 
@@ -131,7 +167,7 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(

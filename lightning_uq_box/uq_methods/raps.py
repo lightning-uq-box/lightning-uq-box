@@ -1,9 +1,9 @@
-# MIT License
+# Apache License 2.0
 # Copyright (c) 2020 Anastasios Angelopoulos
 
 # Implementation adapted from above
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Regularized Adaptive Prediction Sets (RAPS).
 
@@ -13,7 +13,6 @@ to be integrated with Lightning and port several functions to pytorch.
 
 import os
 from functools import partial
-from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -23,15 +22,19 @@ import torch.nn.functional as F
 from lightning import LightningModule
 from torch import Tensor
 from torch.utils.data import DataLoader, Subset, TensorDataset, random_split
+from torchmetrics import Accuracy, CalibrationError, MetricCollection
 
 from .base import PosthocBase
-from .metrics import SetSize
+from .metrics import EmpiricalCoverage, SetSize
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
-from .utils import default_classification_metrics, save_classification_predictions
+from .utils import process_classification_prediction, save_classification_predictions
 
 
 class RAPS(PosthocBase):
     """Regularized Adaptive Prediction Sets (RAPS).
+
+    Conformal prediction method for classification tasks, as
+    introduced by `Angelopoulos et al. (2020) <https://arxiv.org/abs/2009.14193>`_.
 
     If you use this method, please cite the following paper:
 
@@ -44,12 +47,12 @@ class RAPS(PosthocBase):
 
     def __init__(
         self,
-        model: Union[LightningModule, nn.Module],
+        model: LightningModule | nn.Module,
         optim_lr: float = 0.01,
         max_iter: int = 50,
         alpha: float = 0.1,
-        kreg: Optional[int] = None,
-        lamda_param: Optional[float] = None,
+        kreg: int | None = None,
+        lamda_param: float | None = None,
         randomized: bool = False,
         allow_zero_sets: bool = False,
         pct_param_tune: float = 0.3,
@@ -59,7 +62,7 @@ class RAPS(PosthocBase):
         """Initialize RAPS.
 
         Args:
-            model: model to be calibrated with Temperature S
+            model: model to be calibrated with RAPS
             optim_lr: learning rate for optimizer
             max_iter: maximum number of iterations to run optimizer
             alpha: 1 - alpha is the desired coverage
@@ -102,8 +105,16 @@ class RAPS(PosthocBase):
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
-        self.test_metrics = default_classification_metrics(
-            "test", self.task, self.num_classes
+        self.test_metrics = MetricCollection(
+            {
+                "Acc": Accuracy(task=self.task, num_classes=self.num_classes),
+                "Calibration": CalibrationError(
+                    self.task, num_classes=self.num_classes
+                ),
+                "Empirical Coverage": EmpiricalCoverage(alpha=self.alpha),
+                "Set Size": SetSize(alpha=self.alpha),
+            },
+            prefix="test",
         )
 
     def test_step(
@@ -113,6 +124,7 @@ class RAPS(PosthocBase):
         # need to set manually because of inference mode
         self.eval()
         pred_dict = self.predict_step(batch[self.input_key])
+        pred_dict[self.target_key] = batch[self.target_key]
 
         # logging metrics
         self.log(
@@ -121,6 +133,7 @@ class RAPS(PosthocBase):
             batch_size=batch[self.input_key].shape[0],
         )
         self.test_metrics(pred_dict["pred"], batch[self.target_key])
+        pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
         return pred_dict
 
     def predict_step(
@@ -130,6 +143,8 @@ class RAPS(PosthocBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             logits and conformalized prediction sets
@@ -144,7 +159,14 @@ class RAPS(PosthocBase):
             scores = temp_scale_logits(logits, self.temperature)
             S = self.adjust_model_logits(logits)
 
-        return {"pred": scores, "pred_set": S, "logits": scores}
+        def identity(x, dim=None):
+            return x
+
+        pred_dict = process_classification_prediction(scores, aggregate_fn=identity)
+        pred_dict["pred_set"] = S
+        pred_dict["size"] = torch.tensor([len(x) for x in S])
+
+        return pred_dict
 
     def adjust_model_logits(self, model_logits: Tensor) -> Tensor:
         """Adjust model output according to RAPS with fitted Qhat.
@@ -431,8 +453,8 @@ class ConformalModelLogits(nn.Module):
         calib_loader: DataLoader,
         loss_fn: nn.Module,
         alpha: float,
-        kreg: Optional[int] = None,
-        lamda: Optional[float] = None,
+        kreg: int | None = None,
+        lamda: float | None = None,
         randomized: bool = False,
         allow_zero_sets: bool = False,
     ):
@@ -486,8 +508,8 @@ class ConformalModelLogits(nn.Module):
     def forward(
         self,
         logits: Tensor,
-        randomized: Optional[bool] = None,
-        allow_zero_sets: Optional[bool] = None,
+        randomized: bool | None = None,
+        allow_zero_sets: bool | None = None,
     ):
         """Forward pass.
 
@@ -643,13 +665,13 @@ def get_single_tau(
     """Get tau for one example.
 
     Args:
-        target:
-        sorted_score_indices:
-        ordered:
-        cumsum:
-        penalty:
-        randomized:
-        allow_zero_sets:
+        target: target label
+        sorted_score_indices: shape [batch_size x num_classes]
+        ordered: shape [batch_size x num_classes]
+        cumsum: shape [batch_size x num_classes]
+        penalty: shape [1 x num_classes]
+        randomized: whether to use randomized version of conformal prediction
+        allow_zero_sets: whether to allow sets of size zero
 
     Returns:
         single tau

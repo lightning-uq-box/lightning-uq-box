@@ -1,11 +1,10 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Deep Kernel Learning."""
 
-
 import os
-from typing import Any, Dict
+from typing import Any
 
 import gpytorch
 import numpy as np
@@ -148,7 +147,7 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         self.dkl_model_built = True
 
-    def forward(self, X: Tensor, **kwargs) -> MultivariateNormal:
+    def forward(self, X: Tensor) -> MultivariateNormal:
         """Forward pass through model.
 
         Args:
@@ -169,6 +168,8 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -198,6 +199,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         Args:
             batch: the output of your DataLoader
             batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             validation loss
@@ -251,7 +253,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def configure_optimizers(self) -> Dict[str, Any]:
+    def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -295,6 +297,7 @@ class DKLRegression(DKLBase):
         n_inducing_points: int,
         num_targets: int = 1,
         gp_kernel: str = "RBF",
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -307,9 +310,12 @@ class DKLRegression(DKLBase):
             gp_kernel: kernel choice, supports one of
                 ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             elbo_fn: gpytorch elbo function used for optimization
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        self.freeze_backbone = freeze_backbone
+
         super().__init__(
             feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
         )
@@ -324,6 +330,10 @@ class DKLRegression(DKLBase):
             ]
         )
         self.num_targets = num_targets
+
+        if self.freeze_backbone:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -387,9 +397,11 @@ class DKLRegression(DKLBase):
         self.likelihood.eval()
 
         # TODO make num samples an argument
-        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(
-            64
-        ), gpytorch.settings.fast_pred_var(state=False):
+        with (
+            torch.no_grad(),
+            gpytorch.settings.num_likelihood_samples(64),
+            gpytorch.settings.fast_pred_var(state=False),
+        ):
             output = self.likelihood(self.forward(X))
             mean = output.mean
             std = output.stddev.cpu()
@@ -420,6 +432,7 @@ class DKLClassification(DKLBase):
         num_classes: int,
         task: str = "multiclass",
         gp_kernel: str = "RBF",
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
@@ -432,6 +445,7 @@ class DKLClassification(DKLBase):
                 'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
             num_classes: number of classes
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -441,6 +455,7 @@ class DKLClassification(DKLBase):
         self.num_classes = num_classes
         # number of latent features of the feature extractor
         self.num_features = _get_num_outputs(feature_extractor)
+        self.freeze_backbone = freeze_backbone
 
         super().__init__(
             feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
@@ -455,6 +470,10 @@ class DKLClassification(DKLBase):
                 "elbo_fn",
             ]
         )
+
+        if self.freeze_backbone:
+            for param in self.feature_extractor.parameters():
+                param.requires_grad = False
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -500,6 +519,8 @@ class DKLClassification(DKLBase):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -524,6 +545,7 @@ class DKLClassification(DKLBase):
         Args:
             batch: the output of your DataLoader
             batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             validation loss
@@ -570,9 +592,11 @@ class DKLClassification(DKLBase):
         self.likelihood.eval()
 
         # TODO make num samples an argument
-        with torch.no_grad(), gpytorch.settings.num_likelihood_samples(
-            64
-        ), gpytorch.settings.fast_pred_var(state=False):
+        with (
+            torch.no_grad(),
+            gpytorch.settings.num_likelihood_samples(64),
+            gpytorch.settings.fast_pred_var(state=False),
+        ):
             gp_dist = self.forward(X)
             output = self.likelihood(gp_dist)
             mean = output.probs.mean(0)  # take mean over sampling dimension
@@ -612,7 +636,7 @@ class DKLGPLayer(ApproximateGP):
         """Initialize a new instance of the Gaussian Process Layer.
 
         Args:
-            n_outpus: number of latent output features of the GP
+            n_outputs: number of latent output features of the GP
             initial_lengthscale: initial lengthscale to use
             initial_inducing_points: initial inducing points to use
             kernel: kernel choice, supports one of
