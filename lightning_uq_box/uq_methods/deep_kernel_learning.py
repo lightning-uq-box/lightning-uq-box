@@ -3,9 +3,8 @@
 
 """Deep Kernel Learning."""
 
-
 import os
-from typing import Any, Dict
+from typing import Any
 
 import gpytorch
 import numpy as np
@@ -148,7 +147,7 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         self.dkl_model_built = True
 
-    def forward(self, X: Tensor, **kwargs) -> MultivariateNormal:
+    def forward(self, X: Tensor) -> MultivariateNormal:
         """Forward pass through model.
 
         Args:
@@ -169,6 +168,8 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -198,6 +199,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         Args:
             batch: the output of your DataLoader
             batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             validation loss
@@ -251,7 +253,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def configure_optimizers(self) -> Dict[str, Any]:
+    def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -517,6 +519,8 @@ class DKLClassification(DKLBase):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -541,6 +545,7 @@ class DKLClassification(DKLBase):
         Args:
             batch: the output of your DataLoader
             batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             validation loss
@@ -631,7 +636,7 @@ class DKLGPLayer(ApproximateGP):
         """Initialize a new instance of the Gaussian Process Layer.
 
         Args:
-            n_outpus: number of latent output features of the GP
+            n_outputs: number of latent output features of the GP
             initial_lengthscale: initial lengthscale to use
             initial_inducing_points: initial inducing points to use
             kernel: kernel choice, supports one of

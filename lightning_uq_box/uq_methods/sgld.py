@@ -5,7 +5,6 @@
 # TO DO:
 # SGLD with ensembles
 
-
 import os
 from collections.abc import Iterator
 from typing import Any, Optional
@@ -221,6 +220,8 @@ class SGLDRegression(SGLDBase):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -258,9 +259,9 @@ class SGLDRegression(SGLDBase):
         """Predict step with SGLD, take n_sgld_sampled models, get mean and variance.
 
         Args:
-            self: SGLD class
-            batch_idx: default int=0
-            dataloader_idx: default int=0
+            X: input tensor
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             output dictionary with uncertainty estimates
@@ -354,6 +355,8 @@ class SGLDClassification(SGLDBase):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -388,6 +391,8 @@ class SGLDClassification(SGLDBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             output dictionary with uncertainty estimates

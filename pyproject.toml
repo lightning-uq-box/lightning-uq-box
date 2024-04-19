@@ -104,17 +104,8 @@ dev = [
     "ipykernel>=6.29.3",
 
     ## Style
-    # black 21.8+ required for Jupyter support
-    "black[jupyter]>=21.8",
-    # flake8 3.8+ depends on pyflakes 2.2+, which fixes a bug with mypy error code ignores:
-    # https://github.com/PyCQA/pyflakes/pull/455
-    "flake8>=3.8",
-    # isort 5.8+ required for extend_skip option
-    "isort[colors]>=5.8",
-    # pydocstyle 6.1+ required for pyproject.toml support
-    "pydocstyle[toml]>=6.1",
-    # pyupgrade 2.8+ required for --py39-plus flag
-    "pyupgrade>=2.8",
+    # ruff 0.2+ required for [ruff.lint]
+    "ruff>=0.2",
 ]
 
 
@@ -173,20 +164,25 @@ USE_IOMP = "0"
 [tool.setuptools.dynamic]
 version = {attr = "lightning_uq_box.__version__"}
 
-[tool.isort]
-profile = "black"
-known_first_party = ["docs", "tests", "lightning_uq_box", "train"]
-skip_gitignore = true
-color_output = true
+[tool.ruff]
+extend-include = ["*.ipynb"]
+fix = true
 
-[tool.black]
-target-version = ["py39"]
-color = true
-skip_magic_trailing_comma = true
+[tool.ruff.format]
+skip-magic-trailing-comma = true
 
-[tool.pydocstyle]
+[tool.ruff.lint]
+extend-select = ["D", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"docs/**" = ["D"]
+"tests/**" = ["D"]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.lint.pydocstyle]
 convention = "google"
-match_dir = "(datamodules|datasets|models|lightning_uq_box)"
 
 [project.scripts]
 uq-box = "lightning_uq_box.main:main"

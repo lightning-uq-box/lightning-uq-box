@@ -270,6 +270,4 @@ class LinearVariational(BaseVariationalLayer_):
 
     def extra_repr(self) -> str:
         """Representation when printing out Layer."""
-        return "in_features={}, out_features={}, bias={}, is_frozen={}".format(
-            self.in_features, self.out_features, self.bias is not None, self.is_frozen
-        )
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}, is_frozen={self.is_frozen}"

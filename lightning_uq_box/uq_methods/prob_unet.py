@@ -22,7 +22,7 @@
 """Probabilistic U-Net."""
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import torch
 import torch.nn as nn
@@ -57,7 +57,7 @@ class ProbUNet(BaseModule):
         self,
         model: nn.Module,
         latent_dim: int = 6,
-        num_filters: List[int] = [32, 64, 128, 192],
+        num_filters: list[int] = [32, 64, 128, 192],
         num_convs_per_block: int = 3,
         num_convs_fcomb: int = 4,
         fcomb_filter_size: int = 32,
@@ -140,11 +140,11 @@ class ProbUNet(BaseModule):
             prefix="test", num_classes=self.num_classes, task=self.task
         )
 
-    def compute_loss(self, batch: Dict[str, Tensor]) -> Dict[str, Tensor]:
+    def compute_loss(self, batch: dict[str, Tensor]) -> dict[str, Tensor]:
         """Compute the evidence lower bound (ELBO) of the log-likelihood of P(Y|X).
 
         Args:
-            seg_mask: segmentation target mask
+            batch: batch of data with input and target key
 
         Returns:
             A dictionary containing the total loss,
@@ -261,6 +261,8 @@ class ProbUNet(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -312,7 +314,7 @@ class ProbUNet(BaseModule):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Compute and return the test loss.
 
         Args:
@@ -363,7 +365,7 @@ class ProbUNet(BaseModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Compute and return the prediction.
 
         Args:

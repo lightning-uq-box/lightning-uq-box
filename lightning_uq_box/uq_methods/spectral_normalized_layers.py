@@ -6,8 +6,6 @@
 Adapted from https://github.com/y0ast/DUE/tree/main/due/layers
 """
 
-from typing import Tuple
-
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
@@ -298,11 +296,13 @@ Based on: Regularisation of Neural Networks by Enforcing Lipschitz Continuity
 class SpectralNormConv(SpectralNorm):
     """Spectral Norm Convolutional Layer."""
 
-    def compute_weight(self, module, do_power_iteration: bool) -> torch.Tensor:
+    def compute_weight(
+        self, module: nn.Module, do_power_iteration: bool
+    ) -> torch.Tensor:
         """Compute spectral normalized weight.
 
         Args:
-            module:
+            module: Conv layer module
             do_power_iteration: whether or not to apply power iterations
 
         Returns:
@@ -381,7 +381,7 @@ class SpectralNormConv(SpectralNorm):
     def apply(
         module: nn.Module,
         coeff: float,
-        input_dim: Tuple[int],
+        input_dim: tuple[int],
         name: str,
         n_power_iterations: int,
         eps: float,
@@ -401,7 +401,7 @@ class SpectralNormConv(SpectralNorm):
             if isinstance(hook, SpectralNormConv) and hook.name == name:
                 raise RuntimeError(
                     "Cannot register two spectral_norm hooks on "
-                    "the same parameter {}".format(name)
+                    f"the same parameter {name}"
                 )
 
         fn = SpectralNormConv(name, n_power_iterations, eps=eps)
@@ -484,12 +484,14 @@ with additional variable `coeff` or max spectral norm.
 class SpectralNormFC(SpectralNorm):
     """Spectral Norm Fully Connected."""
 
-    def compute_weight(self, module, do_power_iteration: bool) -> torch.Tensor:
+    def compute_weight(
+        self, module: nn.Module, do_power_iteration: bool
+    ) -> torch.Tensor:
         """Compute spectral normalized weight.
 
         Args:
-            module:
-            do_power_iteration
+            module: linear layer module
+            do_power_iteration: whether or not to apply power iterations
 
         Returns:
             computed weight tensor
@@ -537,12 +539,12 @@ class SpectralNormFC(SpectralNorm):
         """Apply spectral normalization.
 
         Args:
-            module:
-            coeff:
-            name:
-            n_power_iterations:
-            dim:
-            eps:
+            module: module
+            coeff: soft normalization only when sigma larger than coeff
+            name: name of weight parameter
+            n_power_iterations: number of power iterations
+            dim: dimensions corresponding to number of outputs
+            eps: epsilon
 
         Returns:
             spectral normalized layer
@@ -551,7 +553,7 @@ class SpectralNormFC(SpectralNorm):
             if isinstance(hook, SpectralNorm) and hook.name == name:
                 raise RuntimeError(
                     "Cannot register two spectral_norm hooks on "
-                    "the same parameter {}".format(name)
+                    f"the same parameter {name}"
                 )
 
         fn = SpectralNormFC(name, n_power_iterations, dim, eps)
@@ -583,7 +585,7 @@ class SpectralNormFC(SpectralNorm):
 
 
 def spectral_norm_fc(
-    module,
+    module: nn.Module,
     coeff: float,
     n_power_iterations: int = 1,
     name: str = "weight",
@@ -593,14 +595,14 @@ def spectral_norm_fc(
     """Apply spectral normalization.
 
     Args:
-        module (nn.Module): containing module
-        coeff (float, optional): coefficient to normalize to
-        n_power_iterations (int, optional): number of power iterations to
+        module: containing module
+        coeff: coefficient to normalize to
+        n_power_iterations: number of power iterations to
             calculate spectral norm
-        name (str, optional): name of weight parameter
-        eps (float, optional): epsilon for numerical stability in
+        name: name of weight parameter
+        eps: epsilon for numerical stability in
             calculating norms
-        dim (int, optional): dimension corresponding to number of outputs,
+        dim: dimension corresponding to number of outputs,
             the default is ``0``, except for modules that are instances of
             ConvTranspose{1,2,3}d, when it is ``1``
 
