@@ -43,27 +43,41 @@ class ToyDUE(LightningDataModule):
         W = np.random.randn(30, 1)
         b = np.random.rand(30, 1) * 2 * np.pi
 
-        x = np.sort(
+        x_train = np.sort(
             5 * np.sign(np.random.randn(n_samples))
             + np.random.randn(n_samples).clip(-2, 2)
         )
-        y = np.cos(W * x + b).sum(0) + noise * np.random.randn(n_samples)
+        y_train = np.cos(W * x_train + b).sum(0) + noise * np.random.randn(n_samples)
 
         x_test = np.linspace(-10, 10, 500)
         y_test = np.cos(W * x_test + b).sum(0)  # + noise * np.random.randn(n_samples)
 
         if normalize:
-            x_mean = x.mean()
-            x_std = x.std()
-            y_mean = y.mean()
-            y_std = y.std()
-            x = (x - x_mean) / x_std
-            y = (y - y_mean) / y_std
+            x_mean = x_train.mean()
+            x_std = x_train.std()
+            # y_mean = y_train.mean()
+            # y_std = y_train.std()
+            x_train = (x_train - x_mean) / x_std
             x_test = (x_test - x_mean) / x_std
-            y_test = (y_test - y_mean) / y_std
 
-        self.X_train = torch.from_numpy(x).unsqueeze(-1).to(torch.float32)
-        self.y_train = torch.from_numpy(y).unsqueeze(-1).to(torch.float32)
+            # y_train = (y_train - y_mean) / y_std
+            # y_test = (y_test - y_mean) / y_std
+
+            # do min max scaling instead
+            # x_min = x_train.min()
+            # x_max = x_train.max()
+            y_min = y_train.min()
+            y_max = y_train.max()
+            # x_train = (x_train - x_min) / (x_max - x_min)
+            # x_test = (x_test - x_min) / (x_max - x_min)
+
+            y_train = (y_train - y_min) / (y_max - y_min)
+            y_test = (y_test - y_min) / (y_max - y_min)
+            # x_train = (x_train - x_min) / (x_max - x_min)
+            # x_test = (x_test - x_min) / (x_max - x_min)
+
+        self.X_train = torch.from_numpy(x_train).unsqueeze(-1).to(torch.float32)
+        self.y_train = torch.from_numpy(y_train).unsqueeze(-1).to(torch.float32)
 
         self.X_test = torch.from_numpy(x_test).unsqueeze(-1).to(torch.float32)
         self.y_test = torch.from_numpy(y_test).unsqueeze(-1).to(torch.float32)
