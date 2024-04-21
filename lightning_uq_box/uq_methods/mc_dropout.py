@@ -466,6 +466,7 @@ class MCDropoutSegmentation(MCDropoutClassification):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
+<<<<<<< HEAD
         save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
@@ -552,3 +553,10 @@ class MCDropoutPxRegression(MCDropoutRegression):
             dataloader_idx: dataloader index
         """
         save_image_predictions(outputs, batch_idx, self.pred_dir)
+=======
+        pass
+
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation."""
+        return out.argmax(dim=1).float()
+>>>>>>> segmentation_tutorial

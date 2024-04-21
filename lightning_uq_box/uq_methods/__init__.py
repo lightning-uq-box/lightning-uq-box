@@ -27,6 +27,10 @@ from .bnn_vi_elbo import (
 )
 from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
 from .conformal_qr import ConformalQR
+from .conformal_risk_control import (
+    ConformalRiskControl,
+    ConformalRiskControlSegmentation,
+)
 from .deep_ensemble import (
     DeepEnsemble,
     DeepEnsembleClassification,
@@ -91,6 +95,9 @@ __all__ = (
     "DeterministicRegression",
     "DeterministicSegmentation",
     "DeterministicPixelRegression",
+    # Conformal Risk Control
+    "ConformalRiskControl",
+    "ConformalRiskControlSegmentation",
     # CARDS
     "CARDBase",
     "CARDRegression",

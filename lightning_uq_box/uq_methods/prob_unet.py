@@ -65,7 +65,8 @@ class ProbUNet(BaseModule):
         num_samples: int = 5,
         task: str = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable | None = None,
+        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of ProbUNet.
 
@@ -81,6 +82,7 @@ class ProbUNet(BaseModule):
             task: task type, either "multiclass" or "binary"
             optimizer: optimizer
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         super().__init__()
         self.latent_dim = latent_dim
@@ -125,6 +127,7 @@ class ProbUNet(BaseModule):
 
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
+        self.save_preds = save_preds
 
         self.setup_task()
 
@@ -181,7 +184,7 @@ class ProbUNet(BaseModule):
         rec_loss_sum = torch.sum(rec_loss)
         rec_loss_mean = torch.mean(rec_loss)
 
-        loss = rec_loss_sum + self.beta * kl_loss
+        loss = rec_loss_mean + self.beta * kl_loss
 
         return {
             "loss": loss,

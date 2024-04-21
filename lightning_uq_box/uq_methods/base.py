@@ -18,6 +18,7 @@ from .utils import (
     default_classification_metrics,
     default_px_regression_metrics,
     default_regression_metrics,
+    default_segmentation_metrics,
     freeze_model_backbone,
     freeze_segmentation_model,
     process_classification_prediction,
@@ -178,7 +179,14 @@ class DeterministicModel(BaseModule):
 
     def on_train_epoch_end(self):
         """Log epoch-level training metrics."""
-        self.log_dict(self.train_metrics.compute())
+        new_dict = {}
+        comp_matrics = self.train_metrics.compute()
+        for key, val in comp_matrics.items():
+            if "Stats" in key:
+                for idx, name in enumerate(["tp", "fp", "tn", "fn", "sup"]):
+                    new_dict[key + "_" + name] = float(val[idx].item())
+            else:
+                new_dict[key] = val
         self.train_metrics.reset()
 
     def validation_step(
@@ -207,7 +215,15 @@ class DeterministicModel(BaseModule):
 
     def on_validation_epoch_end(self) -> None:
         """Log epoch level validation metrics."""
-        self.log_dict(self.val_metrics.compute())
+        new_dict = {}
+        comp_matrics = self.val_metrics.compute()
+        for key, val in comp_matrics.items():
+            if "Stats" in key:
+                for idx, name in enumerate(["tp", "fp", "tn", "fn", "sup"]):
+                    new_dict[key + "_" + name] = float(val[idx].item())
+            else:
+                new_dict[key] = val
+        self.log_dict(new_dict)
         self.val_metrics.reset()
 
     def test_step(
@@ -234,7 +250,14 @@ class DeterministicModel(BaseModule):
 
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""
-        self.log_dict(self.test_metrics.compute())
+        new_dict = {}
+        comp_matrics = self.test_metrics.compute()
+        for key, val in comp_matrics.items():
+            if "Stats" in key:
+                for idx, name in enumerate(["tp", "fp", "tn", "fn", "sup"]):
+                    new_dict[key + "_" + name] = float(val[idx].item())
+            else:
+                new_dict[key] = val
         self.test_metrics.reset()
 
     def predict_step(
@@ -396,6 +419,7 @@ class DeterministicSegmentation(DeterministicClassification):
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new Deterministic Segmentation Model.
 
@@ -410,10 +434,25 @@ class DeterministicSegmentation(DeterministicClassification):
                 supported for torchseg Unet models
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         self.freeze_backbone = freeze_backbone
         self.freeze_decoder = freeze_decoder
         super().__init__(model, loss_fn, task, freeze_backbone, optimizer, lr_scheduler)
+
+        self.save_preds = save_preds
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes for segmentation."""
+        self.train_metrics = default_segmentation_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_segmentation_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_segmentation_metrics(
+            "test", self.task, self.num_classes
+        )
 
     def freeze_model(self) -> None:
         """Freeze model backbone.
@@ -444,7 +483,7 @@ class DeterministicSegmentation(DeterministicClassification):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -462,7 +501,8 @@ class DeterministicSegmentation(DeterministicClassification):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class DeterministicPixelRegression(DeterministicRegression):
