@@ -18,6 +18,7 @@ from .utils import (
     default_classification_metrics,
     default_px_regression_metrics,
     default_regression_metrics,
+    default_segmentation_metrics,
     freeze_model_backbone,
     freeze_segmentation_model,
     process_classification_prediction,
@@ -396,6 +397,7 @@ class DeterministicSegmentation(DeterministicClassification):
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new Deterministic Segmentation Model.
 
@@ -415,6 +417,8 @@ class DeterministicSegmentation(DeterministicClassification):
         self.freeze_decoder = freeze_decoder
         super().__init__(model, loss_fn, task, freeze_backbone, optimizer, lr_scheduler)
 
+        self.save_preds = save_preds
+
     def freeze_model(self) -> None:
         """Freeze model backbone.
 
@@ -422,6 +426,18 @@ class DeterministicSegmentation(DeterministicClassification):
         Alternatively, selected the last layer with parameters to freeze.
         """
         freeze_segmentation_model(self.model, self.freeze_backbone, self.freeze_decoder)
+
+    def setup_task(self) -> None:
+        """Set up the task."""
+        self.train_metrics = default_segmentation_metrics(
+            prefix="train", num_classes=self.num_classes, task=self.task
+        )
+        self.val_metrics = default_segmentation_metrics(
+            prefix="val", num_classes=self.num_classes, task=self.task
+        )
+        self.test_metrics = default_segmentation_metrics(
+            prefix="test", num_classes=self.num_classes, task=self.task
+        )
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -444,7 +460,7 @@ class DeterministicSegmentation(DeterministicClassification):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -462,7 +478,8 @@ class DeterministicSegmentation(DeterministicClassification):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class DeterministicPixelRegression(DeterministicRegression):
