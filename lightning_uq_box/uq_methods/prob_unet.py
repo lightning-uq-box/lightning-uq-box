@@ -38,7 +38,6 @@ from .utils import (
     default_segmentation_metrics,
     process_segmentation_prediction,
     save_image_predictions,
-    freeze_segmentation_model
 )
 
 
@@ -57,7 +56,7 @@ class ProbUNet(BaseModule):
     def __init__(
         self,
         model: nn.Module,
-        latent_dim: int = 20,
+        latent_dim: int = 6,
         num_filters: list[int] = [32, 64, 128, 192],
         num_convs_per_block: int = 3,
         num_convs_fcomb: int = 4,
@@ -65,11 +64,8 @@ class ProbUNet(BaseModule):
         beta: float = 10.0,
         num_samples: int = 5,
         task: str = "multiclass",
-        freeze_backbone: bool = False,
-        freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
-        save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of ProbUNet.
 
@@ -85,7 +81,6 @@ class ProbUNet(BaseModule):
             task: task type, either "multiclass" or "binary"
             optimizer: optimizer
             lr_scheduler: learning rate scheduler
-            save_preds: whether or not to save predictions
         """
         super().__init__()
         self.latent_dim = latent_dim
@@ -131,19 +126,7 @@ class ProbUNet(BaseModule):
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
 
-        self.freeze_backbone = freeze_backbone
-        self.freeze_decoder = freeze_decoder
         self.setup_task()
-        self.freeze_model()
-        self.save_preds = save_preds
-
-    def freeze_model(self) -> None:
-        """Freeze model backbone.
-
-        By default, assumes a timm model with a backbone and head.
-        Alternatively, selected the last layer with parameters to freeze.
-        """
-        freeze_segmentation_model(self.model, self.freeze_backbone, self.freeze_decoder)
 
     def setup_task(self) -> None:
         """Set up the task."""
@@ -198,7 +181,7 @@ class ProbUNet(BaseModule):
         rec_loss_sum = torch.sum(rec_loss)
         rec_loss_mean = torch.mean(rec_loss)
 
-        loss = rec_loss_mean + self.beta * kl_loss
+        loss = rec_loss_sum + self.beta * kl_loss
 
         return {
             "loss": loss,
@@ -302,11 +285,6 @@ class ProbUNet(BaseModule):
 
         # return loss to optimize
         return loss_dict["loss"]
-    
-    def on_train_epoch_end(self):
-        """Log epoch-level training metrics."""
-        self.log_dict(self.train_metrics.compute())
-        self.train_metrics.reset()
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -335,11 +313,6 @@ class ProbUNet(BaseModule):
         )
 
         return loss_dict["loss"]
-    
-    def on_validation_epoch_end(self) -> None:
-        """Log epoch level validation metrics."""
-        self.log_dict(self.val_metrics.compute())
-        self.val_metrics.reset()
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -369,15 +342,10 @@ class ProbUNet(BaseModule):
 
         return preds
 
-    def on_test_epoch_end(self) -> None:
-        """Log epoch level validation metrics."""
-        self.log_dict(self.test_metrics.compute())
-        self.test_metrics.reset()
-
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir) and self.save_preds:
+        if not os.path.exists(self.pred_dir):
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -395,8 +363,7 @@ class ProbUNet(BaseModule):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        if self.save_preds:
-            save_image_predictions(outputs, batch_idx, self.pred_dir)
+        save_image_predictions(outputs, batch_idx, self.pred_dir)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -412,9 +379,8 @@ class ProbUNet(BaseModule):
             prediction dict
         """
         # this internally computes the latent space and unet features
-        with torch.no_grad():
-            self.prior_latent_space = self.prior.forward(X)
-            self.unet_features = self.model.forward(X)
+        self.prior_latent_space = self.prior.forward(X)
+        self.unet_features = self.model.forward(X)
 
         # which can then be used to sample a segmentation
         samples = torch.stack(
