@@ -375,6 +375,7 @@ class MCDropoutSegmentation(MCDropoutClassification):
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Segmentation.
 
@@ -390,6 +391,7 @@ class MCDropoutSegmentation(MCDropoutClassification):
                 supported for torchseg Unet models
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         self.freeze_backbone = freeze_backbone
         self.freeze_decoder = freeze_decoder
@@ -403,6 +405,8 @@ class MCDropoutSegmentation(MCDropoutClassification):
             optimizer,
             lr_scheduler,
         )
+
+        self.save_preds = save_preds
 
     def setup_task(self) -> None:
         """Set up task specific attributes for segmentation."""
@@ -448,7 +452,7 @@ class MCDropoutSegmentation(MCDropoutClassification):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -466,8 +470,8 @@ class MCDropoutSegmentation(MCDropoutClassification):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-<<<<<<< HEAD
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class MCDropoutPxRegression(MCDropoutRegression):
@@ -553,10 +557,8 @@ class MCDropoutPxRegression(MCDropoutRegression):
             dataloader_idx: dataloader index
         """
         save_image_predictions(outputs, batch_idx, self.pred_dir)
-=======
         pass
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation."""
         return out.argmax(dim=1).float()
->>>>>>> segmentation_tutorial

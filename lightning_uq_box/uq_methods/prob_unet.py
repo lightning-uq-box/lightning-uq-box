@@ -65,7 +65,7 @@ class ProbUNet(BaseModule):
         num_samples: int = 5,
         task: str = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None ,
         save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of ProbUNet.
@@ -288,6 +288,11 @@ class ProbUNet(BaseModule):
 
         # return loss to optimize
         return loss_dict["loss"]
+    
+    def on_train_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -316,6 +321,11 @@ class ProbUNet(BaseModule):
         )
 
         return loss_dict["loss"]
+    
+    def on_validation_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.val_metrics.compute())
+        self.val_metrics.reset()
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -350,6 +360,11 @@ class ProbUNet(BaseModule):
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
         if not os.path.exists(self.pred_dir):
             os.makedirs(self.pred_dir)
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def on_test_batch_end(
         self,
