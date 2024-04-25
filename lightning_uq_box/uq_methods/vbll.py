@@ -119,10 +119,7 @@ class VBLLRegression(DeterministicRegression):
         """Freeze model."""
         if self.freeze_backbone:
             for name, module in self.model.named_modules():
-                if module.__class__.__name__ in [
-                    "DiscClassification",
-                    "GenClassification",
-                ]:
+                if module.__class__.__name__ == "Regression":
                     for param in module.parameters():
                         param.requires_grad = True
                 elif not any(module.named_children()):
