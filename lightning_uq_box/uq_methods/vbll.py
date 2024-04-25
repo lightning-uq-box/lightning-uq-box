@@ -67,6 +67,7 @@ class VBLLRegression(DeterministicRegression):
             lr_scheduler: The learning rate scheduler to use for training
 
         """
+        # pass freeze model False as we will freeze the backbone in the model below customly
         super().__init__(model, None, freeze_backbone, optimizer, lr_scheduler)
 
         try:
@@ -84,6 +85,7 @@ class VBLLRegression(DeterministicRegression):
         self.dof = dof
         self.replace_ll = replace_ll
         self.build_model()
+        self.freeze_model()
 
     def build_model(self) -> None:
         """Build model."""
@@ -112,6 +114,20 @@ class VBLLRegression(DeterministicRegression):
             replace_module(self.model, last_layer_name, new_layer)
         else:
             self.model = nn.Sequential(self.model, new_layer)
+
+    def freeze_model(self) -> None:
+        """Freeze model."""
+        if self.freeze_backbone:
+            for name, module in self.model.named_modules():
+                if module.__class__.__name__ in [
+                    "DiscClassification",
+                    "GenClassification",
+                ]:
+                    for param in module.parameters():
+                        param.requires_grad = True
+                elif not any(module.named_children()):
+                    for param in module.parameters():
+                        param.requires_grad = False
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt the output for metrics.
@@ -285,6 +301,13 @@ class VBLLClassification(DeterministicClassification):
             optimizer: The optimizer to use for training
             lr_scheduler: The learning rate scheduler to use for training
         """
+        try:
+            import vbll  # noqa: F401
+        except ImportError:
+            raise ImportError(
+                "You need to install the vbll package: 'pip install vbll'."
+            )
+
         self.num_targets = num_targets
 
         assert (
@@ -298,16 +321,9 @@ class VBLLClassification(DeterministicClassification):
         self.layer_type = layer_type
 
         # pass freeze model False as we will freeze the backbone in the model below customly
-        super().__init__(model, None, task, freeze_backbone, optimizer, lr_scheduler)
+        super().__init__(model, None, task, False, optimizer, lr_scheduler)
 
         self.freeze_backbone = freeze_backbone
-
-        try:
-            import vbll  # noqa: F401
-        except ImportError:
-            raise ImportError(
-                "You need to install the vbll package: 'pip install vbll'."
-            )
 
         self.regularization_weight = regularization_weight
         self.parameterization = parameterization
@@ -317,7 +333,7 @@ class VBLLClassification(DeterministicClassification):
         self.replace_ll = replace_ll
 
         self.build_model()
-        # self.freeze_model()
+        self.freeze_model()
 
     def build_model(self) -> None:
         """Build Classification Model."""
@@ -352,6 +368,20 @@ class VBLLClassification(DeterministicClassification):
             self.model = nn.Sequential(self.model, new_layer)
 
         self.num_classes = self.num_targets
+
+    def freeze_model(self) -> None:
+        """Freeze model."""
+        if self.freeze_backbone:
+            for name, module in self.model.named_modules():
+                if module.__class__.__name__ in [
+                    "DiscClassification",
+                    "GenClassification",
+                ]:
+                    for param in module.parameters():
+                        param.requires_grad = True
+                elif not any(module.named_children()):
+                    for param in module.parameters():
+                        param.requires_grad = False
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""

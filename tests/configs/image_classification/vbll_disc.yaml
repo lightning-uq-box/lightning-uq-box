@@ -11,3 +11,4 @@ model:
   regularization_weight: 0.1
   num_targets: 4
   layer_type: "disc"
+  replace_ll: true
