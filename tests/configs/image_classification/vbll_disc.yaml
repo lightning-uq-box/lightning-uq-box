@@ -10,3 +10,4 @@ model:
     _partial_: true
   regularization_weight: 0.1
   num_targets: 4
+  layer_type: "disc"

@@ -14,7 +14,11 @@ from torch import Tensor
 from torch.nn.modules import Module
 
 from .base import DeterministicClassification, DeterministicRegression
-from .utils import _get_output_layer_name_and_module, default_classification_metrics
+from .utils import (
+    _get_output_layer_name_and_module,
+    default_classification_metrics,
+    replace_module,
+)
 
 
 class VBLLRegression(DeterministicRegression):
@@ -22,7 +26,7 @@ class VBLLRegression(DeterministicRegression):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://openreview.net/forum?id=Sx7BIiPzys
+    * https://arxiv.org/abs/2404.11599
 
     """
 
@@ -30,6 +34,7 @@ class VBLLRegression(DeterministicRegression):
         self,
         model: Module,
         regularization_weight,
+        replace_ll: bool = True,
         num_targets: int = 1,
         parameterization: str = "dense",
         prior_scale: float = 1.0,
@@ -46,6 +51,8 @@ class VBLLRegression(DeterministicRegression):
             regularization_weight : regularization weight term in ELBO, and should be
                 1 / (dataset size) by default. This term impacts the epistemic
                 uncertainty estimate.
+            replace_ll: Whether to replace the last layer of the model with VBLL
+                or add a new layer
             num_targets : Number of targets
             parameterization : Parameterization of covariance matrix. One of
                 ['dense','diagonal']
@@ -75,26 +82,36 @@ class VBLLRegression(DeterministicRegression):
         self.prior_scale = prior_scale
         self.wishart_scale = wishart_scale
         self.dof = dof
+        self.replace_ll = replace_ll
         self.build_model()
 
     def build_model(self) -> None:
         """Build model."""
         from vbll import Regression as VBLLReg
 
-        _, last_module_backbone = _get_output_layer_name_and_module(self.model)
-
-        self.model = nn.Sequential(
-            self.model,
-            VBLLReg(
-                in_features=last_module_backbone.out_features,
-                out_features=self.num_targets,
-                regularization_weight=self.regularization_weight,
-                parameterization=self.parameterization,
-                prior_scale=self.prior_scale,
-                wishart_scale=self.wishart_scale,
-                dof=self.dof,
-            ),
+        last_layer_name, last_module_backbone = _get_output_layer_name_and_module(
+            self.model
         )
+
+        if self.replace_ll:
+            in_features = last_module_backbone.in_features
+        else:
+            in_features = last_module_backbone.out_features
+
+        new_layer = VBLLReg(
+            in_features=in_features,
+            out_features=self.num_targets,
+            regularization_weight=self.regularization_weight,
+            parameterization=self.parameterization,
+            prior_scale=self.prior_scale,
+            wishart_scale=self.wishart_scale,
+            dof=self.dof,
+        )
+
+        if self.replace_ll:
+            replace_module(self.model, last_layer_name, new_layer)
+        else:
+            self.model = nn.Sequential(self.model, new_layer)
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt the output for metrics.
@@ -188,6 +205,9 @@ class VBLLRegression(DeterministicRegression):
         with torch.no_grad():
             pred = self.model(X)
 
+        # TODO can we separate epistemic and aleatoric uncertainty of the
+        # prediction?
+
         return {
             "pred": pred.predictive.mean,
             "pred_uct": torch.sqrt(pred.predictive.covariance).squeeze(-1),
@@ -197,11 +217,16 @@ class VBLLRegression(DeterministicRegression):
     def configure_optimizers(self) -> dict[str, Any]:
         """Configure Optimizers."""
         # exclude vbll parameters from weight decay
+        backbone_params = []
+        vbll_params = []
+        for name, module in self.model.named_modules():
+            if module.__class__.__name__ == "Regression":
+                vbll_params.extend(list(module.parameters()))
+            elif not any(module.named_children()):
+                backbone_params.extend(list(module.parameters()))
+
         optimizer = self.optimizer(
-            [
-                {"params": self.model[0].parameters()},
-                {"params": self.model[-1].parameters(), "weight_decay": 0.0},
-            ]
+            [{"params": backbone_params}, {"params": vbll_params, "weight_decay": 0.0}]
         )
         if self.lr_scheduler is not None:
             scheduler = self.lr_scheduler(optimizer)
@@ -210,17 +235,26 @@ class VBLLRegression(DeterministicRegression):
 
 
 class VBLLClassification(DeterministicClassification):
-    """Variational Bayes Last Layer (VBLL) for Classification."""
+    """Variational Bayes Last Layer (VBLL) for Classification.
+
+    If you use this method in your research, please cite the following paper:
+
+    * https://arxiv.org/abs/2404.11599
+    """
+
+    valid_layer_types = ["disc", "gen"]
 
     def __init__(
         self,
         model: nn.Module,
         regularization_weight: float,
         num_targets: int,
+        replace_ll: bool = True,
         parameterization: str = "dense",
         prior_scale: float = 1,
         wishart_scale: float = 0.01,
         dof: int = 1,
+        layer_type: str = "disc",
         freeze_backbone: bool = False,
         task: "str" = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -234,6 +268,8 @@ class VBLLClassification(DeterministicClassification):
                 1 / (dataset size) by default. This term impacts the epistemic
                 uncertainty estimate.
             num_targets : Number of targets
+            replace_ll: If True, replace the last layer of the model with VBLL
+                or add a new layer
             parameterization : Parameterization of covariance matrix. One of
                 ['dense','diagonal']
             prior_scale : prior covariance matrix scale
@@ -241,6 +277,8 @@ class VBLLClassification(DeterministicClassification):
             wishart_scale : Scale of Wishart prior on noise covariance. This term
                 has an impact on the aleatoric uncertainty estimate.
             dof : Degrees of freedom of Wishart prior on noise covariance
+            layer_type: The type of layer to use. One of ['disc', 'gen'], a
+                Discriminative or Generative layer
             freeze_backbone: If True, the backbone model will be frozen
                 and only the VBBL layer will be trained
             task: The type of task. One of ['binary', 'multiclass']
@@ -248,7 +286,21 @@ class VBLLClassification(DeterministicClassification):
             lr_scheduler: The learning rate scheduler to use for training
         """
         self.num_targets = num_targets
+
+        assert (
+            layer_type in self.valid_layer_types
+        ), f"layer_type must be one of {self.valid_layer_types}"
+
+        if layer_type == "gen":
+            assert (
+                parameterization == "diagonal"
+            ), "parameterization must be 'diagonal' for Generative layer"
+        self.layer_type = layer_type
+
+        # pass freeze model False as we will freeze the backbone in the model below customly
         super().__init__(model, None, task, freeze_backbone, optimizer, lr_scheduler)
+
+        self.freeze_backbone = freeze_backbone
 
         try:
             import vbll  # noqa: F401
@@ -262,27 +314,42 @@ class VBLLClassification(DeterministicClassification):
         self.prior_scale = prior_scale
         self.wishart_scale = wishart_scale
         self.dof = dof
+        self.replace_ll = replace_ll
 
         self.build_model()
+        # self.freeze_model()
 
     def build_model(self) -> None:
         """Build Classification Model."""
         from vbll import DiscClassification as VBLLDiscClass
+        from vbll import GenClassification as VBLLGenClass
 
-        _, last_module_backbone = _get_output_layer_name_and_module(self.model)
-
-        self.model = nn.Sequential(
-            self.model,
-            VBLLDiscClass(
-                in_features=last_module_backbone.out_features,
-                out_features=self.num_targets,
-                regularization_weight=self.regularization_weight,
-                parameterization=self.parameterization,
-                prior_scale=self.prior_scale,
-                wishart_scale=self.wishart_scale,
-                dof=self.dof,
-            ),
+        last_layer_name, last_module_backbone = _get_output_layer_name_and_module(
+            self.model
         )
+
+        new_layer = VBLLDiscClass if self.layer_type == "disc" else VBLLGenClass
+
+        if self.replace_ll:
+            in_features = last_module_backbone.in_features
+        else:
+            in_features = last_module_backbone.out_features
+
+        new_layer = new_layer(
+            in_features=in_features,
+            out_features=self.num_targets,
+            regularization_weight=self.regularization_weight,
+            parameterization=self.parameterization,
+            prior_scale=self.prior_scale,
+            wishart_scale=self.wishart_scale,
+            dof=self.dof,
+            return_ood=True,
+        )
+
+        if self.replace_ll:
+            replace_module(self.model, last_layer_name, new_layer)
+        else:
+            self.model = nn.Sequential(self.model, new_layer)
 
         self.num_classes = self.num_targets
 
@@ -396,16 +463,26 @@ class VBLLClassification(DeterministicClassification):
 
         entropy = -(probs * probs.log()).sum(dim=-1)
 
-        return {"pred": probs, "pred_uct": entropy, "out": pred}
+        return {
+            "pred": probs,
+            "pred_uct": entropy,
+            "out": pred,
+            "ood_score": pred.ood_scores,
+        }
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Configure Optimizers."""
         # exclude vbll parameters from weight decay
+        backbone_params = []
+        vbll_params = []
+        for name, module in self.model.named_modules():
+            if module.__class__.__name__ in ["DiscClassification", "GenClassification"]:
+                vbll_params.extend(list(module.parameters()))
+            elif not any(module.named_children()):
+                backbone_params.extend(list(module.parameters()))
+
         optimizer = self.optimizer(
-            [
-                {"params": self.model[0].parameters()},
-                {"params": self.model[-1].parameters(), "weight_decay": 0.0},
-            ]
+            [{"params": backbone_params}, {"params": vbll_params, "weight_decay": 0.0}]
         )
         if self.lr_scheduler is not None:
             scheduler = self.lr_scheduler(optimizer)
