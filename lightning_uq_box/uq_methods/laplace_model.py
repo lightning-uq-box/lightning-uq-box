@@ -65,13 +65,30 @@ class LaplaceBase(BaseModule):
 
     pred_file_name = "preds.csv"
 
-    def __init__(self, laplace_model: Laplace) -> None:
+    def __init__(
+        self,
+        laplace_model: Laplace,
+        pred_type: str = "glm",
+        link_approx: str = "probit",
+        num_samples: int = 100,
+    ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
             laplace_model: initialized Laplace model
+            pred_type: prediction type, one of ['glm', 'nn']
+            link_approx: link function approximation, one of ['mc', 'probit', 'bridge']
+                for `pred_type='nn'` only 'mc' is supported
+            num_samples: number of samples for prediction if `pred_type='nn'`
         """
         super().__init__()
+
+        if pred_type == "nn":
+            assert link_approx == "mc", "For nn prediction only mc link is supported"
+
+        self.pred_type = pred_type
+        self.link_approx = link_approx
+        self.num_samples = num_samples
 
         self.save_hyperparameters(ignore=["laplace_model"])
 
@@ -120,15 +137,6 @@ class LaplaceBase(BaseModule):
         """
         return _get_num_outputs(self.model.model)
 
-    # def training_step(self, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
-    #     pass
-
-    # def validation_step(self, *args: Any, **kwargs: Any) -> STEP_OUTPUT | None:
-    #     return super().validation_step(*args, **kwargs)
-
-    # def configure_optimizers(self) -> OptimizerLRScheduler:
-    #     pass
-
     def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
         """Fitted Laplace Model Forward Pass.
 
@@ -142,7 +150,12 @@ class LaplaceBase(BaseModule):
         if not self.laplace_fitted:
             self.on_test_start()
 
-        return self.laplace_model(X)
+        return self.laplace_model(
+            X,
+            pred_type=self.pred_type,
+            link_approx=self.link_approx,
+            n_samples=self.num_samples,
+        )
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
@@ -238,13 +251,23 @@ class LaplaceRegression(LaplaceBase):
     * https://arxiv.org/abs/2106.14806
     """
 
-    def __init__(self, laplace_model: Laplace) -> None:
-        """Initialize a new instance of Laplace Model Wrapper for Regression.
+    def __init__(
+        self,
+        laplace_model: Laplace,
+        pred_type: str = "glm",
+        link_approx: str = "probit",
+        num_samples: int = 100,
+    ) -> None:
+        """Initialize a new instance of Laplace Model Wrapper for regression.
 
         Args:
             laplace_model: initialized Laplace model
+            pred_type: prediction type, one of ['glm', 'nn']
+            link_approx: link function approximation, one of ['mc', 'probit', 'bridge']
+                for `pred_type='nn'` only 'mc' is supported
+            num_samples: number of samples for prediction if `pred_type='nn'`
         """
-        super().__init__(laplace_model)
+        super().__init__(laplace_model, pred_type, link_approx, num_samples)
 
         assert self.laplace_model.likelihood == "regression"
 
@@ -321,17 +344,28 @@ class LaplaceClassification(LaplaceBase):
 
     valid_tasks = ["binary", "multiclass"]
 
-    def __init__(self, laplace_model: Laplace, task: str = "multiclass") -> None:
-        """Initialize a new instance of Laplace Wrapper for Classification.
+    def __init__(
+        self,
+        laplace_model: Laplace,
+        task: str = "multiclass",
+        pred_type: str = "glm",
+        link_approx: str = "probit",
+        num_samples: int = 100,
+    ) -> None:
+        """Initialize a new instance of Laplace Model Wrapper for Classification.
 
         Args:
             laplace_model: initialized Laplace model
             task: classification task, one of ['binary', 'multiclass']
+            pred_type: prediction type, one of ['glm', 'nn']
+            link_approx: link function approximation, one of ['mc', 'probit', 'bridge']
+                for `pred_type='nn'` only 'mc' is supported
+            num_samples: number of samples for prediction if `pred_type='nn'`
         """
         assert task in self.valid_tasks
         self.task = task
 
-        super().__init__(laplace_model)
+        super().__init__(laplace_model, pred_type, link_approx, num_samples)
 
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
