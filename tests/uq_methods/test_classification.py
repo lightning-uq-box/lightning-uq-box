@@ -188,6 +188,6 @@ class TestDeepEnsemble:
 
         datamodule = TwoMoonsDataModule()
 
-        trainer = Trainer(default_root_dir=str(tmp_path))
+        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
