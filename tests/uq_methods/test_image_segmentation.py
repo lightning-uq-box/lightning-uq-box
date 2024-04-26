@@ -34,7 +34,7 @@ model_config_paths = [
 data_config_paths = ["tests/configs/image_segmentation/toy_segmentation.yaml"]
 
 
-class TestImageClassificationTask:
+class TestImageSegmentationTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
@@ -154,12 +154,15 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleSegmentation(
-            len(ensemble_members_dict), ensemble_members_dict, num_classes=4
+            len(ensemble_members_dict),
+            ensemble_members_dict,
+            num_classes=4,
+            save_preds=True,
         )
 
         datamodule = ToySegmentationDataModule()
 
-        trainer = Trainer(default_root_dir=str(tmp_path))
+        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
 

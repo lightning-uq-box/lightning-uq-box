@@ -35,7 +35,7 @@ model_config_paths = [
 data_config_paths = ["tests/configs/pixelwise_regression/toy_pixelwise_regression.yaml"]
 
 
-class TestImageClassificationTask:
+class TestPixelwiseRegressionTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
