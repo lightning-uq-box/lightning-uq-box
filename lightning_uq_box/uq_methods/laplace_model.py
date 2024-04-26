@@ -459,11 +459,12 @@ class LaplaceClassification(LaplaceBase):
             # a clone with autograd enables
             input = X.clone().requires_grad_()
 
-            probs = self.forward(input)
+            pred_dict = self.forward(input)
+            pred_dict["pred_uct"] = -torch.sum(
+                pred_dict["pred"] * torch.log(pred_dict["pred"]), dim=1
+            )
 
-            entropy = -torch.sum(probs * torch.log(probs), dim=1)
-
-        return {"pred": probs, "pred_uct": entropy, "logits": probs}
+        return pred_dict
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
