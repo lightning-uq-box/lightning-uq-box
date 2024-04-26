@@ -15,6 +15,7 @@ uq_method:
     hessian_structure: "kron"
   pred_type: "nn"
   link_approx: "mc"
+  num_samples: 8
 
 trainer:
   _target_: lightning.Trainer

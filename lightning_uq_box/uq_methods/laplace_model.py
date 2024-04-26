@@ -7,7 +7,6 @@ import copy
 import os
 from typing import Any
 
-import numpy as np
 import torch
 from laplace import Laplace
 from torch import Tensor
@@ -70,7 +69,7 @@ class LaplaceBase(BaseModule):
         laplace_model: Laplace,
         pred_type: str = "glm",
         link_approx: str = "probit",
-        num_samples: int = 100,
+        num_samples: int | None = None,
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
@@ -79,7 +78,9 @@ class LaplaceBase(BaseModule):
             pred_type: prediction type, one of ['glm', 'nn']
             link_approx: link function approximation, one of ['mc', 'probit', 'bridge']
                 for `pred_type='nn'` only 'mc' is supported
-            num_samples: number of samples for prediction if `pred_type='nn'`
+            num_samples: number of samples for prediction, if specified
+                will call `predictive_samples` instead of `predictive` method in
+                Laplace library
         """
         super().__init__()
 
@@ -136,26 +137,6 @@ class LaplaceBase(BaseModule):
             number of output dimension to model
         """
         return _get_num_outputs(self.model.model)
-
-    def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
-        """Fitted Laplace Model Forward Pass.
-
-        Args:
-            X: tensor of data to run through the model [batch_size, input_dim]
-            kwargs: additional arguments for laplace forward pass
-
-        Returns:
-            output from the laplace model
-        """
-        if not self.laplace_fitted:
-            self.on_test_start()
-
-        return self.laplace_model(
-            X,
-            pred_type=self.pred_type,
-            link_approx=self.link_approx,
-            n_samples=self.num_samples,
-        )
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
@@ -256,7 +237,7 @@ class LaplaceRegression(LaplaceBase):
         laplace_model: Laplace,
         pred_type: str = "glm",
         link_approx: str = "probit",
-        num_samples: int = 100,
+        num_samples: int | None = None,
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper for regression.
 
@@ -265,7 +246,9 @@ class LaplaceRegression(LaplaceBase):
             pred_type: prediction type, one of ['glm', 'nn']
             link_approx: link function approximation, one of ['mc', 'probit', 'bridge']
                 for `pred_type='nn'` only 'mc' is supported
-            num_samples: number of samples for prediction if `pred_type='nn'`
+            num_samples: number of samples for prediction, if specified
+                will call `predictive_samples` instead of `predictive` method in
+                Laplace library
         """
         super().__init__(laplace_model, pred_type, link_approx, num_samples)
 
@@ -276,6 +259,48 @@ class LaplaceRegression(LaplaceBase):
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         self.test_metrics = default_regression_metrics("test")
+
+    def forward(self, X: Tensor, **kwargs: Any) -> dict[str, Tensor]:
+        """Fitted Laplace Model Forward Pass.
+
+        Args:
+            X: tensor of data to run through the model [batch_size, input_dim]
+            kwargs: additional arguments for laplace forward pass
+
+        Returns:
+            output from the laplace model
+        """
+        if not self.laplace_fitted:
+            self.on_test_start()
+
+        pred_dict: dict[str, Tensor] = {}
+        if self.num_samples:
+            fsamples = self.laplace_model.predictive_samples(
+                X, pred_type=self.pred_type, n_samples=self.num_samples
+            )
+            mean = fsamples.mean(0).squeeze()
+            pred_std = fsamples.std(0).squeeze()
+            # return samples as shape [batch_size, out_dim, num_samples]
+            pred_dict["samples"] = fsamples.permute(1, 2, 0)
+        else:
+            mean, var = self.laplace_model(
+                X, pred_type=self.pred_type, link_approx=self.link_approx
+            )
+            mean = mean.squeeze().detach()
+            laplace_epistemic = var.squeeze().sqrt()
+
+            laplace_aleatoric = (
+                torch.ones_like(laplace_epistemic)
+                * self.laplace_model.sigma_noise.item()
+            )
+            pred_std = torch.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
+
+            pred_dict["epistemic"] = laplace_epistemic
+            pred_dict["aleatoric"] = laplace_aleatoric
+
+        pred_dict["pred"] = mean
+        pred_dict["pred_uct"] = pred_std
+        return pred_dict
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -300,21 +325,7 @@ class LaplaceRegression(LaplaceBase):
             # a clone with autograd enables
             input = X.clone().requires_grad_()
 
-            laplace_mean, laplace_var = self.forward(input)
-            laplace_mean = laplace_mean.squeeze().detach()
-            laplace_epistemic = laplace_var.squeeze().sqrt()
-            laplace_aleatoric = (
-                torch.ones_like(laplace_epistemic)
-                * self.laplace_model.sigma_noise.item()
-            )
-            laplace_predictive = torch.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
-
-        return {
-            "pred": laplace_mean,
-            "pred_uct": laplace_predictive,
-            "epistemic_uct": laplace_epistemic,
-            "aleatoric_uct": laplace_aleatoric,
-        }
+        return self.forward(input)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -350,7 +361,7 @@ class LaplaceClassification(LaplaceBase):
         task: str = "multiclass",
         pred_type: str = "glm",
         link_approx: str = "probit",
-        num_samples: int = 100,
+        num_samples: int | None = None,
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper for Classification.
 
@@ -360,7 +371,9 @@ class LaplaceClassification(LaplaceBase):
             pred_type: prediction type, one of ['glm', 'nn']
             link_approx: link function approximation, one of ['mc', 'probit', 'bridge']
                 for `pred_type='nn'` only 'mc' is supported
-            num_samples: number of samples for prediction if `pred_type='nn'`
+            num_samples: number of samples for prediction, if specified
+                will call `predictive_samples` instead of `predictive` method in
+                Laplace library
         """
         assert task in self.valid_tasks
         self.task = task
@@ -370,6 +383,33 @@ class LaplaceClassification(LaplaceBase):
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
         assert self.laplace_model.likelihood == "classification"
+
+    def forward(self, X: Tensor, **kwargs: Any) -> dict[str, Tensor]:
+        """Fitted Laplace Model Forward Pass.
+
+        Args:
+            X: tensor of data to run through the model [batch_size, input_dim]
+            kwargs: additional arguments for laplace forward pass
+
+        Returns:
+            output from the laplace model
+        """
+        if not self.laplace_fitted:
+            self.on_test_start()
+
+        pred_dict: dict[str, Tensor] = {}
+        if self.num_samples:
+            fsamples = self.laplace_model.predictive_samples(
+                X, pred_type=self.pred_type, n_samples=self.num_samples
+            )
+            mean = fsamples.mean(0)
+            pred_dict["samples"] = fsamples
+        else:
+            mean = self.laplace_model(
+                X, pred_type=self.pred_type, link_approx=self.link_approx
+            )
+        pred_dict["pred"] = mean
+        return pred_dict
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
