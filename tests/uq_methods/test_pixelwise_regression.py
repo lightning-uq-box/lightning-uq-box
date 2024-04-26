@@ -44,7 +44,7 @@ class TestImageClassificationTask:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
 
-        model = instantiate(model_conf.uq_method)
+        model = instantiate(model_conf.uq_method, save_preds=True)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
             max_epochs=2,
@@ -163,7 +163,7 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsemblePxRegression(
-            len(ensemble_members_dict), ensemble_members_dict
+            len(ensemble_members_dict), ensemble_members_dict, save_preds=True
         )
         datamodule = ToyPixelwiseRegressionDataModule()
         trainer = Trainer(default_root_dir=str(tmp_path))

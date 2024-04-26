@@ -43,7 +43,7 @@ class TestImageClassificationTask:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
 
-        model = instantiate(model_conf.uq_method)
+        model = instantiate(model_conf.uq_method, save_preds=True)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
             max_epochs=2,
@@ -133,7 +133,7 @@ class TestDeepEnsemble:
         for i in range(5):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
-            model = instantiate(model_conf.uq_method)
+            model = instantiate(model_conf.uq_method, save_preds=True)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
