@@ -64,6 +64,7 @@ class ProbUNet(BaseModule):
         beta: float = 10.0,
         num_samples: int = 5,
         task: str = "multiclass",
+        criterion: nn.Module | None = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
@@ -80,6 +81,7 @@ class ProbUNet(BaseModule):
             beta: beta parameter
             num_samples: number of latent samples to use during prediction
             task: task type, either "multiclass" or "binary"
+            criterion: reconstruction criterion, Cross Entropy Loss by default
             optimizer: optimizer
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
@@ -123,7 +125,9 @@ class ProbUNet(BaseModule):
             use_tile=True,
         )
 
-        self.criterion = nn.BCEWithLogitsLoss(reduction="none")
+        if criterion is None:
+            criterion = nn.CrossEntropyLoss()
+        self.criterion = criterion
 
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
@@ -154,8 +158,7 @@ class ProbUNet(BaseModule):
             reconstruction loss, KL loss, and the reconstruction
         """
         img, seg_mask = batch[self.input_key], batch[self.target_key]
-        # check dimensions, add channel dimension to seg_mask under assumption
-        # that it is a binary mask
+        # posterior expects one hot encoding
         if len(seg_mask.shape) == 3:
             seg_mask_target = seg_mask.long()
             seg_mask_target = F.one_hot(seg_mask_target, num_classes=self.num_classes)
@@ -180,7 +183,7 @@ class ProbUNet(BaseModule):
             use_posterior_mean=False, z_posterior=z_posterior
         )
 
-        rec_loss = self.criterion(input=reconstruction, target=seg_mask_target)
+        rec_loss = self.criterion(reconstruction, batch[self.target_key])
         rec_loss_sum = torch.sum(rec_loss)
         rec_loss_mean = torch.mean(rec_loss)
 
