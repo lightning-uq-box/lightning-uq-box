@@ -30,26 +30,29 @@ from .utils import (
 def tune_prior_precision(
     model: Laplace, tune_precision_lr: float, n_epochs_tune_precision: int
 ):
-    """Tune the prior precision via Empirical Bayes.
+    """Tune the prior precision and sigma noise via Empirical Bayes.
 
     Args:
         model: laplace model
         tune_precision_lr: learning rate for tuning prior precision
         n_epochs_tune_precision: number of epochs to tune prior precision
     """
-    log_prior, log_sigma = (
-        torch.ones(1, requires_grad=True),
-        torch.ones(1, requires_grad=True),
-    )
-    hyper_optimizer = torch.optim.Adam([log_prior, log_sigma], lr=tune_precision_lr)
-    bar = trange(n_epochs_tune_precision)
-    # find out why this is so extremely slow?
-    for i in bar:
-        hyper_optimizer.zero_grad()
-        neg_marglik = -model.log_marginal_likelihood(log_prior.exp(), log_sigma.exp())
-        neg_marglik.backward()
-        hyper_optimizer.step()
-        bar.set_postfix(neg_marglik=f"{neg_marglik.detach().cpu().item()}")
+    with torch.inference_mode(False):
+        log_prior, log_sigma = (
+            torch.ones(1, requires_grad=True),
+            torch.ones(1, requires_grad=True),
+        )
+        hyper_optimizer = torch.optim.Adam([log_prior, log_sigma], lr=tune_precision_lr)
+        bar = trange(n_epochs_tune_precision)
+        # find out why this is so extremely slow?
+        for i in bar:
+            hyper_optimizer.zero_grad()
+            neg_marglik = -model.log_marginal_likelihood(
+                log_prior.exp(), log_sigma.exp()
+            )
+            neg_marglik.backward()
+            hyper_optimizer.step()
+            bar.set_postfix(neg_marglik=f"{neg_marglik.detach().cpu().item()}")
 
 
 class LaplaceBase(BaseModule):
@@ -181,14 +184,6 @@ class LaplaceBase(BaseModule):
                 # fit the laplace approximation
                 self.laplace_model.fit(self.train_loader)
 
-                # tune the prior precision via Empirical Bayes
-                self.laplace_model.optimize_prior_precision(method="marglik")
-                # tune_prior_precision(
-                #     self.model,
-                #     self.hparams.tune_precision_lr,
-                #     self.hparams.n_epochs_tune_precision,
-                # )
-
             self.laplace_fitted = True
 
         # save this laplace fitted model as a checkpoint?!
@@ -238,6 +233,9 @@ class LaplaceRegression(LaplaceBase):
         pred_type: str = "glm",
         link_approx: str = "probit",
         num_samples: int | None = None,
+        tune_prior_precision_and_sigma: bool = False,
+        tuning_lr: float = 1e-3,
+        n_epochs_tuning: int = 100,
     ) -> None:
         """Initialize a new instance of Laplace Model Wrapper for regression.
 
@@ -249,12 +247,27 @@ class LaplaceRegression(LaplaceBase):
             num_samples: number of samples for prediction, if specified
                 will call `predictive_samples` instead of `predictive` method in
                 Laplace library
+            tune_prior_precision_and_sigma: whether to tune prior precision and sigma
+            tuning_lr: learning rate for tuning prior precision and sigma
+            n_epochs_tuning: number of epochs to tune prior precision and sigma
         """
         super().__init__(laplace_model, pred_type, link_approx, num_samples)
 
         assert self.laplace_model.likelihood == "regression"
 
         self.loss_fn = torch.nn.MSELoss()
+
+        self.tuning_lr = tuning_lr
+        self.n_epochs_tuning = n_epochs_tuning
+        self.tune_prior_precision_and_sigma = tune_prior_precision_and_sigma
+
+    def on_test_start(self) -> None:
+        """Fit the Laplace approximation before testing."""
+        super().on_test_start()
+        if self.tune_prior_precision_and_sigma:
+            tune_prior_precision(
+                self.laplace_model, self.tuning_lr, self.n_epochs_tuning
+            )
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -279,9 +292,15 @@ class LaplaceRegression(LaplaceBase):
                 X, pred_type=self.pred_type, n_samples=self.num_samples
             )
             mean = fsamples.mean(0).squeeze()
-            pred_std = fsamples.std(0).squeeze()
+
             # return samples as shape [batch_size, out_dim, num_samples]
             pred_dict["samples"] = fsamples.permute(1, 2, 0)
+            laplace_epistemic = fsamples.std(0).squeeze()
+            laplace_aleatoric = (
+                torch.ones_like(laplace_epistemic)
+                * self.laplace_model.sigma_noise.item()
+            )
+            pred_std = torch.sqrt(laplace_epistemic + laplace_aleatoric**2)
         else:
             mean, var = self.laplace_model(
                 X, pred_type=self.pred_type, link_approx=self.link_approx
@@ -295,8 +314,8 @@ class LaplaceRegression(LaplaceBase):
             )
             pred_std = torch.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
 
-            pred_dict["epistemic"] = laplace_epistemic
-            pred_dict["aleatoric"] = laplace_aleatoric
+        pred_dict["epistemic_uct"] = laplace_epistemic
+        pred_dict["aleatoric_uct"] = laplace_aleatoric
 
         pred_dict["pred"] = mean
         pred_dict["pred_uct"] = pred_std
