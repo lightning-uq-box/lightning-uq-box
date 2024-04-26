@@ -46,6 +46,7 @@ class TestImageSegmentationTask:
         model = instantiate(model_conf.uq_method, save_preds=True)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
+            accelerator="cpu",
             max_epochs=2,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
@@ -136,7 +137,10 @@ class TestDeepEnsemble:
             model = instantiate(model_conf.uq_method, save_preds=True)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+                accelerator="cpu",
+                max_epochs=2,
+                log_every_n_steps=1,
+                default_root_dir=str(tmp_path),
             )
             trainer.fit(model, datamodule)
             trainer.test(ckpt_path="best", datamodule=datamodule)
