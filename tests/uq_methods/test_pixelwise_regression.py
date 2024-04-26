@@ -170,7 +170,7 @@ class TestDeepEnsemble:
             len(ensemble_members_dict), ensemble_members_dict
         )
         datamodule = ToyPixelwiseRegressionDataModule()
-        trainer = Trainer(default_root_dir=str(tmp_path))
+        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
         trainer.test(ensemble_model, datamodule=datamodule)
 
         # check that predictions are saved
