@@ -518,6 +518,7 @@ class DeterministicPixelRegression(DeterministicRegression):
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of Deterministic Pixel Regression.
 
@@ -528,9 +529,11 @@ class DeterministicPixelRegression(DeterministicRegression):
             freeze_decoder: whether to freeze the model decoder
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         self.freeze_decoder = freeze_decoder
         super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
+        self.save_preds = save_preds
 
     def freeze_model(self) -> None:
         """Freeze model backbone.
@@ -549,7 +552,7 @@ class DeterministicPixelRegression(DeterministicRegression):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -567,7 +570,8 @@ class DeterministicPixelRegression(DeterministicRegression):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class PosthocBase(BaseModule):
