@@ -5,7 +5,7 @@
 
 import glob
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from hydra.utils import instantiate
@@ -50,6 +50,7 @@ class TestImageClassificationTask:
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
+            accelerator="cpu",
             max_epochs=2,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
@@ -82,7 +83,7 @@ class TestPosthoc:
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            default_root_dir=str(tmp_path), max_epochs=1, log_every_n_steps=1
+            accelerator="cpu", default_root_dir=str(tmp_path), inference_mode=False
         )
         # use validation for testing, should be calibration loader for conformal
         trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
@@ -147,7 +148,10 @@ class TestDeepEnsemble:
             model = instantiate(model_conf.model)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+                accelerator="cpu",
+                max_epochs=2,
+                log_every_n_steps=1,
+                default_root_dir=str(tmp_path),
             )
             trainer.fit(model, datamodule)
             trainer.test(ckpt_path="best", datamodule=datamodule)
@@ -161,7 +165,7 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(
@@ -170,7 +174,7 @@ class TestDeepEnsemble:
 
         datamodule = ToyImageClassificationDatamodule()
 
-        trainer = Trainer(default_root_dir=str(tmp_path))
+        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
 
@@ -192,6 +196,6 @@ class TestTTAModel:
         tta_model = TTAClassification(base_model, merge_strategy=merge_strategy)
         datamodule = ToyImageClassificationDatamodule()
 
-        trainer = Trainer(default_root_dir=str(tmp_path))
+        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
         trainer.test(tta_model, datamodule)

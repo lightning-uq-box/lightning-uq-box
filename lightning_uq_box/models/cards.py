@@ -3,8 +3,6 @@
 
 """CARDS Model Utilities."""
 
-from typing import Optional
-
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -78,7 +76,7 @@ class ConditionalGuidedLinearModel(nn.Module):
         n_hidden: list[int] = [64, 64],
         cat_x: bool = False,
         cat_y_pred: bool = False,
-        activation_fn: Optional[nn.Module] = None,
+        activation_fn: nn.Module | None = None,
     ) -> None:
         """Initialize a new instance of Conditional Guided Model.
 
@@ -196,7 +194,7 @@ class ConditionalGuidedConvModel(nn.Module):
         Args:
             x: input data
             y_t: target data
-            y_0_hat:
+            y_0_hat: y_0_hat
             t: time step
 
         Returns:

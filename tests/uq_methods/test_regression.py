@@ -6,7 +6,7 @@
 import glob
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from lightning import Trainer
@@ -161,7 +161,7 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(
@@ -170,7 +170,7 @@ class TestDeepEnsemble:
 
         datamodule = ToyHeteroscedasticDatamodule()
 
-        trainer = Trainer(default_root_dir=str(tmp_path))
+        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
 

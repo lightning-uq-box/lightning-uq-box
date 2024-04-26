@@ -114,6 +114,8 @@ class DER(DeterministicModel):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             dictionary with predictions and uncertainty measures

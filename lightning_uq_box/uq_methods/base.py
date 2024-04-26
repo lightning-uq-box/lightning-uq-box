@@ -4,7 +4,7 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -92,7 +92,7 @@ class DeterministicModel(BaseModule):
         loss_fn: nn.Module,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Base Model.
 
@@ -158,7 +158,7 @@ class DeterministicModel(BaseModule):
         Args:
             batch: the output of your DataLoader
             batch_idx: the index of this batch
-            data_loader_idx: the index of the dataloader
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -189,6 +189,7 @@ class DeterministicModel(BaseModule):
         Args:
             batch: the output of your DataLoader
             batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             validation loss
@@ -532,7 +533,7 @@ class DeterministicPixelRegression(DeterministicRegression):
 class PosthocBase(BaseModule):
     """Posthoc Base Model for UQ methods."""
 
-    def __init__(self, model: Union[LightningModule, nn.Module]) -> None:
+    def __init__(self, model: LightningModule | nn.Module) -> None:
         """Initialize a new Post hoc Base Model."""
         super().__init__()
 

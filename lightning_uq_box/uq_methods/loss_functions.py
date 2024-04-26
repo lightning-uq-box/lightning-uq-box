@@ -38,7 +38,7 @@ class EnergyAlphaDivergence(nn.Module):
             log_f_hat: ["num_samples"]
             log_Z_prior: 0 shape
             log_normalizer: 0 shape
-            log_noramlizer_z: 0 shape
+            log_normalizer_z: 0 shape
             log_f_hat_z: [num_samples,batch_size]
             loss_terms: collected loss terms over the variational layer weights
             #where are the loss terms?

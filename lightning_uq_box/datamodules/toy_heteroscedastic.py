@@ -3,7 +3,7 @@
 
 """Datamodule for Toy Heteroscedastic Data."""
 
-from typing import Callable, Union
+from collections.abc import Callable
 
 import numpy as np
 import torch
@@ -48,8 +48,8 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
     def __init__(
         self,
-        x_min: Union[int, float] = -4,
-        x_max: Union[int, float] = 4,
+        x_min: int | float = -4,
+        x_max: int | float = 4,
         n_train: int = 200,
         n_true: int = 200,
         sigma: float = 0.3,

@@ -5,7 +5,7 @@
 import glob
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import h5py
 import pytest
@@ -45,6 +45,7 @@ class TestImageClassificationTask:
         model = instantiate(model_conf.uq_method)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
+            accelerator="cpu",
             max_epochs=2,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
@@ -94,7 +95,10 @@ class TestDeepEnsemble:
             model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+                accelerator="cpu",
+                max_epochs=2,
+                log_every_n_steps=1,
+                default_root_dir=str(tmp_path),
             )
             trainer.fit(model, datamodule)
             trainer.test(ckpt_path="best", datamodule=datamodule)
@@ -108,14 +112,14 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: Dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsemblePxRegression(
             len(ensemble_members_dict), ensemble_members_dict
         )
         datamodule = ToyPixelwiseRegressionDataModule()
-        trainer = Trainer(default_root_dir=str(tmp_path))
+        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
         trainer.test(ensemble_model, datamodule=datamodule)
 
         # check that predictions are saved

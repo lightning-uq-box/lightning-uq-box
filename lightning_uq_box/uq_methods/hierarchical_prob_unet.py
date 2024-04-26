@@ -23,7 +23,8 @@
 """Hierarchical Probabilistic U-Net."""
 
 import os
-from typing import Any, Callable, Dict, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -60,23 +61,23 @@ class HierarchicalProbUNet(BaseModule):
 
     def __init__(
         self,
-        latent_dims: Tuple[int, ...] = (1, 1, 1, 1),
-        channels_per_block: Optional[Tuple[int, ...]] = None,
+        latent_dims: tuple[int, ...] = (1, 1, 1, 1),
+        channels_per_block: tuple[int, ...] | None = None,
         num_in_channels: int = 3,
         num_classes: int = 2,
-        down_channels_per_block: Optional[Tuple[int, ...]] = None,
+        down_channels_per_block: tuple[int, ...] | None = None,
         activation_fn: Callable[[Tensor], Tensor] = F.relu,
         convs_per_block: int = 3,
         blocks_per_level: int = 3,
         loss_type: str = "geco",
         kappa: int = 10,
-        beta: Optional[float] = 100,
-        top_k_percentage: Optional[float] = None,
-        deterministic_top_k: Optional[int] = None,
+        beta: float | None = 100,
+        top_k_percentage: float | None = None,
+        deterministic_top_k: int | None = None,
         num_samples: int = 5,
         task: str = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new HierarchicalProbUNET.
 
@@ -251,7 +252,7 @@ class HierarchicalProbUNet(BaseModule):
             return
 
     def compute_loss(
-        self, batch: Dict[str, Tensor], loss_mask: Optional[Tensor] = None
+        self, batch: dict[str, Tensor], loss_mask: Tensor | None = None
     ) -> Tensor:
         """Compute the loss from the output of the model.
 
@@ -328,14 +329,14 @@ class HierarchicalProbUNet(BaseModule):
             "reconstruction": reconstruction,
         }
 
-    def reconstruct(self, mean: bool = False) -> Dict[str, Any]:
+    def reconstruct(self, mean: bool = False) -> dict[str, Any]:
         """Reconstruct the input.
 
         Args:
             mean (bool, optional): Whether to use the mean. Defaults to False.
 
         Returns:
-            Dict[str, Any]: A dictionary containing encoder and decoder features.
+            dict[str, Any]: A dictionary containing encoder and decoder features.
         """
         if mean:
             prior_out = self._p_sample_z_q_mean
@@ -347,7 +348,7 @@ class HierarchicalProbUNet(BaseModule):
             encoder_features=encoder_features, decoder_features=decoder_features
         )
 
-    def kl(self) -> Dict[int, torch.Tensor]:
+    def kl(self) -> dict[int, torch.Tensor]:
         """Compute the KL divergence.
 
         Returns:
@@ -367,8 +368,8 @@ class HierarchicalProbUNet(BaseModule):
         return kl
 
     def sample(
-        self, img: torch.Tensor, mean: bool = False, z_q: Optional[torch.Tensor] = None
-    ) -> Dict[str, Any]:
+        self, img: torch.Tensor, mean: bool = False, z_q: torch.Tensor | None = None
+    ) -> dict[str, Any]:
         """Sample from the model.
 
         Args:
@@ -393,6 +394,8 @@ class HierarchicalProbUNet(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -560,10 +563,10 @@ def _topk_mask(score: Tensor, k: int) -> Tensor:
 def ce_loss(
     logits: Tensor,
     labels: Tensor,
-    mask: Optional[Tensor] = None,
-    top_k_percentage: Optional[float] = None,
+    mask: Tensor | None = None,
+    top_k_percentage: float | None = None,
     deterministic: bool = False,
-) -> Dict[str, Tensor]:
+) -> dict[str, Tensor]:
     """Compute the cross-entropy loss between logits and labels.
 
     Args:
