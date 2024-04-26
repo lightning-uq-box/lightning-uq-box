@@ -65,7 +65,7 @@ class ProbUNet(BaseModule):
         num_samples: int = 5,
         task: str = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable | None = None ,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of ProbUNet.
@@ -288,7 +288,7 @@ class ProbUNet(BaseModule):
 
         # return loss to optimize
         return loss_dict["loss"]
-    
+
     def on_train_epoch_end(self):
         """Log epoch-level test metrics."""
         self.log_dict(self.train_metrics.compute())
@@ -321,7 +321,7 @@ class ProbUNet(BaseModule):
         )
 
         return loss_dict["loss"]
-    
+
     def on_validation_epoch_end(self):
         """Log epoch-level test metrics."""
         self.log_dict(self.val_metrics.compute())
