@@ -27,8 +27,12 @@ from .utils import (
 # over training_step in lightning
 
 
-def tune_prior_precision(
-    model: Laplace, tune_precision_lr: float, n_epochs_tune_precision: int
+def tune_prior_precision_and_sigma(
+    model: Laplace,
+    tune_precision_lr: float,
+    n_epochs_tune_precision: int,
+    tune_prior_precision: bool,
+    tune_sigma_noise: bool,
 ):
     """Tune the prior precision and sigma noise via Empirical Bayes.
 
@@ -36,13 +40,21 @@ def tune_prior_precision(
         model: laplace model
         tune_precision_lr: learning rate for tuning prior precision
         n_epochs_tune_precision: number of epochs to tune prior precision
+        tune_prior_precision: whether to tune prior precision
+        tune_sigma_noise: whether to tune sigma noise
     """
     with torch.inference_mode(False):
         log_prior, log_sigma = (
             torch.ones(1, requires_grad=True),
             torch.ones(1, requires_grad=True),
         )
-        hyper_optimizer = torch.optim.Adam([log_prior, log_sigma], lr=tune_precision_lr)
+        optim_params = []
+        if model.prior_precision is not None:
+            optim_params.append(log_prior)
+        elif model.sigma_noise is not None:
+            optim_params.append(log_sigma)
+
+        hyper_optimizer = torch.optim.Adam(optim_params, lr=tune_precision_lr)
         bar = trange(n_epochs_tune_precision)
         # find out why this is so extremely slow?
         for i in bar:
@@ -233,7 +245,8 @@ class LaplaceRegression(LaplaceBase):
         pred_type: str = "glm",
         link_approx: str = "probit",
         num_samples: int | None = None,
-        tune_prior_precision_and_sigma: bool = False,
+        tune_prior_precision: bool = True,
+        tune_sigma_noise: bool = False,
         tuning_lr: float = 1e-3,
         n_epochs_tuning: int = 100,
     ) -> None:
@@ -247,7 +260,8 @@ class LaplaceRegression(LaplaceBase):
             num_samples: number of samples for prediction, if specified
                 will call `predictive_samples` instead of `predictive` method in
                 Laplace library
-            tune_prior_precision_and_sigma: whether to tune prior precision and sigma
+            tune_prior_precision: whether to tune prior precision
+            tune_sigma_noise: whether to tune sigma noise
             tuning_lr: learning rate for tuning prior precision and sigma
             n_epochs_tuning: number of epochs to tune prior precision and sigma
         """
@@ -259,14 +273,19 @@ class LaplaceRegression(LaplaceBase):
 
         self.tuning_lr = tuning_lr
         self.n_epochs_tuning = n_epochs_tuning
-        self.tune_prior_precision_and_sigma = tune_prior_precision_and_sigma
+        self.tune_prior_precision = tune_prior_precision
+        self.tune_sigma_noise = tune_sigma_noise
 
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
         super().on_test_start()
-        if self.tune_prior_precision_and_sigma:
-            tune_prior_precision(
-                self.laplace_model, self.tuning_lr, self.n_epochs_tuning
+        if self.tune_prior_precision or self.tune_sigma_noise:
+            tune_prior_precision_and_sigma(
+                self.laplace_model,
+                self.tuning_lr,
+                self.n_epochs_tuning,
+                self.tune_prior_precision,
+                self.tune_sigma_noise,
             )
 
     def setup_task(self) -> None:

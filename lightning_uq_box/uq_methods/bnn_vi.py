@@ -411,6 +411,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
+        del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
@@ -431,10 +432,13 @@ class BNN_VI_Regression(BNN_VI_Base):
                 self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
             ]
         # model_preds [batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=-1).detach()
-        mean_out = model_preds.mean(dim=-1)
+        model_preds = torch.stack(model_preds, dim=0).detach()
+        mean_out = model_preds.mean(dim=0)
 
-        std_epistemic = model_preds.std(dim=-1).squeeze()
+        # how can this happen that there is so little sample diversity
+        # there should be at least a little numerical difference?
+        std_epistemic = model_preds.std(dim=0).squeeze()
+        std_epistemic[std_epistemic <= 0] = 1e-6
         std_aleatoric = std_epistemic * 0.0 + torch.exp(self.log_aleatoric_std).detach()
 
         std = torch.sqrt(std_epistemic**2 + std_aleatoric**2)
@@ -602,7 +606,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             "pred_uct": std,
             "epistemic_uct": std_epistemic,
             "aleatoric_uct": std_aleatoric,
-            "samples": model_preds.permute(1, 2, 0),
+            "samples": model_preds,
         }
 
     def freeze_layers(self, n_samples: int) -> None:
