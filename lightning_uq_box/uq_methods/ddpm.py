@@ -15,8 +15,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
+import matplotlib.pyplot as plt
 
 from .base import BaseModule
+from torchvision.utils import make_grid
 from .utils import _get_num_outputs, default_classification_metrics
 
 if TYPE_CHECKING:
@@ -76,7 +78,7 @@ class DDPM(BaseModule):
         diffusion_model: "GaussianDiffusion",
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
-        log_samples_every_n_steps: int = 100,
+        log_samples_every_n_steps: int = 1000,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
     ) -> Any:
@@ -117,7 +119,7 @@ class DDPM(BaseModule):
     ) -> Any:
         """Forward pass of DDPM model for inference is sampling."""
         return self.diffusion_model.sample(
-            batch_size, return_all_timesteps=return_all_timesteps
+            batch_size, return_all_timesteps=return_all_timesteps, 
         )
 
     def training_step(
@@ -137,10 +139,15 @@ class DDPM(BaseModule):
 
         self.log("train_loss", loss)
 
-        if self.trainer.global_step % self.log_samples_every_n_steps == 0:
+        if self.trainer.global_step % self.log_samples_every_n_steps == 0 and self.trainer.global_rank == 0:
             # log samples
-            img = torch.randn(16, 3, 256, 256).to(self.device)
-            self.logger.add_image("gen images", img, self.trainer.global_step)
+            sampled_imgs = self.forward(16, return_all_timesteps=False).detach()
+            fig, ax = plt.subplots(4, 4, figsize=(32, 32))
+            for i in range(16):
+                ax[i // 4, i % 4].imshow(sampled_imgs[i].cpu().numpy().transpose(1, 2, 0))
+                ax[i // 4, i % 4].axis("off")
+            plt.tight_layout()
+            fig.savefig(self.trainer.default_root_dir + f"/sample_{self.trainer.global_step}.png")
 
         return loss
 

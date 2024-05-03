@@ -11,6 +11,7 @@ model:
     image_size: 64
     timesteps: 10
     sampling_timesteps: 2
+    log_samples_every_n_steps: 10000
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true
