@@ -49,9 +49,9 @@ def tune_prior_precision_and_sigma(
             torch.ones(1, requires_grad=True),
         )
         optim_params = []
-        if model.prior_precision is not None:
+        if tune_prior_precision is not None:
             optim_params.append(log_prior)
-        elif model.sigma_noise is not None:
+        if tune_sigma_noise is not None:
             optim_params.append(log_sigma)
 
         hyper_optimizer = torch.optim.Adam(optim_params, lr=tune_precision_lr)
@@ -292,12 +292,11 @@ class LaplaceRegression(LaplaceBase):
         """Set up task specific attributes."""
         self.test_metrics = default_regression_metrics("test")
 
-    def forward(self, X: Tensor, **kwargs: Any) -> dict[str, Tensor]:
+    def forward(self, X: Tensor) -> dict[str, Tensor]:
         """Fitted Laplace Model Forward Pass.
 
         Args:
             X: tensor of data to run through the model [batch_size, input_dim]
-            kwargs: additional arguments for laplace forward pass
 
         Returns:
             output from the laplace model
