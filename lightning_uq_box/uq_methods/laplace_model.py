@@ -45,17 +45,19 @@ def tune_prior_precision_and_sigma(
     """
     with torch.inference_mode(False):
         optim_params = []
-        if tune_prior_precision is not None:
+        if tune_prior_precision:
             log_prior = torch.ones(1, requires_grad=True)
             optim_params.append(log_prior)
         else:
             log_prior = torch.log(model.prior_precision)
-        if tune_sigma_noise is not None:
+        if tune_sigma_noise:
             log_sigma = torch.ones(1, requires_grad=True)
             optim_params.append(log_sigma)
         else:
             log_sigma = torch.log(model.sigma_noise)
 
+        # import pdb
+        # pdb.set_trace()
         hyper_optimizer = torch.optim.Adam(optim_params, lr=tune_precision_lr)
         bar = trange(n_epochs_tune_precision)
         for _ in bar:
