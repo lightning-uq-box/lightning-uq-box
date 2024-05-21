@@ -7,7 +7,6 @@ import copy
 import os
 from typing import Any
 
-import numpy as np
 import torch
 from laplace import Laplace
 from torch import Tensor
@@ -28,29 +27,47 @@ from .utils import (
 # over training_step in lightning
 
 
-def tune_prior_precision(
-    model: Laplace, tune_precision_lr: float, n_epochs_tune_precision: int
+def tune_prior_precision_and_sigma(
+    model: Laplace,
+    tune_precision_lr: float,
+    n_epochs_tune_precision: int,
+    tune_prior_precision: bool,
+    tune_sigma_noise: bool,
 ):
-    """Tune the prior precision via Empirical Bayes.
+    """Tune the prior precision and sigma noise via Empirical Bayes.
 
     Args:
         model: laplace model
         tune_precision_lr: learning rate for tuning prior precision
         n_epochs_tune_precision: number of epochs to tune prior precision
+        tune_prior_precision: whether to tune prior precision
+        tune_sigma_noise: whether to tune sigma noise
     """
-    log_prior, log_sigma = (
-        torch.ones(1, requires_grad=True),
-        torch.ones(1, requires_grad=True),
-    )
-    hyper_optimizer = torch.optim.Adam([log_prior, log_sigma], lr=tune_precision_lr)
-    bar = trange(n_epochs_tune_precision)
-    # find out why this is so extremely slow?
-    for i in bar:
-        hyper_optimizer.zero_grad()
-        neg_marglik = -model.log_marginal_likelihood(log_prior.exp(), log_sigma.exp())
-        neg_marglik.backward()
-        hyper_optimizer.step()
-        bar.set_postfix(neg_marglik=f"{neg_marglik.detach().cpu().item()}")
+    with torch.inference_mode(False):
+        optim_params = []
+        if tune_prior_precision:
+            log_prior = torch.ones(1, requires_grad=True)
+            optim_params.append(log_prior)
+        else:
+            log_prior = torch.log(model.prior_precision)
+        if tune_sigma_noise:
+            log_sigma = torch.ones(1, requires_grad=True)
+            optim_params.append(log_sigma)
+        else:
+            log_sigma = torch.log(model.sigma_noise)
+
+        # import pdb
+        # pdb.set_trace()
+        hyper_optimizer = torch.optim.Adam(optim_params, lr=tune_precision_lr)
+        bar = trange(n_epochs_tune_precision)
+        for _ in bar:
+            hyper_optimizer.zero_grad()
+            neg_marglik = -model.log_marginal_likelihood(
+                log_prior.exp(), log_sigma.exp()
+            )
+            neg_marglik.backward()
+            hyper_optimizer.step()
+            bar.set_postfix(neg_marglik=f"{neg_marglik.detach().cpu().item()}")
 
 
 class LaplaceBase(BaseModule):
@@ -65,13 +82,32 @@ class LaplaceBase(BaseModule):
 
     pred_file_name = "preds.csv"
 
-    def __init__(self, laplace_model: Laplace) -> None:
+    def __init__(
+        self,
+        laplace_model: Laplace,
+        pred_type: str = "glm",
+        link_approx: str = "probit",
+        num_samples: int | None = None,
+    ) -> None:
         """Initialize a new instance of Laplace Model Wrapper.
 
         Args:
             laplace_model: initialized Laplace model
+            pred_type: prediction type, one of ['glm', 'nn']
+            link_approx: link function approximation, one of ['mc', 'probit', 'bridge']
+                for `pred_type='nn'` only 'mc' is supported
+            num_samples: number of samples for prediction, if specified
+                will call `predictive_samples` instead of `predictive` method in
+                Laplace library
         """
         super().__init__()
+
+        if pred_type == "nn":
+            assert link_approx == "mc", "For nn prediction only mc link is supported"
+
+        self.pred_type = pred_type
+        self.link_approx = link_approx
+        self.num_samples = num_samples
 
         self.save_hyperparameters(ignore=["laplace_model"])
 
@@ -120,30 +156,6 @@ class LaplaceBase(BaseModule):
         """
         return _get_num_outputs(self.model.model)
 
-    # def training_step(self, *args: Any, **kwargs: Any) -> STEP_OUTPUT:
-    #     pass
-
-    # def validation_step(self, *args: Any, **kwargs: Any) -> STEP_OUTPUT | None:
-    #     return super().validation_step(*args, **kwargs)
-
-    # def configure_optimizers(self) -> OptimizerLRScheduler:
-    #     pass
-
-    def forward(self, X: Tensor, **kwargs: Any) -> np.ndarray:
-        """Fitted Laplace Model Forward Pass.
-
-        Args:
-            X: tensor of data to run through the model [batch_size, input_dim]
-            kwargs: additional arguments for laplace forward pass
-
-        Returns:
-            output from the laplace model
-        """
-        if not self.laplace_fitted:
-            self.on_test_start()
-
-        return self.laplace_model(X)
-
     def on_test_start(self) -> None:
         """Fit the Laplace approximation before testing."""
         self.train_loader = self.trainer.datamodule.train_dataloader()
@@ -186,14 +198,6 @@ class LaplaceBase(BaseModule):
             with torch.inference_mode(False):
                 # fit the laplace approximation
                 self.laplace_model.fit(self.train_loader)
-
-                # tune the prior precision via Empirical Bayes
-                self.laplace_model.optimize_prior_precision(method="marglik")
-                # tune_prior_precision(
-                #     self.model,
-                #     self.hparams.tune_precision_lr,
-                #     self.hparams.n_epochs_tune_precision,
-                # )
 
             self.laplace_fitted = True
 
@@ -238,21 +242,105 @@ class LaplaceRegression(LaplaceBase):
     * https://arxiv.org/abs/2106.14806
     """
 
-    def __init__(self, laplace_model: Laplace) -> None:
-        """Initialize a new instance of Laplace Model Wrapper for Regression.
+    def __init__(
+        self,
+        laplace_model: Laplace,
+        pred_type: str = "glm",
+        link_approx: str = "probit",
+        num_samples: int | None = None,
+        tune_prior_precision: bool = True,
+        tune_sigma_noise: bool = False,
+        tuning_lr: float = 1e-3,
+        n_epochs_tuning: int = 100,
+    ) -> None:
+        """Initialize a new instance of Laplace Model Wrapper for regression.
 
         Args:
             laplace_model: initialized Laplace model
+            pred_type: prediction type, one of ['glm', 'nn']
+            link_approx: link function approximation, one of ['mc', 'probit', 'bridge']
+                for `pred_type='nn'` only 'mc' is supported
+            num_samples: number of samples for prediction, if specified
+                will call `predictive_samples` instead of `predictive` method in
+                Laplace library
+            tune_prior_precision: whether to tune prior precision
+            tune_sigma_noise: whether to tune sigma noise
+            tuning_lr: learning rate for tuning prior precision and sigma
+            n_epochs_tuning: number of epochs to tune prior precision and sigma
         """
-        super().__init__(laplace_model)
+        super().__init__(laplace_model, pred_type, link_approx, num_samples)
 
         assert self.laplace_model.likelihood == "regression"
 
         self.loss_fn = torch.nn.MSELoss()
 
+        self.tuning_lr = tuning_lr
+        self.n_epochs_tuning = n_epochs_tuning
+        self.tune_prior_precision = tune_prior_precision
+        self.tune_sigma_noise = tune_sigma_noise
+
+    def on_test_start(self) -> None:
+        """Fit the Laplace approximation before testing."""
+        super().on_test_start()
+        if self.tune_prior_precision or self.tune_sigma_noise:
+            tune_prior_precision_and_sigma(
+                self.laplace_model,
+                self.tuning_lr,
+                self.n_epochs_tuning,
+                self.tune_prior_precision,
+                self.tune_sigma_noise,
+            )
+
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         self.test_metrics = default_regression_metrics("test")
+
+    def forward(self, X: Tensor) -> dict[str, Tensor]:
+        """Fitted Laplace Model Forward Pass.
+
+        Args:
+            X: tensor of data to run through the model [batch_size, input_dim]
+
+        Returns:
+            output from the laplace model
+        """
+        if not self.laplace_fitted:
+            self.on_test_start()
+
+        pred_dict: dict[str, Tensor] = {}
+        if self.num_samples:
+            fsamples = self.laplace_model.predictive_samples(
+                X, pred_type=self.pred_type, n_samples=self.num_samples
+            )
+            mean = fsamples.mean(0).squeeze()
+
+            # return samples as shape [batch_size, out_dim, num_samples]
+            pred_dict["samples"] = fsamples.permute(1, 2, 0)
+            laplace_epistemic = fsamples.std(0).squeeze()
+            laplace_aleatoric = (
+                torch.ones_like(laplace_epistemic)
+                * self.laplace_model.sigma_noise.item()
+            )
+            pred_std = torch.sqrt(laplace_epistemic + laplace_aleatoric**2)
+        else:
+            mean, var = self.laplace_model(
+                X, pred_type=self.pred_type, link_approx=self.link_approx
+            )
+            mean = mean.squeeze().detach()
+            laplace_epistemic = var.squeeze().sqrt()
+
+            laplace_aleatoric = (
+                torch.ones_like(laplace_epistemic)
+                * self.laplace_model.sigma_noise.item()
+            )
+            pred_std = torch.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
+
+        pred_dict["epistemic_uct"] = laplace_epistemic
+        pred_dict["aleatoric_uct"] = laplace_aleatoric
+
+        pred_dict["pred"] = mean
+        pred_dict["pred_uct"] = pred_std
+        return pred_dict
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -277,21 +365,7 @@ class LaplaceRegression(LaplaceBase):
             # a clone with autograd enables
             input = X.clone().requires_grad_()
 
-            laplace_mean, laplace_var = self.forward(input)
-            laplace_mean = laplace_mean.squeeze().detach()
-            laplace_epistemic = laplace_var.squeeze().sqrt()
-            laplace_aleatoric = (
-                torch.ones_like(laplace_epistemic)
-                * self.laplace_model.sigma_noise.item()
-            )
-            laplace_predictive = torch.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
-
-        return {
-            "pred": laplace_mean,
-            "pred_uct": laplace_predictive,
-            "epistemic_uct": laplace_epistemic,
-            "aleatoric_uct": laplace_aleatoric,
-        }
+        return self.forward(input)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -321,21 +395,61 @@ class LaplaceClassification(LaplaceBase):
 
     valid_tasks = ["binary", "multiclass"]
 
-    def __init__(self, laplace_model: Laplace, task: str = "multiclass") -> None:
-        """Initialize a new instance of Laplace Wrapper for Classification.
+    def __init__(
+        self,
+        laplace_model: Laplace,
+        task: str = "multiclass",
+        pred_type: str = "glm",
+        link_approx: str = "probit",
+        num_samples: int | None = None,
+    ) -> None:
+        """Initialize a new instance of Laplace Model Wrapper for Classification.
 
         Args:
             laplace_model: initialized Laplace model
             task: classification task, one of ['binary', 'multiclass']
+            pred_type: prediction type, one of ['glm', 'nn']
+            link_approx: link function approximation, one of ['mc', 'probit', 'bridge']
+                for `pred_type='nn'` only 'mc' is supported
+            num_samples: number of samples for prediction, if specified
+                will call `predictive_samples` instead of `predictive` method in
+                Laplace library
         """
         assert task in self.valid_tasks
         self.task = task
 
-        super().__init__(laplace_model)
+        super().__init__(laplace_model, pred_type, link_approx, num_samples)
 
         self.loss_fn = torch.nn.CrossEntropyLoss()
 
         assert self.laplace_model.likelihood == "classification"
+
+    def forward(self, X: Tensor, **kwargs: Any) -> dict[str, Tensor]:
+        """Fitted Laplace Model Forward Pass.
+
+        Args:
+            X: tensor of data to run through the model [batch_size, input_dim]
+            kwargs: additional arguments for laplace forward pass
+
+        Returns:
+            output from the laplace model
+        """
+        if not self.laplace_fitted:
+            self.on_test_start()
+
+        pred_dict: dict[str, Tensor] = {}
+        if self.num_samples:
+            fsamples = self.laplace_model.predictive_samples(
+                X, pred_type=self.pred_type, n_samples=self.num_samples
+            )
+            mean = fsamples.mean(0)
+            pred_dict["samples"] = fsamples
+        else:
+            mean = self.laplace_model(
+                X, pred_type=self.pred_type, link_approx=self.link_approx
+            )
+        pred_dict["pred"] = mean
+        return pred_dict
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -366,11 +480,12 @@ class LaplaceClassification(LaplaceBase):
             # a clone with autograd enables
             input = X.clone().requires_grad_()
 
-            probs = self.forward(input)
+            pred_dict = self.forward(input)
+            pred_dict["pred_uct"] = -torch.sum(
+                pred_dict["pred"] * torch.log(pred_dict["pred"]), dim=1
+            )
 
-            entropy = -torch.sum(probs * torch.log(probs), dim=1)
-
-        return {"pred": probs, "pred_uct": entropy, "logits": probs}
+        return pred_dict
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
