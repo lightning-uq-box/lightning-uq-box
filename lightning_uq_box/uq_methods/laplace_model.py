@@ -44,20 +44,21 @@ def tune_prior_precision_and_sigma(
         tune_sigma_noise: whether to tune sigma noise
     """
     with torch.inference_mode(False):
-        log_prior, log_sigma = (
-            torch.ones(1, requires_grad=True),
-            torch.ones(1, requires_grad=True),
-        )
         optim_params = []
         if tune_prior_precision is not None:
+            log_prior = torch.ones(1, requires_grad=True)
             optim_params.append(log_prior)
+        else:
+            log_prior = torch.log(model.prior_precision)
         if tune_sigma_noise is not None:
+            log_sigma = torch.ones(1, requires_grad=True)
             optim_params.append(log_sigma)
+        else:
+            log_sigma = torch.log(model.sigma_noise)
 
         hyper_optimizer = torch.optim.Adam(optim_params, lr=tune_precision_lr)
         bar = trange(n_epochs_tune_precision)
-        # find out why this is so extremely slow?
-        for i in bar:
+        for _ in bar:
             hyper_optimizer.zero_grad()
             neg_marglik = -model.log_marginal_likelihood(
                 log_prior.exp(), log_sigma.exp()
