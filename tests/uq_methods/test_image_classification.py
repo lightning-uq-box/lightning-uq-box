@@ -60,6 +60,7 @@ class TestImageClassificationTask:
         datamodule = instantiate(full_conf.data)
         trainer = instantiate(
             full_conf.trainer,
+            accelerator="cpu",
             default_root_dir=str(tmp_path),
             logger=CSVLogger(str(tmp_path)),
         )
