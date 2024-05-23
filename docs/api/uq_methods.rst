@@ -314,6 +314,11 @@ Classifier Free Guidance DDPM
 
 .. autoclass:: ClassFreeGuidanceDDPM
 
+RePaint
+```````
+
+.. autoclass:: RePaint
+
 Classification and Regression Diffusion (CARD)
 ----------------------------------------------
 
