@@ -10,15 +10,15 @@
 
 from typing import TYPE_CHECKING, Any
 
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities import rank_zero_only
 from torch import Tensor
-import matplotlib.pyplot as plt
 
 from .base import BaseModule
-from torchvision.utils import make_grid
 from .utils import _get_num_outputs, default_classification_metrics
 
 if TYPE_CHECKING:
@@ -118,8 +118,8 @@ class DDPM(BaseModule):
         self, batch_size: int, return_all_timesteps: bool = True, **kwargs: Any
     ) -> Any:
         """Forward pass of DDPM model for inference is sampling."""
-        return self.diffusion_model.sample(
-            batch_size, return_all_timesteps=return_all_timesteps, 
+        return self.ema.ema_model.sample(
+            batch_size, return_all_timesteps=return_all_timesteps
         )
 
     def training_step(
@@ -139,17 +139,28 @@ class DDPM(BaseModule):
 
         self.log("train_loss", loss)
 
-        if self.trainer.global_step % self.log_samples_every_n_steps == 0 and self.trainer.global_rank == 0:
+        if (
+            self.trainer.global_step % self.log_samples_every_n_steps == 0
+            and self.trainer.global_rank == 0
+        ):
             # log samples
-            sampled_imgs = self.forward(16, return_all_timesteps=False).detach()
-            fig, ax = plt.subplots(4, 4, figsize=(32, 32))
-            for i in range(16):
-                ax[i // 4, i % 4].imshow(sampled_imgs[i].cpu().numpy().transpose(1, 2, 0))
-                ax[i // 4, i % 4].axis("off")
-            plt.tight_layout()
-            fig.savefig(self.trainer.default_root_dir + f"/sample_{self.trainer.global_step}.png")
+            self.plot_and_save_samples(batch)
 
         return loss
+
+    @rank_zero_only
+    def plot_and_save_samples(self, batch):
+        """Plot samples from diffusion model."""
+        sampled_imgs = self.forward(16, return_all_timesteps=False).detach()
+
+        fig, ax = plt.subplots(4, 4, figsize=(32, 32))
+        for i in range(16):
+            ax[i // 4, i % 4].imshow(sampled_imgs[i].cpu().numpy().transpose(1, 2, 0))
+            ax[i // 4, i % 4].axis("off")
+        plt.tight_layout()
+        fig.savefig(
+            self.trainer.default_root_dir + f"/sample_{self.trainer.global_step}.png"
+        )
 
     def on_after_backward(self):
         """Update EMA after each backward pass."""
@@ -253,11 +264,6 @@ class GuidedDDPM(DDPM):
         self.train_metrics(logits, batch[self.target_key])
 
         return loss
-
-    def on_train_epoch_end(self):
-        """Log epoch-level training metrics."""
-        self.log_dict(self.train_metrics.compute())
-        self.train_metrics.reset()
 
     def forward(
         self,
@@ -391,3 +397,67 @@ class ClassFreeGuidanceDDPM(DDPM):
         self.log("train_loss", loss)
 
         return loss
+
+
+class RePaint(DDPM):
+    """RePaint Model.
+
+    This is a wrapper around inference of a diffusion model with RePaint
+    based on the implementation
+    of `denoising-diffusion-pytorch repo
+    <https://github.com/lucidrains/denoising-diffusion-pytorch/>`_.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://arxiv.org/abs/2201.09865
+    """
+
+    def inpaint(
+        self,
+        masked_image: Tensor,
+        mask: Tensor,
+        num_samples: int = 1,
+        resample: bool = True,
+        resample_iter: int = 10,
+        resample_jump: int = 3,
+        resample_every: int = 50,
+    ) -> dict[str, Tensor]:
+        """Inpaint images.
+
+        Args:
+            masked_image: batch of masked images, where regions corresponding to the mask should
+                be inpainted
+            mask: batch of masks that have been applied to the images, where 1 indicates the
+                regions that are available and 0 indicates the regions that are supposed to be inpainted
+            num_samples: number of samples to generate for each item in the batch, where each sample
+                might have different realizations of the inpainted area
+            resample: whether to use resampling line 9 of Algorithm 1 in the RePaint paper
+            resample_iter: number of iterations to run resampling
+            resample_jump: number of steps to jump before resampling
+            resample_every: resample every n steps of the backward total time steps
+
+        Returns:
+            dict Tensor of inpainted images containing samples [batch_size, num_samples, C, H, W]
+            and the uncertainty [batch_size, C, H, W]
+        """
+        gen_samples: list[Tensor] = [
+            self.diffusion_model.sample(
+                gt=masked_image,
+                mask=mask,
+                resample=resample,
+                resample_iter=resample_iter,
+                resample_jump=resample_jump,
+                resample_every=resample_every,
+            )
+            for _ in range(num_samples)
+        ]
+
+        pred_dict = {"samples": torch.stack(gen_samples, dim=1)}
+
+        if num_samples > 1:
+            pred_mean = pred_dict["samples"].mean(dim=1)
+            pred_std = pred_dict["samples"].std(dim=1)
+            pred_dict["mean"] = pred_mean
+            pred_dict["std"] = pred_std
+
+        return pred_dict
