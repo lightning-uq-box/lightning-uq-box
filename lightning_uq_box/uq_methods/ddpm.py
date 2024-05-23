@@ -29,6 +29,7 @@ if TYPE_CHECKING:
         from denoising_diffusion_pytorch.guided_diffusion import (
             GaussianDiffusion as GuidedGaussianDiffusion,
         )
+        from denoising_diffusion_pytorch.repaint import GaussianDiffusion as RePaint
     except ImportError:
         pass
 
@@ -214,12 +215,18 @@ class GuidedDDPM(DDPM):
         classifier: nn.Module,
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
+        log_samples_every_n_steps: int = 1000,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
     ) -> Any:
         """Initialize a new instance of Guided DDPM."""
         super().__init__(
-            diffusion_model, ema_decay, ema_update_every, optimizer, lr_scheduler
+            diffusion_model,
+            ema_decay,
+            ema_update_every,
+            log_samples_every_n_steps,
+            optimizer,
+            lr_scheduler,
         )
 
         self.classifier = classifier
@@ -335,6 +342,7 @@ class ClassFreeGuidanceDDPM(DDPM):
         num_classes: int,
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
+        log_samples_every_n_steps: int = 1000,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
     ) -> Any:
@@ -345,11 +353,17 @@ class ClassFreeGuidanceDDPM(DDPM):
             num_classes: number of classes
             ema_decay: exponential moving average decay
             ema_update_every: update EMA every this many update calls
+            log_samples_every_n_steps: log samples every n steps
             optimizer: optimizer
             lr_scheduler: learning rate scheduler
         """
         super().__init__(
-            diffusion_model, ema_decay, ema_update_every, optimizer, lr_scheduler
+            diffusion_model,
+            ema_decay,
+            ema_update_every,
+            log_samples_every_n_steps,
+            optimizer,
+            lr_scheduler,
         )
         self.num_classes = num_classes
         assert (
@@ -399,7 +413,7 @@ class ClassFreeGuidanceDDPM(DDPM):
         return loss
 
 
-class RePaint(DDPM):
+class RePaintModel(DDPM):
     """RePaint Model.
 
     This is a wrapper around inference of a diffusion model with RePaint
@@ -411,6 +425,34 @@ class RePaint(DDPM):
 
     * https://arxiv.org/abs/2201.09865
     """
+
+    def __init__(
+        self,
+        diffusion_model: "RePaint",
+        ema_decay: float = 0.995,
+        ema_update_every: float = 10,
+        log_samples_every_n_steps: int = 1000,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable | None = None,
+    ) -> Any:
+        """Initialize a new instance of RePaint.
+
+        Args:
+            diffusion_model: diffusion RePaint model
+            ema_decay: exponential moving average decay
+            ema_update_every: update EMA every this many update calls
+            log_samples_every_n_steps: log samples every n steps
+            optimizer: optimizer to use
+            lr_scheduler: learning rate scheduler
+        """
+        super().__init__(
+            diffusion_model,
+            ema_decay,
+            ema_update_every,
+            log_samples_every_n_steps,
+            optimizer,
+            lr_scheduler,
+        )
 
     def inpaint(
         self,
@@ -455,9 +497,7 @@ class RePaint(DDPM):
         pred_dict = {"samples": torch.stack(gen_samples, dim=1)}
 
         if num_samples > 1:
-            pred_mean = pred_dict["samples"].mean(dim=1)
-            pred_std = pred_dict["samples"].std(dim=1)
-            pred_dict["mean"] = pred_mean
-            pred_dict["std"] = pred_std
+            pred_dict["pred_mean"] = pred_dict["samples"].mean(dim=1)
+            pred_dict["pred_uct"] = pred_dict["samples"].std(dim=1)
 
         return pred_dict
