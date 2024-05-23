@@ -89,7 +89,9 @@ class TestPosthoc:
 
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
-        trainer = Trainer(default_root_dir=str(tmp_path), inference_mode=False)
+        trainer = Trainer(
+            accelerator="cpu", default_root_dir=str(tmp_path), inference_mode=False
+        )
         # use validation for testing, should be calibration loader for conformal
         trainer.validate(model, datamodule.val_dataloader())
         trainer.test(model, datamodule=datamodule)
@@ -153,7 +155,10 @@ class TestDeepEnsemble:
             model = instantiate(model_conf.model)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                max_epochs=2, log_every_n_steps=1, default_root_dir=str(tmp_path)
+                accelerator="cpu",
+                max_epochs=2,
+                log_every_n_steps=1,
+                default_root_dir=str(tmp_path),
             )
             trainer.fit(model, datamodule)
             trainer.test(ckpt_path="best", datamodule=datamodule)
@@ -176,7 +181,7 @@ class TestDeepEnsemble:
 
         datamodule = ToyImageClassificationDatamodule()
 
-        trainer = Trainer(default_root_dir=str(tmp_path))
+        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
 
@@ -198,6 +203,6 @@ class TestTTAModel:
         tta_model = TTAClassification(base_model, merge_strategy=merge_strategy)
         datamodule = ToyImageClassificationDatamodule()
 
-        trainer = Trainer(default_root_dir=str(tmp_path))
+        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
         trainer.test(tta_model, datamodule)
