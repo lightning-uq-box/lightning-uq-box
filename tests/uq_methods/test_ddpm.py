@@ -142,3 +142,7 @@ class TestRePaint:
         assert "samples" in pred_dict
 
         assert pred_dict["samples"].shape[1] == 3
+
+
+def test_type_checking_code(monkeypatch):
+    monkeypatch.setattr("typing.TYPE_CHECKING", True)

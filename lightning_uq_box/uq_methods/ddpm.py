@@ -8,7 +8,7 @@
 
 """Implement a Lightning Module Wrapper for Diffusion."""
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import matplotlib.pyplot as plt
 import torch
@@ -20,18 +20,6 @@ from torch import Tensor
 
 from .base import BaseModule
 from .utils import _get_num_outputs, default_classification_metrics
-
-if TYPE_CHECKING:
-    try:
-        from denoising_diffusion_pytorch.denoising_diffusion_pytorch import (
-            GaussianDiffusion,
-        )
-        from denoising_diffusion_pytorch.guided_diffusion import (
-            GaussianDiffusion as GuidedGaussianDiffusion,
-        )
-        from denoising_diffusion_pytorch.repaint import GaussianDiffusion as RePaint
-    except ImportError:
-        pass
 
 
 def classifier_cond_fn(
@@ -76,7 +64,7 @@ class DDPM(BaseModule):
 
     def __init__(
         self,
-        diffusion_model: "GaussianDiffusion",
+        diffusion_model,
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
         log_samples_every_n_steps: int = 1000,
@@ -86,7 +74,7 @@ class DDPM(BaseModule):
         """Initialize a new instance of DDPM.
 
         Args:
-            diffusion_model: diffusion model
+            diffusion_model: diffusion model `GaussianDiffusion <https://github.com/lucidrains/denoising-diffusion-pytorch/blob/df09945b867d6e7fe1ec423507b91ca0f4077ca3/denoising_diffusion_pytorch/denoising_diffusion_pytorch.py#L472>`_.
             ema_decay: exponential moving average decay
             ema_update_every: update EMA every this many update calls
             log_samples_every_n_steps: log samples every n steps
@@ -211,7 +199,7 @@ class GuidedDDPM(DDPM):
 
     def __init__(
         self,
-        diffusion_model: "GuidedGaussianDiffusion",
+        diffusion_model,
         classifier: nn.Module,
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
@@ -219,7 +207,18 @@ class GuidedDDPM(DDPM):
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
     ) -> Any:
-        """Initialize a new instance of Guided DDPM."""
+        """Initialize a new instance of Guided DDPM.
+
+        Args:
+            diffusion_model: diffusion model `GuidedGaussianDiffusion <https://github.com/lucidrains/denoising-diffusion-pytorch/blob/df09945b867d6e7fe1ec423507b91ca0f4077ca3/denoising_diffusion_pytorch/guided_diffusion.py#L420>`_.
+            classifier: classifier model
+            ema_decay: exponential moving average decay
+            ema_update_every: update EMA every this many update calls
+            log_samples_every_n_steps: log samples every n steps
+            optimizer: optimizer
+            lr_scheduler: learning rate scheduler
+
+        """
         super().__init__(
             diffusion_model,
             ema_decay,
@@ -338,7 +337,7 @@ class ClassFreeGuidanceDDPM(DDPM):
 
     def __init__(
         self,
-        diffusion_model: "GaussianDiffusion",
+        diffusion_model,
         num_classes: int,
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
@@ -349,7 +348,7 @@ class ClassFreeGuidanceDDPM(DDPM):
         """Initialize a new instance of Guidance Free DDPM.
 
         Args:
-            diffusion_model: diffusion model
+            diffusion_model: diffusion model `GaussianDiffusion <https://github.com/lucidrains/denoising-diffusion-pytorch/blob/df09945b867d6e7fe1ec423507b91ca0f4077ca3/denoising_diffusion_pytorch/classifier_free_guidance.py#L468>`_.
             num_classes: number of classes
             ema_decay: exponential moving average decay
             ema_update_every: update EMA every this many update calls
@@ -428,7 +427,7 @@ class RePaintModel(DDPM):
 
     def __init__(
         self,
-        diffusion_model: "RePaint",
+        diffusion_model,
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
         log_samples_every_n_steps: int = 1000,
@@ -438,7 +437,7 @@ class RePaintModel(DDPM):
         """Initialize a new instance of RePaint.
 
         Args:
-            diffusion_model: diffusion RePaint model
+            diffusion_model: diffusion model `RePaint <https://github.com/lucidrains/denoising-diffusion-pytorch/blob/df09945b867d6e7fe1ec423507b91ca0f4077ca3/denoising_diffusion_pytorch/repaint.py#L472>`_.
             ema_decay: exponential moving average decay
             ema_update_every: update EMA every this many update calls
             log_samples_every_n_steps: log samples every n steps
