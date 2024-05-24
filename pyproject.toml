@@ -71,7 +71,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
-dev = [
+tests = [
     ### Tests ###
     # pytest 7.3+ required for tmp_path_retention_policy
     "pytest>=7.3",
