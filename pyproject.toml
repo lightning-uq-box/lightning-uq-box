@@ -71,7 +71,7 @@ dependencies = [
 dynamic = ["version"]
 
 [project.optional-dependencies]
-dev = [
+tests = [
     ### Tests ###
     # pytest 7.3+ required for tmp_path_retention_policy
     "pytest>=7.3",
@@ -83,7 +83,14 @@ dev = [
     "hydra-core>=1.3.2",
     # omegaconf
     "omegaconf>=2.3.0",
+    # jsonargparse
+    "jsonargparse[signatures]>=4.28.0",
+    ## Style
+    # ruff 0.2+ required for [ruff.lint]
+    "ruff>=0.2", 
+]
 
+docs = [
     ### Docs ###
     # sphinx
     "sphinx>=4,<7",
@@ -101,10 +108,6 @@ dev = [
     "jupytext>=1.15.2",
     # ipykernel to run notebooks
     "ipykernel>=6.29.3",
-
-    ## Style
-    # ruff 0.2+ required for [ruff.lint]
-    "ruff>=0.2",
 ]
 
 

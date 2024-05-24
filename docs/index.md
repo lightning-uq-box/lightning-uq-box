@@ -18,7 +18,13 @@ In the tables that follow below, you can see what UQ-Method/Task combination is 
 To get started, 
 
 ```console
-$ pip install lightning-uq-box
+pip install lightning-uq-box
+```
+
+For the latest development version you can run,
+
+```console
+pip install git+https://github.com/lightning-uq-box/lightning-uq-box.git
 ```
 
 ## Classification of UQ-Methods
