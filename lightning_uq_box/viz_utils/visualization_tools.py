@@ -307,7 +307,6 @@ def plot_calibration_uq_toolbox(
       y_test: test data targets
       x_test: test data inputs
     """
-    fig = plt.figure()
     y_pred = y_pred.squeeze()
     pred_std = pred_std.squeeze()
     y_test = y_test.squeeze()
