@@ -179,14 +179,7 @@ class DeterministicModel(BaseModule):
 
     def on_train_epoch_end(self):
         """Log epoch-level training metrics."""
-        new_dict = {}
-        comp_matrics = self.train_metrics.compute()
-        for key, val in comp_matrics.items():
-            if "Stats" in key:
-                for idx, name in enumerate(["tp", "fp", "tn", "fn", "sup"]):
-                    new_dict[key + "_" + name] = float(val[idx].item())
-            else:
-                new_dict[key] = val
+        self.log_dict(self.train_metrics.compute())
         self.train_metrics.reset()
 
     def validation_step(
@@ -215,16 +208,8 @@ class DeterministicModel(BaseModule):
 
     def on_validation_epoch_end(self) -> None:
         """Log epoch level validation metrics."""
-        new_dict = {}
-        comp_matrics = self.val_metrics.compute()
-        for key, val in comp_matrics.items():
-            if "Stats" in key:
-                for idx, name in enumerate(["tp", "fp", "tn", "fn", "sup"]):
-                    new_dict[key + "_" + name] = float(val[idx].item())
-            else:
-                new_dict[key] = val
-        self.log_dict(new_dict)
-        self.val_metrics.reset()
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -250,15 +235,8 @@ class DeterministicModel(BaseModule):
 
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""
-        new_dict = {}
-        comp_matrics = self.test_metrics.compute()
-        for key, val in comp_matrics.items():
-            if "Stats" in key:
-                for idx, name in enumerate(["tp", "fp", "tn", "fn", "sup"]):
-                    new_dict[key + "_" + name] = float(val[idx].item())
-            else:
-                new_dict[key] = val
-        self.test_metrics.reset()
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
