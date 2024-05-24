@@ -52,7 +52,6 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         x_max: int | float = 4,
         n_train: int = 200,
         n_true: int = 200,
-        sigma: float = 0.3,
         batch_size: int = 200,
         generate_y: Callable = polynomial_f3,
     ) -> None:
@@ -67,7 +66,6 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             x_max: Maximum value of x range
             n_train : Number of training samples, by default  200.
             n_true: Number of test samples, by default 1000.
-            sigma: Standard deviation of noise, by default 0.1
             batch_size: batch size for data loader
             generate_y: function that should generate data over input line
         """
@@ -87,25 +85,36 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
             Y[k] = generate_y(X[k])
 
-        mean_X = np.mean(X)
-        std_X = np.std(X)
-        mean_Y = np.mean(Y)
-        std_Y = np.std(Y)
-        X_n = (X - mean_X) / std_X
-        Y_n = (Y - mean_Y) / std_Y
-
-        self.X_train = torch.from_numpy(X_n).unsqueeze(-1).type(torch.float32)
-        self.y_train = torch.from_numpy(Y_n).unsqueeze(-1).type(torch.float32)
-
         # Split the training data into training and validation sets
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-            self.X_train, self.y_train, test_size=0.2, random_state=42
+            X, Y, test_size=0.2, random_state=42
         )
 
+        # compute normlization statistics on train split
+        mean_X = self.X_train.mean()
+        std_X = self.X_train.std()
+        mean_Y = self.y_train.mean()
+        std_Y = self.y_train.std()
+
+        # Conformal prediction expects a calibration set separate from validation set
         self.X_val, self.X_calib, self.y_val, self.y_calib = train_test_split(
             self.X_val, self.y_val, test_size=0.4, random_state=42
         )
 
+        def normalize_and_convert(data, mean, std):
+            return ((torch.from_numpy(data).unsqueeze(-1) - mean) / std).type(
+                torch.float32
+            )
+
+        # Normalize the data
+        self.X_train = normalize_and_convert(self.X_train, mean_X, std_X)
+        self.y_train = normalize_and_convert(self.y_train, mean_Y, std_Y)
+        self.X_val = normalize_and_convert(self.X_val, mean_X, std_X)
+        self.y_val = normalize_and_convert(self.y_val, mean_Y, std_Y)
+        self.X_calib = normalize_and_convert(self.X_calib, mean_X, std_X)
+        self.y_calib = normalize_and_convert(self.y_calib, mean_Y, std_Y)
+
+        # separate extended test data
         X_test = np.linspace(X.min() * 1.2, X.max() * 1.2, n_true)
         Y_test = X_test * 0.0
         for k in range(len(X_test)):
@@ -113,8 +122,9 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
         X_test = (X_test - mean_X) / std_X
         Y_test = (Y_test - mean_Y) / std_Y
-        self.X_test = torch.from_numpy(X_test).unsqueeze(-1).type(torch.float32)
-        self.y_test = torch.from_numpy(Y_test).unsqueeze(-1).type(torch.float32)
+
+        self.X_test = normalize_and_convert(X_test, mean_X, std_X)
+        self.y_test = normalize_and_convert(Y_test, mean_Y, std_Y)
 
         self.batch_size = batch_size
 
