@@ -4,6 +4,7 @@
 """UQ-Regression-Box Models."""
 
 from .cards import (
+    ConditionalEncoder,
     ConditionalGuidedConvModel,
     ConditionalGuidedLinearModel,
     ConditionalLinear,
@@ -16,6 +17,7 @@ __all__ = (
     "MLP",
     # CARDS architecture
     "ConditionalLinear",
+    "ConditionalEncoder",
     "ConditionalGuidedLinearModel",
     "ConditionalGuidedConvModel",
     "DiffusionSequential",
