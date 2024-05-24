@@ -18,6 +18,7 @@ from lightning_uq_box.uq_methods.ddpm import DDPM, RePaintModel
 
 model_config_paths = [
     "tests/configs/diffusion_models/ddpm.yaml",
+    "tests/configs/diffusion_models/elucidated.yaml",
     "tests/configs/diffusion_models/guided_ddpm.yaml",
     "tests/configs/diffusion_models/guidance_free_ddpm.yaml",
 ]

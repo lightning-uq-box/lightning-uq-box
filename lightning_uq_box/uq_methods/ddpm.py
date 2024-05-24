@@ -184,6 +184,53 @@ class DDPM(BaseModule):
             return {"optimizer": optimizer}
 
 
+class ElucidatedDDPM(DDPM):
+    """Elucidated DDPM.
+
+    This trains an elucidated diffusion model based on the implementation
+    of `denoising-diffusion-pytorch repo
+    <https://github.com/lucidrains/denoising-diffusion-pytorch/>`_.
+
+    If you use this model in your research, please cite the following paper:
+
+    * https://arxiv.org/abs/2206.00364
+    """
+
+    def __init__(
+        self,
+        diffusion_model,
+        ema_decay: float = 0.995,
+        ema_update_every: float = 10,
+        log_samples_every_n_steps: int = 1000,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable | None = None,
+    ) -> Any:
+        """Initialize a new instance of DDPM.
+
+        Args:
+            diffusion_model: diffusion model `ElucidatedDiffusion <https://github.com/lucidrains/denoising-diffusion-pytorch/blob/70a2494e1e123e337f34b35147097e1ed2625621/denoising_diffusion_pytorch/elucidated_diffusion.py#L35>`_.
+            ema_decay: exponential moving average decay
+            ema_update_every: update EMA every this many update calls
+            log_samples_every_n_steps: log samples every n steps
+            optimizer: optimizer to use
+            lr_scheduler: learning rate scheduler
+        """
+        super().__init__(
+            diffusion_model,
+            ema_decay,
+            ema_update_every,
+            log_samples_every_n_steps,
+            optimizer,
+            lr_scheduler,
+        )
+
+    def forward(
+        self, batch_size: int, return_all_timesteps: bool = True, **kwargs: Any
+    ) -> Any:
+        """Forward pass of DDPM model for inference is sampling."""
+        return self.ema.ema_model.sample(batch_size)
+
+
 class GuidedDDPM(DDPM):
     """Guided Diffusion Probabilistic Model (Guided-DDPM).
 

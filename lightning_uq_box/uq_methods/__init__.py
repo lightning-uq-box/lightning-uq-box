@@ -27,7 +27,7 @@ from .bnn_vi_elbo import (
 )
 from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
 from .conformal_qr import ConformalQR
-from .ddpm import DDPM, ClassFreeGuidanceDDPM, GuidedDDPM, RePaintModel
+from .ddpm import DDPM, ClassFreeGuidanceDDPM, ElucidatedDDPM, GuidedDDPM, RePaintModel
 from .deep_ensemble import (
     DeepEnsemble,
     DeepEnsembleClassification,
@@ -112,6 +112,7 @@ __all__ = (
     "DDPM",
     "GuidedDDPM",
     "ClassFreeGuidanceDDPM",
+    "ElucidatedDDPM",
     "RePaintModel",
     # Quantile Regression
     "QuantileRegressionBase",
