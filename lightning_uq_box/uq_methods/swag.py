@@ -528,6 +528,44 @@ class SWAGSegmentation(SWAGClassification):
 
     pred_dir_name = "preds"
 
+    def __init__(
+        self,
+        model: nn.Module,
+        max_swag_snapshots: int,
+        snapshot_freq: int,
+        num_mc_samples: int,
+        swag_lr: float,
+        loss_fn: nn.Module,
+        task: str = "multiclass",
+        stochastic_module_names: list[int] | list[str] | None = None,
+        save_preds: bool = False,
+    ) -> None:
+        """Initialize a new instance of SWAG Model for Segmentation.
+
+        Args:
+            model: pytorch model
+            num_swag_epochs: number of epochs to train swag
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            task: segmentation task, one of ['binary', 'multiclass']
+            stochastic_module_names: names of modules that are partially stochastic
+            save_preds: save predictions
+        """
+        super().__init__(
+            model,
+            max_swag_snapshots,
+            snapshot_freq,
+            num_mc_samples,
+            swag_lr,
+            loss_fn,
+            task,
+            stochastic_module_names,
+        )
+        self.save_preds = save_preds
+
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         self.test_metrics = default_segmentation_metrics(
@@ -557,7 +595,7 @@ class SWAGSegmentation(SWAGClassification):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -575,13 +613,49 @@ class SWAGSegmentation(SWAGClassification):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class SWAGPxRegression(SWAGRegression):
     """SWAG Model for Pixelwise Regression."""
 
     pred_dir_name = "preds"
+
+    def __init__(
+        self,
+        model: nn.Module,
+        max_swag_snapshots: int,
+        snapshot_freq: int,
+        num_mc_samples: int,
+        swag_lr: float,
+        loss_fn: nn.Module,
+        stochastic_module_names: list[int] | list[str] | None = None,
+        save_preds: bool = False,
+    ) -> None:
+        """Initialize a new instance of SWAG Model for Pixelwise Regression.
+
+        Args:
+            model: pytorch model
+            num_swag_epochs: number of epochs to train swag
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            stochastic_module_names: names of modules that are partially stochastic
+            save_preds: save predictions
+        """
+        super().__init__(
+            model,
+            max_swag_snapshots,
+            snapshot_freq,
+            num_mc_samples,
+            swag_lr,
+            loss_fn,
+            stochastic_module_names,
+        )
+        self.save_preds = save_preds
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -590,7 +664,7 @@ class SWAGPxRegression(SWAGRegression):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -608,4 +682,5 @@ class SWAGPxRegression(SWAGRegression):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)

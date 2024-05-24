@@ -34,7 +34,7 @@ model_config_paths = [
 data_config_paths = ["tests/configs/image_segmentation/toy_segmentation.yaml"]
 
 
-class TestImageClassificationTask:
+class TestImageSegmentationTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
@@ -43,7 +43,7 @@ class TestImageClassificationTask:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
 
-        model = instantiate(model_conf.uq_method)
+        model = instantiate(model_conf.uq_method, save_preds=True)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
             accelerator="cpu",
@@ -134,7 +134,7 @@ class TestDeepEnsemble:
         for i in range(5):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
-            model = instantiate(model_conf.uq_method)
+            model = instantiate(model_conf.uq_method, save_preds=True)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 accelerator="cpu",
@@ -158,7 +158,10 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleSegmentation(
-            len(ensemble_members_dict), ensemble_members_dict, num_classes=4
+            len(ensemble_members_dict),
+            ensemble_members_dict,
+            num_classes=4,
+            save_preds=True,
         )
 
         datamodule = ToySegmentationDataModule()
