@@ -208,8 +208,8 @@ class DeterministicModel(BaseModule):
 
     def on_validation_epoch_end(self) -> None:
         """Log epoch level validation metrics."""
-        self.log_dict(self.train_metrics.compute())
-        self.train_metrics.reset()
+        self.log_dict(self.val_metrics.compute())
+        self.val_metrics.reset()
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -235,8 +235,8 @@ class DeterministicModel(BaseModule):
 
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""
-        self.log_dict(self.train_metrics.compute())
-        self.train_metrics.reset()
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
