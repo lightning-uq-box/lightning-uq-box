@@ -35,8 +35,8 @@ def polynomial_f2(x):
     return fx
 
 
-def polynomial_f3(x, noise=True):
-    """Polynomial function."""
+def oscillating(x, noise=True):
+    """Oscillating function."""
     out = 7 * np.sin(x)
     if noise:
         out += 3 * np.abs(np.cos(x / 2)) * np.random.randn()
@@ -50,10 +50,10 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         self,
         x_min: int | float = -4,
         x_max: int | float = 4,
-        n_train: int = 200,
-        n_true: int = 200,
+        n_datapoints: int = 200,
+        n_ground_truth: int = 200,
         batch_size: int = 200,
-        generate_y: Callable = polynomial_f3,
+        generate_y: Callable = oscillating,
     ) -> None:
         """Define a heteroscedastic toy regression dataset.
 
@@ -64,16 +64,19 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         Args:
             x_min: Minimum value of x range
             x_max: Maximum value of x range
-            n_train : Number of training samples, by default  200.
-            n_true: Number of test samples, by default 1000.
+            n_datapoints : Number of datapoints that form the overall available dataset.
+                10% is kept as a separate test set, of the remaining 90%,
+                80% will be used for training, 12% for validation and 8% for calibration
+                (necessary for conformal prediction)
+            n_ground_truth: Number of noise free "ground truth" samples
             batch_size: batch size for data loader
             generate_y: function that should generate data over input line
         """
         super().__init__()
         np.random.seed(1)
-        X = np.zeros(n_train)
-        Y = np.zeros(n_train)
-        for k in range(n_train):
+        X = np.zeros(n_datapoints)
+        Y = np.zeros(n_datapoints)
+        for k in range(n_datapoints):
             rnd = np.random.rand()
             if rnd < 1 / 3.0:
                 X[k] = np.random.normal(loc=x_min, scale=2.0 / 5.0)
@@ -86,8 +89,20 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             Y[k] = generate_y(X[k])
 
         # Split the training data into training and validation sets
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, Y, test_size=0.1, random_state=42
+        )
+        # Separation into training and separate test set
+        self.X_train, self.X_test, self.y_train, self.test = train_test_split(
+            X_train, y_train, test_size=0.1, random_state=42
+        )
+        # Separate the training data into train and validation
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-            X, Y, test_size=0.2, random_state=42
+            self.X_train, self.y_train, test_size=0.1, random_state=42
+        )
+        # Conformal prediction expects a calibration set separate from validation set
+        self.X_val, self.X_calib, self.y_val, self.y_calib = train_test_split(
+            self.X_val, self.y_val, test_size=0.4, random_state=42
         )
 
         # compute normlization statistics on train split
@@ -95,11 +110,6 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         std_X = self.X_train.std()
         mean_Y = self.y_train.mean()
         std_Y = self.y_train.std()
-
-        # Conformal prediction expects a calibration set separate from validation set
-        self.X_val, self.X_calib, self.y_val, self.y_calib = train_test_split(
-            self.X_val, self.y_val, test_size=0.4, random_state=42
-        )
 
         def normalize_and_convert(data, mean, std):
             return ((torch.from_numpy(data).unsqueeze(-1) - mean) / std).type(
@@ -113,18 +123,20 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         self.y_val = normalize_and_convert(self.y_val, mean_Y, std_Y)
         self.X_calib = normalize_and_convert(self.X_calib, mean_X, std_X)
         self.y_calib = normalize_and_convert(self.y_calib, mean_Y, std_Y)
+        self.X_test = normalize_and_convert(self.X_test, mean_X, std_X)
+        self.y_test = normalize_and_convert(self.test, mean_Y, std_Y)
 
         # separate extended test data
-        X_test = np.linspace(X.min() * 1.2, X.max() * 1.2, n_true)
-        Y_test = X_test * 0.0
-        for k in range(len(X_test)):
-            Y_test[k] = generate_y(X_test[k], noise=False)
+        X_gt = np.linspace(X.min() * 1.2, X.max() * 1.2, n_ground_truth)
+        Y_gt = X_gt * 0.0
+        for k in range(len(X_gt)):
+            Y_gt[k] = generate_y(X_gt[k], noise=False)
 
-        X_test = (X_test - mean_X) / std_X
-        Y_test = (Y_test - mean_Y) / std_Y
+        X_gt = (X_gt - mean_X) / std_X
+        Y_gt = (Y_gt - mean_Y) / std_Y
 
-        self.X_test = normalize_and_convert(X_test, mean_X, std_X)
-        self.y_test = normalize_and_convert(Y_test, mean_Y, std_Y)
+        self.X_gt = normalize_and_convert(X_gt, mean_X, std_X)
+        self.Y_gt = normalize_and_convert(Y_gt, mean_Y, std_Y)
 
         self.batch_size = batch_size
 
@@ -156,7 +168,15 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""
         return DataLoader(
-            TensorDataset(self.X_test, self.y_test),
+            TensorDataset(self.X_gt, self.Y_gt),
+            batch_size=self.batch_size,
+            collate_fn=collate_fn_tensordataset,
+        )
+
+    def gt_dataloader(self) -> DataLoader:
+        """Return test dataloader."""
+        return DataLoader(
+            TensorDataset(self.X_test, self.Y_test),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )
