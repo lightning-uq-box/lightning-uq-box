@@ -39,32 +39,32 @@ def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.figure:
 
 
 def plot_toy_regression_data(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, y_test: np.ndarray
+    X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, Y_test: np.ndarray
 ) -> plt.Figure:
     """Plot the toy data.
 
     Args:
       X_train: training inputs
-      y_train: training targets
+      Y_train: training targets
       X_test: testing inputs
-      y_test: testing targets
+      Y_test: testing targets
     """
     fig, ax = plt.subplots(1)
-    ax.scatter(X_test, y_test, color="gray", edgecolor="black", s=5, label="test_data")
-    ax.scatter(X_train, y_train, color="blue", label="train_data")
+    ax.scatter(X_test, Y_test, color="gray", edgecolor="black", s=5, label="test_data")
+    ax.scatter(X_train, Y_train, color="blue", label="train_data")
     plt.title("Toy Regression Dataset.")
     plt.legend()
     return fig
 
 
 def plot_two_moons_data(
-    X_train: np.ndarray, y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray
+    X_train: np.ndarray, Y_train: np.ndarray, X_val: np.ndarray, y_val: np.ndarray
 ) -> plt.Figure:
     """Plot the two moons dataset.
 
     Args:
         X_train: Training data features
-        y_train: Training data labels
+        Y_train: Training data labels
         X_val: Validation data features
         y_val: Validation data labels
 
@@ -74,7 +74,7 @@ def plot_two_moons_data(
     fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
     # Plot training data
-    axs[0].scatter(X_train[:, 0], X_train[:, 1], c=y_train, cmap="viridis")
+    axs[0].scatter(X_train[:, 0], X_train[:, 1], c=Y_train, cmap="viridis")
     axs[0].set_title("Training Set")
 
     # Plot validation data
@@ -86,7 +86,7 @@ def plot_two_moons_data(
 
 def plot_predictions_classification(
     X_test: np.ndarray,
-    y_test: np.ndarray,
+    Y_test: np.ndarray,
     y_pred: np.ndarray,
     test_grid_points,
     pred_uct: np.ndarray = None,
@@ -95,7 +95,7 @@ def plot_predictions_classification(
 
     Args:
         X_test: The input features.
-        y_test: The true labels.
+        Y_test: The true labels.
         y_pred: The predicted labels.
         test_grid_points: The grid of test points.
         pred_uct: The uncertainty of the predictions.
@@ -110,7 +110,7 @@ def plot_predictions_classification(
     yy = test_grid_points[:, 1].reshape(grid_size, grid_size)
 
     # Create a scatter plot of the input features, colored by the true labels
-    axs[0].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm, edgecolors="black")
+    axs[0].scatter(X_test[:, 0], X_test[:, 1], c=Y_test, cmap=cm, edgecolors="black")
     axs[0].set_title("True Labels")
 
     # Create a scatter plot of the input features, colored by the predicted labels
@@ -123,7 +123,7 @@ def plot_predictions_classification(
         interpolation="bicubic",
         aspect="auto",
     )
-    axs[1].scatter(X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm, edgecolors="black")
+    axs[1].scatter(X_test[:, 0], X_test[:, 1], c=Y_test, cmap=cm, edgecolors="black")
     axs[1].set_title("Predicted Labels")
 
     if pred_uct is not None:
@@ -138,7 +138,7 @@ def plot_predictions_classification(
             aspect="auto",
         )
         axs[2].scatter(
-            X_test[:, 0], X_test[:, 1], c=y_test, cmap=cm, edgecolors="black"
+            X_test[:, 0], X_test[:, 1], c=Y_test, cmap=cm, edgecolors="black"
         )
         axs[2].set_title("Uncertainty")
         fig.colorbar(im2, ax=axs[2], fraction=0.05, pad=0.008)
@@ -148,9 +148,9 @@ def plot_predictions_classification(
 
 def plot_predictions_regression(
     X_train: np.ndarray,
-    y_train: np.ndarray,
+    Y_train: np.ndarray,
     X_test: np.ndarray,
-    y_test: np.ndarray,
+    Y_test: np.ndarray,
     y_pred: np.ndarray,
     pred_std: np.ndarray | None = None,
     pred_quantiles: np.ndarray | None = None,
@@ -164,9 +164,9 @@ def plot_predictions_regression(
 
     Args:
         X_train: training inputs
-        y_train: training targets
+        Y_train: training targets
         X_test: testing inputs [batch_size, 1]
-        y_test: testing targets [batch_size, 1]
+        Y_test: testing targets [batch_size, 1]
         y_pred: predicted targets [batch_size, 1]
         pred_std: predicted standard deviation
         pred_quantiles: predicted quantiles
@@ -191,8 +191,8 @@ def plot_predictions_regression(
             ax0.scatter(X_test, samples[:, i], color="black", s=0.1, alpha=0.7)
 
     # model predictive uncertainty bands on the left
-    ax0.scatter(X_test, y_test, color="gray", label="ground truth", s=0.5, alpha=0.5)
-    ax0.scatter(X_train, y_train, color="blue", label="train_data", alpha=0.5)
+    ax0.scatter(X_test, Y_test, color="gray", label="ground truth", s=0.5, alpha=0.5)
+    ax0.scatter(X_train, Y_train, color="blue", label="train_data", alpha=0.5)
     ax0.scatter(X_test, y_pred, color="orange", label="predictions", alpha=0.5)
 
     if pred_std is not None:
@@ -220,7 +220,7 @@ def plot_predictions_regression(
         if show_bands:
             ax1.scatter(
                 X_test,
-                y_test,
+                Y_test,
                 color="gray",
                 edgecolor="black",
                 label="ground truth",
@@ -258,7 +258,7 @@ def plot_predictions_regression(
         if show_bands:
             ax2.scatter(
                 X_test,
-                y_test,
+                Y_test,
                 color="gray",
                 edgecolor="black",
                 label="ground truth",
@@ -294,7 +294,7 @@ def plot_predictions_regression(
 
 
 def plot_calibration_uq_toolbox(
-    y_pred: np.ndarray, pred_std: np.ndarray, y_test: np.ndarray, x_test: np.ndarray
+    y_pred: np.ndarray, pred_std: np.ndarray, Y_test: np.ndarray, x_test: np.ndarray
 ) -> plt.Figure:
     """Plot calibration from uq_toolbox.
 
@@ -304,30 +304,30 @@ def plot_calibration_uq_toolbox(
     Args:
       y_pred: model mean predictions
       pred_std: predicted standard deviations
-      y_test: test data targets
+      Y_test: test data targets
       x_test: test data inputs
     """
     y_pred = y_pred.squeeze()
     pred_std = pred_std.squeeze()
-    y_test = y_test.squeeze()
+    Y_test = Y_test.squeeze()
     x_test = x_test.squeeze()
     n_subset = 50
-    mace = uct.mean_absolute_calibration_error(y_pred, pred_std, y_test)
-    ma = uct.miscalibration_area(y_pred, pred_std, y_test)
-    rmsce = uct.root_mean_squared_calibration_error(y_pred, pred_std, y_test)
+    mace = uct.mean_absolute_calibration_error(y_pred, pred_std, Y_test)
+    ma = uct.miscalibration_area(y_pred, pred_std, Y_test)
+    rmsce = uct.root_mean_squared_calibration_error(y_pred, pred_std, Y_test)
 
     fig, axs = plt.subplots(1, 3)
 
     # Make xy plot
-    axs[0] = uct.plot_xy(y_pred, pred_std, y_test, x_test, ax=axs[0])
+    axs[0] = uct.plot_xy(y_pred, pred_std, Y_test, x_test, ax=axs[0])
 
     # Make ordered intervals plot
     axs[1] = uct.plot_intervals_ordered(
-        y_pred, pred_std, y_test, n_subset=n_subset, ax=axs[1]
+        y_pred, pred_std, Y_test, n_subset=n_subset, ax=axs[1]
     )
 
     # Make calibration plot
-    axs[2] = uct.plot_calibration(y_pred, pred_std, y_test, ax=axs[2])
+    axs[2] = uct.plot_calibration(y_pred, pred_std, Y_test, ax=axs[2])
 
     # Adjust subplots spacing
     fig.subplots_adjust(wspace=0.25)

@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from lightning import LightningDataModule
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, TensorDataset
 
 from .utils import collate_fn_tensordataset
@@ -35,8 +36,8 @@ def polynomial_f2(x):
     return fx
 
 
-def oscillating(x, noise=True):
-    """Oscillating function."""
+def noisY_sine(x, noise: bool = True):
+    """(Noisy) sine function."""
     out = 7 * np.sin(x)
     if noise:
         out += 3 * np.abs(np.cos(x / 2)) * np.random.randn()
@@ -50,101 +51,118 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         self,
         x_min: int | float = -4,
         x_max: int | float = 4,
-        n_datapoints: int = 200,
-        n_ground_truth: int = 200,
-        batch_size: int = 200,
-        generate_y: Callable = oscillating,
+        n_points: int = 200,
+        batch_size: int = 100,
+        test_fraction: float = 0.2,
+        val_fraction: float = 0.1,
+        calib_fraction: float = 0.4,
+        generate_y: Callable = noisY_sine,
+        noise_seed: int = 42,
+        split_seed: int = 42,
     ) -> None:
         """Define a heteroscedastic toy regression dataset.
 
-        Taken from (https://mapie.readthedocs.io/en/latest/examples_regression/
+        Inspired by (https://mapie.readthedocs.io/en/latest/examples_regression/
         1-quickstart/plot_heteroscedastic_1d_data.html#sphx-glr-examples-
         regression-1-quickstart-plot-heteroscedastic-1d-data-py)
+
+        Split `n_points` data points into train, validation and test set. We
+        provide the following arrays: X_<type>, Y_<type>, where <type> is one
+        of:
+
+        * all: train + val + test
+        * train: all - test - val
+        * test: see `test_fraction`
+        * val: validation, see `val_fraction`
+        * gtext: noise-free ground truth on extended x-axis
+
+        X and Y have shape (n_points_{type}, 1).
 
         Args:
             x_min: Minimum value of x range
             x_max: Maximum value of x range
-            n_datapoints : Number of datapoints that form the overall available dataset.
-                10% is kept as a separate test set, of the remaining 90%,
-                80% will be used for training, 20% for validation. The validation set
-                is further split into a final validation set (60%) and a calibration set (40%)
-                which is necessary for conformal prediction.
-            n_ground_truth: Number of noise free "ground truth" samples
+            n_points : Number of train + test + validation points
             batch_size: batch size for data loader
-            generate_y: function that should generate data over input line
+            test_fraction: fraction of n_points for test set
+            val_fraction: fraction of n_points for validation
+                set
+            calib_fraction: fraction of n_points for calibration set
+                will be split from validation set
+            generate_y: ground truth function with noise option, must have
+                signature f(x, noise: bool)
+            noise_seed: random seed for x points positions and y noise
+            split_seed: random seed for train/test/val split
         """
         super().__init__()
-        np.random.seed(1)
-        X = np.zeros(n_datapoints)
-        Y = np.zeros(n_datapoints)
-        for k in range(n_datapoints):
-            rnd = np.random.rand()
-            if rnd < 1 / 3.0:
-                X[k] = np.random.normal(loc=x_min, scale=2.0 / 5.0)
-            else:
-                if rnd < 2.0 / 3.0:
-                    X[k] = np.random.normal(loc=0.0, scale=0.9)
-                else:
-                    X[k] = np.random.normal(loc=x_max, scale=2.0 / 5.0)
 
-            Y[k] = generate_y(X[k])
-
-        # Split the training data into training and validation sets
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, Y, test_size=0.1, random_state=42
-        )
-        # Separation into training and separate test set
-        self.X_train, self.X_test, self.y_train, self.test = train_test_split(
-            X_train, y_train, test_size=0.1, random_state=42
-        )
-        # Separate the training data into train and validation
-        self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-            self.X_train, self.y_train, test_size=0.8, random_state=42
-        )
-        # Conformal prediction expects a calibration set separate from validation set
-        self.X_val, self.X_calib, self.y_val, self.y_calib = train_test_split(
-            self.X_val, self.y_val, test_size=0.4, random_state=42
-        )
-
-        # compute normlization statistics on train split
-        mean_X = self.X_train.mean()
-        std_X = self.X_train.std()
-        mean_Y = self.y_train.mean()
-        std_Y = self.y_train.std()
-
-        def normalize_and_convert(data, mean, std):
-            return ((torch.from_numpy(data).unsqueeze(-1) - mean) / std).type(
-                torch.float32
-            )
-
-        # Normalize the data
-        self.X_train = normalize_and_convert(self.X_train, mean_X, std_X)
-        self.y_train = normalize_and_convert(self.y_train, mean_Y, std_Y)
-        self.X_val = normalize_and_convert(self.X_val, mean_X, std_X)
-        self.y_val = normalize_and_convert(self.y_val, mean_Y, std_Y)
-        self.X_calib = normalize_and_convert(self.X_calib, mean_X, std_X)
-        self.y_calib = normalize_and_convert(self.y_calib, mean_Y, std_Y)
-        self.X_test = normalize_and_convert(X_test, mean_X, std_X)
-        self.y_test = normalize_and_convert(y_test, mean_Y, std_Y)
-
-        # separate extended test data
-        X_gt = np.linspace(X.min() * 1.2, X.max() * 1.2, n_ground_truth)
-        Y_gt = X_gt * 0.0
-        for k in range(len(X_gt)):
-            Y_gt[k] = generate_y(X_gt[k], noise=False)
-
-        X_gt = (X_gt - mean_X) / std_X
-        Y_gt = (Y_gt - mean_Y) / std_Y
-
-        self.X_gt = normalize_and_convert(X_gt, mean_X, std_X)
-        self.Y_gt = normalize_and_convert(Y_gt, mean_Y, std_Y)
+        # TODO: use rng=np.random.default_rng(seed) and pass to noisY_sine()
+        np.random.seed(noise_seed)
 
         self.batch_size = batch_size
+
+        x = np.empty(n_points)
+        y = np.empty(n_points)
+        for k in range(n_points):
+            rnd = np.random.rand()
+            if rnd < 1 / 3.0:
+                x[k] = np.random.normal(loc=x_min, scale=2.0 / 5.0)
+            else:
+                if rnd < 2.0 / 3.0:
+                    x[k] = np.random.normal(loc=0.0, scale=0.9)
+                else:
+                    x[k] = np.random.normal(loc=x_max, scale=2.0 / 5.0)
+
+        y = generate_y(x)
+
+        self.X_all = x[:, None]
+        self.Y_all = y[:, None]
+
+        X_other, self.X_test, Y_other, self.Y_test = train_test_split(
+            self.X_all, self.Y_all, test_size=test_fraction, random_state=split_seed
+        )
+
+        self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(
+            X_other,
+            Y_other,
+            test_size=val_fraction / (1 - test_fraction),
+            random_state=split_seed,
+        )
+
+        self.X_val, self.X_calib, self.Y_val, self.Y_calib = train_test_split(
+            self.X_val, self.Y_val, test_size=calib_fraction, random_state=split_seed
+        )
+
+        # Ground truth for plotting (x,y) and prediction (x)
+        xmin, xmax = self.X_all.min(), self.X_all.max()
+        span = xmax - xmin
+        self.X_gtext = np.linspace(
+            xmin - span * 0.2, xmax + span * 0.2, int(n_points * 1.5)
+        )[:, None]
+        self.Y_gtext = generate_y(self.X_gtext, noise=False)
+
+        # Fit scalers on train data
+        scalers = dict(
+            X=StandardScaler().fit(self.X_train), Y=StandardScaler().fit(self.Y_train)
+        )
+
+        # Apply scaling to all splits, convert to torch tensors
+        for xy in ["X", "Y"]:
+            for arr_type in ["train", "test", "val", "gtext", "all"]:
+                arr_name = f"{xy}_{arr_type}"
+                setattr(
+                    self,
+                    arr_name,
+                    self._n2t(scalers[xy].transform(getattr(self, arr_name))),
+                )
+
+    @staticmethod
+    def _n2t(x):
+        return torch.from_numpy(x).type(torch.float32)
 
     def train_dataloader(self) -> DataLoader:
         """Return train dataloader."""
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train),
+            TensorDataset(self.X_train, self.Y_train),
             batch_size=self.batch_size,
             shuffle=True,
             collate_fn=collate_fn_tensordataset,
@@ -153,7 +171,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
     def val_dataloader(self) -> DataLoader:
         """Return val dataloader."""
         return DataLoader(
-            TensorDataset(self.X_val, self.y_val),
+            TensorDataset(self.X_val, self.Y_val),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )
@@ -161,7 +179,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
     def calibration_dataloader(self) -> DataLoader:
         """Return calibration dataloader."""
         return DataLoader(
-            TensorDataset(self.X_calib, self.y_calib),
+            TensorDataset(self.X_calib, self.Y_calib),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )
@@ -169,7 +187,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""
         return DataLoader(
-            TensorDataset(self.X_gt, self.Y_gt),
+            TensorDataset(self.X_test, self.Y_test),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )
@@ -177,7 +195,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
     def gt_dataloader(self) -> DataLoader:
         """Return test dataloader."""
         return DataLoader(
-            TensorDataset(self.X_test, self.Y_test),
+            TensorDataset(self.X_gtext, self.Y_gtext),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )

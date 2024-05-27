@@ -23,11 +23,11 @@ class ToyDonutDataModule(LightningDataModule):
         self.batch_size = batch_size
 
         self.train_dataset = ToyDonut(n_samples=n_samples)
-        self.X_train, self.y_train = self.train_dataset.X, self.train_dataset.y
+        self.X_train, self.Y_train = self.train_dataset.X, self.train_dataset.y
         self.val_dataset = ToyDonut(n_samples=int(n_samples * 0.2))
         self.X_val, self.y_val = self.val_dataset.X, self.val_dataset.y
         self.test_dataset = ToyDonut(n_samples=int(n_samples * 0.4))
-        self.X_test, self.y_test = self.test_dataset.X, self.test_dataset.y
+        self.X_test, self.Y_test = self.test_dataset.X, self.test_dataset.y
 
     def train_dataloader(self):
         """Create the train DataLoader."""

@@ -80,9 +80,9 @@ class TestRegressionVisualization:
         """Test plot_toy_regression_data."""
         fig = plot_toy_regression_data(
             exp_run.datamodule.X_train,
-            exp_run.datamodule.y_train,
+            exp_run.datamodule.Y_train,
             exp_run.datamodule.X_test,
-            exp_run.datamodule.y_test,
+            exp_run.datamodule.Y_test,
         )
         assert fig is not None
         plt.close()
@@ -95,9 +95,9 @@ class TestRegressionVisualization:
         # Plot predictions
         fig = plot_predictions_regression(
             X_train=exp_run.datamodule.X_train,
-            y_train=exp_run.datamodule.y_train,
+            Y_train=exp_run.datamodule.Y_train,
             X_test=exp_run.datamodule.X_test,
-            y_test=exp_run.datamodule.y_test,
+            Y_test=exp_run.datamodule.Y_test,
             y_pred=pred_dict["pred"],
             pred_std=pred_dict["pred_uct"],
             epistemic=pred_dict["epistemic_uct"],
@@ -120,9 +120,9 @@ class TestRegressionVisualization:
         # Plot predictions
         fig = plot_predictions_regression(
             X_train=exp_run.datamodule.X_train,
-            y_train=exp_run.datamodule.y_train,
+            Y_train=exp_run.datamodule.Y_train,
             X_test=exp_run.datamodule.X_test,
-            y_test=exp_run.datamodule.y_test,
+            Y_test=exp_run.datamodule.Y_test,
             y_pred=pred_dict["pred"],
             pred_quantiles=quantiles,
             title="Test Plot",
@@ -139,9 +139,9 @@ class TestRegressionVisualization:
         # Plot predictions
         fig = plot_predictions_regression(
             X_train=exp_run.datamodule.X_train,
-            y_train=exp_run.datamodule.y_train,
+            Y_train=exp_run.datamodule.Y_train,
             X_test=exp_run.datamodule.X_test,
-            y_test=exp_run.datamodule.y_test,
+            Y_test=exp_run.datamodule.Y_test,
             y_pred=pred_dict["pred"],
             samples=samples,
             title="Test Plot",
@@ -158,7 +158,7 @@ class TestRegressionVisualization:
         fig = plot_calibration_uq_toolbox(
             y_pred=pred_dict["pred"].numpy(),
             pred_std=pred_dict["pred_uct"].numpy(),
-            y_test=exp_run.datamodule.y_test.numpy(),
+            Y_test=exp_run.datamodule.Y_test.numpy(),
             x_test=exp_run.datamodule.X_test.numpy(),
         )
         assert fig is not None
@@ -214,9 +214,9 @@ class TestClassificationVisualization:
         """Test plot_two_moons_data."""
         fig = plot_two_moons_data(
             exp_run.datamodule.X_train,
-            exp_run.datamodule.y_train,
+            exp_run.datamodule.Y_train,
             exp_run.datamodule.X_test,
-            exp_run.datamodule.y_test,
+            exp_run.datamodule.Y_test,
         )
         assert fig is not None
         plt.close()
@@ -229,7 +229,7 @@ class TestClassificationVisualization:
         # Plot predictions
         fig = plot_predictions_classification(
             X_test=exp_run.datamodule.X_test.numpy(),
-            y_test=exp_run.datamodule.y_test.numpy(),
+            Y_test=exp_run.datamodule.Y_test.numpy(),
             y_pred=pred_dict["pred"].argmax(-1).numpy(),
             test_grid_points=test_grid_points.numpy(),
         )
@@ -244,7 +244,7 @@ class TestClassificationVisualization:
         # Plot predictions
         fig = plot_predictions_classification(
             X_test=exp_run.datamodule.X_test.numpy(),
-            y_test=exp_run.datamodule.y_test.numpy(),
+            Y_test=exp_run.datamodule.Y_test.numpy(),
             y_pred=pred_dict["pred"].argmax(-1).numpy(),
             test_grid_points=test_grid_points.numpy(),
             pred_uct=pred_dict["pred_uct"].numpy(),

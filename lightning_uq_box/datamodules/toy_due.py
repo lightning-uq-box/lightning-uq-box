@@ -49,18 +49,18 @@ class ToyDUE(LightningDataModule):
         #     6.5 * np.sign(np.random.randn(n_samples))
         #     + np.random.randn(n_samples)
         # )
-        y_test = np.cos(W * x_test + b).sum(0)  # + noise * np.random.randn(n_samples)
+        Y_test = np.cos(W * x_test + b).sum(0)  # + noise * np.random.randn(n_samples)
 
         self.X_train = torch.from_numpy(x).unsqueeze(-1).to(torch.float32)
-        self.y_train = torch.from_numpy(y).unsqueeze(-1).to(torch.float32)
+        self.Y_train = torch.from_numpy(y).unsqueeze(-1).to(torch.float32)
 
         self.X_test = torch.from_numpy(x_test).unsqueeze(-1).to(torch.float32)
-        self.y_test = torch.from_numpy(y_test).unsqueeze(-1).to(torch.float32)
+        self.Y_test = torch.from_numpy(Y_test).unsqueeze(-1).to(torch.float32)
 
     def train_dataloader(self) -> DataLoader:
         """Return train dataloader."""
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train),
+            TensorDataset(self.X_train, self.Y_train),
             batch_size=self.batch_size,
             shuffle=True,
             collate_fn=collate_fn_tensordataset,
@@ -70,7 +70,7 @@ class ToyDUE(LightningDataModule):
         """Return val dataloader."""
         # TODO Validation data
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train),
+            TensorDataset(self.X_train, self.Y_train),
             batch_size=self.batch_size,
             shuffle=False,
             collate_fn=collate_fn_tensordataset,
@@ -79,7 +79,7 @@ class ToyDUE(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""
         return DataLoader(
-            TensorDataset(self.X_test, self.y_test),
+            TensorDataset(self.X_test, self.Y_test),
             batch_size=self.X_test.shape[0],
             shuffle=False,
             collate_fn=collate_fn_tensordataset,
