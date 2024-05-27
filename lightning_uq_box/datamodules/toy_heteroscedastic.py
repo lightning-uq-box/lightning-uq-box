@@ -66,8 +66,9 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             x_max: Maximum value of x range
             n_datapoints : Number of datapoints that form the overall available dataset.
                 10% is kept as a separate test set, of the remaining 90%,
-                80% will be used for training, 12% for validation and 8% for calibration
-                (necessary for conformal prediction)
+                80% will be used for training, 20% for validation. The validation set
+                is further split into a final validation set (60%) and a calibration set (40%)
+                which is necessary for conformal prediction.
             n_ground_truth: Number of noise free "ground truth" samples
             batch_size: batch size for data loader
             generate_y: function that should generate data over input line
