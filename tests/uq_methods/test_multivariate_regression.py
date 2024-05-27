@@ -11,8 +11,10 @@ import pytest
 from lightning_uq_box.main import get_uq_box_cli
 
 model_config_paths = [
-    # "tests/configs/multivariate_regression/base.yaml",
-    "tests/configs/multivariate_regression/mean_variance_estimation.yaml"
+    "tests/configs/multivariate_regression/base.yaml",
+    "tests/configs/multivariate_regression/mean_variance_estimation.yaml",
+    "tests/configs/multivariate_regression/mc_dropout_nll.yaml",
+    "tests/configs/multivariate_regression/mc_dropout_mse.yaml",
 ]
 
 data_config_paths = [

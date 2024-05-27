@@ -62,7 +62,7 @@ class MLP(nn.Module):
           output from neural net of dimension [batch_size, n_outputs] if num_targets=1
           else [batch_size, n_outputs, num_targets]
         """
-        if self.n_targets > 1:
+        if self.n_outputs > 1:
             return self.model(x).view(-1, self.n_outputs, self.n_targets)
         else:
             return self.model(x)

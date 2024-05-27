@@ -58,7 +58,7 @@ def checkpoint_loader(
         return model_class
 
 
-def default_regression_metrics(prefix: str, n_targets: int):
+def default_regression_metrics(prefix: str, n_targets: int = 1):
     """Return a set of default regression metrics."""
     metrics = {
         "RMSE": MeanSquaredError(squared=False),
@@ -130,6 +130,7 @@ def log_multioutput_metrics(metrics: MetricCollection):
 def process_regression_prediction(
     preds: Tensor,
     quantiles: list[float] | None = None,
+    num_targets: int = 1,
     aggregate_fn: Callable = torch.mean,
 ) -> dict[str, Tensor]:
     """Process regression predictions that could be mse or nll predictions.
@@ -137,13 +138,18 @@ def process_regression_prediction(
     Args:
         preds: prediction tensor of shape [batch_size, num_outputs, num_samples]
         quantiles: quantiles to compute
+        num_targets: number of regression targets
         aggregate_fn: function to aggregate over the samples to form a mean
 
     Returns:
         dictionary with mean prediction and predictive uncertainty
     """
-    mean_samples = preds[:, 0, ...].cpu()
-    mean = aggregate_fn(preds[:, 0:1, ...], dim=-1)
+    if num_targets > 1 and preds.shape[1] == 2:
+        mean_samples = preds.cpu()
+        mean = aggregate_fn(preds, dim=-1)
+    else:
+        mean_samples = preds[:, 0, ...].cpu()
+        mean = aggregate_fn(preds[:, 0:1, ...], dim=-1)
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
         log_sigma_2_samples = preds[:, 1, ...].cpu()

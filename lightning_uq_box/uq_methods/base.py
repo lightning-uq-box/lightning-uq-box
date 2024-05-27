@@ -278,7 +278,7 @@ class DeterministicRegression(DeterministicModel):
         self,
         model: nn.Module,
         loss_fn: nn.Module,
-        n_targets: int,
+        n_targets: int = 1,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -303,16 +303,11 @@ class DeterministicRegression(DeterministicModel):
         self.test_metrics = default_regression_metrics("test", self.n_targets)
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
-        """Adapt model output to be compatible for metric computation.
-
-        Args:
-            out: output from the model
-
-        Returns:
-            mean output of shape [batch_size x num_targets]
-        """
+        """Adapt model output to be compatible for metric computation.."""
         if out.dim() == 3:
             return out[:, 0, :]
+        elif out.dim() == 2 and out.shape[1] == self.n_targets and self.n_targets > 1:
+            return out
         else:
             return out[:, 0:1]
 
