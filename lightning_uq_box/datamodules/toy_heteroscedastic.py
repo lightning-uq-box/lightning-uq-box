@@ -98,7 +98,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         )
         # Separate the training data into train and validation
         self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
-            self.X_train, self.y_train, test_size=0.1, random_state=42
+            self.X_train, self.y_train, test_size=0.8, random_state=42
         )
         # Conformal prediction expects a calibration set separate from validation set
         self.X_val, self.X_calib, self.y_val, self.y_calib = train_test_split(
