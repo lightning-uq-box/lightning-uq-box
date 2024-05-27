@@ -20,6 +20,7 @@ from .utils import (
     default_regression_metrics,
     freeze_model_backbone,
     freeze_segmentation_model,
+    log_multioutput_metrics,
     process_classification_prediction,
     process_segmentation_prediction,
     save_classification_predictions,
@@ -178,7 +179,7 @@ class DeterministicModel(BaseModule):
 
     def on_train_epoch_end(self):
         """Log epoch-level training metrics."""
-        self.log_dict(self.train_metrics.compute())
+        self.log_dict(log_multioutput_metrics(self.train_metrics))
         self.train_metrics.reset()
 
     def validation_step(
@@ -202,12 +203,11 @@ class DeterministicModel(BaseModule):
         )  # logging to Logger
         if batch[self.input_key].shape[0] > 1:
             self.val_metrics(self.adapt_output_for_metrics(out), batch[self.target_key])
-
         return loss
 
     def on_validation_epoch_end(self) -> None:
         """Log epoch level validation metrics."""
-        self.log_dict(self.val_metrics.compute())
+        self.log_dict(log_multioutput_metrics(self.val_metrics))
         self.val_metrics.reset()
 
     def test_step(
@@ -234,7 +234,7 @@ class DeterministicModel(BaseModule):
 
     def on_test_epoch_end(self):
         """Log epoch-level test metrics."""
-        self.log_dict(self.test_metrics.compute())
+        self.log_dict(log_multioutput_metrics(self.test_metrics))
         self.test_metrics.reset()
 
     def predict_step(
@@ -249,7 +249,8 @@ class DeterministicModel(BaseModule):
         """
         with torch.no_grad():
             out = self.forward(X)
-        return {"pred": self.adapt_output_for_metrics(out)}
+        # return {"pred": self.adapt_output_for_metrics(out)}
+        return {"pred": out}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -273,11 +274,47 @@ class DeterministicRegression(DeterministicModel):
 
     pred_file_name = "preds.csv"
 
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        n_targets: int,
+        freeze_backbone: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+    ) -> None:
+        """Initialize a new Deterministic Regression Model.
+
+        Args:
+            model: pytorch model
+            loss_fn: loss function used for optimization
+            n_targets: number of regression targets
+            freeze_backbone: whether to freeze the model backbone
+            optimizer: optimizer used for training
+            lr_scheduler: learning rate scheduler
+        """
+        self.n_targets = n_targets
+        super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
+
     def setup_task(self) -> None:
         """Set up task specific attributes."""
-        self.train_metrics = default_regression_metrics("train")
-        self.val_metrics = default_regression_metrics("val")
-        self.test_metrics = default_regression_metrics("test")
+        self.train_metrics = default_regression_metrics("train", self.n_targets)
+        self.val_metrics = default_regression_metrics("val", self.n_targets)
+        self.test_metrics = default_regression_metrics("test", self.n_targets)
+
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation.
+
+        Args:
+            out: output from the model
+
+        Returns:
+            mean output of shape [batch_size x num_targets]
+        """
+        if out.dim() == 3:
+            return out[:, 0, :]
+        else:
+            return out[:, 0:1]
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

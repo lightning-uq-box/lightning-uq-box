@@ -16,6 +16,7 @@ class MLP(nn.Module):
         n_inputs: int = 1,
         n_hidden: list[int] = [100],
         n_outputs: int = 1,
+        n_targets: int = 1,
         activation_fn: nn.Module | None = None,
     ) -> None:
         """Initialize a new instance of MLP.
@@ -24,12 +25,18 @@ class MLP(nn.Module):
           dropout_p: dropout percentage
           n_inputs: size of input dimension
           n_hidden: list of hidden layer sizes
-          n_outputs: number of model outputs
-          predict_sigma: whether the model intends to predict sigma term
-            when minimizing NLL
+          n_outputs: number of model outputs per target
+          n_targets: number of targets to predict, for
+            1D regression this is 1, for multivariate regression
+            this is the number of regression targets
           activation_fn: what nonlinearity to include in the network
         """
         super().__init__()
+        self.n_inputs = n_inputs
+        self.n_hidden = n_hidden
+        self.n_outputs = n_outputs
+        self.n_targets = n_targets
+
         if activation_fn is None:
             activation_fn = nn.ReLU()
         layers = []
@@ -42,9 +49,8 @@ class MLP(nn.Module):
                 nn.Dropout(dropout_p),  # if idx != 1 else nn.Identity(),
             ]
         # add output layer
-        layers += [nn.Linear(layer_sizes[-1], n_outputs)]
+        layers += [nn.Linear(layer_sizes[-1], n_outputs * n_targets)]
         self.model = nn.Sequential(*layers)
-        self.n_outputs = n_outputs
 
     def forward(self, x) -> Tensor:
         """Forward pass through the neural network.
@@ -53,6 +59,10 @@ class MLP(nn.Module):
           x: input vector to NN of dimension [batch_size, n_inputs]
 
         Returs:
-          output from neural net of dimension [batch_size, n_outputs]
+          output from neural net of dimension [batch_size, n_outputs] if num_targets=1
+          else [batch_size, n_outputs, num_targets]
         """
-        return self.model(x)
+        if self.n_targets > 1:
+            return self.model(x).view(-1, self.n_outputs, self.n_targets)
+        else:
+            return self.model(x)
