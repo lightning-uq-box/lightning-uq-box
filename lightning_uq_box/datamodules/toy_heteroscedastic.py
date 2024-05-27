@@ -123,8 +123,8 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         self.y_val = normalize_and_convert(self.y_val, mean_Y, std_Y)
         self.X_calib = normalize_and_convert(self.X_calib, mean_X, std_X)
         self.y_calib = normalize_and_convert(self.y_calib, mean_Y, std_Y)
-        self.X_test = normalize_and_convert(self.X_test, mean_X, std_X)
-        self.y_test = normalize_and_convert(self.test, mean_Y, std_Y)
+        self.X_test = normalize_and_convert(X_test, mean_X, std_X)
+        self.y_test = normalize_and_convert(y_test, mean_Y, std_Y)
 
         # separate extended test data
         X_gt = np.linspace(X.min() * 1.2, X.max() * 1.2, n_ground_truth)
