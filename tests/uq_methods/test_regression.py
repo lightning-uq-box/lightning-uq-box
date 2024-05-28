@@ -161,9 +161,7 @@ class TestDeepEnsemble:
         self, ensemble_members_dict: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
-        ensemble_model = DeepEnsembleRegression(
-            ensemble_members_dict
-        )
+        ensemble_model = DeepEnsembleRegression(ensemble_members_dict)
 
         datamodule = ToyHeteroscedasticDatamodule()
 

@@ -34,8 +34,7 @@ class DeepEnsemble(BaseModule):
     """
 
     def __init__(
-        self,
-        ensemble_members: list[dict[str, type[LightningModule] | str]],
+        self, ensemble_members: list[dict[str, type[LightningModule] | str]]
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
