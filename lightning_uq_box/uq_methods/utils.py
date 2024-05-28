@@ -144,12 +144,13 @@ def process_regression_prediction(
     Returns:
         dictionary with mean prediction and predictive uncertainty
     """
-    if num_targets > 1 and preds.shape[1] == 2:
+    if num_targets > 1 and preds.dim() == 3:
         mean_samples = preds.cpu()
         mean = aggregate_fn(preds, dim=-1)
     else:
         mean_samples = preds[:, 0, ...].cpu()
         mean = aggregate_fn(preds[:, 0:1, ...], dim=-1)
+
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
         log_sigma_2_samples = preds[:, 1, ...].cpu()
