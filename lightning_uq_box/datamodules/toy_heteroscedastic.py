@@ -153,7 +153,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
         # Apply scaling to all splits, convert to torch tensors
         for xy in ["X", "Y"]:
-            for arr_type in ["train", "test", "val", "gtext", "all"]:
+            for arr_type in ["train", "test", "val", "gtext", "calib", "all"]:
                 arr_name = f"{xy}_{arr_type}"
                 setattr(
                     self,
