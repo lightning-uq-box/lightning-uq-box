@@ -587,20 +587,14 @@ class PosthocBase(BaseModule):
         else:
             return _get_num_outputs(self.model)
 
-    def training_step(self, *args: Any, **kwargs: Any):
-        """Posthoc Methods do not have a training step."""
-        pass
-
-    def on_validation_start(self) -> None:
-        """Initialize objects to track model logits and labels."""
-        # TODO intitialize zero tensors for memory efficiency
+    def on_train_start(self) -> None:
+        """Set model to eval mode."""
+        self.eval()
         self.model_logits = []
         self.labels = []
 
-        # TODO this doesn't do anything right now
-        self.trainer.inference_mode = False
-
-    def validation_step(
+    @torch.no_grad()
+    def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Single gathering step of model logits and targets.
@@ -613,7 +607,10 @@ class PosthocBase(BaseModule):
         Returns:
             underlying model output and labels
         """
-        # needed because we need inference_mode=True for
+        if self.trainer.current_epoch > 0:
+            raise RuntimeError(
+                "Post-Hoc methods only need one pass over the calibration data loader."
+            )
         # optimization procedures later on but need fixed model here
         self.eval()
         self.model_logits.append(self.model(batch[self.input_key]))
@@ -652,8 +649,9 @@ class PosthocBase(BaseModule):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call "
-                "trainer.validate(model, datamodule) first."
+                "Model has not been post hoc fitted, "
+                "please call "
+                "trainer.fit(model, train_dataloaders=dm.calib_dataloader()) first."
             )
 
         # predict with underlying model

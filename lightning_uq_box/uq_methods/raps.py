@@ -192,7 +192,8 @@ class RAPS(PosthocBase):
             self.allow_zero_sets,
         )
 
-    def on_validation_end(self) -> None:
+    @torch.no_grad()
+    def on_train_end(self) -> None:
         """Apply RASP conformal method."""
         self.eval()
         calib_logits = torch.cat(self.model_logits, dim=0).detach()
