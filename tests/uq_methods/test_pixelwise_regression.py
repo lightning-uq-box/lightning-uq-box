@@ -35,7 +35,7 @@ model_config_paths = [
 data_config_paths = ["tests/configs/pixelwise_regression/toy_pixelwise_regression.yaml"]
 
 
-class TestImageClassificationTask:
+class TestPixelwiseRegressionTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
@@ -44,7 +44,7 @@ class TestImageClassificationTask:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
 
-        model = instantiate(model_conf.uq_method)
+        model = instantiate(model_conf.uq_method, save_preds=True)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
             accelerator="cpu",
@@ -167,7 +167,7 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsemblePxRegression(
-            len(ensemble_members_dict), ensemble_members_dict
+            len(ensemble_members_dict), ensemble_members_dict, save_preds=True
         )
         datamodule = ToyPixelwiseRegressionDataModule()
         trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))

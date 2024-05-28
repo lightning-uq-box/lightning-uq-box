@@ -245,6 +245,27 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
 
     pred_dir_name = "preds"
 
+    def __init__(
+        self,
+        n_ensemble_members: int,
+        ensemble_members: list[dict[str, type[LightningModule] | str]],
+        num_classes: int,
+        task: str = "multiclass",
+        save_preds: bool = False,
+    ) -> None:
+        """Initialize a new instance of DeepEnsemble for Segmentation.
+
+        Args:
+            n_ensemble_members: number of ensemble members
+            ensemble_members: List of dicts where each element specifies the
+                LightningModule class and a path to a checkpoint
+            num_classes: number of classes
+            task: classification task, one of "multiclass", "binary" or "multilabel"
+            save_preds: whether to save predictions
+        """
+        super().__init__(n_ensemble_members, ensemble_members, num_classes, task)
+        self.save_preds = save_preds
+
     def setup_task(self) -> None:
         """Set up task for segmentation."""
         self.test_metrics = default_segmentation_metrics(
@@ -272,7 +293,7 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -290,7 +311,8 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class DeepEnsemblePxRegression(DeepEnsembleRegression):
@@ -301,6 +323,23 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
     * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
     """  # noqa: E501
 
+    def __init__(
+        self,
+        n_ensemble_members: int,
+        ensemble_members: list[dict[str, type[LightningModule] | str]],
+        save_preds: bool = False,
+    ) -> None:
+        """Initialize a new instance of DeepEnsemble for Pixelwise Regression.
+
+        Args:
+            n_ensemble_members: number of ensemble members
+            ensemble_members: List of dicts where each element specifies the
+                LightningModule class and a path to a checkpoint
+            save_preds: whether to save predictions
+        """
+        super().__init__(n_ensemble_members, ensemble_members)
+        self.save_preds = save_preds
+
     pred_dir_name = "preds"
 
     def setup_task(self) -> None:
@@ -310,7 +349,7 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -328,4 +367,5 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
             batch_idx: the index of this batch
             dataloader_idx: the index of the dataloader
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)

@@ -4,6 +4,7 @@
 """Deterministic Model that predicts parameters of Gaussian."""
 
 import os
+from typing import Any
 
 import numpy as np
 import torch
@@ -13,7 +14,7 @@ from torch import Tensor
 
 from .base import DeterministicPixelRegression, DeterministicRegression
 from .loss_functions import NLL
-from .utils import save_regression_predictions
+from .utils import save_image_predictions, save_regression_predictions
 
 
 class MVEBase(DeterministicRegression):
@@ -159,6 +160,7 @@ class MVEPxRegression(DeterministicPixelRegression):
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of MVE for Pixelwise Regression.
 
@@ -168,10 +170,12 @@ class MVEPxRegression(DeterministicPixelRegression):
             freeze_decoder: whether to freeze the decoder
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         super().__init__(
             model, NLL(), freeze_backbone, freeze_decoder, optimizer, lr_scheduler
         )
+        self.save_preds = save_preds
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation.
@@ -184,3 +188,27 @@ class MVEPxRegression(DeterministicPixelRegression):
         """
         assert out.shape[1] <= 2, "Gaussian output."
         return out[:, 0:1, ...].contiguous()
+
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir) and self.save_preds:
+            os.makedirs(self.pred_dir)
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
