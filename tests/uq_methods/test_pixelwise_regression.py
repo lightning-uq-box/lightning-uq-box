@@ -4,11 +4,13 @@
 
 import glob
 import os
+import re
 from pathlib import Path
 from typing import Any
 
 import h5py
 import pytest
+import torch
 from hydra.utils import instantiate
 from lightning import Trainer
 from lightning.pytorch import seed_everything
@@ -135,8 +137,13 @@ posthoc_config_paths = [
 class TestPosthoc:
     @pytest.mark.parametrize("model_config_path", posthoc_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
+    @pytest.mark.parametrize("calibration", [True, False])
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        calibration: bool,
+        tmp_path: Path,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -150,8 +157,18 @@ class TestPosthoc:
             log_every_n_steps=1,
         )
 
-        trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
-        trainer.test(model, datamodule=datamodule)
+        if calibration:
+            trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
+            trainer.test(model, datamodule=datamodule)
+        else:
+            with pytest.raises(
+                RuntimeError,
+                match=re.escape(
+                    "Model has not been post hoc fitted, please call trainer.fit(model, train_dataloaders=dm.calib_dataloader()) first."
+                ),
+            ):
+                X = torch.rand(1, 3, 64, 64)
+                model.predict_step(X)
 
 
 frozen_config_paths = [

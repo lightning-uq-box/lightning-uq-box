@@ -22,19 +22,19 @@ from lightning_uq_box.uq_methods import DeepEnsembleRegression, TTARegression
 
 model_config_paths = [
     "tests/configs/image_regression/mc_dropout_nll.yaml"
-    # "tests/configs/image_regression/mean_variance_estimation.yaml",
-    # "tests/configs/image_regression/qr_model.yaml",
-    # "tests/configs/image_regression/der.yaml",
-    # "tests/configs/image_regression/bnn_vi_elbo.yaml",
-    # "tests/configs/image_regression/bnn_vi.yaml",
-    # "tests/configs/image_regression/bnn_vi_lv_last.yaml",
-    # "tests/configs/image_regression/swag.yaml",
-    # "tests/configs/image_regression/sgld_mse.yaml",
-    # "tests/configs/image_regression/dkl.yaml",
-    # "tests/configs/image_regression/due.yaml",
-    # "tests/configs/image_regression/laplace_glm.yaml",
-    # "tests/configs/image_regression/laplace_nn.yaml",
-    # "tests/configs/image_regression/cards.yaml",
+    "tests/configs/image_regression/mean_variance_estimation.yaml",
+    "tests/configs/image_regression/qr_model.yaml",
+    "tests/configs/image_regression/der.yaml",
+    "tests/configs/image_regression/bnn_vi_elbo.yaml",
+    "tests/configs/image_regression/bnn_vi.yaml",
+    "tests/configs/image_regression/bnn_vi_lv_last.yaml",
+    "tests/configs/image_regression/swag.yaml",
+    "tests/configs/image_regression/sgld_mse.yaml",
+    "tests/configs/image_regression/dkl.yaml",
+    "tests/configs/image_regression/due.yaml",
+    "tests/configs/image_regression/laplace_glm.yaml",
+    "tests/configs/image_regression/laplace_nn.yaml",
+    "tests/configs/image_regression/cards.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_regression/toy_image_regression.yaml"]
@@ -113,7 +113,6 @@ class TestPosthoc:
             ):
                 X = torch.rand(1, 3, 64, 64)
                 model(X)
-                # trainer.test(model, datamodule=datamodule)
 
 
 ensemble_model_config_paths = [
