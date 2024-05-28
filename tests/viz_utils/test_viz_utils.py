@@ -152,7 +152,6 @@ class TestRegressionVisualization:
 
     def test_plot_calibration(self, exp_run):
         """Test plot calibration."""
-
         pred_dict = exp_run.model.predict_step(exp_run.datamodule.X_test)
 
         fig = plot_calibration_uq_toolbox(

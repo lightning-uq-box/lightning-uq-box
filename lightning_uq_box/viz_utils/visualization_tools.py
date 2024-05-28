@@ -311,7 +311,7 @@ def plot_calibration_uq_toolbox(
     pred_std = pred_std.squeeze()
     Y_test = Y_test.squeeze()
     x_test = x_test.squeeze()
-    n_subset = 50
+    n_subset = min(50, y_pred.shape[0])
     mace = uct.mean_absolute_calibration_error(y_pred, pred_std, Y_test)
     ma = uct.miscalibration_area(y_pred, pred_std, Y_test)
     rmsce = uct.root_mean_squared_calibration_error(y_pred, pred_std, Y_test)
