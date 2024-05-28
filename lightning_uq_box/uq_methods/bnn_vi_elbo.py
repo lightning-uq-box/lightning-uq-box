@@ -604,6 +604,7 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new BNN VI ELBO Segmentation instance.
 
@@ -632,6 +633,7 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
                 supported for torchseg Unet models
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
+            save_preds: whether to save predictions
         """
         self.freeze_backbone = freeze_backbone
         self.freeze_decoder = freeze_decoder
@@ -653,6 +655,7 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
             optimizer,
             lr_scheduler,
         )
+        self.save_preds = save_preds
 
     def freeze_model(self) -> None:
         """Freeze model backbone.
@@ -694,7 +697,7 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -712,4 +715,5 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)

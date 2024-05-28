@@ -55,6 +55,7 @@ class Img2ImgConformal(PosthocBase):
         min_lambda: float = 0.0,
         max_lambda: float = 6.0,
         num_lambdas: int = 1000,
+        save_preds: bool = False,
     ):
         """Initialize a new Img2ImgConformal instance.
 
@@ -70,6 +71,7 @@ class Img2ImgConformal(PosthocBase):
             min_lambda: the minimum lambda value
             max_lambda: the maximum lambda value
             num_lambdas: the number of lambda values to search
+            save_preds: whether to save the predictions
         """
         super().__init__(model)
         self.min_lambda = min_lambda
@@ -81,6 +83,8 @@ class Img2ImgConformal(PosthocBase):
         assert delta > 0 and delta < 1, "delta must be in (0, 1)"
         self.delta = delta
         self.alpha = alpha
+
+        self.save_preds = save_preds
 
         self.setup_task()
 
@@ -213,7 +217,7 @@ class Img2ImgConformal(PosthocBase):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
         # Initialize metrics
@@ -372,7 +376,8 @@ class Img2ImgConformal(PosthocBase):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 def h1(y: "np.typing.NDArray[np.float32]", mu: "np.typing.NDArray[np.float32]"):

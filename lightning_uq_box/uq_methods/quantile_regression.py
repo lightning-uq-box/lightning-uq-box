@@ -189,6 +189,7 @@ class QuantilePxRegression(QuantileRegressionBase):
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 
@@ -201,6 +202,7 @@ class QuantilePxRegression(QuantileRegressionBase):
             freeze_decoder: whether to freeze the decoder
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         self.freeze_decoder = freeze_decoder
         super().__init__(
@@ -209,6 +211,7 @@ class QuantilePxRegression(QuantileRegressionBase):
         self.save_hyperparameters(
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )
+        self.save_preds = save_preds
 
     def freeze_model(self) -> None:
         """Freeze model backbone.
@@ -241,7 +244,7 @@ class QuantilePxRegression(QuantileRegressionBase):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def test_step(
@@ -301,4 +304,5 @@ class QuantilePxRegression(QuantileRegressionBase):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)

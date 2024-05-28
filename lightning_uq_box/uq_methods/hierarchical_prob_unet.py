@@ -78,6 +78,7 @@ class HierarchicalProbUNet(BaseModule):
         task: str = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new HierarchicalProbUNET.
 
@@ -107,6 +108,7 @@ class HierarchicalProbUNet(BaseModule):
             task: task type, either "multiclass" or "binary"
             optimizer: optimizer
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         super().__init__()
 
@@ -118,6 +120,8 @@ class HierarchicalProbUNet(BaseModule):
         self.activation_fn = activation_fn
         self.convs_per_block = convs_per_block
         self.blocks_per_level = blocks_per_level
+
+        self.save_preds = save_preds
 
         self._build_model()
 
@@ -474,7 +478,7 @@ class HierarchicalProbUNet(BaseModule):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -492,7 +496,8 @@ class HierarchicalProbUNet(BaseModule):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
