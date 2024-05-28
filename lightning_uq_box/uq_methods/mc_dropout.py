@@ -491,6 +491,7 @@ class MCDropoutPxRegression(MCDropoutRegression):
         model: nn.Module,
         num_mc_samples: int,
         loss_fn: nn.Module,
+        n_targets: int = 1,
         burnin_epochs: int = 0,
         dropout_layer_names: list[str] = [],
         freeze_backbone: bool = False,
@@ -505,6 +506,7 @@ class MCDropoutPxRegression(MCDropoutRegression):
             model: pytorch model with dropout layers
             num_mc_samples: number of MC samples during prediction
             loss_fn: loss function
+            n_targets: number of regression targets per pixel
             burnin_epochs: number of burnin epochs before using the loss_fn
             dropout_layer_names: names of dropout layers to activate during prediction
             freeze_backbone: freeze backbone during training
@@ -518,6 +520,7 @@ class MCDropoutPxRegression(MCDropoutRegression):
             model,
             num_mc_samples,
             loss_fn,
+            n_targets,
             burnin_epochs,
             dropout_layer_names,
             freeze_backbone,

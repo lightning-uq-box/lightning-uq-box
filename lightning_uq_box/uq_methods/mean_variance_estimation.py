@@ -156,6 +156,7 @@ class MVEPxRegression(DeterministicPixelRegression):
     def __init__(
         self,
         model: nn.Module,
+        n_targets: int = 1,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -166,6 +167,7 @@ class MVEPxRegression(DeterministicPixelRegression):
 
         Args:
             model: pytorch model
+            n_targets: number of regression targets
             freeze_backbone: whether to freeze the backbone
             freeze_decoder: whether to freeze the decoder
             optimizer: optimizer used for training
@@ -173,7 +175,13 @@ class MVEPxRegression(DeterministicPixelRegression):
             save_preds: whether to save predictions
         """
         super().__init__(
-            model, NLL(), freeze_backbone, freeze_decoder, optimizer, lr_scheduler
+            model,
+            NLL(),
+            n_targets,
+            freeze_backbone,
+            freeze_decoder,
+            optimizer,
+            lr_scheduler,
         )
         self.save_preds = save_preds
 

@@ -524,6 +524,7 @@ class DeterministicPixelRegression(DeterministicRegression):
         self,
         model: nn.Module,
         loss_fn: nn.Module,
+        n_targets: int = 1,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -535,6 +536,7 @@ class DeterministicPixelRegression(DeterministicRegression):
         Args:
             model: pytorch model
             loss_fn: loss function used for optimization
+            n_targets: number of regression targets
             freeze_backbone: whether to freeze the model backbone
             freeze_decoder: whether to freeze the model decoder
             optimizer: optimizer used for training
@@ -542,7 +544,9 @@ class DeterministicPixelRegression(DeterministicRegression):
             save_preds: whether to save predictions
         """
         self.freeze_decoder = freeze_decoder
-        super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
+        super().__init__(
+            model, loss_fn, n_targets, freeze_backbone, optimizer, lr_scheduler
+        )
         self.save_preds = save_preds
 
     def freeze_model(self) -> None:
