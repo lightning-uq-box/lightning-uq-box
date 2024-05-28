@@ -36,7 +36,7 @@ def polynomial_f2(x):
     return fx
 
 
-def noisY_sine(x, noise: bool = True):
+def noisy_sine(x, noise: bool = True):
     """(Noisy) sine function."""
     out = 7 * np.sin(x)
     if noise:
@@ -56,7 +56,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         test_fraction: float = 0.2,
         val_fraction: float = 0.1,
         calib_fraction: float = 0.4,
-        generate_y: Callable = noisY_sine,
+        generate_y: Callable = noisy_sine,
         noise_seed: int = 42,
         split_seed: int = 42,
     ) -> None:
@@ -114,13 +114,16 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
         y = generate_y(x)
 
+        # full dataset
         self.X_all = x[:, None]
         self.Y_all = y[:, None]
 
+        # split data into train and held out IID test
         X_other, self.X_test, Y_other, self.Y_test = train_test_split(
             self.X_all, self.Y_all, test_size=test_fraction, random_state=split_seed
         )
 
+        # split train data into train and validation
         self.X_train, self.X_val, self.Y_train, self.Y_val = train_test_split(
             X_other,
             Y_other,
@@ -128,6 +131,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             random_state=split_seed,
         )
 
+        # split validation data into validation and calibration (for conformal)
         self.X_val, self.X_calib, self.Y_val, self.Y_calib = train_test_split(
             self.X_val, self.Y_val, test_size=calib_fraction, random_state=split_seed
         )
