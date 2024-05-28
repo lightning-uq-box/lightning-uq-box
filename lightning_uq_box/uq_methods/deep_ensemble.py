@@ -35,21 +35,20 @@ class DeepEnsemble(BaseModule):
 
     def __init__(
         self,
-        n_ensemble_members: int,
         ensemble_members: list[dict[str, type[LightningModule] | str]],
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
         Args:
-            n_ensemble_members: number of ensemble members
             ensemble_members: List of dicts where each element specifies the
                 LightningModule class and a path to a checkpoint
             save_dir: path to directory where to store prediction
             quantiles: quantile values to compute for prediction
         """
         super().__init__()
-        assert len(ensemble_members) == n_ensemble_members
+        self.n_ensemble_members = len(ensemble_members)
         # make hparams accessible
+        # TODO: do we still need it if we ignore the only parameter?
         self.save_hyperparameters(ignore=["ensemble_members"])
         self.ensemble_members = ensemble_members
 
@@ -177,7 +176,6 @@ class DeepEnsembleClassification(DeepEnsemble):
 
     def __init__(
         self,
-        n_ensemble_members: int,
         ensemble_members: list[dict[str, type[LightningModule] | str]],
         num_classes: int,
         task: str = "multiclass",
@@ -185,7 +183,6 @@ class DeepEnsembleClassification(DeepEnsemble):
         """Initialize a new instance of DeepEnsemble for Classification.
 
         Args:
-            n_ensemble_members: number of ensemble members
             ensemble_members: List of dicts where each element specifies the
                 LightningModule class and a path to a checkpoint
             num_classes: number of classes
@@ -194,7 +191,7 @@ class DeepEnsembleClassification(DeepEnsemble):
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = num_classes
-        super().__init__(n_ensemble_members, ensemble_members)
+        super().__init__(ensemble_members)
 
     def setup_task(self) -> None:
         """Set up task for classification."""
@@ -247,7 +244,6 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
 
     def __init__(
         self,
-        n_ensemble_members: int,
         ensemble_members: list[dict[str, type[LightningModule] | str]],
         num_classes: int,
         task: str = "multiclass",
@@ -256,14 +252,13 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
         """Initialize a new instance of DeepEnsemble for Segmentation.
 
         Args:
-            n_ensemble_members: number of ensemble members
             ensemble_members: List of dicts where each element specifies the
                 LightningModule class and a path to a checkpoint
             num_classes: number of classes
             task: classification task, one of "multiclass", "binary" or "multilabel"
             save_preds: whether to save predictions
         """
-        super().__init__(n_ensemble_members, ensemble_members, num_classes, task)
+        super().__init__(ensemble_members, num_classes, task)
         self.save_preds = save_preds
 
     def setup_task(self) -> None:
@@ -325,19 +320,17 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
 
     def __init__(
         self,
-        n_ensemble_members: int,
         ensemble_members: list[dict[str, type[LightningModule] | str]],
         save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of DeepEnsemble for Pixelwise Regression.
 
         Args:
-            n_ensemble_members: number of ensemble members
             ensemble_members: List of dicts where each element specifies the
                 LightningModule class and a path to a checkpoint
             save_preds: whether to save predictions
         """
-        super().__init__(n_ensemble_members, ensemble_members)
+        super().__init__(ensemble_members)
         self.save_preds = save_preds
 
     pred_dir_name = "preds"
