@@ -159,7 +159,7 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(
-            len(ensemble_members_dict), ensemble_members_dict
+            ensemble_members_dict
         )
         datamodule = ToyImageRegressionDatamodule()
         trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))

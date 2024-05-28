@@ -182,7 +182,7 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(
-            len(ensemble_members_dict), ensemble_members_dict, 2
+            ensemble_members_dict, 2
         )
 
         datamodule = TwoMoonsDataModule()

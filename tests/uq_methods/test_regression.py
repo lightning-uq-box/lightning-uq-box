@@ -162,7 +162,7 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(
-            len(ensemble_members_dict), ensemble_members_dict
+            ensemble_members_dict
         )
 
         datamodule = ToyHeteroscedasticDatamodule()

@@ -167,7 +167,7 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsemblePxRegression(
-            len(ensemble_members_dict), ensemble_members_dict, save_preds=True
+            ensemble_members_dict, save_preds=True
         )
         datamodule = ToyPixelwiseRegressionDataModule()
         trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
