@@ -64,8 +64,10 @@ class ProbUNet(BaseModule):
         beta: float = 10.0,
         num_samples: int = 5,
         task: str = "multiclass",
+        criterion: nn.Module | None = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of ProbUNet.
 
@@ -79,8 +81,10 @@ class ProbUNet(BaseModule):
             beta: beta parameter
             num_samples: number of latent samples to use during prediction
             task: task type, either "multiclass" or "binary"
+            criterion: reconstruction criterion, Cross Entropy Loss by default
             optimizer: optimizer
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         super().__init__()
         self.latent_dim = latent_dim
@@ -121,10 +125,13 @@ class ProbUNet(BaseModule):
             use_tile=True,
         )
 
-        self.criterion = nn.BCEWithLogitsLoss(reduction="none")
+        if criterion is None:
+            criterion = nn.CrossEntropyLoss()
+        self.criterion = criterion
 
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
+        self.save_preds = save_preds
 
         self.setup_task()
 
@@ -151,8 +158,7 @@ class ProbUNet(BaseModule):
             reconstruction loss, KL loss, and the reconstruction
         """
         img, seg_mask = batch[self.input_key], batch[self.target_key]
-        # check dimensions, add channel dimension to seg_mask under assumption
-        # that it is a binary mask
+        # posterior expects one hot encoding
         if len(seg_mask.shape) == 3:
             seg_mask_target = seg_mask.long()
             seg_mask_target = F.one_hot(seg_mask_target, num_classes=self.num_classes)
@@ -177,11 +183,11 @@ class ProbUNet(BaseModule):
             use_posterior_mean=False, z_posterior=z_posterior
         )
 
-        rec_loss = self.criterion(input=reconstruction, target=seg_mask_target)
+        rec_loss = self.criterion(reconstruction, batch[self.target_key])
         rec_loss_sum = torch.sum(rec_loss)
         rec_loss_mean = torch.mean(rec_loss)
 
-        loss = rec_loss_sum + self.beta * kl_loss
+        loss = rec_loss_mean + self.beta * kl_loss
 
         return {
             "loss": loss,
@@ -286,6 +292,11 @@ class ProbUNet(BaseModule):
         # return loss to optimize
         return loss_dict["loss"]
 
+    def on_train_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
+
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -313,6 +324,11 @@ class ProbUNet(BaseModule):
         )
 
         return loss_dict["loss"]
+
+    def on_validation_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.val_metrics.compute())
+        self.val_metrics.reset()
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -347,6 +363,11 @@ class ProbUNet(BaseModule):
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
         if not os.path.exists(self.pred_dir):
             os.makedirs(self.pred_dir)
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
 
     def on_test_batch_end(
         self,

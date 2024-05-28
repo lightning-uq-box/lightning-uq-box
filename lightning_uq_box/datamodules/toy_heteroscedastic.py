@@ -182,7 +182,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             collate_fn=collate_fn_tensordataset,
         )
 
-    def calibration_dataloader(self) -> DataLoader:
+    def calib_dataloader(self) -> DataLoader:
         """Return calibration dataloader."""
         return DataLoader(
             TensorDataset(self.X_calib, self.Y_calib),

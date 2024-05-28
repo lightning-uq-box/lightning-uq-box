@@ -18,6 +18,7 @@ from .utils import (
     default_classification_metrics,
     default_px_regression_metrics,
     default_regression_metrics,
+    default_segmentation_metrics,
     freeze_model_backbone,
     freeze_segmentation_model,
     process_classification_prediction,
@@ -396,6 +397,7 @@ class DeterministicSegmentation(DeterministicClassification):
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new Deterministic Segmentation Model.
 
@@ -410,10 +412,25 @@ class DeterministicSegmentation(DeterministicClassification):
                 supported for torchseg Unet models
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         self.freeze_backbone = freeze_backbone
         self.freeze_decoder = freeze_decoder
         super().__init__(model, loss_fn, task, freeze_backbone, optimizer, lr_scheduler)
+
+        self.save_preds = save_preds
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes for segmentation."""
+        self.train_metrics = default_segmentation_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_segmentation_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_segmentation_metrics(
+            "test", self.task, self.num_classes
+        )
 
     def freeze_model(self) -> None:
         """Freeze model backbone.
@@ -444,7 +461,7 @@ class DeterministicSegmentation(DeterministicClassification):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -462,7 +479,8 @@ class DeterministicSegmentation(DeterministicClassification):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class DeterministicPixelRegression(DeterministicRegression):
@@ -478,6 +496,7 @@ class DeterministicPixelRegression(DeterministicRegression):
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of Deterministic Pixel Regression.
 
@@ -488,9 +507,11 @@ class DeterministicPixelRegression(DeterministicRegression):
             freeze_decoder: whether to freeze the model decoder
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         self.freeze_decoder = freeze_decoder
         super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
+        self.save_preds = save_preds
 
     def freeze_model(self) -> None:
         """Freeze model backbone.
@@ -509,7 +530,7 @@ class DeterministicPixelRegression(DeterministicRegression):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -527,7 +548,8 @@ class DeterministicPixelRegression(DeterministicRegression):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class PosthocBase(BaseModule):
@@ -565,20 +587,14 @@ class PosthocBase(BaseModule):
         else:
             return _get_num_outputs(self.model)
 
-    def training_step(self, *args: Any, **kwargs: Any):
-        """Posthoc Methods do not have a training step."""
-        pass
-
-    def on_validation_start(self) -> None:
-        """Initialize objects to track model logits and labels."""
-        # TODO intitialize zero tensors for memory efficiency
+    def on_train_start(self) -> None:
+        """Set model to eval mode."""
+        self.eval()
         self.model_logits = []
         self.labels = []
 
-        # TODO this doesn't do anything right now
-        self.trainer.inference_mode = False
-
-    def validation_step(
+    @torch.no_grad()
+    def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Single gathering step of model logits and targets.
@@ -591,7 +607,10 @@ class PosthocBase(BaseModule):
         Returns:
             underlying model output and labels
         """
-        # needed because we need inference_mode=True for
+        if self.trainer.current_epoch > 0:
+            raise RuntimeError(
+                "Post-Hoc methods only need one pass over the calibration data loader."
+            )
         # optimization procedures later on but need fixed model here
         self.eval()
         self.model_logits.append(self.model(batch[self.input_key]))
@@ -630,8 +649,9 @@ class PosthocBase(BaseModule):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call "
-                "trainer.validate(model, datamodule) first."
+                "Model has not been post hoc fitted, "
+                "please call "
+                "trainer.fit(model, train_dataloaders=dm.calib_dataloader()) first."
             )
 
         # predict with underlying model
