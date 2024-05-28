@@ -99,6 +99,13 @@ class ConformalQR(PosthocBase):
         Returns:
             model output tensor of shape [batch_size x num_outputs]
         """
+        if not self.post_hoc_fitted:
+            raise RuntimeError(
+                "Model has not been post hoc fitted, "
+                "please call "
+                "trainer.fit(model, train_dataloaders=dm.calib_dataloader()) first."
+            )
+
         with torch.no_grad():
             if hasattr(self.model, "predict_step"):
                 pred = self.model.predict_step(X)

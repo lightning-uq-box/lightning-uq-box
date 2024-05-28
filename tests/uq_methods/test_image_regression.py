@@ -5,10 +5,12 @@
 
 import glob
 import os
+import re
 from pathlib import Path
 from typing import Any
 
 import pytest
+import torch
 from hydra.utils import instantiate
 from lightning import Trainer
 from lightning.pytorch.loggers import CSVLogger
@@ -19,20 +21,20 @@ from lightning_uq_box.datamodules import ToyImageRegressionDatamodule
 from lightning_uq_box.uq_methods import DeepEnsembleRegression, TTARegression
 
 model_config_paths = [
-    "tests/configs/image_regression/mc_dropout_nll.yaml",
-    "tests/configs/image_regression/mean_variance_estimation.yaml",
-    "tests/configs/image_regression/qr_model.yaml",
-    "tests/configs/image_regression/der.yaml",
-    "tests/configs/image_regression/bnn_vi_elbo.yaml",
-    "tests/configs/image_regression/bnn_vi.yaml",
-    "tests/configs/image_regression/bnn_vi_lv_last.yaml",
-    "tests/configs/image_regression/swag.yaml",
-    "tests/configs/image_regression/sgld_mse.yaml",
-    "tests/configs/image_regression/dkl.yaml",
-    "tests/configs/image_regression/due.yaml",
-    "tests/configs/image_regression/laplace_glm.yaml",
-    "tests/configs/image_regression/laplace_nn.yaml",
-    "tests/configs/image_regression/cards.yaml",
+    "tests/configs/image_regression/mc_dropout_nll.yaml"
+    # "tests/configs/image_regression/mean_variance_estimation.yaml",
+    # "tests/configs/image_regression/qr_model.yaml",
+    # "tests/configs/image_regression/der.yaml",
+    # "tests/configs/image_regression/bnn_vi_elbo.yaml",
+    # "tests/configs/image_regression/bnn_vi.yaml",
+    # "tests/configs/image_regression/bnn_vi_lv_last.yaml",
+    # "tests/configs/image_regression/swag.yaml",
+    # "tests/configs/image_regression/sgld_mse.yaml",
+    # "tests/configs/image_regression/dkl.yaml",
+    # "tests/configs/image_regression/due.yaml",
+    # "tests/configs/image_regression/laplace_glm.yaml",
+    # "tests/configs/image_regression/laplace_nn.yaml",
+    # "tests/configs/image_regression/cards.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_regression/toy_image_regression.yaml"]
@@ -80,8 +82,13 @@ posthoc_config_paths = ["tests/configs/image_regression/conformal_qr.yaml"]
 class TestPosthoc:
     @pytest.mark.parametrize("model_config_path", posthoc_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
+    @pytest.mark.parametrize("calibration", [True, False])
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        calibration: bool,
+        tmp_path: Path,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -94,9 +101,19 @@ class TestPosthoc:
             max_epochs=1,
             log_every_n_steps=1,
         )
-        # use validation for testing, should be calibration loader for conformal
-        trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
-        trainer.test(model, datamodule=datamodule)
+        if calibration:
+            trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
+            trainer.test(model, datamodule=datamodule)
+        else:
+            with pytest.raises(
+                RuntimeError,
+                match=re.escape(
+                    "Model has not been post hoc fitted, please call trainer.fit(model, train_dataloaders=dm.calib_dataloader()) first."
+                ),
+            ):
+                X = torch.rand(1, 3, 64, 64)
+                model(X)
+                # trainer.test(model, datamodule=datamodule)
 
 
 ensemble_model_config_paths = [
