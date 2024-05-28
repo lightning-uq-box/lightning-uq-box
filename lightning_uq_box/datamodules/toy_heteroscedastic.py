@@ -74,6 +74,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         * train: all - test - val
         * test: see `test_fraction`
         * val: validation, see `val_fraction`
+        * calib: calibration, see `calib_fraction`
         * gtext: noise-free ground truth on extended x-axis
 
         X and Y have shape (n_points_{type}, 1).
@@ -87,7 +88,8 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             val_fraction: fraction of n_points for validation
                 set
             calib_fraction: fraction of n_points for calibration set
-                will be split from validation set
+                will be split from validation set and necessary for
+                conformal prediction
             generate_y: ground truth function with noise option, must have
                 signature f(x, noise: bool)
             noise_seed: random seed for x points positions and y noise
