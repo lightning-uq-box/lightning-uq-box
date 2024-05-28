@@ -89,7 +89,10 @@ class TestPosthoc:
         model = instantiate(model_conf.uq_method)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            default_root_dir=str(tmp_path), max_epochs=1, log_every_n_steps=1
+            default_root_dir=str(tmp_path),
+            accelerator="cpu",
+            max_epochs=1,
+            log_every_n_steps=1,
         )
         # use validation for testing, should be calibration loader for conformal
         trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
