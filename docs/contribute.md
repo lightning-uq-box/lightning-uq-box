@@ -30,7 +30,7 @@ $ pytest --cov=lightning_uq_box/uq_methods --cov-report=term-missing tests/uq_me
 
 We use a linter to ensure a codebase that follows [PEP-8](https://peps.python.org/pep-0008/) standards.
 
-* `ruff <https://docs.astral.sh/ruff/>`_ for code formatting
+* [ruff](<https://docs.astral.sh/ruff/>) for code formatting
 
 You can apply these tools from the project root where the necessary configuration files are found. To test with ruff, you can do:
 
@@ -41,7 +41,7 @@ $ ruff format
 
 These tools should be used from the root of the project to ensure that our configuration files are found. Ruff is relatively easy to use, and will automatically fix most issues it encounters:
 
-You can also use `git pre-commit hooks <https://pre-commit.com/>`_ to automatically apply these checks before each commit. You can use pre-commit as follows:
+You can also use [git pre-commit hooks](<https://pre-commit.com/>) to automatically apply these checks before each commit. You can use pre-commit as follows:
 
 ```console
 $ pip install pre-commit

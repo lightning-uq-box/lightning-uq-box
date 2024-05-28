@@ -12,26 +12,6 @@ img[alt="Logo image"] {
 
 div.nboutput.container div.output_area .highlight,
 div.nboutput.container div.output_area pre {
-    background-color: #080000 !important; /* Change this to your desired color */
+    background-color: #080000 !important; /* Background color of cell output */
+    color: #07adee !important; /* Text color inside cell output */
 }
-
-/* body {
-    font-family: "Arial", sans-serif;
-    font-size: 16px;
-    max-width: 50%;
-}
-
-
-.sphinx-template-content-left-menu {
-    max-width: 20%;
-}
-
-.sphinx-template-content-left {
-    max-width: 50%;
-    font-family: "Arial", sans-serif;
-    font-size: 16px;
-}
-
-.sphinx-template-content-right {
-    max-width: 20%
-} */
