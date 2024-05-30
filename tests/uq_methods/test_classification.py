@@ -17,7 +17,6 @@ from lightning_uq_box.main import get_uq_box_cli
 from lightning_uq_box.uq_methods import DeepEnsembleClassification
 
 model_config_paths = [
-    "tests/configs/classification/temp_scaling.yaml",
     "tests/configs/classification/mc_dropout.yaml",
     "tests/configs/classification/bnn_vi_elbo.yaml",
     "tests/configs/classification/swag.yaml",
@@ -67,36 +66,6 @@ class TestClassificationTask:
         )
 
 
-frozen_config_paths = [
-    "tests/configs/classification/mc_dropout.yaml",
-    "tests/configs/classification/bnn_vi_elbo.yaml",
-    "tests/configs/classification/dkl.yaml",
-    "tests/configs/classification/due.yaml",
-    "tests/configs/classification/sngp.yaml",
-]
-
-
-class TestFrozenBackbone:
-    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
-    def test_freeze_backbone(self, model_config_path: str) -> None:
-        cli = get_uq_box_cli(
-            ["--config", model_config_path, "--model.freeze_backbone", "True"]
-        )
-        model = cli.model
-        try:
-            assert not all(
-                [param.requires_grad for param in model.model.model[0].parameters()]
-            )
-            assert all(
-                [param.requires_grad for param in model.model.model[-1].parameters()]
-            )
-        except AttributeError:
-            # check that entire feature extractor is frozen
-            assert not all(
-                [param.requires_grad for param in model.feature_extractor.parameters()]
-            )
-
-
 posthoc_config_paths = [
     "tests/configs/classification/temp_scaling.yaml",
     "tests/configs/classification/raps.yaml",
@@ -130,7 +99,7 @@ class TestPosthoc:
         cli = get_uq_box_cli(args)
         model = cli.model
         # use validation for testing, should be calibration loader for conformal
-        cli.trainer.validate(model, cli.datamodule.val_dataloader())
+        cli.trainer.fit(model, train_dataloaders=cli.datamodule.val_dataloader())
         cli.trainer.test(model, datamodule=cli.datamodule)
 
 
@@ -191,3 +160,33 @@ class TestDeepEnsemble:
         trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
+
+
+frozen_config_paths = [
+    "tests/configs/classification/mc_dropout.yaml",
+    "tests/configs/classification/bnn_vi_elbo.yaml",
+    "tests/configs/classification/dkl.yaml",
+    "tests/configs/classification/due.yaml",
+    "tests/configs/classification/sngp.yaml",
+]
+
+
+class TestFrozenBackbone:
+    @pytest.mark.parametrize("model_config_path", frozen_config_paths)
+    def test_freeze_backbone(self, model_config_path: str) -> None:
+        cli = get_uq_box_cli(
+            ["--config", model_config_path, "--model.freeze_backbone", "True"]
+        )
+        model = cli.model
+        try:
+            assert not all(
+                [param.requires_grad for param in model.model.model[0].parameters()]
+            )
+            assert all(
+                [param.requires_grad for param in model.model.model[-1].parameters()]
+            )
+        except AttributeError:
+            # check that entire feature extractor is frozen
+            assert not all(
+                [param.requires_grad for param in model.feature_extractor.parameters()]
+            )

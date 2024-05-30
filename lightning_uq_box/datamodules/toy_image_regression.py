@@ -29,6 +29,10 @@ class ToyImageRegressionDatamodule(LightningDataModule):
         """Return Val Dataloader."""
         return DataLoader(ToyImageRegressionDataset(), batch_size=self.batch_size)
 
+    def calib_dataloader(self) -> DataLoader:
+        """Return Calib Dataloader."""
+        return DataLoader(ToyImageRegressionDataset(), batch_size=self.batch_size)
+
     def test_dataloader(self) -> DataLoader:
         """Return Test Dataloader."""
         return DataLoader(ToyImageRegressionDataset(), batch_size=self.batch_size)
