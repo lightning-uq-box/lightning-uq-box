@@ -18,6 +18,8 @@ regression/bnn_vi_lv
 regression/swag
 regression/sngp
 regression/deep_kernel_learning
+regression/vbll
+regressoin/vbll_sngp
 regression/deep_ensemble
 regression/card
 regression/evaluation_uncertainty

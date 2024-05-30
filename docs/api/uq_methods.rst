@@ -53,6 +53,22 @@ Deep Evidential Pixelwise Regression
 
 .. autoclass:: DERPxRegression
 
+Variational Bayes Last Layer
+----------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.vbll
+
+VBLL Classification
+```````````````````
+
+.. autoclass:: VBLLClassification
+
+VBLL Regression
+```````````````
+
+.. autoclass:: VBLLRegression
+
+
 Approximate Bayesian Methods
 ============================
 

@@ -506,6 +506,9 @@ class RandomFourierFeatures(nn.Module):
         if feature_scale is None:
             feature_scale = math.sqrt(num_random_features / 2)
 
+        self.in_features = in_dim
+        self.out_features = num_random_features
+
         self.register_buffer("feature_scale", torch.tensor(feature_scale))
 
         if num_random_features <= in_dim:

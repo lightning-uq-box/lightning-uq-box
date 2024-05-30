@@ -28,6 +28,8 @@ model_config_paths = [
     "tests/configs/image_classification/laplace.yaml",
     "tests/configs/image_classification/card.yaml",
     "tests/configs/image_classification/sngp.yaml",
+    "tests/configs/image_classification/vbll_disc.yaml",
+    "tests/configs/image_classification/vbll_gen.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_classification/toy_classification.yaml"]
@@ -99,6 +101,7 @@ frozen_config_paths = [
     "tests/configs/image_classification/bnn_vi_elbo.yaml",
     "tests/configs/image_classification/due.yaml",
     "tests/configs/image_classification/sngp.yaml",
+    "tests/configs/image_classification/vbll_disc.yaml",
 ]
 
 
@@ -109,9 +112,14 @@ class TestFrozenBackbone:
         model_conf = OmegaConf.load(model_config_path)
 
         try:
+            # if "vbll" in model_config_path:
+            #     import pdb
+            #     pdb.set_trace()
             model_conf.model.model.model_name = model_name
             model = instantiate(model_conf.model, freeze_backbone=True)
             assert not all([param.requires_grad for param in model.model.parameters()])
+
+            # name, output_module = _get_output_layer_name_and_module(model.model)
             assert all(
                 [
                     param.requires_grad
