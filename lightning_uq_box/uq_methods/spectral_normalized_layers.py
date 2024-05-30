@@ -314,7 +314,7 @@ class SpectralNormConv(SpectralNorm):
 
         # get settings from conv-module (for transposed convolution parameters)
         stride = module.stride
-        padding = module.padding
+        padding = module._reversed_padding_repeated_twice[0:2]
 
         if do_power_iteration:
             with torch.no_grad():
