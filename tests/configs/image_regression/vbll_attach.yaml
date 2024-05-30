@@ -7,4 +7,4 @@ uq_method:
     drop_rate: 0.1
   regularization_weight: 0.001
   num_targets: 1
-  replace_ll: true
+  replace_ll: false
