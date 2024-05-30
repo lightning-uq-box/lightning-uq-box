@@ -48,6 +48,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Stochastic Gradient Langevin Dynamics (SGLD)  |     ✅     |       ✅       |      ⏳      |          ⏳           |
 | Spectral Normalized Gaussian Process (SNGP)   |     ✅     |       ✅       |      ❌      |          ❌           |
 | Stochastic Weight Averaging Gaussian (SWAG)   |     ✅     |       ✅       |      ✅      |          ✅           |
+| Variational Bayesian Last Layer (VBLL)        |     ✅     |       ✅       |      ❌      |          ❌           |
 | Deep Ensemble                                 |     ✅     |       ✅       |      ✅      |          ✅           |
 
 ### Generative Models
