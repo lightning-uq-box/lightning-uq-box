@@ -197,6 +197,7 @@ class VBLLRegression(DeterministicRegression):
             test loss
         """
         pred_dict = self.predict_step(batch[self.input_key])
+        pred_dict[self.target_key] = batch[self.target_key]
 
         test_loss = pred_dict["out"].val_loss_fn(batch[self.target_key])
 
@@ -456,6 +457,7 @@ class VBLLClassification(DeterministicClassification):
             test loss
         """
         pred_dict = self.predict_step(batch[self.input_key])
+        pred_dict[self.target_key] = batch[self.target_key]
 
         test_loss = pred_dict["out"].val_loss_fn(batch[self.target_key])
 
