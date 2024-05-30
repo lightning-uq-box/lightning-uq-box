@@ -314,6 +314,8 @@ class SpectralNormConv(SpectralNorm):
 
         # get settings from conv-module (for transposed convolution parameters)
         stride = module.stride
+        if stride[0] > 2:
+            raise UserWarning("Implementation does not generalize to stride > 2.")
         padding = module._reversed_padding_repeated_twice[0:2]
 
         if do_power_iteration:
