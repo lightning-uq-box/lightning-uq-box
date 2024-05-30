@@ -1,0 +1,10 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.VBLLRegression
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    num_classes: 8
+    drop_rate: 0.1
+  regularization_weight: 0.001
+  num_targets: 1
+  replace_ll: false

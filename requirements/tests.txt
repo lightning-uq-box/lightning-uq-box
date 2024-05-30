@@ -9,3 +9,4 @@ timm==0.9.16
 jsonargparse[signatures]==4.28.0
 torchseg==0.0.1a4
 h5py==3.10.0
+vbll==0.1.3

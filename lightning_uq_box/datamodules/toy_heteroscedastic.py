@@ -51,7 +51,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         self,
         x_min: int | float = -4,
         x_max: int | float = 4,
-        n_points: int = 200,
+        n_points: int = 250,
         batch_size: int = 100,
         test_fraction: float = 0.2,
         val_fraction: float = 0.1,
@@ -114,7 +114,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
                 else:
                     x[k] = np.random.normal(loc=x_max, scale=2.0 / 5.0)
 
-        y = generate_y(x)
+            y[k] = generate_y(x[k])
 
         # full dataset
         self.X_all = x[:, None]
@@ -142,7 +142,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         xmin, xmax = self.X_all.min(), self.X_all.max()
         span = xmax - xmin
         self.X_gtext = np.linspace(
-            xmin - span * 0.2, xmax + span * 0.2, int(n_points * 1.5)
+            xmin - span * 0.1, xmax + span * 0.1, int(n_points * 1.5)
         )[:, None]
         self.Y_gtext = generate_y(self.X_gtext, noise=False)
 

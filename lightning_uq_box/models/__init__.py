@@ -9,6 +9,7 @@ from .cards import (
     ConditionalLinear,
     DiffusionSequential,
 )
+from .fc_resnet import FCResNet
 from .mlp import MLP
 
 __all__ = (
@@ -19,4 +20,6 @@ __all__ = (
     "ConditionalGuidedLinearModel",
     "ConditionalGuidedConvModel",
     "DiffusionSequential",
+    # Fully Connected Residual Network
+    "FCResNet",
 )

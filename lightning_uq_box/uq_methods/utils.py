@@ -486,3 +486,19 @@ def freeze_segmentation_model(
     if hasattr(model, "decoder") and freeze_decoder:
         for param in model.decoder.parameters():
             param.requires_grad = False
+
+
+def replace_module(model: nn.Module, module_name: str, new_module: nn.Module) -> None:
+    """Replace a module by name.
+
+    Args:
+        model: full model
+        module_name: name of module to replace within model
+        new_module: initialized module which is the replacement
+    """
+    module_levels = module_name.split(".")
+    last_level = module_levels[-1]
+    if len(module_levels) == 1:
+        setattr(model, last_level, new_module)
+    else:
+        setattr(getattr(model, ".".join(module_levels[:-1])), last_level, new_module)

@@ -32,9 +32,10 @@ class MLP(nn.Module):
         super().__init__()
         if activation_fn is None:
             activation_fn = nn.ReLU()
-        layers = []
+        layers = [nn.Linear(n_inputs, n_hidden[0])]
         # layer sizes
-        layer_sizes = [n_inputs] + n_hidden
+        # layer_sizes = [n_inputs] + n_hidden
+        layer_sizes = n_hidden
         for idx in range(1, len(layer_sizes)):
             layers += [
                 nn.Linear(layer_sizes[idx - 1], layer_sizes[idx]),

@@ -35,6 +35,9 @@ model_config_paths = [
     "tests/configs/image_regression/laplace_glm.yaml",
     "tests/configs/image_regression/laplace_nn.yaml",
     "tests/configs/image_regression/cards.yaml",
+    "tests/configs/image_regression/sngp.yaml",
+    "tests/configs/image_regression/vbll_replace.yaml",
+    "tests/configs/image_regression/vbll_attach.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_regression/toy_image_regression.yaml"]

@@ -39,18 +39,18 @@ def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.figure:
 
 
 def plot_toy_regression_data(
-    X_train: np.ndarray, Y_train: np.ndarray, X_test: np.ndarray, Y_test: np.ndarray
+    X_train: np.ndarray, Y_train: np.ndarray, X_gt: np.ndarray, Y_gt: np.ndarray
 ) -> plt.Figure:
     """Plot the toy data.
 
     Args:
       X_train: training inputs
       Y_train: training targets
-      X_test: testing inputs
-      Y_test: testing targets
+      X_gt: X "ground truth" without noise
+      Y_gt: Y "ground truth" without noise
     """
     fig, ax = plt.subplots(1)
-    ax.scatter(X_test, Y_test, color="gray", edgecolor="black", s=5, label="test_data")
+    ax.scatter(X_gt, Y_gt, color="gray", edgecolor="black", s=5, label="test_data")
     ax.scatter(X_train, Y_train, color="blue", label="train_data")
     plt.title("Toy Regression Dataset.")
     plt.legend()
@@ -176,6 +176,11 @@ def plot_predictions_regression(
         title: title of plot
         show_bands: show uncertainty bands
     """
+    # sort data so bands or quantiles are plotted nicely
+    X_train, Y_train = sort_by(X_train, Y_train)
+    X_test, Y_test, y_pred, pred_std, pred_quantiles, epistemic, aleatoric = sort_by(
+        X_test, Y_test, y_pred, pred_std, pred_quantiles, epistemic, aleatoric
+    )
     import textwrap
 
     if y_pred.ndim == 2:
@@ -191,7 +196,7 @@ def plot_predictions_regression(
             ax0.scatter(X_test, samples[:, i], color="black", s=0.1, alpha=0.7)
 
     # model predictive uncertainty bands on the left
-    ax0.scatter(X_test, Y_test, color="gray", label="ground truth", s=0.5, alpha=0.5)
+    ax0.scatter(X_test, Y_test, color="gray", label="ground truth", s=10, alpha=0.7)
     ax0.scatter(X_train, Y_train, color="blue", label="train_data", alpha=0.5)
     ax0.scatter(X_test, y_pred, color="orange", label="predictions", alpha=0.5)
 
@@ -291,6 +296,14 @@ def plot_predictions_regression(
 
     ax0.legend()
     return fig
+
+
+def sort_by(X: np.ndarray, *args: np.ndarray) -> tuple:
+    """Sort arrays based on X."""
+    sort_idx = np.argsort(X.squeeze())
+    return tuple(
+        arg.squeeze()[sort_idx] if arg is not None else None for arg in (X, *args)
+    )
 
 
 def plot_calibration_uq_toolbox(
