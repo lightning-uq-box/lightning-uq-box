@@ -46,9 +46,6 @@ class DeepEnsemble(BaseModule):
         """
         super().__init__()
         self.n_ensemble_members = len(ensemble_members)
-        # make hparams accessible
-        # TODO: do we still need it if we ignore the only parameter?
-        self.save_hyperparameters(ignore=["ensemble_members"])
         self.ensemble_members = ensemble_members
 
         self.setup_task()
