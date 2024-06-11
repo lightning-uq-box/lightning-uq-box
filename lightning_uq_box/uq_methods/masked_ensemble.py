@@ -195,7 +195,6 @@ class MasksemblesBase(BaseModule):
                 self.adapt_output_for_metrics(pred_dict["pred"]), batch[self.target_key]
             )
 
-        # turn mean to np array
         pred_dict["pred"] = pred_dict["pred"].detach().cpu().squeeze(-1)
 
         pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
@@ -284,7 +283,7 @@ class MasksemblesRegression(MasksemblesBase):
         with torch.no_grad():
             ensemble_pred = self.forward(x)
 
-        # rearange to put the estimators in the last dimension
+        # rearange to put the estimators (samples) in the last dimension
         preds = rearrange(ensemble_pred, "(n b) ... -> b ... n", n=self.num_estimators)
 
         return process_regression_prediction(preds)
