@@ -164,9 +164,7 @@ class TestDeepEnsemble:
         self, ensemble_members_dict: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
-        ensemble_model = DeepEnsembleRegression(
-            len(ensemble_members_dict), ensemble_members_dict
-        )
+        ensemble_model = DeepEnsembleRegression(ensemble_members_dict)
         datamodule = ToyImageRegressionDatamodule()
         trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
         trainer.test(ensemble_model, datamodule=datamodule)

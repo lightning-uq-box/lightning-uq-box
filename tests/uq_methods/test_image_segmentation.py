@@ -111,10 +111,7 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleSegmentation(
-            len(ensemble_members_dict),
-            ensemble_members_dict,
-            num_classes=4,
-            save_preds=True,
+            ensemble_members_dict, num_classes=4, save_preds=True
         )
 
         datamodule = ToySegmentationDataModule()
