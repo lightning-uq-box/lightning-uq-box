@@ -75,12 +75,14 @@ class ToyDUE(LightningDataModule):
 
         self.X_gtext = np.linspace(-10, 10, 500)
         self.Y_gtext = np.cos(W * self.X_gtext + b).sum(0)
+        self.X_gtext = self.X_gtext.reshape(-1, 1)
+        self.Y_gtext = self.Y_gtext.reshape(-1, 1)
 
         scalers = dict(
             X=StandardScaler().fit(self.X_train), Y=StandardScaler().fit(self.Y_train)
         )
         for xy in ["X", "Y"]:
-            for arr_type in ["train", "test"]:
+            for arr_type in ["train", "val", "test", "gtext"]:
                 arr_name = f"{xy}_{arr_type}"
                 setattr(
                     self,
