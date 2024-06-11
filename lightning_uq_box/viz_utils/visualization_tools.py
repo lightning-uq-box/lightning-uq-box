@@ -158,7 +158,7 @@ def plot_predictions_regression(
     aleatoric: np.ndarray | None = None,
     samples: np.ndarray | None = None,
     title: str = None,
-    show_bands: bool = True,
+    show_bands: bool = False,
 ) -> plt.Figure:
     """Plot predictive uncertainty as well as epistemic and aleatoric separately.
 
