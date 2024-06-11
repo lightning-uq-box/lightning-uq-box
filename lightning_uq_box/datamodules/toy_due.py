@@ -105,9 +105,8 @@ class ToyDUE(LightningDataModule):
 
     def val_dataloader(self) -> DataLoader:
         """Return val dataloader."""
-        # TODO Validation data
         return DataLoader(
-            TensorDataset(self.X_train, self.Y_train),
+            TensorDataset(self.X_val, self.Y_val),
             batch_size=self.batch_size,
             shuffle=False,
             collate_fn=collate_fn_tensordataset,
