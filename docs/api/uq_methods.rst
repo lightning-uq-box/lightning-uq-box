@@ -307,6 +307,22 @@ Deep Ensemble Pixelwise Regression
 .. autoclass:: DeepEnsemblePxRegression
 
 
+Masked Ensemble
+---------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.masked_ensemble
+
+Masked Ensemble Base
+````````````````````
+
+.. autoclass:: MaskedEnsemble
+
+Masked Ensemble Regression
+``````````````````````````
+
+.. autoclass:: MaskedEnsembleRegression
+
+
 Generative Models
 =================
 
