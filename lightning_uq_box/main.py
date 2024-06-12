@@ -6,7 +6,7 @@
 from lightning.pytorch.cli import ArgsType, LightningCLI
 
 
-def get_uq_box_cli(args: ArgsType = None) -> None:
+def get_uq_box_cli(args: ArgsType = None) -> LightningCLI:
     """Get Command-line interface Object for Lightning-UQ-Box."""
     return LightningCLI(
         seed_everything_default=0,
