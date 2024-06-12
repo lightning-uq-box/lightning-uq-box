@@ -32,7 +32,7 @@ from .utils import (
 class MasksemblesBase(BaseModule):
     """Base class for Masked Ensemble models.
 
-    If you use this model in your work, please cit:
+    If you use this model in your work, please cite:
 
     * https://arxiv.org/abs/2012.08334
 
@@ -228,7 +228,7 @@ class MasksemblesBase(BaseModule):
 class MasksemblesRegression(MasksemblesBase):
     """Masked Ensemble for regression tasks.
 
-    If you use this model in your work, please cit:
+    If you use this model in your work, please cite:
 
     * https://arxiv.org/abs/2012.08334
 
@@ -308,7 +308,7 @@ class MasksemblesRegression(MasksemblesBase):
 class MasksemblesClassification(MasksemblesBase):
     """Masked Ensemble for classification tasks.
 
-    If you use this model in your work, please cit:
+    If you use this model in your work, please cite:
 
     * https://arxiv.org/abs/2012.08334
 
