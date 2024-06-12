@@ -26,6 +26,7 @@ model_config_paths = [
     "tests/configs/classification/card.yaml",
     "tests/configs/classification/sngp.yaml",
     "tests/configs/classification/vbll.yaml",
+    "tests/configs/classification/masked_ensemble.yaml",
 ]
 
 data_config_paths = ["tests/configs/classification/toy_classification.yaml"]

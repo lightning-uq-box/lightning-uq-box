@@ -19,8 +19,12 @@ from lightning_uq_box.models.masked_ensemble.utils import (
 from .base import BaseModule
 from .loss_functions import NLL
 from .utils import (
+    _get_num_outputs,
+    default_classification_metrics,
     default_regression_metrics,
+    process_classification_prediction,
     process_regression_prediction,
+    save_classification_predictions,
     save_regression_predictions,
 )
 
@@ -86,8 +90,6 @@ class MasksemblesBase(BaseModule):
             adapted output
         """
         if isinstance(self.loss_fn, nn.MSELoss):
-            return out
-        elif isinstance(self.loss_fn, nn.CrossEntropyLoss):
             return out
         elif isinstance(self.loss_fn, NLL):
             return out[:, 0:1]
@@ -299,5 +301,110 @@ class MasksemblesRegression(MasksemblesBase):
             dataloader_idx: dataloader index
         """
         save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
+
+class MasksemblesClassification(MasksemblesBase):
+    """Masked Ensemble for classification tasks.
+
+    If you use this model in your work, please cit:
+
+    * https://arxiv.org/abs/2012.08334
+
+    The input from the dataloader will be repeated for each estimator, so
+    consider this when defining the batch size regarding memory usage.
+    """
+
+    pred_file_name = "preds.csv"
+
+    valid_tasks = ["binary", "multiclass", "multilable"]
+
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        num_estimators: int,
+        scale: float,
+        task: str = "multiclass",
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable | None = None,
+    ):
+        """Initialize Masked Ensemble for classification tasks.
+
+        Args:
+            model: PyTorch model to turn into a Masked Ensemble and train it.
+            loss_fn: Loss function to train the model.
+            num_estimators: The number of estimators (masks) to generate.
+            scale: The scale factor for mask generation. Muste be a scaler in
+                the interval [1, 6].
+            task: what kind of classification task, choose one of
+                ["binary", "multiclass", "multilabel"]
+            optimizer: Optimizer to use.
+            lr_scheduler: Learning rate scheduler.
+        """
+        self.num_classes = _get_num_outputs(model)
+        assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
+        self.task = task
+        super().__init__(
+            model=model,
+            loss_fn=loss_fn,
+            num_estimators=num_estimators,
+            scale=scale,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+        )
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.train_metrics = default_classification_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_classification_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, self.num_classes
+        )
+
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt the output for the metrics.
+
+        Args:
+            out: model output
+
+        Returns:
+            adapted output
+        """
+        return out
+
+    def predict_step(self, x: Tensor) -> Tensor:
+        """Predict the output of the model.
+
+        Args:
+            x: Input tensor of shape [batch_size, *input_shape]
+
+        Returns:
+            Output tensor of shape [batch_size, *output_shape]
+        """
+        with torch.no_grad():
+            ensemble_pred = self.forward(x)
+
+        # rearange to put the estimators (samples) in the last dimension
+        preds = rearrange(ensemble_pred, "(n b) ... -> b ... n", n=self.num_estimators)
+
+        return process_classification_prediction(preds)
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )

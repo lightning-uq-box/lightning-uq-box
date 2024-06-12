@@ -30,6 +30,7 @@ model_config_paths = [
     "tests/configs/image_classification/sngp.yaml",
     "tests/configs/image_classification/vbll_disc.yaml",
     "tests/configs/image_classification/vbll_gen.yaml",
+    "tests/configs/image_classification/masked_ensemble.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_classification/toy_classification.yaml"]

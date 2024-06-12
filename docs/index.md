@@ -49,7 +49,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Spectral Normalized Gaussian Process (SNGP)   |     ✅     |       ✅       |      ❌      |          ❌           |
 | Stochastic Weight Averaging Gaussian (SWAG)   |     ✅     |       ✅       |      ✅      |          ✅           |
 | Deep Ensemble                                 |     ✅     |       ✅       |      ✅      |          ✅           |
-| Masked Ensemble                               |     ✅     |       ❌       |      ❌      |          ❌           |
+| Masked Ensemble                               |     ✅     |       ✅       |      ⏳      |          ⏳           |
 
 ### Generative Models
 

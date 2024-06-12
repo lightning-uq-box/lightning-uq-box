@@ -48,7 +48,11 @@ from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
 from .loss_functions import NLL, DERLoss, PinballLoss
-from .masked_ensemble import MasksemblesBase, MasksemblesRegression
+from .masked_ensemble import (
+    MasksemblesBase,
+    MasksemblesClassification,
+    MasksemblesRegression,
+)
 from .mc_dropout import (
     MCDropoutBase,
     MCDropoutClassification,
@@ -122,6 +126,7 @@ __all__ = (
     # Masked Ensemble
     "MasksemblesBase",
     "MasksemblesRegression",
+    "MasksemblesClassification",
     # Mean Variance Estimation Network
     "MVEBase",
     "MVERegression",

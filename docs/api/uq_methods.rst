@@ -315,12 +315,17 @@ Masked Ensemble
 Masked Ensemble Base
 ````````````````````
 
-.. autoclass:: MaskedEnsemble
+.. autoclass:: MasksemblesBase
 
 Masked Ensemble Regression
 ``````````````````````````
 
-.. autoclass:: MaskedEnsembleRegression
+.. autoclass:: MasksemblesRegression
+
+Masked Ensemble Classification
+``````````````````````````````
+
+.. autoclass:: MasksemblesClassification
 
 
 Generative Models
