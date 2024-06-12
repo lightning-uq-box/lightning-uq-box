@@ -61,6 +61,9 @@ class MasksemblesLayer(nn.Module):
 
         Returns:
             The output tensor after applying masksembles.
+
+        Raises:
+            ValueError: If the input tensor is not 2D or 4D.
         """
         x = rearrange(inputs, "(n b) ... -> n b ...", n=self.num_masks)
         if inputs.dim() == 2:  # Assuming (batch, num_features) for vector data
@@ -136,18 +139,13 @@ def generation_wrapper(c: int, num_masks: int, scale: float) -> Tensor:
         A tensor containing the generated binary masks.
 
     Raises:
+        AssertionError: If the number of features is less than 10.
+        AssertionError: If the scale factor is not in the interval [1, 6].
         ValueError: If the desired number of features cannot be achieved with
                     the given parameters.
     """
-    if c < 10:
-        raise ValueError(
-            f"Masksembles approach couldn't be used in such setups where number of channels is less then 10. Current value is (channels={c}). Please increase number of features in your layer or remove this particular instance of Masksembles from your architecture."
-        )
-
-    if scale > 6.0:
-        raise ValueError(
-            f"Masksembles approach couldn't be used in such setups where scale parameter is larger then 6. Current value is (scale={scale})."
-        )
+    assert c >= 10, "Number of features must be >= 10."
+    assert scale >= 1 and scale <= 6, "Scale factor should be in the interval [1, 6]."
 
     active_features = int(c / (scale * (1 - (1 - 1 / scale) ** num_masks)))
 
