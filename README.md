@@ -67,6 +67,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Stochastic Weight Averaging Gaussian (SWAG)   |     ✅     |       ✅       |      ✅      |          ✅           |
 | Variational Bayesian Last Layer (VBLL)        |     ✅     |       ✅       |      ❌      |          ❌           |
 | Deep Ensemble                                 |     ✅     |       ✅       |      ✅      |          ✅           |
+| Masked Ensemble                               |     ✅     |       ✅       |      ⏳      |          ⏳           |
 
 ### Generative Models
 
