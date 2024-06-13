@@ -53,20 +53,26 @@ Deep Evidential Pixelwise Regression
 
 .. autoclass:: DERPxRegression
 
-Variational Bayes Last Layer
-----------------------------
+Zig Zag
+-------
 
-.. currentmodule:: lightning_uq_box.uq_methods.vbll
+.. currentmodule:: lightning_uq_box.uq_methods.zigzag
 
-VBLL Classification
-```````````````````
+Zig Zag Base
+````````````
 
-.. autoclass:: VBLLClassification
+.. autoclass:: ZigZagBase
 
-VBLL Regression
-```````````````
+Zig Zag Regression
+``````````````````
 
-.. autoclass:: VBLLRegression
+.. autoclass:: ZigZagRegression
+
+Zig Zag Classification
+``````````````````````
+
+.. autoclass:: ZigZagClassification
+
 
 
 Approximate Bayesian Methods
@@ -220,6 +226,21 @@ Stochastic Gradient Langevin Dynamics (SGLD)
 .. currentmodule:: lightning_uq_box.uq_methods.sgld
 
 .. autoclass:: SGLD
+
+Variational Bayes Last Layer
+----------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.vbll
+
+VBLL Classification
+```````````````````
+
+.. autoclass:: VBLLClassification
+
+VBLL Regression
+```````````````
+
+.. autoclass:: VBLLRegression
 
 Spectral Normalized Gaussian Process (SNGP)
 -------------------------------------------
