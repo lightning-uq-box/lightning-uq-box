@@ -90,8 +90,8 @@ class Data1D:
 
 
 def test_mve_gmm_single_model(tmp_path):
-    """Test whether DeepEnsembleRegression reduces to a single MVE model when
-    n_ensemble_members=1.
+    """Test whether DeepEnsembleRegression reduces to a single MVE model for
+    one ensemble member.
     """
     seed_everything(123)
 
@@ -124,9 +124,7 @@ def test_mve_gmm_single_model(tmp_path):
     trained_models = [dict(base_model=ensemble_member, ckpt_path=save_path)]
 
     pred_model_mve = ensemble_member
-    pred_model_mve_gmm = DeepEnsembleRegression(
-        n_ensemble_members=len(trained_models), ensemble_members=trained_models
-    )
+    pred_model_mve_gmm = DeepEnsembleRegression(ensemble_members=trained_models)
 
     pred_mve = pred_model_mve.predict_step(data.X_test)
     pred_mve_gmm = pred_model_mve_gmm.predict_step(data.X_test)
