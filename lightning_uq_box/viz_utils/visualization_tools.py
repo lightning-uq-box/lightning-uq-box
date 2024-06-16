@@ -203,11 +203,11 @@ def plot_predictions_regression(
     if pred_std is not None:
         ax0.fill_between(
             X_test.squeeze(),
-            y_pred - pred_std,
-            y_pred + pred_std,
+            y_pred - 2 * pred_std,
+            y_pred + 2 * pred_std,
             alpha=0.2,
             color="tab:red",
-            label=r"$\sqrt{\mathbb{V}\,[y]}$",
+            label=r"$2\sqrt{\mathbb{V}\,[y]}$",
         )
 
     if pred_quantiles is not None:
