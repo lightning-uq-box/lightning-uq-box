@@ -159,7 +159,13 @@ class TestDeepEnsemble:
 
             # Find the .ckpt file in the lightning_logs directory
             ckpt_file = glob.glob(
-                f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
+                os.path.join(
+                    str(tmp_path),
+                    "lightning_logs",
+                    "version_*",
+                    "checkpoints",
+                    "*.ckpt",
+                )
             )[0]
             ckpt_paths.append({"base_model": cli.model, "ckpt_path": ckpt_file})
 
@@ -209,7 +215,10 @@ class TestDeepEnsemble:
 
         # Find the .ckpt file in the lightning_logs directory
         ckpt_file = glob.glob(
-            f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
+            os.path.join(
+                str(tmp_path), "lightning_logs", "version_*", "checkpoints", "*.ckpt"
+            )
+            # f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
         )[0]
         mve_model = cli.model
         trained_model = [{"base_model": mve_model, "ckpt_path": ckpt_file}]
