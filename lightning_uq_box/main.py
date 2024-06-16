@@ -22,4 +22,12 @@ def get_uq_box_cli(args: ArgsType = None) -> LightningCLI:
 
 def main(args: ArgsType = None) -> None:
     """Command-line interface to Lightning-UQ-Box."""
-    get_uq_box_cli(args)
+    LightningCLI(
+        seed_everything_default=0,
+        subclass_mode_model=True,
+        subclass_mode_data=True,
+        auto_configure_optimizers=False,
+        save_config_kwargs={"overwrite": True},
+        parser_kwargs={"parser_mode": "omegaconf"},
+        args=args,
+    )

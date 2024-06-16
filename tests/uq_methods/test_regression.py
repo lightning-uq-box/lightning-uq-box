@@ -17,6 +17,8 @@ from lightning_uq_box.main import get_uq_box_cli
 from lightning_uq_box.uq_methods import DeepEnsembleRegression
 
 model_config_paths = [
+    "tests/configs/regression/masked_ensemble_mse.yaml",
+    "tests/configs/regression/masked_ensemble_nll.yaml",
     "tests/configs/regression/mc_dropout_mse.yaml",
     "tests/configs/regression/mc_dropout_nll.yaml",
     "tests/configs/regression/mean_variance_estimation.yaml",
@@ -165,9 +167,7 @@ class TestDeepEnsemble:
         self, ensemble_members_dict: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
-        ensemble_model = DeepEnsembleRegression(
-            len(ensemble_members_dict), ensemble_members_dict
-        )
+        ensemble_model = DeepEnsembleRegression(ensemble_members_dict)
 
         datamodule = ToyHeteroscedasticDatamodule()
 

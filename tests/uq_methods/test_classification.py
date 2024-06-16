@@ -26,6 +26,7 @@ model_config_paths = [
     "tests/configs/classification/card.yaml",
     "tests/configs/classification/sngp.yaml",
     "tests/configs/classification/vbll.yaml",
+    "tests/configs/classification/masked_ensemble.yaml",
 ]
 
 data_config_paths = ["tests/configs/classification/toy_classification.yaml"]
@@ -151,9 +152,7 @@ class TestDeepEnsemble:
         self, ensemble_members_dict: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
-        ensemble_model = DeepEnsembleClassification(
-            len(ensemble_members_dict), ensemble_members_dict, 2
-        )
+        ensemble_model = DeepEnsembleClassification(ensemble_members_dict, 2)
 
         datamodule = TwoMoonsDataModule()
 

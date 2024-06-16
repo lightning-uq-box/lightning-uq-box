@@ -149,7 +149,10 @@ def process_regression_prediction(
 
 
 def process_classification_prediction(
-    preds: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
+    preds: Tensor,
+    aggregate_fn: Callable = torch.mean,
+    eps: float = 1e-7,
+    agg_logits_first: bool = False,
 ) -> dict[str, Tensor]:
     """Process classification predictions.
 
@@ -159,22 +162,29 @@ def process_classification_prediction(
         preds: prediction logits tensor of shape [batch_size, num_classes, num_samples]
         aggregate_fn: function to aggregate over the samples
         eps: small value to prevent log of 0
+        agg_logits_first: whether to aggregate the logits first or take the softmax
+            first and then aggregate
 
     Returns:
         dictionary with mean [batch_size, num_classes]
             and predictive uncertainty [batch_size]
-            and logits [batch_size, num_classes]
+            and aggregated logits [batch_size, num_classes]
     """
-    agg_logits = aggregate_fn(preds, dim=-1)
-    mean = nn.functional.softmax(agg_logits, dim=-1)
+    if agg_logits_first:
+        mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
+    else:
+        mean = aggregate_fn(nn.functional.softmax(preds, dim=1), dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=-1)
-    return {"pred": mean, "pred_uct": entropy, "logits": agg_logits}
+    return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
 
 
 def process_segmentation_prediction(
-    preds: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
+    preds: Tensor,
+    aggregate_fn: Callable = torch.mean,
+    eps: float = 1e-7,
+    agg_logits_first: bool = False,
 ) -> dict[str, Tensor]:
     """Process segmentation predictions.
 
@@ -185,18 +195,21 @@ def process_segmentation_prediction(
             [batch_size, num_classes, height, width, num_samples]
         aggregate_fn: function to aggregate over the samples
         eps: small value to prevent log of 0
+        agg_logits_first: whether to aggregate the logits first or take the softmax
 
     Returns:
         dictionary with mean [batch_size, num_classes, height, width]
             and predictive uncertainty [batch_size, height, width]
+            and aggregated logits [batch_size, num_classes, height, width]
     """
-    # dim=1 is the expected num classes dimension
-    agg_logits = aggregate_fn(preds, dim=-1)
-    mean = nn.functional.softmax(agg_logits, dim=-1)
+    if agg_logits_first:
+        mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
+    else:
+        mean = aggregate_fn(nn.functional.softmax(preds, dim=1), dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=1)
-    return {"pred": mean, "pred_uct": entropy, "logits": agg_logits}
+    return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
 
 
 def change_inplace_activation(module):

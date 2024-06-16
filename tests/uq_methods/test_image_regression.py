@@ -38,6 +38,7 @@ model_config_paths = [
     "tests/configs/image_regression/sngp.yaml",
     "tests/configs/image_regression/vbll_replace.yaml",
     "tests/configs/image_regression/vbll_attach.yaml",
+    "tests/configs/image_regression/masked_ensemble.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_regression/toy_image_regression.yaml"]
@@ -164,9 +165,7 @@ class TestDeepEnsemble:
         self, ensemble_members_dict: dict[str, Any], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
-        ensemble_model = DeepEnsembleRegression(
-            len(ensemble_members_dict), ensemble_members_dict
-        )
+        ensemble_model = DeepEnsembleRegression(ensemble_members_dict)
         datamodule = ToyImageRegressionDatamodule()
         trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
         trainer.test(ensemble_model, datamodule=datamodule)

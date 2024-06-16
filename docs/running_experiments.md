@@ -19,6 +19,7 @@ model: # model is the keyword for the lightning cli
         n_hidden: [50]
     num_targets: 1
     gp_kernel: "RBF"
+    batch_size: int = 16: 10
     optimizer:
       class_path: torch.optim.Adam
       init_args:
@@ -70,6 +71,7 @@ uq_method:
   lr_scheduler:
     _target_: torch.optim.lr_scheduler.CosineAnnealingLR
     _partial_: true
+    T_max: 5
   criterion:
     _target_: torch.nn.CrossEntropyLoss
   num_mc_samples_train: 10
