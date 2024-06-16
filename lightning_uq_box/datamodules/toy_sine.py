@@ -52,11 +52,11 @@ class ToySineDatamodule(LightningDataModule):
         # create simple sinusoid data set and
         # add gaussian noise with different variances
         label_noise = noise_1 + noise_2
-        y_train = torch.sin(X_train) + label_noise
+        Y_train = torch.sin(X_train) + label_noise
 
         # update X_train
         self.X_train = X_train[~test_idx, :]
-        self.y_train = y_train[~test_idx, :]
+        self.Y_train = Y_train[~test_idx, :]
 
         # test over the whole line
         self.X_test = torch.linspace(
@@ -64,14 +64,14 @@ class ToySineDatamodule(LightningDataModule):
             X_train.max() + X_train.max() * 0.1,
             n_data,
         ).unsqueeze(-1)
-        self.y_test = torch.sin(self.X_test)
+        self.Y_test = torch.sin(self.X_test)
 
         self.batch_size = batch_size
 
     def train_dataloader(self) -> DataLoader:
         """Return train dataloader."""
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train),
+            TensorDataset(self.X_train, self.Y_train),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )
@@ -80,7 +80,7 @@ class ToySineDatamodule(LightningDataModule):
         """Return val dataloader."""
         # TODO Validation data
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train),
+            TensorDataset(self.X_train, self.Y_train),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )
@@ -88,7 +88,7 @@ class ToySineDatamodule(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""
         return DataLoader(
-            TensorDataset(self.X_test, self.y_test),
+            TensorDataset(self.X_test, self.Y_test),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )

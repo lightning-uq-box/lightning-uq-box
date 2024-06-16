@@ -44,10 +44,10 @@ class TwoMoonsDataModule(LightningDataModule):
         y_tensor = torch.tensor(y, dtype=torch.long)
 
         # Split the dataset into training, validation, and test sets
-        X_temp, self.X_test, y_temp, self.y_test = train_test_split(
+        X_temp, self.X_test, y_temp, self.Y_test = train_test_split(
             X_tensor, y_tensor, test_size=0.2
         )
-        self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
+        self.X_train, self.X_val, self.Y_train, self.y_val = train_test_split(
             X_temp, y_temp, test_size=0.25
         )
 
@@ -68,7 +68,7 @@ class TwoMoonsDataModule(LightningDataModule):
         Returns:
             The DataLoader for the training set.
         """
-        train_dataset = TensorDataset(self.X_train.float(), self.y_train)
+        train_dataset = TensorDataset(self.X_train.float(), self.Y_train)
         return DataLoader(
             train_dataset,
             batch_size=self.batch_size,
@@ -96,7 +96,7 @@ class TwoMoonsDataModule(LightningDataModule):
         Returns:
             The DataLoader for the test set.
         """
-        test_dataset = TensorDataset(self.X_test.float(), self.y_test)
+        test_dataset = TensorDataset(self.X_test.float(), self.Y_test)
         return DataLoader(
             test_dataset,
             batch_size=self.batch_size,
