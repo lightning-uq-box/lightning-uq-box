@@ -11,3 +11,8 @@ model:
             n_hidden: [50]
             activation_fn:
               class_path: torch.nn.ReLU
+
+data:
+  class_path: lightning_uq_box.datamodules.ToyHeteroscedasticDatamodule
+  init_args:
+    n_points: 250

@@ -12,5 +12,3 @@ model:
 
 data:
   class_path: lightning_uq_box.datamodules.ToyDUE
-  init_args:
-    normalize: True
