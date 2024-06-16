@@ -9,7 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import torch
 from lightning import Trainer
+from lightning.pytorch import seed_everything
 from pytest import TempPathFactory
 
 from lightning_uq_box.datamodules import ToyHeteroscedasticDatamodule
@@ -178,6 +180,55 @@ class TestDeepEnsemble:
         assert os.path.exists(
             os.path.join(trainer.default_root_dir, ensemble_model.pred_file_name)
         )
+
+    def test_mve_gmm_single_model(tmp_path: Path) -> None:
+        """Test whether DeepEnsembleRegression reduces to a single MVE model for
+        one ensemble member.
+        """
+        seed_everything(123)
+        mve_path = "tests/configs/regression/mean_variance_estimation.yaml"
+        data_config_path = data_config_paths[0]
+
+        args = [
+            "--config",
+            mve_path,
+            "--config",
+            data_config_path,
+            "--trainer.accelerator",
+            "cpu",
+            "--trainer.max_epochs",
+            "1",
+            "--trainer.log_every_n_steps",
+            "1",
+            "--trainer.default_root_dir",
+            str(tmp_path),
+        ]
+
+        cli = get_uq_box_cli(args)
+        cli.trainer.fit(cli.model, cli.datamodule)
+
+        # Find the .ckpt file in the lightning_logs directory
+        ckpt_file = glob.glob(
+            f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
+        )[0]
+        mve_model = cli.model
+        trained_model = [{"base_model": mve_model, "ckpt_path": ckpt_file}]
+
+        pred_model_mve_gmm = DeepEnsembleRegression(ensemble_members=trained_model)
+
+        pred_mve = mve_model.predict_step(cli.datamodule.X_test)
+        pred_mve_gmm = pred_model_mve_gmm.predict_step(cli.datamodule.X_test)
+
+        # pred_uct, aleatoric_uct, pred
+        for key in set(pred_mve.keys()) & set(pred_mve_gmm.keys()):
+            aa = pred_mve[key].squeeze()
+            bb = pred_mve_gmm[key].squeeze()
+            # NOTE: max(abs(aa-bb)) ~ 1.2e-07, that's quite high, even for float32.
+            # Either one of the hard-cocded eps values, or too much of
+            # sqrt(exp(log(...))**2).
+            assert torch.allclose(
+                aa, bb, rtol=0, atol=1e-6
+            ), f"{torch.max(torch.abs(aa-bb))=}"
 
 
 frozen_config_paths = [
