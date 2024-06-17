@@ -95,7 +95,7 @@ class DDPM(BaseModule):
         self.ema_decay = ema_decay
         self.ema_update_every = ema_update_every
         self.ema = EMA(
-            self.diffusion_model,
+            diffusion_model,
             beta=self.ema_decay,
             update_every=self.ema_update_every,
         )
@@ -124,7 +124,7 @@ class DDPM(BaseModule):
         Returns:
             training loss
         """
-        loss = self.diffusion_model.forward(batch[self.input_key])
+        loss = self.diffusion_model.forward(batch[self.input_key], cond_variables=batch.get("conditions", None))
 
         self.log("train_loss", loss)
 
@@ -140,7 +140,9 @@ class DDPM(BaseModule):
     @rank_zero_only
     def plot_and_save_samples(self, batch):
         """Plot samples from diffusion model."""
-        sampled_imgs = self.forward(16, return_all_timesteps=False).detach()
+        sampled_imgs = self.ema.ema_model.sample(
+            cond_variables=batch.get("conditions", None)
+        )
 
         fig, ax = plt.subplots(4, 4, figsize=(32, 32))
         for i in range(16):
@@ -166,6 +168,17 @@ class DDPM(BaseModule):
             dataloader_idx: dataloader index
         """
         pass
+
+    def predict_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> Any:
+        """No predict step.
+
+        Args:
+            batch: the output of your DataLoader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        samples = self.ema.ema_model.sample(cond_variables=batch.get("conditions", None))
+        return samples
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.

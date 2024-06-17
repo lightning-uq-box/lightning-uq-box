@@ -181,7 +181,7 @@ def plot_predictions_regression(
     if y_pred.ndim == 2:
         y_pred = y_pred.squeeze(-1)
 
-    fig = plt.figure(figsize=(13, 7))
+    fig = plt.figure(figsize=(15, 8))
     ax0 = fig.add_subplot(1, 2, 1)
     if samples is not None:
         ax0.scatter(
@@ -211,7 +211,7 @@ def plot_predictions_regression(
         )
 
     if title is not None:
-        ax0.set_title(title)
+        ax0.set_title(title, fontsize=20)
 
     # epistemic and aleatoric uncertainty plots on right
     # epistemic uncertainty figure
@@ -237,7 +237,7 @@ def plot_predictions_regression(
         else:
             ax1.plot(X_test.squeeze(), epistemic, color="tab:red", label="Epistemic")
 
-        ax1.set_title("Epistemic Uncertainty")
+        ax1.set_title("Epistemic Uncertainty", fontsize=20)
         ax1.legend()
     else:
         wrapped_text = textwrap.fill(
@@ -275,7 +275,8 @@ def plot_predictions_regression(
         else:
             ax2.plot(X_test.squeeze(), aleatoric, color="tab:red", label="Aleatoric")
 
-        ax2.set_title("Aleatoric Uncertainty")
+        ax2.set_title("Aleatoric Uncertainty", fontsize=20)
+        ax2.legend()
     else:
         wrapped_text = textwrap.fill(
             "This Method does not quantify aleatoric uncertainty.", width=30
@@ -289,7 +290,8 @@ def plot_predictions_regression(
             fontsize=12,
         )
 
-    ax0.legend()
+    ax0.legend(fontsize=12)
+    plt.tight_layout()
     return fig
 
 
