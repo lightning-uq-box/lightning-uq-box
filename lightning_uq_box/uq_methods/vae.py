@@ -192,6 +192,20 @@ class VAE(DeterministicPixelRegression):
 
         return {"pred": preds.mean(dim=-1), "pred_uct": preds.std(dim=-1)}
 
+    def sample(self, num_samples: int = 16) -> Tensor:
+        """Sample from the VAE.
+
+        Args:
+            num_samples: The number of samples to draw.
+
+        Returns:
+            The samples.
+        """
+        z = torch.randn(num_samples, self.latent_size, 1, 1).to(self.device)
+        x_decoded = self.model.decoder(self.conv_init_decoder(z))
+        x_recon = self.model.segmentation_head(x_decoded)
+        return x_recon
+
 
 class ConditionalVAE(VAE):
     """Conditional Variational Auto Encoder for Torchseg."""
