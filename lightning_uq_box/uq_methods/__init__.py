@@ -85,6 +85,7 @@ from .swag import (
     SWAGSegmentation,
 )
 from .temp_scaling import TempScaling
+from .vae import VAE
 from .vbll import VBLLClassification, VBLLRegression
 
 __all__ = (
@@ -200,4 +201,6 @@ __all__ = (
     "TTABase",
     "TTARegression",
     "TTAClassification",
+    # VAE
+    "VAE",
 )
