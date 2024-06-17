@@ -47,7 +47,7 @@ from .hierarchical_prob_unet import HierarchicalProbUNet
 from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
-from .loss_functions import NLL, DERLoss, PinballLoss
+from .loss_functions import NLL, DERLoss, PinballLoss, VAELoss
 from .masked_ensemble import (
     MasksemblesBase,
     MasksemblesClassification,
@@ -197,6 +197,7 @@ __all__ = (
     "NLL",
     "DERLoss",
     "PinballLoss",
+    "VAELoss",
     # Test time augmentation
     "TTABase",
     "TTARegression",
