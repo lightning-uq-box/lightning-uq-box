@@ -1,18 +1,14 @@
 uq_method:
   _target_: lightning_uq_box.uq_methods.VAE
-  model:
-    _target_: torchseg.Unet
-    encoder_name: tiny_vit_11m_224
-    encoder_weights: imagenet
-    classes: 1 # number of channels for reconstruction loss
-    in_channels: 3
-    encoder_depth: 3
-    decoder_channels: [128, 64, 32]
-    encoder_params:  # additional params passed to timm.create_model and the vit encoder
-      scale_factors: [2, 1, 0.5]
-      # img_size: 224
-    head_upsampling: 2
+  encoder:
+    _target_: torchseg.encoders.TimmViTEncoder
+    name: vit_tiny_patch16_224
+    in_chans: 3
+    depth: 4
   latent_size: 10
+  img_size: 224
+  out_channels: 1
+  num_samples: 5
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true
