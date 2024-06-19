@@ -30,6 +30,8 @@ model_config_paths = [
     "tests/configs/pixelwise_regression/quantile_regression.yaml",
     "tests/configs/pixelwise_regression/mc_dropout.yaml",
     "tests/configs/pixelwise_regression/swag.yaml",
+    "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
 ]
 
 data_config_paths = ["tests/configs/pixelwise_regression/toy_pixelwise_regression.yaml"]
@@ -44,8 +46,10 @@ class TestPixelwiseRegressionTask:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
 
-        model = instantiate(model_conf.uq_method, save_preds=True)
-        datamodule = instantiate(data_conf.data)
+        full_conf = OmegaConf.merge(data_conf, model_conf)
+
+        model = instantiate(full_conf.uq_method, save_preds=True)
+        datamodule = instantiate(full_conf.data)
         trainer = Trainer(
             accelerator="cpu",
             max_epochs=2,
@@ -65,8 +69,8 @@ class TestPixelwiseRegressionTask:
             assert "pred" in f
             assert "target" in f
             for key, value in f.items():
-                assert value.shape[-1] == 64
-                assert value.shape[-2] == 64
+                assert value.shape[-1] == datamodule.image_size
+                assert value.shape[-2] == datamodule.image_size
             assert "aux" in f.attrs
             assert "index" in f.attrs
 

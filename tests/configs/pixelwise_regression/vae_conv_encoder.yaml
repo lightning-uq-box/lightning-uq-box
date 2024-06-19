@@ -1,0 +1,14 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.VAE
+  encoder:
+    _target_: torchseg.encoders.TimmEncoder
+    name: resnet18
+    depth: 2
+  latent_size: 10
+  img_size: 64
+  out_channels: 1
+  num_samples: 5
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003

@@ -252,3 +252,34 @@ class DERLoss(nn.Module):
         var = beta / nu
 
         return torch.mean(torch.log(var) + (1.0 + self.coeff * nu) * error**2 / var)
+
+
+class VAELoss(nn.Module):
+    """VAE Loss Function."""
+
+    def __init__(self, kl_scale: float = 1.0) -> None:
+        """Initialize a new instance of the VAE Loss Function.
+
+        Args:
+            kl_scale: The scale of the KL loss.
+        """
+        super().__init__()
+        self.kl_scale = kl_scale
+
+    def forward(
+        self, x_recon: Tensor, target: Tensor, mu: Tensor, log_var: Tensor
+    ) -> Tensor:
+        """Compute the VAE Loss.
+
+        Args:
+            x_recon: The reconstructed input tensor.
+            target: The input tensor.
+            mu: The mean of the latent space.
+            log_var: The log variance of the latent space.
+
+        Returns:
+            The computed VAE Loss.
+        """
+        recon_loss = nn.functional.mse_loss(x_recon, target, reduction="mean")
+        KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+        return self.kl_scale * KLD, recon_loss
