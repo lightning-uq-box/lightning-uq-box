@@ -19,10 +19,9 @@ from lightning_uq_box.models import VAEDecoder
 from .utils import _get_num_inputs, freeze_segmentation_model
 
 
-
 class VAE(DeterministicPixelRegression):
     """Variational Auto Encoder (VAE) for Torchseg Encoders.
-    
+
     This VAE is intended to be used with
     `Torchseg Encoders <https://github.com/isaaccorley/torchseg/blob/main/torchseg/encoders/timm.py>`__
     that support a wide range og `Timm Models <https://rwightman.github.io/pytorch-image-models/>`__.
@@ -75,7 +74,7 @@ class VAE(DeterministicPixelRegression):
             lr_scheduler,
             save_preds,
         )
-        
+
         self.encoder = encoder
         self.configure_latent_net()
 
@@ -89,7 +88,7 @@ class VAE(DeterministicPixelRegression):
             number of input dimension to the model
         """
         return _get_num_inputs(self.encoder)
-        
+
     @property
     def num_outputs(self) -> int:
         """Retrieve output dimension to the model.
@@ -98,7 +97,7 @@ class VAE(DeterministicPixelRegression):
             number of output dimension to model
         """
         return self.out_channels
-    
+
     def freeze_model(self) -> None:
         """Freeze model backbone.
 
@@ -125,7 +124,7 @@ class VAE(DeterministicPixelRegression):
         decoder_channels = self.encoder.out_channels[::-1]
         # replace last decoder channel with final output channel
         decoder_channels[-1] = self.out_channels
-        
+
         latent_channels = decoder_channels[0]
 
         self.latent_image_dim = self.img_size // self.encoder.reductions[-1]
@@ -135,10 +134,7 @@ class VAE(DeterministicPixelRegression):
 
         self.conv_init_decoder = nn.Conv2d(self.latent_size, latent_channels, 1, 1)
 
-        self.decoder = VAEDecoder(
-            decoder_channels=decoder_channels,
-        )
-
+        self.decoder = VAEDecoder(decoder_channels=decoder_channels)
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt the output for metrics."""
@@ -170,7 +166,7 @@ class VAE(DeterministicPixelRegression):
         Returns:
             The output tensor.
         """
-        
+
         x_encoded = self.encoder.forward(x)[-1]
 
         # encode the latent space
@@ -182,7 +178,7 @@ class VAE(DeterministicPixelRegression):
 
         # decode
         x_recon = self.decoder(x_decoder_init)
-    
+
         return x_recon, mu, log_var
 
     def training_step(self, batch: Any, batch_idx: int) -> dict[str, Tensor]:
@@ -230,10 +226,7 @@ class VAE(DeterministicPixelRegression):
 
         self.val_metrics(x_recon, y)
 
-        if (
-            self.trainer.global_step % 1 == 0
-            and self.trainer.global_rank == 0
-        ):
+        if self.trainer.global_step % 1 == 0 and self.trainer.global_rank == 0:
             # log samples
             self.plot_and_save_samples(batch)
 
@@ -243,7 +236,7 @@ class VAE(DeterministicPixelRegression):
     def plot_and_save_samples(self, batch: dict[str, Tensor]) -> None:
         """Plot samples from VAE model."""
         with torch.no_grad():
-            sampled_imgs = self.sample(num_samples = 16).detach()
+            sampled_imgs = self.sample(num_samples=16).detach()
 
         fig, ax = plt.subplots(4, 4, figsize=(32, 32))
         for i in range(16):
@@ -268,7 +261,7 @@ class VAE(DeterministicPixelRegression):
             Prediction dictionary
         """
         x_encoded = self.encoder(X)[-1]
-        
+
         # encode the latent space once
         mu = self.conv_mu(x_encoded)
         log_var = self.conv_log_var(x_encoded)
@@ -294,7 +287,9 @@ class VAE(DeterministicPixelRegression):
         Returns:
             The samples.
         """
-        z = torch.randn(num_samples, self.latent_size, self.latent_image_dim, self.latent_image_dim).to(self.device)
+        z = torch.randn(
+            num_samples, self.latent_size, self.latent_image_dim, self.latent_image_dim
+        ).to(self.device)
         x_decoded = self.decoder(self.conv_init_decoder(z))
         return x_decoded
 

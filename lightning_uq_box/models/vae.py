@@ -8,13 +8,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchseg.base.modules import Conv2dReLU, Attention
 
+
 class DecoderBlock(nn.Module):
     def __init__(
-        self,
-        in_channels,
-        out_channels,
-        use_batchnorm=True,
-        attention_type=None,
+        self, in_channels, out_channels, use_batchnorm=True, attention_type=None
     ):
         super().__init__()
         self.conv1 = Conv2dReLU(
@@ -44,12 +41,12 @@ class DecoderBlock(nn.Module):
 class VAEDecoder(nn.Module):
     def __init__(
         self,
-        decoder_channels : int,
-        use_batchnorm : bool = True,
+        decoder_channels: int,
+        use_batchnorm: bool = True,
         attention_type: bool = None,
     ):
         """Initialize the VAE Decoder.
-        
+
         Args:
             bottleneck_channels: The number of channels in the bottleneck layer.
             decoder_channels: The number of channels in the decoder layers.
@@ -72,7 +69,7 @@ class VAEDecoder(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass for the Decoder.
-        
+
         Args:
             x: The input tensor, which is the encoding of the input image.
 
