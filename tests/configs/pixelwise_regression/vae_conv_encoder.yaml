@@ -1,13 +1,12 @@
 uq_method:
   _target_: lightning_uq_box.uq_methods.VAE
-  encoder:
-    _target_: torchseg.encoders.TimmEncoder
-    name: resnet18
-    depth: 2
+  model:
+    _target_: torchseg.Unet
+    encoder_name: resnet18
+    encoder_weights: imagenet
+    classes: 1 # number of channels for reconstruction loss
+    in_channels: 3
   latent_size: 10
-  img_size: 64
-  out_channels: 1
-  num_samples: 5
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true
