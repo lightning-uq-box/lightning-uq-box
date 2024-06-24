@@ -3,7 +3,7 @@
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the Apache License 2.0.
-# Adapted from ...
+# Adapted from https://github.com/cvlab-epfl/zigzag as a LightningModule
 
 
 """ZigZag Universal Sampling-free Uncertainty Estimation."""
@@ -73,12 +73,16 @@ class ZigZagBase(DeterministicModel):
         else:
             self.input_linear = False
 
-    def forward(self, x: Tensor, y: Tensor | None = None) -> Tensor:
+    def forward(
+        self, x: Tensor, y: Tensor | None = None, training: bool = False
+    ) -> Tensor:
         """Forward pass of Zig Zag method.
 
         Args:
             x: Input tensor.
             y: Target tensor.
+            training: Whether or not the model is in training mode,
+                which affects the Zig Zag operation for conv input layers
 
         Returns:
             Output of model with Zig Zag operation.
@@ -109,16 +113,19 @@ class ZigZagBase(DeterministicModel):
                     device=x.device,
                     dtype=x.dtype,
                 )
-                inputs_1 = torch.cat([x, self.blank_const * ones_tensor], dim=1)
-                # The second input with actual targets, the second term in Eq. 1
-                t_inputs = y.reshape(-1, 1, 1, 1) * ones_tensor
-                inputs_2 = torch.cat([x, t_inputs], dim=1)
+                if training:
+                    inputs_1 = torch.cat([x, self.blank_const * ones_tensor], dim=1)
+                    # The second input with actual targets, the second term in Eq. 1
+                    t_inputs = y.reshape(-1, 1, 1, 1) * ones_tensor
+                    inputs_2 = torch.cat([x, t_inputs], dim=1)
 
-                p = 0.5
-                mask = (
-                    torch.empty(inputs_1.shape[0], 1, 1, 1).uniform_(0, 1) > p
-                ).float()
-                x_in = inputs_1 * mask + inputs_2 * (1 - mask)
+                    p = 0.5
+                    mask = (
+                        torch.empty(inputs_1.shape[0], 1, 1, 1).uniform_(0, 1) > p
+                    ).float()
+                    x_in = inputs_1 * mask + inputs_2 * (1 - mask)
+                else:
+                    x_in = torch.cat([x, y.reshape(-1, 1, 1, 1) * ones_tensor], dim=1)
 
         return self.model(x_in)
 
@@ -145,7 +152,7 @@ class ZigZagBase(DeterministicModel):
             y_in = y
             y_target = y
 
-        out = self.forward(x_in, y_in)
+        out = self.forward(x_in, y_in, training=True)
         loss = self.loss_fn(out, y_target)
 
         # compute metrics only on the real input not the zigzag condition
@@ -181,7 +188,7 @@ class ZigZagBase(DeterministicModel):
             y_in = y
             y_target = y
 
-        out = self.forward(x_in, y_in)
+        out = self.forward(x_in, y_in, training=False)
         loss = self.loss_fn(out, y_target)
 
         # compute metrics only on the real input not the zigzag condition
@@ -191,7 +198,7 @@ class ZigZagBase(DeterministicModel):
             else:
                 self.val_metrics(out, y)
 
-        self.log("train_loss", loss, batch_size=X.shape[0])
+        self.log("val_loss", loss, batch_size=X.shape[0])
         return loss
 
     def test_step(
@@ -245,8 +252,8 @@ class ZigZagRegression(ZigZagBase):
             prediction dictionary
         """
         with torch.no_grad():
-            Y_1 = self.forward(X)
-            Y_2 = self.forward(X, Y_1)
+            Y_1 = self.forward(X, training=False)
+            Y_2 = self.forward(X, Y_1, training=False)
         return {"pred": Y_1, "pred_uct": torch.linalg.norm(Y_1 - Y_2, dim=1)}
 
     def on_test_batch_end(
@@ -331,11 +338,12 @@ class ZigZagClassification(ZigZagBase):
         Returns:
             prediction dictionary
         """
+        self.model.eval()
         with torch.no_grad():
-            Y_1 = self.forward(X)
+            Y_1 = self.forward(X, training=False)
             Y_1_softmax = torch.softmax(Y_1, dim=1)
             Y_1_labels = torch.argmax(Y_1_softmax, dim=1)
-            Y_2 = self.forward(X, Y_1_labels)
+            Y_2 = self.forward(X, Y_1_labels, training=False)
             Y_2_softmax = torch.softmax(Y_2, dim=1)
 
         return {
