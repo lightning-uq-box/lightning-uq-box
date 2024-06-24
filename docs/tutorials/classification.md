@@ -13,5 +13,6 @@ classification/sngp
 classification/laplace
 classification/masksembles
 classification/mc_dropout
+classification/zigzag_mnist
 classification/bnn_vi_elbo
 ```

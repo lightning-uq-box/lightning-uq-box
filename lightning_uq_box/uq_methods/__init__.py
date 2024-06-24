@@ -86,6 +86,7 @@ from .swag import (
 )
 from .temp_scaling import TempScaling
 from .vbll import VBLLClassification, VBLLRegression
+from .zigzag import ZigZagBase, ZigZagClassification, ZigZagRegression
 
 __all__ = (
     # Base Module
@@ -200,4 +201,8 @@ __all__ = (
     "TTABase",
     "TTARegression",
     "TTAClassification",
+    # Zig Zag
+    "ZigZagBase",
+    "ZigZagRegression",
+    "ZigZagClassification",
 )
