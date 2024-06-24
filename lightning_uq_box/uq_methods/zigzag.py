@@ -121,8 +121,10 @@ class ZigZagBase(DeterministicModel):
 
                     p = 0.5
                     mask = (
-                        torch.empty(inputs_1.shape[0], 1, 1, 1).uniform_(0, 1) > p
-                    ).float()
+                        (torch.empty(inputs_1.shape[0], 1, 1, 1).uniform_(0, 1) > p)
+                        .float()
+                        .to(x.device)
+                    )
                     x_in = inputs_1 * mask + inputs_2 * (1 - mask)
                 else:
                     x_in = torch.cat([x, y.reshape(-1, 1, 1, 1) * ones_tensor], dim=1)
