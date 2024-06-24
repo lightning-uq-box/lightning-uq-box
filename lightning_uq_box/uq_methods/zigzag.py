@@ -131,6 +131,22 @@ class ZigZagBase(DeterministicModel):
 
         return self.model(x_in)
 
+    def compute_loss(
+        self, x_in: Tensor, y_in: Tensor, target: Tensor, training: bool = False
+    ) -> Tensor:
+        """Compute loss for the model.
+
+        Args:
+            x_in: Input tensor.
+            y_in: y input tensor for Zig Zag step.
+            target: Target tensor.
+            training: Whether or not the model is in training mode,
+                which affects the Zig Zag operation for conv input layers
+        """
+        out = self.forward(x_in, y_in, training)
+        loss = self.loss_fn(out, target)
+        return out, loss
+
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -154,8 +170,7 @@ class ZigZagBase(DeterministicModel):
             y_in = y
             y_target = y
 
-        out = self.forward(x_in, y_in, training=True)
-        loss = self.loss_fn(out, y_target)
+        out, loss = self.compute_loss(x_in, y_in, y_target, training=True)
 
         # compute metrics only on the real input not the zigzag condition
         if X.shape[0] > 1:
@@ -190,8 +205,7 @@ class ZigZagBase(DeterministicModel):
             y_in = y
             y_target = y
 
-        out = self.forward(x_in, y_in, training=False)
-        loss = self.loss_fn(out, y_target)
+        out, loss = self.compute_loss(x_in, y_in, y_target, training=False)
 
         # compute metrics only on the real input not the zigzag condition
         if X.shape[0] > 1:

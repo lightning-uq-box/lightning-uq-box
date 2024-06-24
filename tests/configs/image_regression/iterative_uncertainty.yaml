@@ -1,0 +1,15 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.IterativeUncertaintyRegression
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    in_chans: 4 # num input channels + num_targets
+    num_classes: 1
+    drop_rate: 0.0
+  num_iter: 3
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  loss_fn:
+    _target_: torch.nn.MSELoss

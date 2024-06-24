@@ -46,6 +46,10 @@ from .deterministic_uncertainty_estimation import DUEClassification, DUERegressi
 from .hierarchical_prob_unet import HierarchicalProbUNet
 from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
+from .iterative_uncertainty import (
+    IterativeUncertaintyBase,
+    IterativeUncertaintyRegression,
+)
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
 from .loss_functions import NLL, DERLoss, PinballLoss
 from .masked_ensemble import (
@@ -128,6 +132,9 @@ __all__ = (
     "MasksemblesBase",
     "MasksemblesRegression",
     "MasksemblesClassification",
+    # Iterative Uncertainty Estimation
+    "IterativeUncertaintyBase",
+    "IterativeUncertaintyRegression",
     # Mean Variance Estimation Network
     "MVEBase",
     "MVERegression",
