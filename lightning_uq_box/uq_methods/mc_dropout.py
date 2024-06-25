@@ -139,6 +139,7 @@ class MCDropoutRegression(MCDropoutBase):
         model: nn.Module,
         num_mc_samples: int,
         loss_fn: nn.Module,
+        n_targets: int = 1,
         burnin_epochs: int = 0,
         dropout_layer_names: list[str] = [],
         freeze_backbone: bool = False,
@@ -151,6 +152,7 @@ class MCDropoutRegression(MCDropoutBase):
             model: pytorch model with dropout layers
             num_mc_samples: number of MC samples during prediction
             loss_fn: loss function
+            n_targets: number of regression targets
             burnin_epochs: number of burnin epochs before using the loss_fn
             dropout_layer_names: names of dropout layers to activate during prediction
             freeze_backbone: freeze backbone during training
@@ -158,6 +160,7 @@ class MCDropoutRegression(MCDropoutBase):
             lr_scheduler: learning rate scheduler
                 from the predictive distribution
         """
+        self.n_targets = n_targets
         super().__init__(
             model,
             num_mc_samples,
@@ -173,9 +176,9 @@ class MCDropoutRegression(MCDropoutBase):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
-        self.train_metrics = default_regression_metrics("train")
-        self.val_metrics = default_regression_metrics("val")
-        self.test_metrics = default_regression_metrics("test")
+        self.train_metrics = default_regression_metrics("train", self.n_targets)
+        self.val_metrics = default_regression_metrics("val", self.n_targets)
+        self.test_metrics = default_regression_metrics("test", self.n_targets)
 
     def freeze_model(self) -> None:
         """Freeze model backbone.
@@ -188,8 +191,12 @@ class MCDropoutRegression(MCDropoutBase):
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation.."""
-        assert out.shape[-1] <= 2, "Ony support single mean or Gaussian output."
-        return out[:, 0:1]
+        if out.dim() == 3:
+            return out[:, 0, :]
+        elif out.dim() == 2 and out.shape[1] == self.n_targets:
+            return out
+        else:
+            return out[:, 0:1]
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -239,7 +246,7 @@ class MCDropoutRegression(MCDropoutBase):
                 [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
-        return process_regression_prediction(preds)
+        return process_regression_prediction(preds, num_targets=self.n_targets)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -484,6 +491,7 @@ class MCDropoutPxRegression(MCDropoutRegression):
         model: nn.Module,
         num_mc_samples: int,
         loss_fn: nn.Module,
+        n_targets: int = 1,
         burnin_epochs: int = 0,
         dropout_layer_names: list[str] = [],
         freeze_backbone: bool = False,
@@ -498,6 +506,7 @@ class MCDropoutPxRegression(MCDropoutRegression):
             model: pytorch model with dropout layers
             num_mc_samples: number of MC samples during prediction
             loss_fn: loss function
+            n_targets: number of regression targets per pixel
             burnin_epochs: number of burnin epochs before using the loss_fn
             dropout_layer_names: names of dropout layers to activate during prediction
             freeze_backbone: freeze backbone during training
@@ -511,6 +520,7 @@ class MCDropoutPxRegression(MCDropoutRegression):
             model,
             num_mc_samples,
             loss_fn,
+            n_targets,
             burnin_epochs,
             dropout_layer_names,
             freeze_backbone,

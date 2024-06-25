@@ -1,0 +1,5 @@
+data:
+  class_path: lightning_uq_box.datamodules.ToyMultiRegressionDataModule
+  init_args:
+    n_features: 4
+    n_targets: 3
