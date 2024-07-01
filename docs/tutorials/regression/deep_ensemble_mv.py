@@ -23,14 +23,14 @@ import lightning as L
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
-from pathlib import Path
 import requests
-import torch
 import tempfile
+import torch
 
 from functools import partial
 from lightning_uq_box.uq_methods import MVEPxRegression, DeepEnsemblePxRegression
 from matplotlib.lines import Line2D
+from pathlib import Path
 
 # set the seeds to make the notebook reproducible
 L.seed_everything(41)
@@ -165,6 +165,7 @@ x_.shape
 # + [markdown] jupyter={"outputs_hidden": false}
 # #### Creating the CNN model
 # -
+
 
 def create_fcn(inshape=x_.shape, channels=32, dropout=0.3, nlayers=3):
     "a fully 1D convolutional network (fcn) to process the input signal"
@@ -406,13 +407,21 @@ y_mean = preds["pred"].cpu().numpy()  # B x 1 x X
 y_std = preds["pred_uct"].unsqueeze(1).cpu().numpy()  # B x 1 x X
 print(y_mean.shape, y_std.shape, y_test.numpy().shape)
 
-
 # + jupyter={"outputs_hidden": false}
 ax = plot_calibration(y_mean.flatten(), y_std.flatten(), y_test.numpy().flatten())
 
 # + [markdown] jupyter={"outputs_hidden": false}
-# As the calibration curve is above the diagonal, we would consider this DeepEnsemble approximation quite bad and unusable. The miscalibration area is rather large which suggests that our predictor is underconfident and we should probably consider methods for recalibrating our uncertainties or try out other models for better performance.
+# As the calibration curve is above the diagonal, we would consider this DeepEnsemble approximation quite bad and unusable. The miscalibration area is rather large which suggests that our predictor is underconfident. 
+#
+# However, when looking at the calibration of the uncertainty for all 40 signal positions individually, we see that it is rather well calibrated at those positions where we actually altered the signal (i.e. the first six positions).
 # -
+
+for xidx in range(y_mean.shape[-1]):
+    ax = plot_calibration(
+        y_mean[:, 0, xidx], y_std[:, 0, xidx], y_test.numpy()[:, 0, xidx]
+    )
+    plt.show()
+    plt.suptitle(f"Xidx={xidx}")
 
 # ## Step 7: Clean-up
 #
