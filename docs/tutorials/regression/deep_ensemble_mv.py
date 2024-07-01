@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import requests
+import shutil
 import tempfile
 import torch
 
@@ -31,6 +32,7 @@ from functools import partial
 from lightning_uq_box.uq_methods import MVEPxRegression, DeepEnsemblePxRegression
 from matplotlib.lines import Line2D
 from pathlib import Path
+from uncertainty_toolbox.viz import plot_calibration
 
 # set the seeds to make the notebook reproducible
 L.seed_everything(41)
@@ -136,7 +138,7 @@ fig, ax = plt.subplots(1, n, figsize=(15, 3), sharey=True)
 for i in range(n):
     ax[i].plot(xaxis, x_[i, 0, ...], label="original")
     ax[i].plot(xaxis[mask_slice], x_[i, 0, mask_slice], color="y", label="masked")
-    ax[i].set_title(f"input x")
+    ax[i].set_title("input x")
 ax[n - 1].legend()
 
 
@@ -144,7 +146,7 @@ fig, ax = plt.subplots(1, n, figsize=(15, 3), sharey=True)
 for i in range(n):
     ax[i].plot(xaxis, y[i, 0, ...], label="original")
     ax[i].plot(xaxis[mask_slice], y[i, 0, mask_slice], color="y", label="masked")
-    ax[i].set_title(f"output y")
+    ax[i].set_title("output y")
 
 # + [markdown] jupyter={"outputs_hidden": false}
 # Convert everything to a `torch.Tensor` object.
@@ -401,8 +403,6 @@ plt.show()
 # An important aspect of uncertainty quantification is to assess if the uncertainties are of high quality. Note, this simultaneously assesses the calibration across all entries of the prediction and hence might not show whether uncertainties are better calibrated in certain ranges of the signal domain.
 
 # + jupyter={"outputs_hidden": false}
-from uncertainty_toolbox.viz import plot_calibration
-
 y_mean = preds["pred"].cpu().numpy()  # B x 1 x X
 y_std = preds["pred_uct"].unsqueeze(1).cpu().numpy()  # B x 1 x X
 print(y_mean.shape, y_std.shape, y_test.numpy().shape)
@@ -411,7 +411,7 @@ print(y_mean.shape, y_std.shape, y_test.numpy().shape)
 ax = plot_calibration(y_mean.flatten(), y_std.flatten(), y_test.numpy().flatten())
 
 # + [markdown] jupyter={"outputs_hidden": false}
-# As the calibration curve is above the diagonal, we would consider this DeepEnsemble approximation quite bad and unusable. The miscalibration area is rather large which suggests that our predictor is underconfident. 
+# As the calibration curve is above the diagonal, we would consider this DeepEnsemble approximation quite bad and unusable. The miscalibration area is rather large which suggests that our predictor is underconfident.
 #
 # However, when looking at the calibration of the uncertainty for all 40 signal positions individually, we see that it is rather well calibrated at those positions where we actually altered the signal (i.e. the first six positions).
 # -
@@ -428,6 +428,4 @@ for xidx in range(y_mean.shape[-1]):
 # In case you do not want to keep the trained models and logging information, the created data should be removed. Uncomment the line below to do this.
 
 # +
-import shutil
-
 # shutil.rmtree(my_temp_dir)
