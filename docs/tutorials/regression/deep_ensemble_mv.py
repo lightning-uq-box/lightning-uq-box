@@ -42,8 +42,6 @@ L.seed_everything(41)
 
 
 # + jupyter={"outputs_hidden": false}
-
-
 data_filename = "mnist1d_data.pkl"
 with open(data_filename, "wb") as out_file:
     out_file.write(
@@ -163,11 +161,10 @@ x_test_, y_test = (
 
 x_.shape
 
+
 # + [markdown] jupyter={"outputs_hidden": false}
-# # creating the models
-
-# +
-
+# #### Creating the CNN model
+# -
 
 def create_fcn(inshape=x_.shape, channels=32, dropout=0.3, nlayers=3):
     "a fully 1D convolutional network (fcn) to process the input signal"
@@ -230,7 +227,16 @@ pred_dict = ensemble_member.predict_step(x_example)
 for k in pred_dict:
     print(k, pred_dict[k].shape)
 # + [markdown] jupyter={"outputs_hidden": false}
-# ## Perform Training
+# ## Step 4: Training of ensembles of models
+# + [markdown] jupyter={"outputs_hidden": false}
+# #### Create a deep ensemble based estimate
+#
+# The idea of Deep Ensembles was published in 2017 in
+# http://arxiv.org/abs/1612.01474.
+#
+# The core idea is to train multiple models on the same dataset. Each model then acts as a predictor to sample the uncertainties predicted. To this end, the more predictors you train, the longer your training will last as this is performed sequentially here, but, in theory this could also be parallelized.
+#
+#
 
 # + jupyter={"outputs_hidden": false}
 batch_size = 128
@@ -238,11 +244,7 @@ epochs = 15
 validation_interval = 1  # every how many epochs should we run validation
 
 
-# + [markdown] jupyter={"outputs_hidden": false}
-# ## Step 4: Training of ensembles of models
 # +
-
-
 def collate_to_dict(samples):
     """
     The library expects batches to be dictionaries with 'input' and 'target'
@@ -272,16 +274,6 @@ val_loader = torch.utils.data.DataLoader(
     collate_fn=collate_to_dict,
 )
 
-# + [markdown] jupyter={"outputs_hidden": false}
-# ## Create a deep ensemble based estimate
-#
-# The idea of Deep Ensembles was published in 2017 in
-# http://arxiv.org/abs/1612.01474
-#
-# The core idea is to train multiple models on the same dataset. Each model then acts as a predictor to sample the uncertainties predicted. To this end, the more predictors you train, the longer your training will last as this is performed sequentially here, but, in theory this could also be parallelized.
-#
-#
-
 # + jupyter={"outputs_hidden": false}
 n_ensembles = 8  # number of models to be trained
 trained_models_nll = []
@@ -309,9 +301,7 @@ for i in range(n_ensembles):
     trained_models_nll.append({"base_model": ensemble_member, "ckpt_path": save_path})
 # -
 
-# ## Step 5: Model inference
-# + [markdown] jupyter={"outputs_hidden": false}
-# ### How to do predictions?
+# ## Step 5: Model inference - How to do predictions?
 #
 # We average across all predictions. The core assumption of the DeepEnsemble approach is, that a prediction is created by a Gaussian mixture model, where mixture elements are the individual model predictions, which are considered to be gaussian as well.
 
@@ -421,8 +411,14 @@ print(y_mean.shape, y_std.shape, y_test.numpy().shape)
 ax = plot_calibration(y_mean.flatten(), y_std.flatten(), y_test.numpy().flatten())
 
 # + [markdown] jupyter={"outputs_hidden": false}
-# As the calibration curve is above the diagonal, we would consider this DeepEnsemble approximation quite bad and unusable. The miscalibration area is rather large which suggests that our predictor is underconfident, i.e. when the predicted "uncertainty" should be `0.4` say, the observed uncertainty is much lower (`0.07`).
-#
+# As the calibration curve is above the diagonal, we would consider this DeepEnsemble approximation quite bad and unusable. The miscalibration area is rather large which suggests that our predictor is underconfident and we should probably consider methods for recalibrating our uncertainties or try out other models for better performance.
+# -
 
-# + [markdown] jupyter={"outputs_hidden": false}
+# ## Step 7: Clean-up
 #
+# In case you do not want to keep the trained models and logging information, the created data should be removed. Uncomment the line below to do this.
+
+# +
+import shutil
+
+# shutil.rmtree(my_temp_dir)
