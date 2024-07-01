@@ -21,6 +21,7 @@ regression/deep_kernel_learning
 regression/vbll
 regressoin/vbll_sngp
 regression/deep_ensemble
+regression/deep_ensemble_mv
 regression/masksemble_mse
 regression/masksemble_nll
 regression/card
