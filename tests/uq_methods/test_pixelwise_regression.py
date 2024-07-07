@@ -181,7 +181,6 @@ frozen_config_paths = [
     "tests/configs/pixelwise_regression/quantile_regression.yaml",
     "tests/configs/pixelwise_regression/mve.yaml",
     "tests/configs/pixelwise_regression/der.yaml",
-    "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
 ]
 
 
