@@ -11,7 +11,6 @@ from .cards import (
 )
 from .fc_resnet import FCResNet
 from .mlp import MLP
-from .vae import VAEDecoder
 
 __all__ = (
     # Toy Example architecture
@@ -23,6 +22,4 @@ __all__ = (
     "DiffusionSequential",
     # Fully Connected Residual Network
     "FCResNet",
-    # VAE Decoder
-    "VAEDecoder",
 )

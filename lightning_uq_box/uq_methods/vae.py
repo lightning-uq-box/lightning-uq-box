@@ -13,7 +13,7 @@ from lightning.pytorch.utilities import rank_zero_only
 from torch import Tensor
 from torch.optim.adam import Adam as Adam
 
-from lightning_uq_box.models import VAEDecoder
+from lightning_uq_box.models.vae import VAEDecoder
 
 from .base import DeterministicPixelRegression
 from .loss_functions import VAELoss
