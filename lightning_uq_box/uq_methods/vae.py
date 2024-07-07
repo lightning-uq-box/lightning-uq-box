@@ -5,13 +5,13 @@
 
 from typing import Any
 
-import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities import rank_zero_only
 from torch import Tensor
 from torch.optim.adam import Adam as Adam
+from torchvision.utils import make_grid, save_image
 
 from lightning_uq_box.models.vae import VAEDecoder
 
@@ -277,15 +277,11 @@ class VAE(DeterministicPixelRegression):
         with torch.no_grad():
             sampled_imgs = self.sample(num_samples=16).detach()
 
-        fig, ax = plt.subplots(4, 4, figsize=(32, 32))
-        for i in range(16):
-            ax[i // 4, i % 4].imshow(sampled_imgs[i].cpu().numpy().transpose(1, 2, 0))
-            ax[i // 4, i % 4].axis("off")
-        plt.tight_layout()
-        fig.savefig(
-            self.trainer.default_root_dir + f"/sample_{self.trainer.global_step}.png"
+        grid = make_grid(sampled_imgs, nrow=4, normalize=True)
+        save_image(
+            grid,
+            self.trainer.default_root_dir + f"/sample_{self.trainer.global_step}.png",
         )
-        plt.close()
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
