@@ -19,6 +19,7 @@ from lightning_uq_box.main import get_uq_box_cli
 from lightning_uq_box.uq_methods import DeepEnsembleRegression
 
 model_config_paths = [
+    "tests/configs/regression/zigzag.yaml",
     "tests/configs/regression/masked_ensemble_mse.yaml",
     "tests/configs/regression/masked_ensemble_nll.yaml",
     "tests/configs/regression/mc_dropout_mse.yaml",

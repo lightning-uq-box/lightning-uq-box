@@ -223,7 +223,6 @@ class DeterministicModel(BaseModule):
                 self.adapt_output_for_metrics(out_dict["pred"]), batch[self.target_key]
             )
 
-        # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         out_dict = self.add_aux_data_to_dict(out_dict, batch)
