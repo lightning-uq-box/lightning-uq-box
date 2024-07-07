@@ -34,6 +34,8 @@ class ZigZagBase(DeterministicModel):
     If you use this method in your work, please cite:
 
     * https://openreview.net/forum?id=QSvb6jBXML
+
+    .. versionadded:: 0.2
     """
 
     def __init__(
@@ -226,6 +228,8 @@ class ZigZagRegression(ZigZagBase):
     If you use this method in your work, please cite:
 
     * https://openreview.net/forum?id=QSvb6jBXML
+
+    .. versionadded:: 0.2
     """
 
     pred_file_name = "preds.csv"
@@ -280,6 +284,7 @@ class ZigZagClassification(ZigZagBase):
 
     * https://openreview.net/forum?id=QSvb6jBXML
 
+    .. versionadded:: 0.2
     """
 
     pred_file_name = "preds.csv"

@@ -475,7 +475,10 @@ class MCDropoutSegmentation(MCDropoutClassification):
 
 
 class MCDropoutPxRegression(MCDropoutRegression):
-    """MC-Dropout Model for Pixel-wise Regression."""
+    """MC-Dropout Model for Pixel-wise Regression.
+    
+    .. versionadded:: 0.2.0
+    """
 
     pred_dir_name = "preds"
 

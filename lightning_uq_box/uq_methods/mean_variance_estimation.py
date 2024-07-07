@@ -157,7 +157,10 @@ class MVERegression(MVEBase):
 
 
 class MVEPxRegression(DeterministicPixelRegression):
-    """Mean Variance Estimation Model for Pixelwise Regression with NLL."""
+    """Mean Variance Estimation Model for Pixelwise Regression with NLL.
+    
+    .. versionadded:: 0.2.0
+    """
 
     pred_dir_name = "preds"
 

@@ -27,7 +27,8 @@ class VBLLRegression(DeterministicRegression):
     If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2404.11599
-
+    
+    .. versionadded:: 0.2
     """
 
     def __init__(
@@ -254,6 +255,8 @@ class VBLLClassification(DeterministicClassification):
     If you use this method in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2404.11599
+
+    .. versionadded:: 0.2
     """
 
     valid_layer_types = ["disc", "gen"]
