@@ -197,7 +197,7 @@ class DER(DeterministicModel):
 
 class DERPxRegression(DER):
     """Deep Evidential Regression Model for Pixelwise Regression with NLL.
-    
+
     .. versionadded:: 0.2.0
     """
 

@@ -27,7 +27,7 @@ class VBLLRegression(DeterministicRegression):
     If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2404.11599
-    
+
     .. versionadded:: 0.2
     """
 

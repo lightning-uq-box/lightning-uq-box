@@ -177,7 +177,7 @@ class QuantileRegression(QuantileRegressionBase):
 
 class QuantilePxRegression(QuantileRegressionBase):
     """Quantile Regression for Pixelwise Regression.
-    
+
     .. versionadded:: 0.2.0
     """
 

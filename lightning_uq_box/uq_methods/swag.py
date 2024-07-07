@@ -619,7 +619,7 @@ class SWAGSegmentation(SWAGClassification):
 
 class SWAGPxRegression(SWAGRegression):
     """SWAG Model for Pixelwise Regression.
-    
+
     .. versionadded:: 0.2.0
     """
 
