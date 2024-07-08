@@ -48,6 +48,7 @@ from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .iterative_uncertainty import (
     IterativeUncertaintyBase,
+    IterativeUncertaintyClassification,
     IterativeUncertaintyRegression,
 )
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
@@ -135,6 +136,7 @@ __all__ = (
     # Iterative Uncertainty Estimation
     "IterativeUncertaintyBase",
     "IterativeUncertaintyRegression",
+    "IterativeUncertaintyClassification",
     # Mean Variance Estimation Network
     "MVEBase",
     "MVERegression",

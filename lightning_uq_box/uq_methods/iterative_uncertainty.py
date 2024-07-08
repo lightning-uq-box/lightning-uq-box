@@ -12,11 +12,19 @@ import os
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 from torch.optim.adam import Adam as Adam
 
-from .utils import default_regression_metrics, save_regression_predictions
+from .utils import (
+    _get_num_outputs,
+    default_classification_metrics,
+    default_regression_metrics,
+    process_classification_prediction,
+    save_classification_predictions,
+    save_regression_predictions,
+)
 from .zigzag import ZigZagBase
 
 
@@ -61,7 +69,7 @@ class IterativeUncertaintyBase(ZigZagBase):
 
     def compute_loss(
         self, x_in: Tensor, y_in: Tensor, target: Tensor, training: bool = False
-    ) -> Tensor:
+    ) -> tuple[Tensor]:
         """Compute loss for iterative uncertainty estimation.
 
         Args:
@@ -70,6 +78,9 @@ class IterativeUncertaintyBase(ZigZagBase):
             target: Target tensor.
             training: Whether or not the model is in training mode,
                 which affects the Zig Zag operation for conv input layers
+
+        Returns:
+            last output and loss
         """
         Y_t = self.forward(x_in, y_in, training)
         loss = self.loss_fn(Y_t, target)
@@ -137,5 +148,135 @@ class IterativeUncertaintyRegression(IterativeUncertaintyBase):
             dataloader_idx: dataloader index
         """
         save_regression_predictions(
+            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+        )
+
+
+class IterativeUncertaintyClassification(IterativeUncertaintyBase):
+    """Iterative Uncertainty Estimation for Classification.
+
+    If you use this method in your work, please cite:
+
+    * https://arxiv.org/abs/2403.16732
+    """
+
+    pred_file_name = "preds.csv"
+
+    valid_tasks = ["binary", "multiclass", "multilable"]
+
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        num_iter: int = 3,
+        blank_const: int = -100,
+        task: str = "multiclass",
+        freeze_backbone: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable | None = None,
+    ) -> None:
+        """Initialize Iterative Uncertainty Classification.
+
+        Args:
+            model: PyTorch model.
+            loss_fn: Loss function.
+            num_iter: Number of iterations for iterative uncertainty procedure
+            blank_const: constant for the blank zig zag input, should be a
+                value far from training targets
+            task: what kind of classification task, choose one of
+                ["binary", "multiclass", "multilabel"]
+            freeze_backbone: Whether or not to freeze the backbone.
+            optimizer: Optimizer.
+            lr_scheduler: Learning rate scheduler.
+        """
+        self.num_classes = _get_num_outputs(model)
+        assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
+        self.task = task
+        super().__init__(
+            model,
+            loss_fn,
+            num_iter,
+            blank_const,
+            freeze_backbone,
+            optimizer,
+            lr_scheduler,
+        )
+
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.train_metrics = default_classification_metrics(
+            "train", self.task, self.num_classes
+        )
+        self.val_metrics = default_classification_metrics(
+            "val", self.task, self.num_classes
+        )
+        self.test_metrics = default_classification_metrics(
+            "test", self.task, self.num_classes
+        )
+
+    def compute_loss(
+        self, x_in: Tensor, y_in: Tensor, target: Tensor, training: bool = False
+    ) -> tuple[Tensor]:
+        """Compute loss for iterative uncertainty estimation.
+
+        Args:
+            x_in: Input tensor.
+            y_in: y input tensor for Zig Zag step.
+            target: Target tensor.
+            training: Whether or not the model is in training mode,
+                which affects the Zig Zag operation for conv input layers
+
+        Returns:
+            last output and loss
+        """
+        Y_t = self.model.forward(x_in, None)
+        loss = self.loss_fn(Y_t, target)
+
+        for _ in range(self.num_iter):
+            Y_t = self.model.forward(x_in, Y_t.detach())
+            loss += self.loss_fn(Y_t, target)
+        #     import pdb
+        #     pdb.set_trace()
+        #     Y_t = self.forward(x_in, F.log_softmax(Y_t.detach(), dim=-1))
+        #     loss += self.loss_fn(Y_t, target)
+
+        return Y_t, loss
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step for iterative uncertainty estimation for classification.
+
+        Args:
+            X: input tensor.
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+
+        Returns:
+            prediction dictionary
+        """
+        preds: list[Tensor] = []
+        with torch.no_grad():
+            Y_t = self.forward(X, training=False)
+            preds.append(Y_t)
+            for _ in range(self.num_iter):
+                Y_t = self.forward(X, Y_t, training=False)
+                preds.append(Y_t)
+
+            preds = F.log_softmaxtorch.stack(preds)
+
+        return process_classification_prediction(preds)
+
+    def on_test_batch_end(
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_classification_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
