@@ -300,7 +300,7 @@ class VAE(DeterministicPixelRegression):
         Returns:
             Prediction dictionary
         """
-        x_encoded = self.encoder(X)[-1]
+        x_encoded = self.encoder_forward(X)
 
         # encode the latent space once
         mu = self.latent_mu(x_encoded)
@@ -342,7 +342,7 @@ class ConditionalVAE(VAE):
         num_samples: int,
         out_channels: int,
         img_size: int,
-        num_classes: int,
+        num_conditions: int,
         loss_fn: nn.Module | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
@@ -355,19 +355,20 @@ class ConditionalVAE(VAE):
         Args:
             encoder: Torchseg model.
             latent_size: The size of the latent space.
-            num_classes: The number of classes.
+            num_samples: The number of samples to draw from the latent space for prediction.
             out_channels: The number of output channels.
             img_size: The size of the input image, needed to configure the decoder and
                 sampling procedure
+            num_conditions: The number of discrete conditions, for example
+                class labels (in the case of MNIST this would be 10)
             loss_fn: The loss function, by default :class:`~.loss_functions.VAELoss`.
-            num_samples: The number of samples to draw from the latent space for prediction.
             freeze_backbone: Whether to freeze the backbone.
             freeze_decoder: Whether to freeze the decoder.
             optimizer: The optimizer to use.
             lr_scheduler: The learning rate scheduler.
             save_preds: Whether to save predictions.
         """
-        self.num_classes = num_classes
+        self.num_conditions = num_conditions
 
         super().__init__(
             encoder,
@@ -388,17 +389,17 @@ class ConditionalVAE(VAE):
         super().configure_model()
 
         # Additionally also define class embedding
-        self.embed_dim = 3
+        self.embed_dim = 1
         self.cond_embed = nn.Sequential(
-            nn.Linear(1, self.num_classes),
+            nn.Linear(1, self.num_conditions),
             nn.ReLU(),
-            nn.Linear(self.num_classes, self.embed_dim),
+            nn.Linear(self.num_conditions, self.embed_dim),
         )
 
         # init_decoder takes in latent space plus class conditional
         self.latent_init_decoder = nn.Sequential(
             nn.Linear(
-                self.latent_size + 1,
+                self.latent_size + self.embed_dim,
                 self.latent_size * self.latent_feature_dim * self.latent_feature_dim,
             ),
             nn.Unflatten(
@@ -455,6 +456,71 @@ class ConditionalVAE(VAE):
 
         return x_recon, mu, log_var
 
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Test step.
+
+        Args:
+            batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
+
+        Returns:
+            prediction dictionary
+        """
+        out_dict = self.predict_step(
+            batch[self.input_key],
+            cond=batch["condition"] if "condition" in batch else None,
+        )
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
+
+        if batch[self.input_key].shape[0] > 1:
+            self.test_metrics(
+                self.adapt_output_for_metrics(out_dict["pred"]), batch[self.target_key]
+            )
+
+        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
+
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
+
+        if "out" in out_dict:
+            del out_dict["out"]
+
+        return out_dict
+
+    def predict_step(
+        self, X: Tensor, cond: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction Step with Conditional VAE.
+
+        Args:
+            X: The input tensor.
+            cond: The condition tensor.
+            batch_idx: The index of the batch.
+            dataloader_idx: The index of the dataloader.
+
+        Returns:
+            Prediction dictionary
+        """
+        x_encoded = self.encoder_forward(X, cond)
+
+        # encode the latent space once
+        mu = self.latent_mu(x_encoded)
+        log_var = self.latent_log_var(x_encoded)
+
+        # sample latent space and decode
+        self.predictions: list[Tensor] = []
+        for _ in range(self.num_samples):
+            z = self.reparameterization_trick(mu, log_var)
+            x = self.latent_init_decoder(torch.cat([z, cond.float()], dim=1))
+            x = self.decoder(x)
+            self.predictions.append(x)
+
+        preds = torch.stack(self.predictions, dim=-1)
+
+        return {"pred": preds.mean(dim=-1), "pred_uct": preds.std(dim=-1)}
+
     def sample(self, num_samples: int = 16, cond: Tensor | None = None) -> Tensor:
         """Sample with conditioning from the VAE.
 
@@ -467,6 +533,8 @@ class ConditionalVAE(VAE):
         """
         z = torch.randn(num_samples, self.latent_size).to(self.device)
         if cond is None:
-            cond = torch.randint(0, self.num_classes, (num_samples, 1)).to(self.device)
+            cond = torch.randint(0, self.num_conditions, (num_samples, 1)).to(
+                self.device
+            )
         x_decoded = self.decoder(self.latent_init_decoder(torch.cat([z, cond], dim=1)))
         return x_decoded

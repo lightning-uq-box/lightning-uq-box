@@ -214,7 +214,16 @@ class DeterministicModel(BaseModule):
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
-        """Test step."""
+        """Test step.
+
+        Args:
+            batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
+
+        Returns:
+            prediction dictionary
+        """
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
 
