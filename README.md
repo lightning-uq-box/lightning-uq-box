@@ -51,6 +51,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Quantile Regression (QR)                      |     ✅     |       ❌       |      ❌      |          ✅           |
 | Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ✅           |
 | Mean Variance Estimation (MVE)                |     ✅     |       ❌       |      ❌      |          ✅           |
+| ZigZag                                        |     ✅     |       ✅       |      ❌      |          ❌           |
 
 ### Approximate Bayesian Methods
 
@@ -76,6 +77,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Classification And Regression Diffusion (CARD)|     ✅     |       ✅       |      ❌      |          ❌           |
 | Probabilistic UNet                            |     ❌     |       ❌       |      ✅      |          ❌           |
 | Hierarchical Probabilistic UNet               |     ❌     |       ❌       |      ✅      |          ❌           |
+| Variational Auto-Encoder (VAE)                |     ❌     |       ❌       |      ❌      |          ✅           |
 
 ### Post-Hoc methods
 

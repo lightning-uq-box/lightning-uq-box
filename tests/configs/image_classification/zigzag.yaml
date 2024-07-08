@@ -1,0 +1,14 @@
+model:
+  _target_: lightning_uq_box.uq_methods.ZigZagClassification
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    in_chans: 4 # num input channels + 1
+    num_classes: 4
+    drop_rate: 0.1
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  loss_fn:
+    _target_: torch.nn.CrossEntropyLoss

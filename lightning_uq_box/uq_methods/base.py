@@ -214,7 +214,16 @@ class DeterministicModel(BaseModule):
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
-        """Test step."""
+        """Test step.
+
+        Args:
+            batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
+
+        Returns:
+            prediction dictionary
+        """
         out_dict = self.predict_step(batch[self.input_key])
         out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
 
@@ -223,7 +232,6 @@ class DeterministicModel(BaseModule):
                 self.adapt_output_for_metrics(out_dict["pred"]), batch[self.target_key]
             )
 
-        # turn mean to np array
         out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
 
         out_dict = self.add_aux_data_to_dict(out_dict, batch)

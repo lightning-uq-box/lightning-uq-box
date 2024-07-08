@@ -41,4 +41,5 @@ class ToyPixelWiseRegressionDataset(Dataset):
             "target": target,
             "index": idx,
             "aux": "random_aux_data",
+            "condition": torch.randint(low=0, high=10, size=(1,), dtype=torch.float32),
         }

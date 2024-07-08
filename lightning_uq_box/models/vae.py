@@ -1,18 +1,32 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the MIT License.
 
-"""Adapted from torchseg: https://github.com/isaaccorley/torchseg/blob/main/torchseg/decoders/unet/decoder.py"""
+"""Adapted from torchseg: https://github.com/isaaccorley/torchseg/blob/main/torchseg/decoders/unet/decoder.py."""
 
-from torch import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
-from torchseg.base.modules import Conv2dReLU, Attention
+from torch import Tensor
+from torchseg.base.modules import Attention, Conv2dReLU
 
 
 class DecoderBlock(nn.Module):
+    """Decoder Block."""
+
     def __init__(
-        self, in_channels, out_channels, use_batchnorm=True, attention_type=None
+        self,
+        in_channels: int,
+        out_channels: int,
+        use_batchnorm: bool = True,
+        attention_type=None,
     ):
+        """Initialize the Decoder Block.
+
+        Args:
+            in_channels: The number of input channels.
+            out_channels: The number of output channels.
+            use_batchnorm: Whether to use batch normalization.
+            attention_type: The type of attention module to use.
+        """
         super().__init__()
         self.conv1 = Conv2dReLU(
             in_channels,
@@ -30,7 +44,15 @@ class DecoderBlock(nn.Module):
         )
         self.attention2 = Attention(attention_type, in_channels=out_channels)
 
-    def forward(self, x: Tensor):
+    def forward(self, x: Tensor) -> Tensor:
+        """Forward pass for the Decoder Block.
+
+        Args:
+            x: The input tensor.
+
+        Returns:
+            The output tensor.
+        """
         x = F.interpolate(x, scale_factor=2, mode="nearest")
         x = self.conv1(x)
         x = self.conv2(x)
@@ -39,6 +61,8 @@ class DecoderBlock(nn.Module):
 
 
 class VAEDecoder(nn.Module):
+    """VAE Decoder."""
+
     def __init__(
         self,
         decoder_channels: int,

@@ -2,24 +2,16 @@
 # Licensed under the Apache License 2.0.
 """Test pixelwise regression task."""
 
-import glob
 import os
-import re
 from pathlib import Path
-from typing import Any
 
 import h5py
 import pytest
-import torch
 from hydra.utils import instantiate
 from lightning import Trainer
 from lightning.pytorch import seed_everything
 from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
-from pytest import TempPathFactory
-
-from lightning_uq_box.datamodules import ToyPixelwiseRegressionDataModule
-from lightning_uq_box.uq_methods import DeepEnsemblePxRegression
 
 seed_everything(0)
 
@@ -32,6 +24,7 @@ model_config_paths = [
     # "tests/configs/pixelwise_regression/swag.yaml",
     "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
     # "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_conditional.yaml",
 ]
 
 data_config_paths = ["tests/configs/pixelwise_regression/toy_pixelwise_regression.yaml"]
@@ -68,9 +61,9 @@ class TestPixelwiseRegressionTask:
         with h5py.File(os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r") as f:
             assert "pred" in f
             assert "target" in f
-            for key, value in f.items():
-                assert value.shape[-1] == datamodule.image_size
-                assert value.shape[-2] == datamodule.image_size
+            for key in ["pred", "target"]:
+                assert f[key].shape[-1] == datamodule.image_size
+                assert f[key].shape[-2] == datamodule.image_size
             assert "aux" in f.attrs
             assert "index" in f.attrs
 
