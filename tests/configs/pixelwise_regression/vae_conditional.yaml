@@ -1,0 +1,16 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.ConditionalVAE
+  encoder:
+    _target_: torchseg.encoders.TimmEncoder
+    name: resnet18
+    depth: 2
+    in_channels: 6 # 6 channels: 3 for the image and 3 for the condition embed
+  latent_size: 10
+  img_size: 64
+  out_channels: 1
+  num_samples: 5
+  num_classes: 10
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
