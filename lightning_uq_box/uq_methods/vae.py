@@ -124,19 +124,18 @@ class VAE(DeterministicPixelRegression):
                 param.requires_grad = False
 
     def configure_model(self) -> None:
-        """Configure the latent net and decoder."""
-        # decoder_channels = [info["num_chs"] for info in self.encoder.feature_info][::-1]
+        """Configure all model parts."""
         decoder_channels = self.encoder.out_channels[::-1]
         # replace last decoder channel with final output channel
         decoder_channels[-1] = self.out_channels
 
-        latent_channels = decoder_channels[0]
+        self.latent_channels = decoder_channels[0]
 
         self.latent_feature_dim = self.img_size // self.encoder.reductions[-1]
 
         # TODO: change this to be sequential to a linear latent space
         self.latent_mu = nn.Sequential(
-            nn.Conv2d(latent_channels, self.latent_size, 1, 1),
+            nn.Conv2d(self.latent_channels, self.latent_size, 1, 1),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(
@@ -145,7 +144,7 @@ class VAE(DeterministicPixelRegression):
             ),
         )
         self.latent_log_var = nn.Sequential(
-            nn.Conv2d(latent_channels, self.latent_size, 1, 1),
+            nn.Conv2d(self.latent_channels, self.latent_size, 1, 1),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(
@@ -162,7 +161,7 @@ class VAE(DeterministicPixelRegression):
             nn.Unflatten(
                 1, (self.latent_size, self.latent_feature_dim, self.latent_feature_dim)
             ),
-            nn.Conv2d(self.latent_size, latent_channels, 1, 1),
+            nn.Conv2d(self.latent_size, self.latent_channels, 1, 1),
         )
 
         self.decoder = VAEDecoder(decoder_channels=decoder_channels)
@@ -185,28 +184,29 @@ class VAE(DeterministicPixelRegression):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def encoder_forward(self, x: Tensor) -> Tensor:
+    def encoder_forward(self, x: Tensor, cond: Tensor | None = None) -> Tensor:
         """Encoder Forward pass.
 
         Args:
             x: The input image tensor.
+            cond: The conditional tensor.
 
         Returns:
             The encoded image tensor.
         """
         return self.encoder.forward(x)[-1]
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor, cond: Tensor | None = None) -> Tensor:
         """Forward pass for the VAE.
 
         Args:
             x: The input tensor
-            conditions: The conditions tensor
+            cond: The cond tensor.
 
         Returns:
             The output tensor.
         """
-        x_encoded = self.encoder_forward(x)
+        x_encoded = self.encoder_forward(x, cond)
 
         # encode the latent space
         mu = self.latent_mu(x_encoded)
@@ -233,7 +233,9 @@ class VAE(DeterministicPixelRegression):
         X, y = batch[self.input_key], batch[self.target_key]
         batch_size = X.shape[0]
 
-        x_recon, mu, log_var = self.forward(X)
+        x_recon, mu, log_var = self.forward(
+            X, cond=batch["condition"] if "condition" in batch else None
+        )
 
         scaled_kl_loss, rec_loss = self.loss_fn(x_recon, y, mu, log_var)
 
@@ -255,7 +257,9 @@ class VAE(DeterministicPixelRegression):
         X, y = batch[self.input_key], batch[self.target_key]
         batch_size = X.shape[0]
 
-        x_recon, mu, log_var = self.forward(X)
+        x_recon, mu, log_var = self.forward(
+            X, cond=batch["condition"] if "condition" in batch else None
+        )
 
         scaled_kl_loss, rec_loss = self.loss_fn(x_recon, y, mu, log_var)
 
@@ -328,40 +332,141 @@ class VAE(DeterministicPixelRegression):
         return x_decoded
 
 
-# class ConditionalVAE(VAE):
-#     """Conditional Variational Auto Encoder for Torchseg."""
+class ConditionalVAE(VAE):
+    """Conditional Variational Auto Encoder for Torchseg."""
 
-#     def __init__(
-#         self,
-#         model: nn.Module,
-#         latent_size: int,
-#         loss_fn: nn.Module = VAELoss,
-#         num_samples: int = 5,
-#         freeze_backbone: bool = False,
-#         freeze_decoder: bool = False,
-#         optimizer: OptimizerCallable = torch.optim.Adam,
-#         lr_scheduler: LRSchedulerCallable = None,
-#         save_preds: bool = False,
-#     ) -> None:
-#         """Initialize the Conditional VAE.
+    def __init__(
+        self,
+        encoder: nn.Module,
+        latent_size: int,
+        num_samples: int,
+        out_channels: int,
+        img_size: int,
+        num_classes: int,
+        loss_fn: nn.Module | None = None,
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable = None,
+        save_preds: bool = False,
+    ) -> None:
+        """Initialize the Conditional VAE.
 
-#         Args:
-#             model: Torchseg model.
-#             latent_size: The size of the latent space.
-#             loss_fn: The loss function, by default :class:`~.loss_functions.VAELoss`.
-#             num_samples: The number of samples to draw from the latent space for prediction.
-#             freeze_backbone: Whether to freeze the backbone.
-#             freeze_decoder: Whether to freeze the decoder.
-#             optimizer: The optimizer to use.
-#             lr_scheduler: The learning rate scheduler.
-#             save_preds: Whether to save predictions.
-#         """
-#         super().__init__(
-#             model,
-#             loss_fn,
-#             freeze_backbone,
-#             freeze_decoder,
-#             optimizer,
-#             lr_scheduler,
-#             save_preds,
-#         )
+        Args:
+            encoder: Torchseg model.
+            latent_size: The size of the latent space.
+            num_classes: The number of classes.
+            out_channels: The number of output channels.
+            img_size: The size of the input image, needed to configure the decoder and
+                sampling procedure
+            loss_fn: The loss function, by default :class:`~.loss_functions.VAELoss`.
+            num_samples: The number of samples to draw from the latent space for prediction.
+            freeze_backbone: Whether to freeze the backbone.
+            freeze_decoder: Whether to freeze the decoder.
+            optimizer: The optimizer to use.
+            lr_scheduler: The learning rate scheduler.
+            save_preds: Whether to save predictions.
+        """
+        self.num_classes = num_classes
+
+        super().__init__(
+            encoder,
+            latent_size,
+            num_samples,
+            out_channels,
+            img_size,
+            loss_fn,
+            freeze_backbone,
+            freeze_decoder,
+            optimizer,
+            lr_scheduler,
+            save_preds,
+        )
+
+    def configure_model(self) -> None:
+        """Configure all model parts."""
+        super().configure_model()
+
+        # Additionally also define class embedding
+        self.embed_dim = 3
+        self.cond_embed = nn.Sequential(
+            nn.Linear(1, self.num_classes),
+            nn.ReLU(),
+            nn.Linear(self.num_classes, self.embed_dim),
+        )
+
+        # init_decoder takes in latent space plus class conditional
+        self.latent_init_decoder = nn.Sequential(
+            nn.Linear(
+                self.latent_size + 1,
+                self.latent_size * self.latent_feature_dim * self.latent_feature_dim,
+            ),
+            nn.Unflatten(
+                1, (self.latent_size, self.latent_feature_dim, self.latent_feature_dim)
+            ),
+            nn.Conv2d(self.latent_size, self.latent_channels, 1, 1),
+        )
+
+    def encoder_forward(self, x: Tensor, cond: Tensor) -> Tensor:
+        """Encode forward pass.
+
+        Args:
+            x: input tensor
+            cond: cond tensor
+
+        Returns:c
+            encoded tensor
+        """
+        batch_size = x.shape[0]
+
+        embed_condition = self.cond_embed(cond)
+
+        # reshape to image space
+        embed_cond = torch.ones_like(x) * embed_condition.view(
+            batch_size, self.embed_dim, 1, 1
+        )
+
+        x = torch.cat([x, embed_cond], dim=1)
+
+        return self.encoder.forward(x)[-1]
+
+    def forward(self, x: Tensor, cond: Tensor | None = None) -> Tensor:
+        """Forward pass for the VAE.
+
+        Args:
+            x: The input tensor
+            cond: The cond tensor.
+
+        Returns:
+            The output tensor.
+        """
+        x_encoded = self.encoder_forward(x, cond)
+
+        # encode the latent space
+        mu = self.latent_mu(x_encoded)
+        log_var = self.latent_log_var(x_encoded)
+        z = self.reparameterization_trick(mu, log_var)
+
+        # init_decoder takes in latent space plus class conditional
+        x_decoder_init = self.latent_init_decoder(torch.cat([z, cond.float()], dim=1))
+
+        # decode
+        x_recon = self.decoder(x_decoder_init)
+
+        return x_recon, mu, log_var
+
+    def sample(self, num_samples: int = 16, cond: Tensor | None = None) -> Tensor:
+        """Sample with conditioning from the VAE.
+
+        Args:
+            num_samples: number of samples
+            cond: conditioning tensor
+
+        Returns:
+            samples
+        """
+        z = torch.randn(num_samples, self.latent_size).to(self.device)
+        if cond is None:
+            cond = torch.randint(0, self.num_classes, (num_samples, 1)).to(self.device)
+        x_decoded = self.decoder(self.latent_init_decoder(torch.cat([z, cond], dim=1)))
+        return x_decoded
