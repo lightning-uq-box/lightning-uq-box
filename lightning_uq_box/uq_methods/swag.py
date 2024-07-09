@@ -618,7 +618,10 @@ class SWAGSegmentation(SWAGClassification):
 
 
 class SWAGPxRegression(SWAGRegression):
-    """SWAG Model for Pixelwise Regression."""
+    """SWAG Model for Pixelwise Regression.
+
+    .. versionadded:: 0.2.0
+    """
 
     pred_dir_name = "preds"
 

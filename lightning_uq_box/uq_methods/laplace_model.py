@@ -99,6 +99,9 @@ class LaplaceBase(BaseModule):
             num_samples: number of samples for prediction, if specified
                 will call `predictive_samples` instead of `predictive` method in
                 Laplace library
+
+        .. versionchanged:: 0.2
+           Add 'pred_type' and 'link_approx' arguments.
         """
         super().__init__()
 

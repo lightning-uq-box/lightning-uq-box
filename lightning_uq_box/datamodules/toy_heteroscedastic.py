@@ -94,6 +94,9 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
                 signature f(x, noise: bool)
             noise_seed: random seed for x points positions and y noise
             split_seed: random seed for train/test/val split
+
+        .. versionchanged:: 0.2.0
+           Add 'fraction' arguments to control test, validation and calibration
         """
         super().__init__()
 
