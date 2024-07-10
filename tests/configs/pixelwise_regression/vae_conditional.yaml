@@ -9,7 +9,7 @@ uq_method:
   img_size: 64
   out_channels: 1
   num_samples: 5
-  num_classes: 10
+  num_conditions: 3
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true

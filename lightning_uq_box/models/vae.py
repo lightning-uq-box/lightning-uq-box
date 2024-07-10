@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from torchseg.base.modules import Attention, Conv2dReLU
+from torchseg.base import SegmentationHead
 
 
 class DecoderBlock(nn.Module):
@@ -61,7 +62,7 @@ class DecoderBlock(nn.Module):
 
 
 class VAEDecoder(nn.Module):
-    """VAE Decoder."""
+    """VAE Decoder with Segmentation Head."""
 
     def __init__(
         self,
@@ -89,6 +90,7 @@ class VAEDecoder(nn.Module):
             DecoderBlock(in_ch, out_ch, **kwargs)
             for in_ch, out_ch in zip(dec_in_channels, dec_out_channels)
         ]
+        blocks.append(SegmentationHead(decoder_channels[-1], decoder_channels[-1], kernel_size=3, upsampling=1))
         self.blocks = nn.ModuleList(blocks)
 
     def forward(self, x: Tensor) -> Tensor:

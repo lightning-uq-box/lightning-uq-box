@@ -255,20 +255,25 @@ class DERLoss(nn.Module):
 
 
 class VAELoss(nn.Module):
-    """VAE Loss Function."""
+    """VAE Loss Function.
+    
+    Consists of the KL Divergence and Reconstruction Loss (MSE).
+    """
 
-    def __init__(self, kl_scale: float = 1.0) -> None:
+    def __init__(self, kl_scale: float = 1e-4) -> None:
         """Initialize a new instance of the VAE Loss Function.
 
         Args:
-            kl_scale: The scale of the KL loss.
+            kl_scale: The scale of the KL loss. Default is 1e-4, based on empirical
+                results. However, this value can significantly affect the
+                reconstruction and sample diversity.
         """
         super().__init__()
         self.kl_scale = kl_scale
 
     def forward(
         self, x_recon: Tensor, target: Tensor, mu: Tensor, log_var: Tensor
-    ) -> Tensor:
+    ) -> tuple[Tensor]:
         """Compute the VAE Loss.
 
         Args:
@@ -278,8 +283,8 @@ class VAELoss(nn.Module):
             log_var: The log variance of the latent space.
 
         Returns:
-            The computed VAE Loss.
+            The computed KL and reconstruction loss
         """
         recon_loss = nn.functional.mse_loss(x_recon, target, reduction="mean")
-        KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+        KLD = torch.mean(-0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1))
         return self.kl_scale * KLD, recon_loss

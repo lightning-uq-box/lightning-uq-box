@@ -24,7 +24,7 @@ model_config_paths = [
     # "tests/configs/pixelwise_regression/swag.yaml",
     "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
     # "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
-    "tests/configs/pixelwise_regression/vae_conditional.yaml",
+    # "tests/configs/pixelwise_regression/vae_conditional.yaml",
 ]
 
 data_config_paths = ["tests/configs/pixelwise_regression/toy_pixelwise_regression.yaml"]

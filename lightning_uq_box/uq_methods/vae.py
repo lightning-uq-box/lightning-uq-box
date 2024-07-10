@@ -11,6 +11,7 @@ from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities import rank_zero_only
 from torch import Tensor
 from torch.optim.adam import Adam as Adam
+from torchseg.base import SegmentationHead
 from torchvision.utils import make_grid, save_image
 
 from lightning_uq_box.models.vae import VAEDecoder
@@ -39,6 +40,7 @@ class VAE(DeterministicPixelRegression):
         num_samples: int,
         out_channels: int,
         img_size: int,
+        decoder_channels: list[int] | None = None,
         loss_fn: nn.Module | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
@@ -53,9 +55,13 @@ class VAE(DeterministicPixelRegression):
             latent_size: The size of the latent space.
             num_samples: The number of samples to draw from the latent space for prediction.
             out_channels: The number of output channels.
-            img_size: The size of the input image, needed to configure the decoder and
-                sampling procedure
-            loss_fn: The loss function, by default :class:`~.loss_functions.VAELoss`.
+            img_size: The size of the input image, needed to configure the decoder by infering
+                the output size of the encoder.
+            decoder_channels: The decoder channel sizes, excluding the output layer for the
+                :calss:`~.models.vae.VAEDecoder`., needs to match the encoder depth + 1. For example,
+                with the standard resnet18 encoder, this would be [512, 256, 128, 64, 32, 16].
+            loss_fn: The loss function, by default :class:`~.loss_functions.VAELoss`. The kl_scale
+                factor in that loss function can have a significant impact on the performance of the VAE.
             freeze_backbone: Whether to freeze the backbone.
             freeze_decoder: Whether to freeze the decoder.
             optimizer: The optimizer to use.
@@ -66,9 +72,11 @@ class VAE(DeterministicPixelRegression):
             loss_fn = VAELoss()
 
         self.out_channels = out_channels
+        self.decoder_channels = decoder_channels
         self.latent_size = latent_size
         self.num_samples = num_samples
         self.img_size = img_size
+
 
         super().__init__(
             None,
@@ -82,7 +90,7 @@ class VAE(DeterministicPixelRegression):
 
         self.encoder = encoder
         self.configure_model()
-
+    
         self.freeze_model()
 
     @property
@@ -125,18 +133,18 @@ class VAE(DeterministicPixelRegression):
 
     def configure_model(self) -> None:
         """Configure all model parts."""
-        decoder_channels = self.encoder.out_channels[::-1]
-        # replace last decoder channel with final output channel
-        decoder_channels[-1] = self.out_channels
+        if self.decoder_channels is None:
+            self.decoder_channels = self.encoder.out_channels[::-1]
+        self.decoder_channels[-1] = self.out_channels
 
-        self.latent_channels = decoder_channels[0]
+        self.latent_channels = self.decoder_channels[0]
 
         self.latent_feature_dim = self.img_size // self.encoder.reductions[-1]
 
         # TODO: change this to be sequential to a linear latent space
         self.latent_mu = nn.Sequential(
             nn.Conv2d(self.latent_channels, self.latent_size, 1, 1),
-            nn.ReLU(),
+            # nn.ReLU(),
             nn.Flatten(),
             nn.Linear(
                 self.latent_size * self.latent_feature_dim * self.latent_feature_dim,
@@ -145,7 +153,7 @@ class VAE(DeterministicPixelRegression):
         )
         self.latent_log_var = nn.Sequential(
             nn.Conv2d(self.latent_channels, self.latent_size, 1, 1),
-            nn.ReLU(),
+            # nn.ReLU(),
             nn.Flatten(),
             nn.Linear(
                 self.latent_size * self.latent_feature_dim * self.latent_feature_dim,
@@ -164,7 +172,8 @@ class VAE(DeterministicPixelRegression):
             nn.Conv2d(self.latent_size, self.latent_channels, 1, 1),
         )
 
-        self.decoder = VAEDecoder(decoder_channels=decoder_channels)
+        # Add segmentation head, because Decoder final layer is a ReLU
+        self.decoder = VAEDecoder(decoder_channels=self.decoder_channels)
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt the output for metrics."""
@@ -195,6 +204,17 @@ class VAE(DeterministicPixelRegression):
             The encoded image tensor.
         """
         return self.encoder.forward(x)[-1]
+    
+    def decoder_forward(self, z: Tensor) -> Tensor:
+        """Decoder Forward pass.
+        
+        Args:
+            z: The latent tensor
+        
+        Returns:
+            The decoded tensor.
+        """
+        return self.decoder(self.latent_init_decoder(z))
 
     def forward(self, x: Tensor, cond: Tensor | None = None) -> Tensor:
         """Forward pass for the VAE.
@@ -213,10 +233,8 @@ class VAE(DeterministicPixelRegression):
         log_var = self.latent_log_var(x_encoded)
         z = self.reparameterization_trick(mu, log_var)
 
-        x_decoder_init = self.latent_init_decoder(z)
-
         # decode
-        x_recon = self.decoder(x_decoder_init)
+        x_recon = self.decoder_forward(z)
 
         return x_recon, mu, log_var
 
@@ -300,7 +318,7 @@ class VAE(DeterministicPixelRegression):
         Returns:
             Prediction dictionary
         """
-        x_encoded = self.encoder_forward(X)
+        x_encoded = self.encoder_forward(X, cond=None)
 
         # encode the latent space once
         mu = self.latent_mu(x_encoded)
@@ -310,8 +328,7 @@ class VAE(DeterministicPixelRegression):
         self.predictions: list[Tensor] = []
         for _ in range(self.num_samples):
             z = self.reparameterization_trick(mu, log_var)
-            x = self.latent_init_decoder(z)
-            x = self.decoder(x)
+            x = self.decoder_forward(z)
             self.predictions.append(x)
 
         preds = torch.stack(self.predictions, dim=-1)
@@ -328,7 +345,7 @@ class VAE(DeterministicPixelRegression):
             The samples.
         """
         z = torch.randn(num_samples, self.latent_size).to(self.device)
-        x_decoded = self.decoder(self.latent_init_decoder(z))
+        x_decoded = self.decoder_forward(z)
         return x_decoded
 
 
