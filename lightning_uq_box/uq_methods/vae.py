@@ -44,6 +44,7 @@ class VAE(DeterministicPixelRegression):
         loss_fn: nn.Module | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
+        log_samples_every_n_steps: int = 500,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
         save_preds: bool = False,
@@ -64,6 +65,7 @@ class VAE(DeterministicPixelRegression):
                 factor in that loss function can have a significant impact on the performance of the VAE.
             freeze_backbone: Whether to freeze the backbone.
             freeze_decoder: Whether to freeze the decoder.
+            log_sapmles_ever<n_steps: How often to log samples.
             optimizer: The optimizer to use.
             lr_scheduler: The learning rate scheduler.
             save_preds: Whether to save predictions.
@@ -76,6 +78,7 @@ class VAE(DeterministicPixelRegression):
         self.latent_size = latent_size
         self.num_samples = num_samples
         self.img_size = img_size
+        self.log_samples_every_n_steps = log_samples_every_n_steps
 
 
         super().__init__(
@@ -287,7 +290,10 @@ class VAE(DeterministicPixelRegression):
 
         self.val_metrics(x_recon, y)
 
-        if self.trainer.global_step % 1 == 0 and self.trainer.global_rank == 0:
+        if (
+            self.trainer.global_step % self.log_samples_every_n_steps == 0
+            and self.trainer.global_rank == 0
+        ):
             # log samples
             self.plot_and_save_samples(batch)
 
