@@ -11,7 +11,6 @@ from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities import rank_zero_only
 from torch import Tensor
 from torch.optim.adam import Adam as Adam
-from torchseg.base import SegmentationHead
 from torchvision.utils import make_grid, save_image
 
 from lightning_uq_box.models.vae import VAEDecoder
@@ -65,7 +64,7 @@ class VAE(DeterministicPixelRegression):
                 factor in that loss function can have a significant impact on the performance of the VAE.
             freeze_backbone: Whether to freeze the backbone.
             freeze_decoder: Whether to freeze the decoder.
-            log_sapmles_ever<n_steps: How often to log samples.
+            log_samples_every_n_steps: How often to log samples.
             optimizer: The optimizer to use.
             lr_scheduler: The learning rate scheduler.
             save_preds: Whether to save predictions.
@@ -80,7 +79,6 @@ class VAE(DeterministicPixelRegression):
         self.img_size = img_size
         self.log_samples_every_n_steps = log_samples_every_n_steps
 
-
         super().__init__(
             None,
             loss_fn,
@@ -93,7 +91,7 @@ class VAE(DeterministicPixelRegression):
 
         self.encoder = encoder
         self.configure_model()
-    
+
         self.freeze_model()
 
     @property
@@ -207,13 +205,13 @@ class VAE(DeterministicPixelRegression):
             The encoded image tensor.
         """
         return self.encoder.forward(x)[-1]
-    
+
     def decoder_forward(self, z: Tensor) -> Tensor:
         """Decoder Forward pass.
-        
+
         Args:
             z: The latent tensor
-        
+
         Returns:
             The decoded tensor.
         """
@@ -366,9 +364,11 @@ class ConditionalVAE(VAE):
         out_channels: int,
         img_size: int,
         num_conditions: int,
+        decoder_channels: list[int] | None = None,
         loss_fn: nn.Module | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
+        log_samples_every_n_steps: int = 500,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
         save_preds: bool = False,
@@ -383,10 +383,14 @@ class ConditionalVAE(VAE):
             img_size: The size of the input image, needed to configure the decoder and
                 sampling procedure
             num_conditions: The number of discrete conditions, for example
-                class labels (in the case of MNIST this would be 10)
+                class labels (in the case of MNIST or EuroSAT this would be 10)
+            decoder_channels: The decoder channel sizes, excluding the output layer for the
+                :calss:`~.models.vae.VAEDecoder`., needs to match the encoder depth + 1. For example,
+                with the standard resnet18 encoder, this would be [512, 256, 128, 64, 32, 16].
             loss_fn: The loss function, by default :class:`~.loss_functions.VAELoss`.
             freeze_backbone: Whether to freeze the backbone.
             freeze_decoder: Whether to freeze the decoder.
+            log_samples_every_n_steps: How often to log samples.
             optimizer: The optimizer to use.
             lr_scheduler: The learning rate scheduler.
             save_preds: Whether to save predictions.
@@ -399,9 +403,11 @@ class ConditionalVAE(VAE):
             num_samples,
             out_channels,
             img_size,
+            decoder_channels,
             loss_fn,
             freeze_backbone,
             freeze_decoder,
+            log_samples_every_n_steps,
             optimizer,
             lr_scheduler,
             save_preds,

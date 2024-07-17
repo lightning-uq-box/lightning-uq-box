@@ -16,15 +16,16 @@ from omegaconf import OmegaConf
 seed_everything(0)
 
 model_config_paths = [
-    # "tests/configs/pixelwise_regression/base.yaml",
-    # "tests/configs/pixelwise_regression/mve.yaml",
-    # "tests/configs/pixelwise_regression/der.yaml",
-    # "tests/configs/pixelwise_regression/quantile_regression.yaml",
-    # "tests/configs/pixelwise_regression/mc_dropout.yaml",
-    # "tests/configs/pixelwise_regression/swag.yaml",
+    "tests/configs/pixelwise_regression/base.yaml",
+    "tests/configs/pixelwise_regression/mve.yaml",
+    "tests/configs/pixelwise_regression/der.yaml",
+    "tests/configs/pixelwise_regression/quantile_regression.yaml",
+    "tests/configs/pixelwise_regression/mc_dropout.yaml",
+    "tests/configs/pixelwise_regression/swag.yaml",
     "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
-    # "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
-    # "tests/configs/pixelwise_regression/vae_conditional.yaml",
+    "tests/configs/pixelwise_regression/vae_conditional.yaml",
+    "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_conditional.yaml",
 ]
 
 data_config_paths = ["tests/configs/pixelwise_regression/toy_pixelwise_regression.yaml"]
