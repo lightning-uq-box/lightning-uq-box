@@ -65,6 +65,7 @@ html_theme_options = {
         "binderhub_url": "https://mybinder.org",
         "notebook_interface": "jupyterlab",
         "colab_url": "https://colab.research.google.com/",
+        "lightning_studio": "https://lightning.ai/studios",
     },
     "use_edit_page_button": True,
     "use_issues_button": True,
