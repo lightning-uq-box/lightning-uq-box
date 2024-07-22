@@ -11,7 +11,6 @@ from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities import rank_zero_only
 from torch import Tensor
 from torch.optim.adam import Adam as Adam
-from torchseg.base import SegmentationHead
 from torchvision.utils import make_grid, save_image
 
 from lightning_uq_box.models.vae import VAEDecoder
@@ -65,7 +64,7 @@ class VAE(DeterministicPixelRegression):
                 factor in that loss function can have a significant impact on the performance of the VAE.
             freeze_backbone: Whether to freeze the backbone.
             freeze_decoder: Whether to freeze the decoder.
-            log_sapmles_ever<n_steps: How often to log samples.
+            log_samples_every_n_steps: How often to log samples.
             optimizer: The optimizer to use.
             lr_scheduler: The learning rate scheduler.
             save_preds: Whether to save predictions.
@@ -80,7 +79,6 @@ class VAE(DeterministicPixelRegression):
         self.img_size = img_size
         self.log_samples_every_n_steps = log_samples_every_n_steps
 
-
         super().__init__(
             None,
             loss_fn,
@@ -93,7 +91,7 @@ class VAE(DeterministicPixelRegression):
 
         self.encoder = encoder
         self.configure_model()
-    
+
         self.freeze_model()
 
     @property
@@ -207,13 +205,13 @@ class VAE(DeterministicPixelRegression):
             The encoded image tensor.
         """
         return self.encoder.forward(x)[-1]
-    
+
     def decoder_forward(self, z: Tensor) -> Tensor:
         """Decoder Forward pass.
-        
+
         Args:
             z: The latent tensor
-        
+
         Returns:
             The decoded tensor.
         """
@@ -392,7 +390,7 @@ class ConditionalVAE(VAE):
             loss_fn: The loss function, by default :class:`~.loss_functions.VAELoss`.
             freeze_backbone: Whether to freeze the backbone.
             freeze_decoder: Whether to freeze the decoder.
-            log_sapmles_ever<n_steps: How often to log samples.
+            log_samples_every_n_steps: How often to log samples.
             optimizer: The optimizer to use.
             lr_scheduler: The learning rate scheduler.
             save_preds: Whether to save predictions.

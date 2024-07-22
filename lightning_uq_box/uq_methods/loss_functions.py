@@ -256,7 +256,7 @@ class DERLoss(nn.Module):
 
 class VAELoss(nn.Module):
     """VAE Loss Function.
-    
+
     Consists of the KL Divergence and Reconstruction Loss (MSE).
     """
 
@@ -286,5 +286,7 @@ class VAELoss(nn.Module):
             The computed KL and reconstruction loss
         """
         recon_loss = nn.functional.mse_loss(x_recon, target, reduction="mean")
-        KLD = torch.mean(-0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1))
+        KLD = torch.mean(
+            -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1)
+        )
         return self.kl_scale * KLD, recon_loss
