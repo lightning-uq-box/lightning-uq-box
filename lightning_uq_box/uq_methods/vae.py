@@ -366,9 +366,11 @@ class ConditionalVAE(VAE):
         out_channels: int,
         img_size: int,
         num_conditions: int,
+        decoder_channels: list[int] | None = None,
         loss_fn: nn.Module | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
+        log_samples_every_n_steps: int = 500,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
         save_preds: bool = False,
@@ -383,10 +385,14 @@ class ConditionalVAE(VAE):
             img_size: The size of the input image, needed to configure the decoder and
                 sampling procedure
             num_conditions: The number of discrete conditions, for example
-                class labels (in the case of MNIST this would be 10)
+                class labels (in the case of MNIST or EuroSAT this would be 10)
+            decoder_channels: The decoder channel sizes, excluding the output layer for the
+                :calss:`~.models.vae.VAEDecoder`., needs to match the encoder depth + 1. For example,
+                with the standard resnet18 encoder, this would be [512, 256, 128, 64, 32, 16].
             loss_fn: The loss function, by default :class:`~.loss_functions.VAELoss`.
             freeze_backbone: Whether to freeze the backbone.
             freeze_decoder: Whether to freeze the decoder.
+            log_sapmles_ever<n_steps: How often to log samples.
             optimizer: The optimizer to use.
             lr_scheduler: The learning rate scheduler.
             save_preds: Whether to save predictions.
@@ -399,9 +405,11 @@ class ConditionalVAE(VAE):
             num_samples,
             out_channels,
             img_size,
+            decoder_channels,
             loss_fn,
             freeze_backbone,
             freeze_decoder,
+            log_samples_every_n_steps,
             optimizer,
             lr_scheduler,
             save_preds,
@@ -446,10 +454,9 @@ class ConditionalVAE(VAE):
         embed_condition = self.cond_embed(cond)
 
         # reshape to image space
-        embed_cond = torch.ones_like(x) * embed_condition.view(
+        embed_cond = torch.ones((batch_size, 1, x.shape[-2], x.shape[-1])).to(self.device) * embed_condition.view(
             batch_size, self.embed_dim, 1, 1
         )
-
         x = torch.cat([x, embed_cond], dim=1)
 
         return self.encoder.forward(x)[-1]
