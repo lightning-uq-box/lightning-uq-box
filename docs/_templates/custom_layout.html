@@ -1,0 +1,14 @@
+{% extends "!layout.html" %}
+
+{% block extra_navbar %}
+{# Lightning Studio #}
+{% set badge = "https://pl-bolts-doc-images.s3.us-east-2.amazonaws.com/app-2/studio-badge.svg" %}
+{% set alt = "Open in Studio" %}
+{% set repo_url = "https://github.com/your-repo-path" %} {# Update this line with your actual repo path #}
+{% set target = "https://lightning.ai/new?repo_url=" ~ repo_url | urlencode %}
+
+<!-- Custom button HTML updated to use dynamic target URL -->
+<a href="{{ target }}" class="btn btn-primary" target="_blank">
+    <img src="{{ badge }}" alt="{{ alt }}"> Launch Lightning Studio
+</a>
+{% endblock %}

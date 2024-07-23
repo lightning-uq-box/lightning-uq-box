@@ -74,6 +74,10 @@ html_theme_options = {
     "navigation_with_keys": True,
 }
 
+html_sidebars = {
+    "**": ["sidebar/scroll-start.html", "custom_layout.html", "sidebar/scroll-end.html"]
+}
+
 
 autodoc_default_options = {
     "members": True,
