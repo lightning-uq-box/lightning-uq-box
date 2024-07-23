@@ -80,14 +80,11 @@ class VAE(DeterministicPixelRegression):
         self.log_samples_every_n_steps = log_samples_every_n_steps
 
         super().__init__(
-            None,
-            loss_fn,
-            freeze_backbone,
-            freeze_decoder,
-            optimizer,
-            lr_scheduler,
-            save_preds,
+            None, loss_fn, False, False, optimizer, lr_scheduler, save_preds
         )
+
+        self.freeze_backbone = freeze_backbone
+        self.freeze_decoder = freeze_decoder
 
         self.encoder = encoder
         self.configure_model()

@@ -79,7 +79,6 @@ class TestPixelwiseRegressionTask:
 ensemble_model_config_paths = [
     "tests/configs/pixelwise_regression/mve.yaml",
     "tests/configs/pixelwise_regression/mc_dropout.yaml",
-    "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
 ]
 
 
@@ -223,4 +222,29 @@ class TestFrozenPxRegression:
         assert all([param.requires_grad for param in seg_model.encoder.parameters()])
         assert all(
             [param.requires_grad for param in seg_model.segmentation_head.parameters()]
+        )
+
+
+frozen_vae_paths = [
+    "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_conditional.yaml",
+]
+
+
+class TestFrozenVAE:
+    @pytest.mark.parametrize("model_config_path", frozen_vae_paths)
+    def test_freeze_encoder(self, model_config_path: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        module = instantiate(model_conf.uq_method, freeze_backbone=True)
+        assert all(
+            [param.requires_grad is False for param in module.encoder.parameters()]
+        )
+
+    @pytest.mark.parametrize("model_config_path", frozen_vae_paths)
+    def test_freeze_decoder(self, model_config_path: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        module = instantiate(model_conf.uq_method, freeze_decoder=True)
+        assert all(
+            [param.requires_grad is False for param in module.decoder.parameters()]
         )
