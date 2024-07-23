@@ -24,6 +24,7 @@ from torchmetrics import (
     MetricCollection,
     R2Score,
 )
+from torchmetrics.wrappers import MultioutputWrapper
 
 from lightning_uq_box.eval_utils import (
     compute_aleatoric_uncertainty,
@@ -57,16 +58,21 @@ def checkpoint_loader(
         return model_class
 
 
-def default_regression_metrics(prefix: str):
+def default_regression_metrics(prefix: str, n_targets: int = 1):
     """Return a set of default regression metrics."""
-    return MetricCollection(
-        {
-            "RMSE": MeanSquaredError(squared=False),
-            "MAE": MeanAbsoluteError(),
-            "R2": R2Score(),
-        },
-        prefix=prefix,
-    )
+    metrics = {
+        "RMSE": MeanSquaredError(squared=False),
+        "MAE": MeanAbsoluteError(),
+        "R2": R2Score(),
+    }
+
+    if n_targets > 1:
+        metrics = {
+            name: MultioutputWrapper(metric, num_outputs=n_targets)
+            for name, metric in metrics.items()
+        }
+
+    return MetricCollection(metrics, prefix=prefix)
 
 
 def default_px_regression_metrics(prefix: str):
@@ -100,9 +106,31 @@ def default_segmentation_metrics(prefix: str, task: str, num_classes: int):
     )
 
 
+def log_multioutput_metrics(metrics: MetricCollection):
+    """Handle multioutput metrics from torchmetrics for logging purposes.
+
+    Args:
+        metrics: torchmetrics MetricCollection object containing metrics to log
+
+    Returns:
+        dictionary with aggegated metrics for logging
+    """
+    comp_metrics = metrics.compute()
+
+    metric_for_logging: dict[str, Tensor] = {}
+    for metric_name, metric in comp_metrics.items():
+        if metric.shape > torch.Size([0]):
+            metric_for_logging[metric_name] = metric.mean()
+        else:
+            metric_for_logging[metric_name] = metric
+
+    return metric_for_logging
+
+
 def process_regression_prediction(
     preds: Tensor,
     quantiles: list[float] | None = None,
+    num_targets: int = 1,
     aggregate_fn: Callable = torch.mean,
 ) -> dict[str, Tensor]:
     """Process regression predictions that could be mse or nll predictions.
@@ -110,13 +138,19 @@ def process_regression_prediction(
     Args:
         preds: prediction tensor of shape [batch_size, num_outputs, num_samples]
         quantiles: quantiles to compute
+        num_targets: number of regression targets
         aggregate_fn: function to aggregate over the samples to form a mean
 
     Returns:
         dictionary with mean prediction and predictive uncertainty
     """
-    mean_samples = preds[:, 0, ...].cpu()
-    mean = aggregate_fn(preds[:, 0:1, ...], dim=-1)
+    if num_targets > 1 and preds.dim() == 3:
+        mean_samples = preds.cpu()
+        mean = aggregate_fn(preds, dim=-1)
+    else:
+        mean_samples = preds[:, 0, ...].cpu()
+        mean = aggregate_fn(preds[:, 0:1, ...], dim=-1)
+
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
         log_sigma_2_samples = preds[:, 1, ...].cpu()
@@ -264,11 +298,15 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
     if "samples" in outputs:
         samples = outputs.pop("samples")
         for i in range(samples.shape[-1]):
-            cpu_outputs[f"sample_{i}"] = samples[..., i].squeeze(-1).cpu().numpy()
+            cpu_outputs[f"sample_{i}"] = samples[..., i].squeeze().cpu().numpy()
 
     for key, val in outputs.items():
         if isinstance(val, Tensor):
-            cpu_outputs[key] = val.squeeze(-1).cpu().numpy()
+            if val.dim() >= 2 and val.shape[-1] > 1:
+                for i in range(val.shape[-1]):
+                    cpu_outputs[f"{key}_{i}"] = val[..., i].squeeze().cpu().numpy()
+            else:
+                cpu_outputs[key] = val.squeeze().cpu().numpy()
         else:
             cpu_outputs[key] = np.array(val)
 

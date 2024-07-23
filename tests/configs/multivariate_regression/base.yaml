@@ -1,0 +1,19 @@
+model:
+  class_path: lightning_uq_box.uq_methods.DeterministicRegression
+  init_args:
+    model:
+      class_path: lightning_uq_box.models.MLP
+      init_args:
+        n_outputs: 1
+        n_inputs: 4
+        n_targets: 3
+        n_hidden: [50]
+        activation_fn:
+          class_path: torch.nn.ReLU
+    loss_fn:
+      class_path: torch.nn.MSELoss
+    n_targets: 3
+    optimizer:
+      class_path: torch.optim.SGD
+      init_args:
+        lr: 0.003

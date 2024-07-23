@@ -12,16 +12,12 @@ import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
-from .base import DeterministicModel, DeterministicPixelRegression
+from .base import DeterministicPixelRegression, DeterministicRegression
 from .loss_functions import NLL
-from .utils import (
-    default_regression_metrics,
-    save_image_predictions,
-    save_regression_predictions,
-)
+from .utils import save_image_predictions, save_regression_predictions
 
 
-class MVEBase(DeterministicModel):
+class MVEBase(DeterministicRegression):
     """Mean Variance Estimation Network Base Class.
 
     If you use this model in your research, please cite the following paper:
@@ -33,6 +29,7 @@ class MVEBase(DeterministicModel):
         self,
         model: nn.Module,
         burnin_epochs: int,
+        n_targets: int = 1,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -42,17 +39,16 @@ class MVEBase(DeterministicModel):
         Args:
             model: pytorch model
             burnin_epochs: number of burnin epochs before switiching to NLL
+            n_targets: number of regression targets
             freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
-        super().__init__(model, NLL(), freeze_backbone, optimizer, lr_scheduler)
+        super().__init__(
+            model, NLL(), n_targets, freeze_backbone, optimizer, lr_scheduler
+        )
 
-    def setup_task(self) -> None:
-        """Set up task specific attributes."""
-        self.train_metrics = default_regression_metrics("train")
-        self.val_metrics = default_regression_metrics("val")
-        self.test_metrics = default_regression_metrics("test")
+        self.burnin_epochs = burnin_epochs
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -69,7 +65,7 @@ class MVEBase(DeterministicModel):
         """
         out = self.forward(batch[self.input_key])
 
-        if self.current_epoch < self.hparams.burnin_epochs:
+        if self.current_epoch < self.burnin_epochs:
             loss = nn.functional.mse_loss(
                 self.adapt_output_for_metrics(out), batch[self.target_key]
             )
@@ -98,6 +94,7 @@ class MVERegression(MVEBase):
         self,
         model: nn.Module,
         burnin_epochs: int,
+        n_targets: int = 1,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable = None,
@@ -107,20 +104,15 @@ class MVERegression(MVEBase):
         Args:
             model: pytorch model
             burnin_epochs: number of burnin epochs before switiching to NLL
+            n_targets: number of regression targets
             freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
         """
-        super().__init__(model, burnin_epochs, freeze_backbone, optimizer, lr_scheduler)
-        self.save_hyperparameters(
-            ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
+        super().__init__(
+            model, burnin_epochs, n_targets, freeze_backbone, optimizer, lr_scheduler
         )
-
-    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
-        """Adapt model output to be compatible for metric computation."""
-        assert out.shape[-1] <= 2, "Gaussian output."
-        return out[:, 0:1]
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -164,6 +156,7 @@ class MVEPxRegression(DeterministicPixelRegression):
     def __init__(
         self,
         model: nn.Module,
+        n_targets: int = 1,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -174,6 +167,7 @@ class MVEPxRegression(DeterministicPixelRegression):
 
         Args:
             model: pytorch model
+            n_targets: number of regression targets
             freeze_backbone: whether to freeze the backbone
             freeze_decoder: whether to freeze the decoder
             optimizer: optimizer used for training
@@ -181,7 +175,13 @@ class MVEPxRegression(DeterministicPixelRegression):
             save_preds: whether to save predictions
         """
         super().__init__(
-            model, NLL(), freeze_backbone, freeze_decoder, optimizer, lr_scheduler
+            model,
+            NLL(),
+            n_targets,
+            freeze_backbone,
+            freeze_decoder,
+            optimizer,
+            lr_scheduler,
         )
         self.save_preds = save_preds
 
