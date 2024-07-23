@@ -4,7 +4,7 @@ uq_method:
     _target_: torchseg.encoders.TimmEncoder
     name: resnet18
     depth: 2
-    in_channels: 6 # 6 channels: 3 for the image and 3 for the condition embed
+    in_channels: 4 # 4 channels: 3 for the image and 1 for the condition embed
   latent_size: 10
   img_size: 64
   out_channels: 1

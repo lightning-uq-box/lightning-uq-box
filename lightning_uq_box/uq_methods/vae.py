@@ -452,9 +452,9 @@ class ConditionalVAE(VAE):
         embed_condition = self.cond_embed(cond)
 
         # reshape to image space
-        embed_cond = torch.ones((batch_size, 1, x.shape[-2], x.shape[-1])).to(self.device) * embed_condition.view(
-            batch_size, self.embed_dim, 1, 1
-        )
+        embed_cond = torch.ones((batch_size, 1, x.shape[-2], x.shape[-1])).to(
+            self.device
+        ) * embed_condition.view(batch_size, self.embed_dim, 1, 1)
         x = torch.cat([x, embed_cond], dim=1)
 
         return self.encoder.forward(x)[-1]
