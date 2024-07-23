@@ -79,6 +79,7 @@ class TestPixelwiseRegressionTask:
 ensemble_model_config_paths = [
     "tests/configs/pixelwise_regression/mve.yaml",
     "tests/configs/pixelwise_regression/mc_dropout.yaml",
+    "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
 ]
 
 
