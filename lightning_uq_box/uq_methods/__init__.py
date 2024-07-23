@@ -47,7 +47,7 @@ from .hierarchical_prob_unet import HierarchicalProbUNet
 from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
-from .loss_functions import NLL, DERLoss, PinballLoss
+from .loss_functions import NLL, DERLoss, PinballLoss, VAELoss
 from .masked_ensemble import (
     MasksemblesBase,
     MasksemblesClassification,
@@ -85,6 +85,7 @@ from .swag import (
     SWAGSegmentation,
 )
 from .temp_scaling import TempScaling
+from .vae import VAE, ConditionalVAE
 from .vbll import VBLLClassification, VBLLRegression
 from .zigzag import ZigZagBase, ZigZagClassification, ZigZagRegression
 
@@ -197,10 +198,14 @@ __all__ = (
     "NLL",
     "DERLoss",
     "PinballLoss",
+    "VAELoss",
     # Test time augmentation
     "TTABase",
     "TTARegression",
     "TTAClassification",
+    # VAE
+    "VAE",
+    "ConditionalVAE",
     # Zig Zag
     "ZigZagBase",
     "ZigZagRegression",

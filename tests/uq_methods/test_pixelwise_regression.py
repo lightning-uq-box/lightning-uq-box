@@ -30,6 +30,9 @@ model_config_paths = [
     "tests/configs/pixelwise_regression/quantile_regression.yaml",
     "tests/configs/pixelwise_regression/mc_dropout.yaml",
     "tests/configs/pixelwise_regression/swag.yaml",
+    "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_conditional.yaml",
 ]
 
 data_config_paths = ["tests/configs/pixelwise_regression/toy_pixelwise_regression.yaml"]
@@ -44,8 +47,10 @@ class TestPixelwiseRegressionTask:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
 
-        model = instantiate(model_conf.uq_method, save_preds=True)
-        datamodule = instantiate(data_conf.data)
+        full_conf = OmegaConf.merge(data_conf, model_conf)
+
+        model = instantiate(full_conf.uq_method, save_preds=True)
+        datamodule = instantiate(full_conf.data)
         trainer = Trainer(
             accelerator="cpu",
             max_epochs=2,
@@ -64,9 +69,9 @@ class TestPixelwiseRegressionTask:
         with h5py.File(os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r") as f:
             assert "pred" in f
             assert "target" in f
-            for key, value in f.items():
-                assert value.shape[-1] == 64
-                assert value.shape[-2] == 64
+            for key in ["pred", "target"]:
+                assert f[key].shape[-1] == datamodule.image_size
+                assert f[key].shape[-2] == datamodule.image_size
             assert "aux" in f.attrs
             assert "index" in f.attrs
 
@@ -217,4 +222,29 @@ class TestFrozenPxRegression:
         assert all([param.requires_grad for param in seg_model.encoder.parameters()])
         assert all(
             [param.requires_grad for param in seg_model.segmentation_head.parameters()]
+        )
+
+
+frozen_vae_paths = [
+    "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_conditional.yaml",
+]
+
+
+class TestFrozenVAE:
+    @pytest.mark.parametrize("model_config_path", frozen_vae_paths)
+    def test_freeze_encoder(self, model_config_path: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        module = instantiate(model_conf.uq_method, freeze_backbone=True)
+        assert all(
+            [param.requires_grad is False for param in module.encoder.parameters()]
+        )
+
+    @pytest.mark.parametrize("model_config_path", frozen_vae_paths)
+    def test_freeze_decoder(self, model_config_path: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        module = instantiate(model_conf.uq_method, freeze_decoder=True)
+        assert all(
+            [param.requires_grad is False for param in module.decoder.parameters()]
         )
