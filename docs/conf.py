@@ -65,7 +65,7 @@ html_theme_options = {
         "binderhub_url": "https://mybinder.org",
         "notebook_interface": "jupyterlab",
         "colab_url": "https://colab.research.google.com/",
-        "lightning_studio": "https://lightning.ai/studios",
+        # "lightning_studio": "https://lightning.ai/studios",
     },
     "use_edit_page_button": True,
     "use_issues_button": True,
@@ -74,9 +74,7 @@ html_theme_options = {
     "navigation_with_keys": True,
 }
 
-html_sidebars = {
-    "**": ["sidebar/scroll-start.html", "custom_layout.html", "sidebar/scroll-end.html"]
-}
+html_sidebars = {"**": ["custom_layout.html"]}
 
 
 autodoc_default_options = {
