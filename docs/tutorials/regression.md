@@ -24,5 +24,6 @@ regression/deep_ensemble
 regression/masksemble_nll
 regression/card
 regression/zigzag
+regression/iterative_uncertainty
 regression/evaluation_uncertainty
 ```

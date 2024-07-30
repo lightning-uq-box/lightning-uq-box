@@ -73,6 +73,20 @@ Zig Zag Classification
 
 .. autoclass:: ZigZagClassification
 
+Iterative Neural Networks
+-------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.iterative_uncertainty
+
+Iterative Uncertainty Base
+``````````````````````````
+
+.. autoclass:: IterativeUncertaintyBase
+
+Iterative Uncertainty Regression
+````````````````````````````````
+
+.. autoclass:: IterativeUncertaintyRegression
 
 
 Approximate Bayesian Methods

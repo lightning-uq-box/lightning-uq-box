@@ -10,11 +10,12 @@ from .cards import (
     DiffusionSequential,
 )
 from .fc_resnet import FCResNet
-from .mlp import MLP
+from .mlp import MLP, IterMLP
 
 __all__ = (
     # Toy Example architecture
     "MLP",
+    "IterMLP",
     # CARDS architecture
     "ConditionalLinear",
     "ConditionalGuidedLinearModel",

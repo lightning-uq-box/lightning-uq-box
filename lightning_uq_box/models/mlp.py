@@ -3,7 +3,9 @@
 
 """Simple MLP for Toy Problems."""
 
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 
 
@@ -55,3 +57,87 @@ class MLP(nn.Module):
           output from neural net of dimension [batch_size, n_outputs]
         """
         return self.model(x)
+
+
+class IterMLP(nn.Module):
+    """Iterative Uncertainty MLP."""
+
+    def __init__(self, n_inputs: int = 1, n_outputs: int = 2):
+        """Initialize a new instance of net."""
+        super().__init__()
+        self.fc1 = nn.Linear(n_inputs, 10)
+        self.fc2 = nn.Linear(10, 20)
+        self.fc3 = nn.Linear(20, n_outputs)
+        self.activation = nn.ELU()
+
+        self.cf = nn.Linear(n_outputs, 20)
+
+        self.num_inputs = n_inputs
+        self.num_outputs = n_outputs
+
+    def forward(self, x: Tensor, pred_prob: Tensor | None = None):
+        """Forward pass of Iterative NN.
+
+        Args:
+            x: input tensor.
+            pred_prob: predicted logit values
+                of iterative UQ
+
+        Returns:
+            logits network output
+        """
+        x = self.activation(self.fc1(x))
+        x = self.activation(self.fc2(x))
+
+        # iterative part, if "pred_prob"
+        # is not None, we use it for inference
+        if pred_prob is not None:
+            pred_prob = torch.nn.functional.softmax(pred_prob, 1)
+            x += self.activation(self.cf(pred_prob))
+
+        return self.fc3(x)
+
+
+class IterCNN(nn.Module):
+    """Iterative Uncertainty CNN."""
+
+    def __init__(self, num_inputs: int = 1, num_outputs: int = 2):
+        """Initialize a new instance of net."""
+        super().__init__()
+        self.conv1 = nn.Conv2d(num_inputs, 10, kernel_size=5)
+        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
+        self.fc1 = nn.Linear(320, 50)
+        self.fc2 = nn.Linear(50, 50)
+        self.fc3 = nn.Linear(50, num_outputs)
+        self.activation = nn.ELU()
+
+        self.cf = nn.Linear(10, 50)
+
+        self.num_inputs = num_inputs
+        self.num_outputs = num_outputs
+
+    def forward(self, x: Tensor, pred_prob: Tensor | None = None):
+        """Forward pass of Iterative NN.
+
+        Args:
+            x: input tensor.
+            pred_prob: predicted logit values
+                of iterative UQ
+
+        Returns:
+            logits network output
+        """
+        x = self.activation(F.max_pool2d(self.conv1(x), 2))
+        x = self.activation(F.max_pool2d(self.conv2(x), 2))
+        x = x.view(-1, 320)
+        x = self.activation(self.fc1(x))
+
+        # iterative part, if "pred_prob"
+        # is not None, we use it for inference
+        if pred_prob is not None:
+            pred_prob = torch.nn.functional.softmax(pred_prob, 1)
+            x += self.activation(self.cf(pred_prob))
+
+        x = self.activation(self.fc2(x))
+        x = self.fc3(x)
+        return x

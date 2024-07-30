@@ -41,6 +41,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ✅           |
 | Mean Variance Estimation (MVE)                |     ✅     |       ❌       |      ❌      |          ✅           |
 | ZigZag                                        |     ✅     |       ✅       |      ❌      |          ❌           |
+| Iterative Neural Networks                     |     ✅     |       ✅       |      ✅      |          ❌           |
 
 ### Approximate Bayesian Methods
 
