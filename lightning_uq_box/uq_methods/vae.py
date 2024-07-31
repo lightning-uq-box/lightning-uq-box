@@ -139,7 +139,6 @@ class VAE(DeterministicPixelRegression):
 
         self.latent_feature_dim = self.img_size // self.encoder.reductions[-1]
 
-        # TODO: change this to be sequential to a linear latent space
         self.latent_mu = nn.Sequential(
             nn.Conv2d(self.latent_channels, self.latent_size, 1, 1),
             # nn.ReLU(),
@@ -170,7 +169,6 @@ class VAE(DeterministicPixelRegression):
             nn.Conv2d(self.latent_size, self.latent_channels, 1, 1),
         )
 
-        # Add segmentation head, because Decoder final layer is a ReLU
         self.decoder = VAEDecoder(decoder_channels=self.decoder_channels)
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:

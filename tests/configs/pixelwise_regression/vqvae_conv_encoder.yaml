@@ -1,0 +1,18 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.VQVAE
+  encoder:
+    _target_: torchseg.encoders.TimmEncoder
+    name: resnet18
+    depth: 2
+  img_size: 64
+  out_channels: 1
+  vq_module:
+    _target_: vector_quantize_pytorch.VectorQuantize
+    dim: 256
+    codebook_size: 8
+    codebook_dim: 4
+    use_cosine_sim: True
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003

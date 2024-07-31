@@ -87,6 +87,7 @@ from .swag import (
 from .temp_scaling import TempScaling
 from .vae import VAE, ConditionalVAE
 from .vbll import VBLLClassification, VBLLRegression
+from .vq_vae import VQVAE
 from .zigzag import ZigZagBase, ZigZagClassification, ZigZagRegression
 
 __all__ = (
@@ -206,6 +207,8 @@ __all__ = (
     # VAE
     "VAE",
     "ConditionalVAE",
+    # VQ VAE
+    "VQVAE",
     # Zig Zag
     "ZigZagBase",
     "ZigZagRegression",
