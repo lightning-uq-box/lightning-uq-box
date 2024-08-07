@@ -38,7 +38,7 @@ dependencies = [
     # einops 0.3+ required for einops.repeat
     "einops>=0.3",
     # lightning 2+ required for LightningCLI args + sys.argv support
-    "lightning>=2.1.1",
+    "lightning>=2.4.0",
     # matplotlib 3.5 required for Python 3.10 wheels
     "matplotlib>=3.5",
     # numpy 1.21.1+ required by Python 3.10 wheels
