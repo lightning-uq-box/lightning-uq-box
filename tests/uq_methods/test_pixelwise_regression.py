@@ -196,6 +196,11 @@ class TestFrozenPxRegression:
         model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
         model_conf.uq_method.model["encoder_name"] = backbone
 
+        if model_name == "DeepLabV3Plus":
+            # drop depth and decoder_channels
+            model_conf.uq_method.model.pop("encoder_depth")
+            model_conf.uq_method.model.pop("decoder_channels")
+
         module = instantiate(model_conf.uq_method, freeze_backbone=True)
         seg_model = module.model
 
@@ -212,6 +217,11 @@ class TestFrozenPxRegression:
     def test_freeze_decoder(self, model_config_path: str, model_name: str) -> None:
         model_conf = OmegaConf.load(model_config_path)
         model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
+
+        if model_name == "DeepLabV3Plus":
+            # drop depth and decoder_channels
+            model_conf.uq_method.model.pop("encoder_depth")
+            model_conf.uq_method.model.pop("decoder_channels")
 
         module = instantiate(model_conf.uq_method, freeze_decoder=True)
         seg_model = module.model
