@@ -6,6 +6,8 @@ uq_method:
     encoder_weights: imagenet
     classes: 4
     in_channels: 3
+    encoder_depth: 2
+    decoder_channels: [16, 8]
   optimizer:
     _target_: torch.optim.SGD
     _partial_: true
@@ -22,4 +24,4 @@ uq_method:
   posterior_mu_init: 0.0
   posterior_rho_init: -3.0
   bayesian_layer_type: "reparameterization"
-  stochastic_module_names: ["decoder.blocks.4.conv1.0", "decoder.blocks.4.conv2.0", "segmentation_head.0"]
+  stochastic_module_names: ["decoder.blocks.1.conv1.1", "decoder.blocks.0.conv2.0", "segmentation_head.0"]

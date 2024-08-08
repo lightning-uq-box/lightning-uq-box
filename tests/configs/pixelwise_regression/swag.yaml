@@ -8,6 +8,8 @@ uq_method:
       encoder_weights: imagenet
       classes: 2 # NLL output
       in_channels: 3
+      encoder_depth: 2
+      decoder_channels: [16, 8]
   max_swag_snapshots: 4
   snapshot_freq: 1
   num_mc_samples: 10
