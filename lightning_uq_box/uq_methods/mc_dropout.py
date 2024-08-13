@@ -110,6 +110,7 @@ class MCDropoutBase(DeterministicModel):
 
     def activate_dropout(self) -> None:
         """Activate dropout layers."""
+        self.model.train()
 
         def activate_dropout_recursive(model, prefix=""):
             for name, module in model.named_children():
@@ -120,6 +121,11 @@ class MCDropoutBase(DeterministicModel):
                     module.train()
                 elif isinstance(module, nn.Module):
                     activate_dropout_recursive(module, full_name)
+                # set batch norm layers to eval mode
+                elif isinstance(
+                    module, nn.BatchNorm1d | nn.BatchNorm2d | nn.BatchNorm3d
+                ):
+                    module.eval()
 
         activate_dropout_recursive(self.model)
 
@@ -233,7 +239,7 @@ class MCDropoutRegression(MCDropoutBase):
         Returns:
             mean and standard deviation of MC predictions
         """
-        self.activate_dropout()  # activate dropout during prediction
+        self.activate_dropout()
         with torch.no_grad():
             preds = torch.stack(
                 [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
