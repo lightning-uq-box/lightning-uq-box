@@ -110,6 +110,7 @@ class MCDropoutBase(DeterministicModel):
 
     def activate_dropout(self) -> None:
         """Activate dropout layers."""
+        dropout_layers_found = []
         self.model.train()
 
         def activate_dropout_recursive(model, prefix=""):
@@ -119,6 +120,7 @@ class MCDropoutBase(DeterministicModel):
                     module, nn.Dropout
                 ):
                     module.train()
+                    dropout_layers_found.append(full_name)
                 elif isinstance(module, nn.Module):
                     activate_dropout_recursive(module, full_name)
                 # set batch norm layers to eval mode
@@ -128,6 +130,12 @@ class MCDropoutBase(DeterministicModel):
                     module.eval()
 
         activate_dropout_recursive(self.model)
+
+        if not dropout_layers_found:
+            raise UserWarning(
+                "No dropout layers found in model, maybe dropout "
+                "is implemented via specialized layers?"
+            )
 
 
 class MCDropoutRegression(MCDropoutBase):
