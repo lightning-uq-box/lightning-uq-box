@@ -22,8 +22,6 @@ from lightning_uq_box.datamodules import ToyImageRegressionDatamodule
 from lightning_uq_box.uq_methods import DeepEnsembleRegression, TTARegression
 
 model_config_paths = [
-    "tests/configs/image_regression/mc_dropout_nll.yaml",
-    "tests/configs/image_regression/mc_dropout_mse.yaml",
     "tests/configs/image_regression/mean_variance_estimation.yaml",
     "tests/configs/image_regression/qr_model.yaml",
     "tests/configs/image_regression/der.yaml",
@@ -79,6 +77,35 @@ class TestImageRegressionTask:
         df = pd.read_csv(os.path.join(trainer.default_root_dir, model.pred_file_name))
         if "quantile" not in model_config_path:
             assert (df["pred_uct"] > 0).all()
+
+
+mc_dropout_config_paths = [
+    "tests/configs/image_regression/mc_dropout_nll.yaml",
+    "tests/configs/image_regression/mc_dropout_mse.yaml",
+]
+
+
+class TestMCDropout:
+    @pytest.mark.parametrize("model_config_path", mc_dropout_config_paths)
+    @pytest.mark.parametrize("data_config_path", data_config_paths)
+    def test_trainer(
+        self, model_config_path: str, data_config_path: str, tmp_path: Path
+    ) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        data_conf = OmegaConf.load(data_config_path)
+
+        model = instantiate(model_conf.model)
+        datamodule = instantiate(data_conf.data)
+        trainer = Trainer(
+            accelerator="cpu",
+            max_epochs=2,
+            log_every_n_steps=1,
+            default_root_dir=str(tmp_path),
+            logger=CSVLogger(str(tmp_path)),
+        )
+        with pytest.raises(UserWarning, match="No dropout layers found in model"):
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
 
 
 posthoc_config_paths = ["tests/configs/image_regression/conformal_qr.yaml"]
