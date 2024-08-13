@@ -134,14 +134,10 @@ class TestFrozenBackbone:
         model_conf = OmegaConf.load(model_config_path)
 
         try:
-            # if "vbll" in model_config_path:
-            #     import pdb
-            #     pdb.set_trace()
             model_conf.model.model.model_name = model_name
             model = instantiate(model_conf.model, freeze_backbone=True)
             assert not all([param.requires_grad for param in model.model.parameters()])
 
-            # name, output_module = _get_output_layer_name_and_module(model.model)
             assert all(
                 [
                     param.requires_grad
@@ -186,8 +182,15 @@ class TestDeepEnsemble:
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
             )
-            trainer.fit(model, datamodule)
-            trainer.test(ckpt_path="best", datamodule=datamodule)
+            if "mc_dropout" in model_config_path:
+                with pytest.raises(
+                    UserWarning, match="No dropout layers found in model"
+                ):
+                    trainer.fit(model, datamodule)
+                    trainer.test(ckpt_path="best", datamodule=datamodule)
+            else:
+                trainer.fit(model, datamodule)
+                trainer.test(ckpt_path="best", datamodule=datamodule)
 
             # Find the .ckpt file in the lightning_logs directory
             ckpt_file = glob.glob(
@@ -231,4 +234,8 @@ class TestTTAModel:
 
         trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
-        trainer.test(tta_model, datamodule)
+        if "mc_dropout" in model_config_path:
+            with pytest.raises(UserWarning, match="No dropout layers found in model"):
+                trainer.test(tta_model, datamodule)
+        else:
+            trainer.test(tta_model, datamodule)

@@ -292,10 +292,17 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
             - pred_uct: predictive uncertainty of shape [batch_size]
         path: path where csv should be saved
     """
+    if "samples" in outputs:
+        _ = outputs.pop("samples")
     if "logits" in outputs:
         logits = outputs.pop("logits")
         for i in range(logits.shape[1]):
             outputs[f"logit_{i}"] = logits[:, i]
+
+    if "class_probs" in outputs:
+        class_probs = outputs.pop("class_probs")
+        for i in range(class_probs.shape[1]):
+            outputs[f"class_prob_{i}"] = class_probs[:, i]
 
     pred_set_true = True if "pred_set" in outputs else False
 
