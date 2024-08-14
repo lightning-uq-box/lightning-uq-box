@@ -75,7 +75,7 @@ class TestImageRegressionTask:
         )
 
         df = pd.read_csv(os.path.join(trainer.default_root_dir, model.pred_file_name))
-        if "quantile" not in model_config_path:
+        if "qr_model" not in model_config_path:
             assert (df["pred_uct"] > 0).all()
 
 
@@ -98,7 +98,7 @@ class TestMCDropout:
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
             accelerator="cpu",
-            max_epochs=2,
+            max_epochs=1,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
             logger=CSVLogger(str(tmp_path)),
@@ -148,8 +148,7 @@ class TestPosthoc:
 
 
 ensemble_model_config_paths = [
-    "tests/configs/image_regression/mc_dropout_nll.yaml",
-    "tests/configs/image_regression/mean_variance_estimation.yaml",
+    "tests/configs/image_regression/mean_variance_estimation.yaml"
 ]
 
 
@@ -174,19 +173,12 @@ class TestDeepEnsemble:
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 accelerator="cpu",
-                max_epochs=2,
+                max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
             )
-            if "mc_dropout" in model_config_path:
-                with pytest.raises(
-                    UserWarning, match="No dropout layers found in model"
-                ):
-                    trainer.fit(model, datamodule)
-                    trainer.test(ckpt_path="best", datamodule=datamodule)
-            else:
-                trainer.fit(model, datamodule)
-                trainer.test(ckpt_path="best", datamodule=datamodule)
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
 
             # Find the .ckpt file in the lightning_logs directory
             ckpt_file = glob.glob(

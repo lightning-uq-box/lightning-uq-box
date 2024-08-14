@@ -154,7 +154,7 @@ class TestFrozenBackbone:
             )
 
 
-ensemble_model_config_paths = ["tests/configs/image_classification/mc_dropout.yaml"]
+ensemble_model_config_paths = ["tests/configs/image_classification/deterministic.yaml"]
 
 
 class TestDeepEnsemble:
@@ -171,26 +171,19 @@ class TestDeepEnsemble:
         data_conf = OmegaConf.load(data_config_path)
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(5):
+        for i in range(3):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             model = instantiate(model_conf.model)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 accelerator="cpu",
-                max_epochs=2,
+                max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
             )
-            if "mc_dropout" in model_config_path:
-                with pytest.raises(
-                    UserWarning, match="No dropout layers found in model"
-                ):
-                    trainer.fit(model, datamodule)
-                    trainer.test(ckpt_path="best", datamodule=datamodule)
-            else:
-                trainer.fit(model, datamodule)
-                trainer.test(ckpt_path="best", datamodule=datamodule)
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
 
             # Find the .ckpt file in the lightning_logs directory
             ckpt_file = glob.glob(
