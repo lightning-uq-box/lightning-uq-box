@@ -15,4 +15,3 @@ uq_method:
     _partial_: true
   loss_fn:
     _target_: torch.nn.CrossEntropyLoss
-  num_mc_samples: 10
