@@ -70,7 +70,7 @@ class DeepEnsemble(BaseModule):
             model_config["base_model"].load_state_dict(
                 torch.load(model_config["ckpt_path"])["state_dict"]
             )
-            model_config["base_model"].to(X.device)
+            model_config["base_model"].to(X.device).eval()
             out.append(model_config["base_model"](X))
         return torch.stack(out, dim=-1)
 
@@ -132,7 +132,7 @@ class DeepEnsembleRegression(DeepEnsemble):
         """Compute prediction step for a deep ensemble.
 
         Args:
-            X: input tensor of shape [batch_size, input_di]
+            X: input tensor of shape [batch_size, input_dims]
             batch_idx: the index of this batch
             dataloader_idx: the index of the dataloader
 
@@ -142,7 +142,9 @@ class DeepEnsembleRegression(DeepEnsemble):
         with torch.no_grad():
             preds = self.generate_ensemble_predictions(X)
 
-        return process_regression_prediction(preds)
+        pred_dict = process_regression_prediction(preds)
+        pred_dict["samples"] = preds
+        return pred_dict
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -201,7 +203,7 @@ class DeepEnsembleClassification(DeepEnsemble):
         """Compute prediction step for a deep ensemble.
 
         Args:
-            X: input tensor of shape [batch_size, input_di]
+            X: input tensor of shape [batch_size, input_dims]
             batch_idx: the index of this batch
             dataloader_idx: the index of the dataloader
 

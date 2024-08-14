@@ -264,7 +264,11 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
     if "samples" in outputs:
         samples = outputs.pop("samples")
         for i in range(samples.shape[-1]):
-            cpu_outputs[f"sample_{i}"] = samples[..., i].squeeze(-1).cpu().numpy()
+            sample = samples[..., i].squeeze(-1).cpu().numpy()
+            # mve prediction
+            if sample.ndim == 2 and sample.shape[-1] == 2:
+                sample = sample[:, 0]
+            cpu_outputs[f"sample_{i}"] = sample
 
     for key, val in outputs.items():
         if isinstance(val, Tensor):
