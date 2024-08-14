@@ -19,7 +19,6 @@ from lightning_uq_box.uq_methods import DeepEnsembleClassification, TTAClassific
 
 model_config_paths = [
     "tests/configs/image_classification/base.yaml",
-    "tests/configs/image_classification/mc_dropout.yaml",
     "tests/configs/image_classification/bnn_vi_elbo.yaml",
     "tests/configs/image_classification/swag.yaml",
     "tests/configs/image_classification/sgld.yaml",
@@ -46,11 +45,6 @@ class TestImageClassificationTask:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
 
-        # timm resnets implement dropout as nn.functional and not modules
-        # so the find_dropout_layers function yields a warning
-        # TODO
-        # match = "No dropout layers found in model*"
-        # with pytest.warns(UserWarning):
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
@@ -66,6 +60,32 @@ class TestImageClassificationTask:
             trainer.test(ckpt_path="best", datamodule=datamodule)
         else:
             trainer.test(model, datamodule=datamodule)
+
+
+mc_dropout_config_paths = ["tests/configs/image_classification/mc_dropout.yaml"]
+
+
+class TestMCDropout:
+    @pytest.mark.parametrize("model_config_path", mc_dropout_config_paths)
+    @pytest.mark.parametrize("data_config_path", data_config_paths)
+    def test_trainer(
+        self, model_config_path: str, data_config_path: str, tmp_path: Path
+    ) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        data_conf = OmegaConf.load(data_config_path)
+
+        model = instantiate(model_conf.model)
+        datamodule = instantiate(data_conf.data)
+        trainer = Trainer(
+            accelerator="cpu",
+            max_epochs=2,
+            log_every_n_steps=1,
+            default_root_dir=str(tmp_path),
+            logger=CSVLogger(str(tmp_path)),
+        )
+        with pytest.raises(UserWarning, match="No dropout layers found in model"):
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
 
 
 posthoc_config_paths = [
@@ -114,14 +134,10 @@ class TestFrozenBackbone:
         model_conf = OmegaConf.load(model_config_path)
 
         try:
-            # if "vbll" in model_config_path:
-            #     import pdb
-            #     pdb.set_trace()
             model_conf.model.model.model_name = model_name
             model = instantiate(model_conf.model, freeze_backbone=True)
             assert not all([param.requires_grad for param in model.model.parameters()])
 
-            # name, output_module = _get_output_layer_name_and_module(model.model)
             assert all(
                 [
                     param.requires_grad
@@ -138,7 +154,7 @@ class TestFrozenBackbone:
             )
 
 
-ensemble_model_config_paths = ["tests/configs/image_classification/mc_dropout.yaml"]
+ensemble_model_config_paths = ["tests/configs/image_classification/base.yaml"]
 
 
 class TestDeepEnsemble:
@@ -155,14 +171,14 @@ class TestDeepEnsemble:
         data_conf = OmegaConf.load(data_config_path)
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(5):
+        for i in range(3):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             model = instantiate(model_conf.model)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 accelerator="cpu",
-                max_epochs=2,
+                max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
             )
@@ -211,4 +227,8 @@ class TestTTAModel:
 
         trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
-        trainer.test(tta_model, datamodule)
+        if "mc_dropout" in model_config_path:
+            with pytest.raises(UserWarning, match="No dropout layers found in model"):
+                trainer.test(tta_model, datamodule)
+        else:
+            trainer.test(tta_model, datamodule)

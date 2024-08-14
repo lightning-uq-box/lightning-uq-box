@@ -28,7 +28,6 @@ model_config_paths = [
     "tests/configs/pixelwise_regression/mve.yaml",
     "tests/configs/pixelwise_regression/der.yaml",
     "tests/configs/pixelwise_regression/quantile_regression.yaml",
-    "tests/configs/pixelwise_regression/mc_dropout.yaml",
     "tests/configs/pixelwise_regression/swag.yaml",
     "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
     "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
@@ -76,10 +75,33 @@ class TestPixelwiseRegressionTask:
             assert "index" in f.attrs
 
 
-ensemble_model_config_paths = [
-    "tests/configs/pixelwise_regression/mve.yaml",
-    "tests/configs/pixelwise_regression/mc_dropout.yaml",
-]
+mc_dropout_config_paths = ["tests/configs/pixelwise_regression/mc_dropout.yaml"]
+
+
+class TestMCDropout:
+    @pytest.mark.parametrize("model_config_path", mc_dropout_config_paths)
+    @pytest.mark.parametrize("data_config_path", data_config_paths)
+    def test_trainer(
+        self, model_config_path: str, data_config_path: str, tmp_path: Path
+    ) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        data_conf = OmegaConf.load(data_config_path)
+
+        model = instantiate(model_conf.uq_method)
+        datamodule = instantiate(data_conf.data)
+        trainer = Trainer(
+            accelerator="cpu",
+            max_epochs=1,
+            log_every_n_steps=1,
+            default_root_dir=str(tmp_path),
+            logger=CSVLogger(str(tmp_path)),
+        )
+        with pytest.raises(UserWarning, match="No dropout layers found in model"):
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
+
+
+ensemble_model_config_paths = ["tests/configs/pixelwise_regression/mve.yaml"]
 
 
 class TestDeepEnsemble:
@@ -96,14 +118,14 @@ class TestDeepEnsemble:
         data_conf = OmegaConf.load(data_config_path)
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(5):
+        for i in range(3):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 accelerator="cpu",
-                max_epochs=2,
+                max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
             )

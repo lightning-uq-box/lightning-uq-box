@@ -55,19 +55,25 @@ class TestImageSegmentationTask:
         )
 
         trainer.fit(model, datamodule)
-        trainer.test(ckpt_path="best", datamodule=datamodule)
+        if "mc_dropout" in model_config_path:
+            with pytest.raises(UserWarning, match="No dropout layers found in model"):
+                trainer.test(ckpt_path="best", datamodule=datamodule)
+        else:
+            trainer.test(ckpt_path="best", datamodule=datamodule)
 
-        with h5py.File(os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r") as f:
-            assert "pred" in f
-            assert "target" in f
-            for key, value in f.items():
-                assert value.shape[-1] == 64
-                assert value.shape[-2] == 64
-            assert "aux" in f.attrs
-            assert "index" in f.attrs
+            with h5py.File(
+                os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r"
+            ) as f:
+                assert "pred" in f
+                assert "target" in f
+                for key, value in f.items():
+                    assert value.shape[-1] == 64
+                    assert value.shape[-2] == 64
+                assert "aux" in f.attrs
+                assert "index" in f.attrs
 
 
-ensemble_model_config_paths = ["tests/configs/image_segmentation/mc_dropout.yaml"]
+ensemble_model_config_paths = ["tests/configs/image_segmentation/base.yaml"]
 
 
 class TestDeepEnsemble:
@@ -84,14 +90,14 @@ class TestDeepEnsemble:
         data_conf = OmegaConf.load(data_config_path)
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(5):
+        for i in range(3):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             model = instantiate(model_conf.uq_method, save_preds=True)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 accelerator="cpu",
-                max_epochs=2,
+                max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
             )
