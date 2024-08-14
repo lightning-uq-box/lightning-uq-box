@@ -1,9 +1,0 @@
-model:
-  _target_: lightning_uq_box.uq_methods.DeterministicClassification
-  model:
-    _target_: timm.create_model
-    model_name: resnet18
-    num_classes: 4
-    drop_rate: 0.1
-  loss_fn:
-    _target_: torch.nn.CrossEntropyLoss

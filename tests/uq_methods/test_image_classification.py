@@ -154,7 +154,7 @@ class TestFrozenBackbone:
             )
 
 
-ensemble_model_config_paths = ["tests/configs/image_classification/deterministic.yaml"]
+ensemble_model_config_paths = ["tests/configs/image_classification/base.yaml"]
 
 
 class TestDeepEnsemble:

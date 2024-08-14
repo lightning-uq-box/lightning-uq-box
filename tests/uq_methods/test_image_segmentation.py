@@ -54,25 +54,26 @@ class TestImageSegmentationTask:
             logger=CSVLogger(str(tmp_path)),
         )
 
+        trainer.fit(model, datamodule)
         if "mc_dropout" in model_config_path:
             with pytest.raises(UserWarning, match="No dropout layers found in model"):
-                trainer.fit(model, datamodule)
                 trainer.test(ckpt_path="best", datamodule=datamodule)
         else:
-            trainer.fit(model, datamodule)
             trainer.test(ckpt_path="best", datamodule=datamodule)
 
-        with h5py.File(os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r") as f:
-            assert "pred" in f
-            assert "target" in f
-            for key, value in f.items():
-                assert value.shape[-1] == 64
-                assert value.shape[-2] == 64
-            assert "aux" in f.attrs
-            assert "index" in f.attrs
+            with h5py.File(
+                os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r"
+            ) as f:
+                assert "pred" in f
+                assert "target" in f
+                for key, value in f.items():
+                    assert value.shape[-1] == 64
+                    assert value.shape[-2] == 64
+                assert "aux" in f.attrs
+                assert "index" in f.attrs
 
 
-ensemble_model_config_paths = ["tests/configs/image_segmentation/deterministic.yaml"]
+ensemble_model_config_paths = ["tests/configs/image_segmentation/base.yaml"]
 
 
 class TestDeepEnsemble:
