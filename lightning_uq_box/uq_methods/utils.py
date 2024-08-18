@@ -149,67 +149,53 @@ def process_regression_prediction(
 
 
 def process_classification_prediction(
-    preds: Tensor,
-    aggregate_fn: Callable = torch.mean,
-    eps: float = 1e-7,
-    agg_logits_first: bool = False,
+    logits: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
 ) -> dict[str, Tensor]:
     """Process classification predictions.
 
     Applies softmax to logit and computes mean over the samples and entropy.
 
     Args:
-        preds: prediction logits tensor of shape [batch_size, num_classes, num_samples]
+        logits: prediction logits tensor of shape [batch_size, num_classes, num_samples]
         aggregate_fn: function to aggregate over the samples
         eps: small value to prevent log of 0
         agg_logits_first: whether to aggregate the logits first or take the softmax
             first and then aggregate
 
     Returns:
-        dictionary with mean [batch_size, num_classes]
+        dictionary with aggregated class probabilities [batch_size, num_classes]
             and predictive uncertainty [batch_size]
-            and aggregated logits [batch_size, num_classes]
     """
-    if agg_logits_first:
-        mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
-    else:
-        mean = aggregate_fn(nn.functional.softmax(preds, dim=1), dim=-1)
+    mean = aggregate_fn(nn.functional.softmax(logits, dim=1), dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=-1)
-    return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": logits}
 
 
 def process_segmentation_prediction(
-    preds: Tensor,
-    aggregate_fn: Callable = torch.mean,
-    eps: float = 1e-7,
-    agg_logits_first: bool = False,
+    logits: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
 ) -> dict[str, Tensor]:
     """Process segmentation predictions.
 
     Applies softmax to logit and computes mean over the samples and entropy.
 
     Args:
-        preds: prediction logits tensor of shape
+        logits: prediction logits tensor of shape
             [batch_size, num_classes, height, width, num_samples]
         aggregate_fn: function to aggregate over the samples
         eps: small value to prevent log of 0
-        agg_logits_first: whether to aggregate the logits first or take the softmax
 
     Returns:
-        dictionary with mean [batch_size, num_classes, height, width]
-            and predictive uncertainty [batch_size, height, width]
-            and aggregated logits [batch_size, num_classes, height, width]
+        dictionary with pixel class probabilities
+            [batch_size, num_classes, height, width]
+        and predictive uncertainty [batch_size, height, width]
     """
-    if agg_logits_first:
-        mean = nn.functional.softmax(aggregate_fn(preds, dim=-1), dim=-1)
-    else:
-        mean = aggregate_fn(nn.functional.softmax(preds, dim=1), dim=-1)
+    mean = aggregate_fn(nn.functional.softmax(logits, dim=1), dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
     entropy = -(mean * mean.log()).sum(dim=1)
-    return {"pred": mean, "pred_uct": entropy, "logits": aggregate_fn(preds, dim=-1)}
+    return {"pred": mean, "pred_uct": entropy, "logits": logits}
 
 
 def change_inplace_activation(module):
@@ -299,14 +285,7 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     if "samples" in outputs:
         _ = outputs.pop("samples")
     if "logits" in outputs:
-        logits = outputs.pop("logits")
-        for i in range(logits.shape[1]):
-            outputs[f"logit_{i}"] = logits[:, i]
-
-    if "class_probs" in outputs:
-        class_probs = outputs.pop("class_probs")
-        for i in range(class_probs.shape[1]):
-            outputs[f"class_prob_{i}"] = class_probs[:, i]
+        _ = outputs.pop("logits")
 
     pred_set_true = True if "pred_set" in outputs else False
 
@@ -316,7 +295,12 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
         ]
         df_pred_set = pd.DataFrame(pred_set, columns=["pred_set"])
 
-    pred = torch.argmax(outputs.pop("pred"), dim=1).cpu().numpy()
+    # save inidividual predictions as class probs
+    class_probs = outputs.pop("pred")
+    pred_class = torch.argmax(class_probs, dim=1).cpu().numpy()
+
+    for i in range(class_probs.shape[1]):
+        outputs[f"class_prob_{i}"] = class_probs[:, 1]
 
     cpu_outputs = {}
     for key, val in outputs.items():
@@ -325,9 +309,14 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
         else:
             cpu_outputs[key] = np.array(val)
 
-    df_pred = pd.DataFrame(pred, columns=["pred"])
+    df_pred = pd.DataFrame(pred_class, columns=["pred"])
 
     # Create DataFrame for the rest of the outputs
+    # import pdb
+
+    # pdb.set_trace()
+    # for key,val in cpu_outputs.items():
+    #     print(key, val.shape)
     df_outputs = pd.DataFrame.from_dict(cpu_outputs)
 
     # Concatenate the two DataFrames
