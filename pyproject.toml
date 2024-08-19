@@ -56,7 +56,7 @@ dependencies = [
     # for deep kernel learning and other GP models
     "gpytorch>=1.11",
     # Laplace Approximation
-    "laplace-torch @ git+https://github.com/aleximmer/laplace@update-deps",
+    "laplace-torch @ git+https://github.com/AlexImmer/Laplace@update-deps",
     # Uncertainty toolbox metrics
     "uncertainty-toolbox>=0.1.1",
     # Kornia for Test Time Augmentations and other image processing
