@@ -14,4 +14,4 @@ kornia==0.7.1
 h5py==3.11.0
 
 # laplace-torch
-git+https://github.com/AlexImmer/Laplace.git
+git+git+https://github.com/aleximmer/laplace@update-deps
