@@ -449,7 +449,6 @@ class LaplaceClassification(LaplaceBase):
                 X, pred_type=self.pred_type, link_approx=self.link_approx
             )
         pred_dict["pred"] = mean
-        pred_dict["class_probs"] = mean
         return pred_dict
 
     def setup_task(self) -> None:

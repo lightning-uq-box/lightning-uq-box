@@ -312,11 +312,6 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     df_pred = pd.DataFrame(pred_class, columns=["pred"])
 
     # Create DataFrame for the rest of the outputs
-    # import pdb
-
-    # pdb.set_trace()
-    # for key,val in cpu_outputs.items():
-    #     print(key, val.shape)
     df_outputs = pd.DataFrame.from_dict(cpu_outputs)
 
     # Concatenate the two DataFrames
