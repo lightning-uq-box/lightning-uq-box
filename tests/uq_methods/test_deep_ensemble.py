@@ -22,6 +22,7 @@ data_config_paths = ["tests/configs/image_regression/toy_image_regression.yaml"]
 ensemble_model_config_paths = [
     "tests/configs/image_regression/mc_dropout_nll.yaml",
     "tests/configs/image_regression/mean_variance_estimation.yaml",
+    "tests/configs/image_regression/mc_dropout_mse.yaml",
 ]
 
 
@@ -51,7 +52,14 @@ class TestDeepEnsemble:
                 default_root_dir=str(tmp_path),
             )
             trainer.fit(model, datamodule)
-            trainer.test(ckpt_path="best", datamodule=datamodule)
+
+            if "mc_dropout" in model_config_path:
+                with pytest.raises(
+                    UserWarning, match="No dropout layers found in model"
+                ):
+                    trainer.test(ckpt_path="best", datamodule=datamodule)
+            else:
+                trainer.test(ckpt_path="best", datamodule=datamodule)
 
             # Find the .ckpt file in the lightning_logs directory
             ckpt_file = glob.glob(
@@ -69,7 +77,11 @@ class TestDeepEnsemble:
         datamodule = ToyImageRegressionDatamodule()
         batch = next(iter(datamodule.test_dataloader()))
 
-        pred = ensemble_model.predict_step(batch["input"])
+        if "mc_dropout" in ensemble_members_dict[0]["ckpt_path"]:
+            with pytest.raises(UserWarning, match="No dropout layers found in model"):
+                pred = ensemble_model.predict_step(batch["input"])
+        else:
+            pred = ensemble_model.predict_step(batch["input"])
 
         # check that prediction under ensemble are the same as the individual ones
         for i in range(len(ensemble_members_dict)):
