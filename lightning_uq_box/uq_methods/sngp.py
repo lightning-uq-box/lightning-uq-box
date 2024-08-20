@@ -470,7 +470,7 @@ class SNGPClassification(SNGPBase):
         pred_dict["pred"] = self.mean_field_logits(
             pred_dict["pred"], pred_dict["pred_cov"]
         )
-        pred_dict["logits"] = pred_dict["pred"]
+        pred_dict["class_probs"] = torch.nn.functional.softmax(pred_dict["pred"], dim=1)
         return pred_dict
 
 

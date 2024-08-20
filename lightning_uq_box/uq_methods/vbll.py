@@ -497,6 +497,7 @@ class VBLLClassification(DeterministicClassification):
             "pred_uct": entropy,
             "out": pred,
             "ood_score": pred.ood_scores,
+            "class_probs": probs,
         }
 
     def configure_optimizers(self) -> dict[str, Any]:
