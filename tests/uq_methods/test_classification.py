@@ -18,16 +18,16 @@ from lightning_uq_box.uq_methods import DeepEnsembleClassification
 
 model_config_paths = [
     "tests/configs/classification/mc_dropout.yaml"
-    # "tests/configs/classification/bnn_vi_elbo.yaml",
-    # "tests/configs/classification/swag.yaml",
-    # "tests/configs/classification/sgld.yaml",
-    # "tests/configs/classification/dkl.yaml",
-    # "tests/configs/classification/due.yaml",
-    # "tests/configs/classification/card.yaml",
-    # "tests/configs/classification/sngp.yaml",
-    # "tests/configs/classification/vbll.yaml",
-    # "tests/configs/classification/masked_ensemble.yaml",
-    # "tests/configs/classification/zigzag.yaml",
+    "tests/configs/classification/bnn_vi_elbo.yaml",
+    "tests/configs/classification/swag.yaml",
+    "tests/configs/classification/sgld.yaml",
+    "tests/configs/classification/dkl.yaml",
+    "tests/configs/classification/due.yaml",
+    "tests/configs/classification/card.yaml",
+    "tests/configs/classification/sngp.yaml",
+    "tests/configs/classification/vbll.yaml",
+    "tests/configs/classification/masked_ensemble.yaml",
+    "tests/configs/classification/zigzag.yaml",
 ]
 
 data_config_paths = ["tests/configs/classification/toy_classification.yaml"]
