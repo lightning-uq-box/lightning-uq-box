@@ -17,7 +17,7 @@ from lightning_uq_box.main import get_uq_box_cli
 from lightning_uq_box.uq_methods import DeepEnsembleClassification
 
 model_config_paths = [
-    "tests/configs/classification/mc_dropout.yaml"
+    "tests/configs/classification/mc_dropout.yaml",
     "tests/configs/classification/bnn_vi_elbo.yaml",
     "tests/configs/classification/swag.yaml",
     "tests/configs/classification/sgld.yaml",
