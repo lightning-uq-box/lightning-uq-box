@@ -12,6 +12,4 @@ pandas==2.2.1
 uncertainty-toolbox==0.1.1
 kornia==0.7.1
 h5py==3.11.0
-
-# laplace-torch
-git+https://github.com/aleximmer/Laplace@update-deps
+laplace-torch==0.2.1
