@@ -67,8 +67,12 @@ class TestImageSegmentationTask:
                 assert "pred" in f
                 assert "target" in f
                 for key, value in f.items():
-                    assert value.shape[-1] == 64
-                    assert value.shape[-2] == 64
+                    if key == "logits":
+                        assert value.shape[1] == 64
+                        assert value.shape[2] == 64
+                    else:
+                        assert value.shape[-1] == 64
+                        assert value.shape[-2] == 64
                 assert "aux" in f.attrs
                 assert "index" in f.attrs
 
@@ -132,8 +136,12 @@ class TestDeepEnsemble:
             assert "pred" in f
             assert "target" in f
             for key, value in f.items():
-                assert value.shape[-1] == 64
-                assert value.shape[-2] == 64
+                if key == "logits":
+                    assert value.shape[1] == 64
+                    assert value.shape[2] == 64
+                else:
+                    assert value.shape[-1] == 64
+                    assert value.shape[-2] == 64
             assert "aux" in f.attrs
             assert "index" in f.attrs
 

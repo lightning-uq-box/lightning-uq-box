@@ -347,7 +347,7 @@ class ProbUNet(BaseModule):
 
         # compute metrics with sampled reconstruction
         self.test_metrics(
-            preds["logits"],
+            preds["pred"],
             batch[self.target_key],
             batch_size=batch[self.input_key].shape[0],
         )

@@ -9,6 +9,8 @@ Welcome to the lightning-uq-box documentation page. Our goal is to give you both
 
 While some UQ-Methods like MC-Dropout or Deep Ensembles can be applied across tasks, other methods are specifically developed for certain tasks. The following aims to give an overview of supported methods for the different tasks.
 
+For a comprehensive document that provides more mathematical details for each method and forms the basis of our implementations, please see [the Theory Guide](./api/Lightning_UQ_Box_Theory_Guide.pdf).
+
 In the tables that follow below, you can see what UQ-Method/Task combination is currently supported by the Lightning-UQ-Box via these indicators:
 
 - ✅ supported

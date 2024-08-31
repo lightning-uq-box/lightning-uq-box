@@ -470,7 +470,6 @@ class SNGPClassification(SNGPBase):
         pred_dict["pred"] = self.mean_field_logits(
             pred_dict["pred"], pred_dict["pred_cov"]
         )
-        pred_dict["logits"] = pred_dict["pred"]
         return pred_dict
 
 
