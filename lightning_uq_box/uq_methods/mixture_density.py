@@ -75,6 +75,7 @@ class MDNRegression(DeterministicRegression):
 
         super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
 
+        self.freeze_backbone = freeze_backbone
         self._build_model()
         self.freeze_model()
 
@@ -101,13 +102,15 @@ class MDNRegression(DeterministicRegression):
     def freeze_model(self) -> None:
         """Freeze model."""
         if self.freeze_backbone:
+            # Freeze all parameters initially
+            for param in self.model.parameters():
+                param.requires_grad = False
+
+            # Unfreeze only the parameters of the MixtureDensityLayer
             for _, module in self.model.named_modules():
                 if module.__class__.__name__ == "MixtureDensityLayer":
                     for param in module.parameters():
                         param.requires_grad = True
-                else:
-                    for param in module.parameters():
-                        param.requires_grad = False
 
     def adapt_output_for_metrics(self, mu: Tensor, indices: Tensor) -> Tensor:
         """Adapt the output for metrics.

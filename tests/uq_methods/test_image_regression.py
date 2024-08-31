@@ -243,6 +243,7 @@ frozen_config_paths = [
     "tests/configs/image_regression/due.yaml",
     "tests/configs/image_regression/sngp.yaml",
     "tests/configs/image_regression/der.yaml",
+    "tests/configs/image_regression/mixture_density.yaml",
 ]
 
 
