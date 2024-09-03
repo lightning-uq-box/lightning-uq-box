@@ -1,0 +1,17 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.DensityLayerModelClassification
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    num_classes: 4
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ConstantLR
+    _partial_: true
+  stochastic_module_names:
+  - layer4.1.conv1
+  - layer4.1.conv2
+  - fc

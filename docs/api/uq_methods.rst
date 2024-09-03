@@ -74,6 +74,27 @@ Zig Zag Classification
 .. autoclass:: ZigZagClassification
 
 
+Density Uncertainty Model
+-------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.density_uncertainty
+
+Density Uncertainty Base
+````````````````````````
+
+.. autoclass:: DensityLayerModelBase
+
+Density Uncertainty Regression
+``````````````````````````````
+
+.. autoclass:: DensityLayerModelRegression
+
+Density Uncertainty Classification
+``````````````````````````````````
+
+.. autoclass:: DensityLayerModelClassification
+
+
 
 Approximate Bayesian Methods
 ============================
