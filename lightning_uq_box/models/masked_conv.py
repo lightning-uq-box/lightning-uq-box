@@ -49,7 +49,7 @@ def conv_mask(width: int, height: int, include_center: bool = False) -> torch.Te
     )
 
 
-def weight_mask(in_channels: int, kernel_size: int) -> torch.Tensor:
+def weight_mask(in_channels: int, kernel_size: tuple[int]) -> torch.Tensor:
     """Generate a weight mask for a given number of input channels and kernel size.
 
     Args:
@@ -59,10 +59,10 @@ def weight_mask(in_channels: int, kernel_size: int) -> torch.Tensor:
     Returns:
         A tensor representing the weight mask.
     """
-    conv_mask_with_center = conv_mask(kernel_size, kernel_size, include_center=True)
-    conv_mask_no_center = conv_mask(kernel_size, kernel_size, include_center=False)
+    conv_mask_with_center = conv_mask(*kernel_size, include_center=True)
+    conv_mask_no_center = conv_mask(*kernel_size, include_center=False)
 
-    mask = torch.zeros(in_channels, in_channels, kernel_size, kernel_size)
+    mask = torch.zeros(in_channels, in_channels, *kernel_size)
     for i in range(in_channels):
         for j in range(in_channels):
             mask[i, j] = conv_mask_no_center if j >= i else conv_mask_with_center
@@ -73,7 +73,11 @@ class MaskedConv2d(nn.Module):
     """Masked 2D Convolutional Layer."""
 
     def __init__(
-        self, in_channels: int, kernel_size: int, stride: int = 1, padding: int = 0
+        self,
+        in_channels: int,
+        kernel_size: tuple[int],
+        stride: int = 1,
+        padding: int = 0,
     ) -> None:
         """Initialize a MaskedConv2d layer.
 
@@ -96,6 +100,8 @@ class MaskedConv2d(nn.Module):
             padding_mode="replicate",
         )
         self.conv.weight.data.zero_()
+        if isinstance(kernel_size, int):
+            kernel_size = (kernel_size, kernel_size)
         mask = weight_mask(in_channels, kernel_size)
         self.register_buffer("mask", mask)
 

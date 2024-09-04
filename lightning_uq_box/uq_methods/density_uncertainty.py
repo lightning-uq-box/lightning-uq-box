@@ -20,6 +20,8 @@ from .utils import (
     default_classification_metrics,
     default_regression_metrics,
     map_stochastic_modules,
+    process_classification_prediction,
+    process_regression_prediction,
     save_classification_predictions,
     save_regression_predictions,
 )
@@ -47,8 +49,6 @@ def get_density_conv_layer(
         kernel_size=conv_layer.kernel_size,
         stride=conv_layer.stride,
         padding=conv_layer.padding,
-        dilation=conv_layer.dilation,
-        groups=conv_layer.groups,
         bias=conv_layer.bias is not None,
         **params,
     )
@@ -111,6 +111,7 @@ class DensityLayerModelBase(DeterministicModel):
         kl_beta: float = 1.0,
         ll_scale: float = 0.01,
         pretrain_epochs: int = 0,
+        num_samples_test: int = 1,
         stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -129,10 +130,14 @@ class DensityLayerModelBase(DeterministicModel):
             pretrain_epochs: Number of pretraining epochs for generative energy model,
                 which can stabilize training, before switching to normal training regime
                 that includes KL divergence.
+            num_samples_test: Number of samples to use for test time predictions.
             stochastic_module_names: List of module names that should become density layers.
             freeze_backbone: If True, freeze the backbone.
             optimizer: Optimizer.
             lr_scheduler: Learning rate scheduler.
+
+        Raises:
+            AssertionError: If num_samples_test is less than or equal to 0.
         """
         self.density_layer_args = {
             "prior_std": prior_std,
@@ -150,6 +155,8 @@ class DensityLayerModelBase(DeterministicModel):
         self.kl_beta = kl_beta
         self.ll_scale = ll_scale
         self.pretrain_epochs = pretrain_epochs
+        assert num_samples_test > 0, "num_samples_test must be greater than 0"
+        self.num_samples_test = num_samples_test
 
     def setup_task(self) -> None:
         """Set up task."""
@@ -280,6 +287,7 @@ class DensityLayerModelRegression(DensityLayerModelBase):
         kl_beta: float = 1,
         ll_scale: float = 0.01,
         pretrain_epochs: int = 0,
+        num_samples_test: int = 1,
         stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -298,6 +306,7 @@ class DensityLayerModelRegression(DensityLayerModelBase):
             pretrain_epochs: Number of pretraining epochs for generative energy model,
                 which can stabilize training, before switching to normal training regime
                 that includes KL divergence.
+            num_samples_test: Number of samples to use for test time predictions.
             stochastic_module_names: List of module names that should become density layers.
             freeze_backbone: If True, freeze the backbone.
             optimizer: Optimizer.
@@ -314,6 +323,7 @@ class DensityLayerModelRegression(DensityLayerModelBase):
             kl_beta,
             ll_scale,
             pretrain_epochs,
+            num_samples_test,
             stochastic_module_names,
             freeze_backbone,
             optimizer,
@@ -325,6 +335,34 @@ class DensityLayerModelRegression(DensityLayerModelBase):
         self.train_metrics = default_regression_metrics("train")
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
+
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt the output for the metrics."""
+        # single output, MSE loss type case
+        if out.dim() == 1:
+            out = out.unsqueeze(-1)
+        return out[:, 0:1]
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step.
+
+        Args:
+            X: input tensor
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+
+        Returns:
+            dictionary of predictions
+        """
+        with torch.no_grad():
+            # squeeze the last dimension in case of 1 sample
+            y_hat = torch.stack(
+                [self.model(X) for _ in range(self.num_samples_test)], dim=-1
+            ).squeeze(-1)
+
+        return process_regression_prediction(y_hat)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -356,6 +394,7 @@ class DensityLayerModelClassification(DensityLayerModelBase):
         kl_beta: float = 1,
         ll_scale: float = 0.01,
         pretrain_epochs: int = 0,
+        num_samples_test: int = 1,
         stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -375,6 +414,7 @@ class DensityLayerModelClassification(DensityLayerModelBase):
             pretrain_epochs: Number of pretraining epochs for generative energy model,
                 which can stabilize training, before switching to normal training regime
                 that includes KL divergence.
+            num_samples_test: Number of samples to use for test time predictions.
             stochastic_module_names: List of module names that should become density layers.
             freeze_backbone: If True, freeze the backbone.
             optimizer: Optimizer.
@@ -399,6 +439,7 @@ class DensityLayerModelClassification(DensityLayerModelBase):
             kl_beta,
             ll_scale,
             pretrain_epochs,
+            num_samples_test,
             stochastic_module_names,
             freeze_backbone,
             optimizer,
@@ -416,6 +457,31 @@ class DensityLayerModelClassification(DensityLayerModelBase):
         self.test_metrics = default_classification_metrics(
             "test", self.task, self.num_classes
         )
+
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt the output for the metrics."""
+        return out
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step.
+
+        Args:
+            X: input tensor
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+
+        Returns:
+            dictionary of predictions
+        """
+        with torch.no_grad():
+            # squeeze the last dimension in case of 1 sample
+            y_hat = torch.stack(
+                [self.model(X) for _ in range(self.num_samples_test)], dim=-1
+            )
+
+        return process_classification_prediction(y_hat)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
