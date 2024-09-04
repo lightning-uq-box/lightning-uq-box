@@ -112,6 +112,7 @@ class DensityLinear(DensityLayerBase_):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
+        self.bias = bias
 
         self.linear = nn.Linear(in_features, out_features, bias=bias)
         nn.init.kaiming_normal_(self.linear.weight)
@@ -205,6 +206,7 @@ class DensityConv2d(DensityLayerBase_):
         self.kernel_size = kernel_size
         self.stride = stride
         self.padding = padding
+        self.bias = bias
         self.pool = nn.AvgPool2d(kernel_size, stride, padding)
 
         self.conv = nn.Conv2d(
