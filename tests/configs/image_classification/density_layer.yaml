@@ -1,4 +1,4 @@
-uq_method:
+model:
   _target_: lightning_uq_box.uq_methods.DensityLayerModelClassification
   model:
     _target_: timm.create_model
