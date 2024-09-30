@@ -166,8 +166,6 @@ class ResShiftSR(DDPM):
             
         noise = default(noise, lambda: torch.randn_like(x_start))
 
-        noise = torch.load("/mnt/SSD2/nils/ResShift/noise.pth", map_location = self.device)
-
         # for q_sampling the lr_img is also encoded
         # https://github.com/zsyOAOA/ResShift/blob/dfc2ff705a962de1601a491511b43a93b97d9622/models/gaussian_diffusion.py#L555
         x = self.q_sample(x_start = x_start, lr_img =self.encode_img(self.latent_model, lr_img, up_sample = True), t = t, noise = noise)
@@ -251,13 +249,13 @@ class ResShiftSR(DDPM):
         """Compute and return the training loss."""
         # compute the loss
         lr_img, hr_img = batch[self.input_key], batch[self.target_key]
-        batch = torch.load("/mnt/SSD2/nils/ResShift/example_micro_batch.pt", map_location = self.device)
-        lr_img = batch["lq"]
-        hr_img = batch["gt"]
+        # batch = torch.load("/mnt/SSD2/nils/ResShift/example_micro_batch.pt", map_location = self.device)
+        # lr_img = batch["lq"]
+        # hr_img = batch["gt"]
 
         t = torch.randint(0, self.num_timesteps, (lr_img.shape[0],), device = self.device).long()
 
-        t = torch.load("/mnt/SSD2/nils/ResShift/timesteps.pt", map_location = self.device).long()
+        # t = torch.load("/mnt/SSD2/nils/ResShift/timesteps.pt", map_location = self.device).long()
         loss = self.p_losses(hr_img, lr_img, t)
 
         self.log("train_loss", loss)
