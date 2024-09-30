@@ -287,7 +287,7 @@ class DensityLayerModelRegression(DensityLayerModelBase):
         kl_beta: float = 1,
         ll_scale: float = 0.01,
         pretrain_epochs: int = 0,
-        num_samples_test: int = 1,
+        num_samples_test: int = 5,
         stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -394,7 +394,7 @@ class DensityLayerModelClassification(DensityLayerModelBase):
         kl_beta: float = 1,
         ll_scale: float = 0.01,
         pretrain_epochs: int = 0,
-        num_samples_test: int = 1,
+        num_samples_test: int = 5,
         stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -480,7 +480,6 @@ class DensityLayerModelClassification(DensityLayerModelBase):
             y_hat = torch.stack(
                 [self.model(X) for _ in range(self.num_samples_test)], dim=-1
             )
-
         return process_classification_prediction(y_hat)
 
     def on_test_batch_end(

@@ -11,6 +11,7 @@ model:
   lr_scheduler:
     _target_: torch.optim.lr_scheduler.ConstantLR
     _partial_: true
+  num_samples_test: 3
   stochastic_module_names:
   - layer4.1.conv1
   - layer4.1.conv2
