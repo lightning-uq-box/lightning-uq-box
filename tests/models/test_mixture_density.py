@@ -17,24 +17,24 @@ def input_tensor():
 
 
 @pytest.mark.parametrize(
-    "dim_in, dim_out, n_components, hidden_dim, noise_type, fixed_noise_level",
+    "dim_in, dim_out, n_components, hidden_dims, noise_type, fixed_noise_level",
     [
-        (5, 3, 4, 10, "diagonal", None),
-        (5, 3, 4, 10, "isotropic", None),
-        (5, 3, 4, 10, "isotropic_clusters", None),
-        (5, 3, 4, 10, "fixed", 0.1),
-        (5, 3, 6, 20, "diagonal", None),
-        (5, 3, 8, 30, "isotropic", None),
-        (10, 5, 4, 10, "isotropic_clusters", None),
-        (10, 5, 4, 10, "fixed", 0.1),
+        (5, 3, 4, [10], "diagonal", None),
+        (5, 3, 4, [10], "isotropic", None),
+        (5, 3, 4, [10], "isotropic_clusters", None),
+        (5, 3, 4, [10], "fixed", 0.1),
+        (5, 3, 6, [20], "diagonal", None),
+        (5, 3, 8, [30], "isotropic", None),
+        (10, 5, 4, [10], "isotropic_clusters", None),
+        (10, 5, 4, [10], "fixed", 0.1),
     ],
 )
 class TestMixtureDensityLayer:
     def test_initialization(
-        self, dim_in, dim_out, n_components, hidden_dim, noise_type, fixed_noise_level
+        self, dim_in, dim_out, n_components, hidden_dims, noise_type, fixed_noise_level
     ):
         layer = MixtureDensityLayer(
-            dim_in, dim_out, n_components, hidden_dim, noise_type, fixed_noise_level
+            dim_in, dim_out, n_components, hidden_dims, noise_type, fixed_noise_level
         )
         assert layer.dim_in == dim_in
         assert layer.dim_out == dim_out
@@ -43,12 +43,12 @@ class TestMixtureDensityLayer:
         assert layer.fixed_noise_level == fixed_noise_level
 
     def test_forward(
-        self, dim_in, dim_out, n_components, hidden_dim, noise_type, fixed_noise_level
+        self, dim_in, dim_out, n_components, hidden_dims, noise_type, fixed_noise_level
     ):
         input_tensor = torch.randn(10, dim_in)  # batch_size=10
 
         layer = MixtureDensityLayer(
-            dim_in, dim_out, n_components, hidden_dim, noise_type, fixed_noise_level
+            dim_in, dim_out, n_components, hidden_dims, noise_type, fixed_noise_level
         )
         log_pi, mu, sigma = layer(input_tensor)
 
@@ -66,13 +66,13 @@ class TestMixtureDensityLayer:
             assert torch.all(sigma == fixed_noise_level)
 
     def test_sample_with_model(
-        self, dim_in, dim_out, n_components, hidden_dim, noise_type, fixed_noise_level
+        self, dim_in, dim_out, n_components, hidden_dims, noise_type, fixed_noise_level
     ):
         network = MLP(n_inputs=dim_in, n_outputs=dim_out)
         mixture_density_network = MDNRegression(
             model=network,
             n_components=n_components,
-            hidden_dim=hidden_dim,
+            hidden_dims=hidden_dims,
             noise_type=noise_type,
             fixed_noise_level=fixed_noise_level,
         )
