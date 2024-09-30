@@ -15,7 +15,7 @@ model:
     lr_scheduler:
       class_path: torch.optim.lr_scheduler.ConstantLR
     n_components: 3
-    hidden_dim: 10
+    hidden_dims: [10]
 
 data:
   class_path: lightning_uq_box.datamodules.ToyHeteroscedasticDatamodule

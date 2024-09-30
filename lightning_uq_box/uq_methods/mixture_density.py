@@ -35,7 +35,7 @@ class MDNRegression(DeterministicRegression):
         self,
         model: nn.Module,
         n_components: int,
-        hidden_dim: int = 50,
+        hidden_dims: list[int] = [50],
         noise_type: str = "diagonal",
         fixed_noise_level: float | None = None,
         loss_fn: nn.Module | None = None,
@@ -48,7 +48,7 @@ class MDNRegression(DeterministicRegression):
         Args:
             model: backbone pytorch model
             n_components: number of mixture components
-            hidden_dim: hidden dimensionality of :class:`..models.mixture_density.MixtureDensityLayer`
+            hidden_dims: hidden dimensionality of :class:`..models.mixture_density.MixtureDensityLayer`
             noise_type: type of noise to model, choose one of
                 ('diagonal', 'isotropic', 'isotropic_clusters', 'fixed')
             fixed_noise_level: in case of 'fixed' noise_type, specify the fixed noise
@@ -66,7 +66,7 @@ class MDNRegression(DeterministicRegression):
         ), f"Please choose one of {self.valid_noise_types}, you specified {noise_type}."
 
         self.n_components = n_components
-        self.hidden_dim = hidden_dim
+        self.hidden_dims = hidden_dims
         self.noise_type = noise_type
         self.fixed_noise_level = fixed_noise_level
 
@@ -91,7 +91,7 @@ class MDNRegression(DeterministicRegression):
         mdn_layer = MixtureDensityLayer(
             dim_in=in_features,
             dim_out=num_targets,
-            hidden_dim=self.hidden_dim,
+            hidden_dims=self.hidden_dims,
             n_components=self.n_components,
             noise_type=self.noise_type,
             fixed_noise_level=self.fixed_noise_level,

@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 
+from .mlp import MLP
+
 
 class MixtureDensityLayer(nn.Module):
     """Mixture Density Network Layer."""
@@ -18,20 +20,20 @@ class MixtureDensityLayer(nn.Module):
 
     def __init__(
         self,
-        dim_in,
-        dim_out,
-        n_components,
-        hidden_dim,
+        dim_in: int,
+        dim_out: int,
+        n_components: int,
+        hidden_dims: list[int],
         noise_type: str = "diagonal",
-        fixed_noise_level: float | None = None,
-    ):
+        fixed_noise_level: None | float = None,
+    ) -> None:
         """Initialize a new instance of Mixture Density Network Layer.
 
         Args:
             dim_in: dimensionality of the covariates
             dim_out: dimensionality of the response variable
             n_components: number of components in the mixture model
-            hidden_dim: hidden dimension of the MDN layer
+            hidden_dims: hidden dimension of the MDN layer
             noise_type: type of noise to model, choose one of
                 ('diagonal', 'isotropic', 'isotropic_clusters', 'fixed')
             fixed_noise_level: in case of 'fixed' noise_type, specify the fixed noise
@@ -51,19 +53,14 @@ class MixtureDensityLayer(nn.Module):
         }[noise_type]
         self.dim_in, self.dim_out, self.n_components = dim_in, dim_out, n_components
         self.noise_type, self.fixed_noise_level = noise_type, fixed_noise_level
-        self.pi_network = nn.Sequential(
-            nn.Linear(dim_in, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, n_components),
+
+        self.pi_network = MLP(
+            n_inputs=dim_in, n_hidden=hidden_dims, n_outputs=n_components
         )
-        self.normal_network = nn.Sequential(
-            nn.Linear(dim_in, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, dim_out * n_components + num_sigma_channels),
+        self.normal_network = MLP(
+            n_inputs=dim_in,
+            n_hidden=hidden_dims,
+            n_outputs=n_components * dim_out + num_sigma_channels,
         )
 
     def forward(self, x: Tensor, eps=1e-6) -> tuple[Tensor]:
