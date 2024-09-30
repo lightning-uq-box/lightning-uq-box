@@ -102,6 +102,8 @@ class DDPM(BaseModule):
         self.lr_scheduler = lr_scheduler
 
         self.latent_model = latent_model
+        for param in self.latent_model.parameters():
+            param.requires_grad = False
         self.latent_model.eval()
 
         # setup noise scheduling terms
@@ -368,11 +370,10 @@ class DDPM(BaseModule):
         Returns:
             encoded image
         """
-        assert img.min() >= -1 and img.max() <= 1, "Input image should be normalized to be in range [-1, 1], for the latent model."
+        assert img.min() >= -1 and img.max() <= 1, "Input image should be normalized to be in range [-1, 1]."
         if up_sample:
             img = F.interpolate(img, scale_factor=self.upsample_factor, mode='bicubic')
         if latent_model:
-            # input needs to be [-1, 1]
             with torch.no_grad():
                 img = latent_model.encode(img) * self.latent_scale_factor
         return img
@@ -477,7 +478,7 @@ class DDPM(BaseModule):
             lr_scheduler = self.lr_scheduler(optimizer)
             return {
                 "optimizer": optimizer,
-                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "train_loss"},
+                "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "train_loss", "interval": "step"},
             }
         else:
             return {"optimizer": optimizer}

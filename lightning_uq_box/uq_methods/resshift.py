@@ -17,6 +17,7 @@ import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from tqdm import tqdm
 import numpy as np
+from functools import partial
 
 
 def exists(x):
@@ -109,8 +110,8 @@ class ResShiftSR(DDPM):
         """Q sample q(x_t | x_0}) with shift based on lr_img"""
         noise = default(noise, lambda: torch.randn_like(x_start))
         return (
-            self.extract(self.sqrt_alphas_cumprod, t, x_start.shape) * (lr_img - x_start) + x_start +
-            self.extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
+            self.extract(self.betas, t, x_start.shape) * (lr_img - x_start) + x_start +
+            self.extract(self.sqrt_betas * self.kappa, t, x_start.shape) * noise
         )
 
     def model_predictions(self, x, t, lr_img: Tensor, clip_x_start = False):
@@ -164,6 +165,8 @@ class ResShiftSR(DDPM):
         x_start = self.encode_img(self.latent_model, x_start, up_sample = False)
             
         noise = default(noise, lambda: torch.randn_like(x_start))
+
+        noise = torch.load("/mnt/SSD2/nils/ResShift/noise.pth", map_location = self.device)
 
         # for q_sampling the lr_img is also encoded
         # https://github.com/zsyOAOA/ResShift/blob/dfc2ff705a962de1601a491511b43a93b97d9622/models/gaussian_diffusion.py#L555
@@ -248,8 +251,13 @@ class ResShiftSR(DDPM):
         """Compute and return the training loss."""
         # compute the loss
         lr_img, hr_img = batch[self.input_key], batch[self.target_key]
+        batch = torch.load("/mnt/SSD2/nils/ResShift/example_micro_batch.pt", map_location = self.device)
+        lr_img = batch["lq"]
+        hr_img = batch["gt"]
 
         t = torch.randint(0, self.num_timesteps, (lr_img.shape[0],), device = self.device).long()
+
+        t = torch.load("/mnt/SSD2/nils/ResShift/timesteps.pt", map_location = self.device).long()
         loss = self.p_losses(hr_img, lr_img, t)
 
         self.log("train_loss", loss)
