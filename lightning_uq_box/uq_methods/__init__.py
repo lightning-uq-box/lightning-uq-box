@@ -42,6 +42,11 @@ from .deep_kernel_learning import (
     DKLRegression,
     compute_initial_values,
 )
+from .density_uncertainty import (
+    DensityLayerModelBase,
+    DensityLayerModelClassification,
+    DensityLayerModelRegression,
+)
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .hierarchical_prob_unet import HierarchicalProbUNet
 from .img2img_conformal import Img2ImgConformal
@@ -128,6 +133,10 @@ __all__ = (
     "DeepEnsembleClassification",
     "DeepEnsembleSegmentation",
     "DeepEnsemblePxRegression",
+    # Density Uncertainty Layer Model
+    "DensityLayerModelBase",
+    "DensityLayerModelRegression",
+    "DensityLayerModelClassification",
     # Masked Ensemble
     "MasksemblesBase",
     "MasksemblesRegression",

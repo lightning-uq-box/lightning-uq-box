@@ -9,6 +9,7 @@ from .cards import (
     ConditionalLinear,
     DiffusionSequential,
 )
+from .density_layers import DensityConv2d, DensityLinear
 from .fc_resnet import FCResNet
 from .mixture_density import MixtureDensityLayer
 from .mlp import MLP
@@ -23,6 +24,9 @@ __all__ = (
     "ConditionalGuidedLinearModel",
     "ConditionalGuidedConvModel",
     "DiffusionSequential",
+    # Density Layers Uncertainty
+    "DensityLinear",
+    "DensityConv2d",
     # Fully Connected Residual Network
     "FCResNet",
 )
