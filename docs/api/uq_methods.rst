@@ -85,7 +85,6 @@ Mixture Density Regression
 .. autoclass:: MDNRegression
 
 
-
 Approximate Bayesian Methods
 ============================
 
