@@ -10,11 +10,14 @@ from .cards import (
     DiffusionSequential,
 )
 from .fc_resnet import FCResNet
+from .mixture_density import MixtureDensityLayer
 from .mlp import MLP
 
 __all__ = (
     # Toy Example architecture
     "MLP",
+    # Mixture Density Layer
+    "MixtureDensityLayer",
     # CARDS architecture
     "ConditionalLinear",
     "ConditionalGuidedLinearModel",

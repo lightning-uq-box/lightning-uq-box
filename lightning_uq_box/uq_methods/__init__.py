@@ -61,6 +61,7 @@ from .mc_dropout import (
     MCDropoutSegmentation,
 )
 from .mean_variance_estimation import MVEBase, MVEPxRegression, MVERegression
+from .mixture_density import MDNRegression
 from .prob_unet import ProbUNet
 from .quantile_regression import (
     QuantilePxRegression,
@@ -111,6 +112,8 @@ __all__ = (
     "MCDropoutRegression",
     "MCDropoutClassification",
     "MCDropoutSegmentation",
+    # Mixture Density Network
+    "MDNRegression",
     # Laplace Approximation
     "LaplaceBase",
     "LaplaceRegression",

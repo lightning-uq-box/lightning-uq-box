@@ -25,4 +25,5 @@ regression/masksemble_nll
 regression/card
 regression/zigzag
 regression/evaluation_uncertainty
+regression/mixture_density
 ```
