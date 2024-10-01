@@ -176,6 +176,13 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
                 setattr(self, Y_arr_name, X_data)
 
             # handle the extended line separately
+            self.X_gtext = self._n2t(
+                np.linspace(
+                    self.Y_all.min() - span * 0.1,
+                    self.Y_all.max() + span * 0.1,
+                    int(n_points * 1.5),
+                )[:, None]
+            )
 
     @staticmethod
     def _n2t(x):
