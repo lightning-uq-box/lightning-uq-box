@@ -54,15 +54,3 @@ def test_masked_conv2d_forward(input_tensor):
 
     output = layer(input_tensor)
     assert output.shape == input_tensor.shape
-
-
-def test_masked_conv2d_forward_detach(input_tensor):
-    """Test the forward pass of the MaskedConv2d layer with detached weights."""
-    in_channels = 3
-    kernel_size = (3, 3)
-    stride = 1
-    padding = 1
-    layer = MaskedConv2d(in_channels, kernel_size, stride, padding)
-
-    output = layer(input_tensor, detach=True)
-    assert output.shape == input_tensor.shape

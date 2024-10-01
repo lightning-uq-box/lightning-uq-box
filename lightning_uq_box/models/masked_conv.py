@@ -8,7 +8,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
 
 
@@ -75,7 +74,7 @@ class MaskedConv2d(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        kernel_size: tuple[int],
+        kernel_size: tuple[int] | int,
         stride: int = 1,
         padding: int = 0,
     ) -> None:
@@ -88,8 +87,8 @@ class MaskedConv2d(nn.Module):
             padding: Zero-padding added to both sides of the input.
         """
         super().__init__()
-        self.stride = stride
-        self.padding = padding
+        self.stride = (stride, stride)
+        self.padding = (padding, padding)
         self.conv = nn.Conv2d(
             in_channels,
             in_channels,
@@ -105,24 +104,14 @@ class MaskedConv2d(nn.Module):
         mask = weight_mask(in_channels, kernel_size)
         self.register_buffer("mask", mask)
 
-    def forward(self, x: Tensor, detach: bool = False) -> Tensor:
+    def forward(self, x: Tensor) -> Tensor:
         """Forward pass of the masked convolutional layer.
 
         Args:
             x: Input tensor.
-            detach: If True, detach the weights.
 
         Returns:
             Output tensor after applying the masked convolution.
         """
         self.conv.weight.data *= self.mask
-        if detach:
-            return F.conv2d(
-                x,
-                self.conv.weight.detach(),
-                padding=self.padding,
-                stride=self.stride,
-                padding_mode="replicate",
-            )
-        else:
-            return self.conv(x)
+        return self.conv(x)
