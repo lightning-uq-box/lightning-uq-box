@@ -143,7 +143,6 @@ class DensityLayerModelBase(DeterministicModel):
             "prior_std": prior_std,
             "posterior_std_init": posterior_std_init,
         }
-        self.density_layer_args = {"prior_std": 0.1, "posterior_std_init": 1e-3}
         self.stochastic_module_names = map_stochastic_modules(
             model, stochastic_module_names
         )
