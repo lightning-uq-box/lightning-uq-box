@@ -24,7 +24,7 @@ regression/deep_ensemble
 regression/masksemble_nll
 regression/card
 regression/zigzag
-regression/density_layer
 regression/evaluation_uncertainty
 regression/mixture_density
+regression/density_layer
 ```
