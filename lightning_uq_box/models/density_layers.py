@@ -18,39 +18,9 @@ from .masked_conv import MaskedConv2d
 class DensityLayerBase_(nn.Module):
     """Base class for Density Layers.
 
-    This class provides common methods for sampling, computing log probability density function (logpdf),
-    and computing Kullback-Leibler (KL) divergence. These methods can be used by derived classes to
+    This class provides common methods computing Kullback-Leibler (KL) divergence. These methods can be used by derived classes to
     implement specific density layers.
     """
-
-    def sample(self, mu: Tensor, logvar: Tensor) -> Tensor:
-        """Generate a sample from a Gaussian distribution with given mean and log variance.
-
-        Args:
-            mu: Mean of the Gaussian distribution.
-            logvar: Log variance of the Gaussian distribution.
-
-        Returns:
-            A sample from the Gaussian distribution.
-        """
-        std = torch.exp(0.5 * logvar)
-        eps = torch.randn_like(mu)
-        return mu + std * eps
-
-    def logpdf(self, x: Tensor, mu: Tensor, logvar: Tensor) -> Tensor:
-        """Compute the log probability density function of a Gaussian distribution.
-
-        Args:
-            x: Input tensor.
-            mu: Mean of the Gaussian distribution.
-            logvar: Log variance of the Gaussian distribution.
-
-        Returns:
-            The log probability density function value.
-        """
-        return -0.5 * torch.sum(
-            np.log(2.0 * np.pi) + logvar + ((x - mu) ** 2) / torch.exp(logvar)
-        )
 
     def kl_div(
         self, mu1: Tensor, logvar1: Tensor, mu2: Tensor, logvar2: Tensor
