@@ -74,25 +74,15 @@ Zig Zag Classification
 .. autoclass:: ZigZagClassification
 
 
-Density Uncertainty Model
--------------------------
+Mixture Density Networks
+------------------------
 
-.. currentmodule:: lightning_uq_box.uq_methods.density_uncertainty
+.. currentmodules:: lightning_uq_box.uq_methods.mixture_density
 
-Density Uncertainty Base
-````````````````````````
+Mixture Density Regression
+``````````````````````````
 
-.. autoclass:: DensityLayerModelBase
-
-Density Uncertainty Regression
-``````````````````````````````
-
-.. autoclass:: DensityLayerModelRegression
-
-Density Uncertainty Classification
-``````````````````````````````````
-
-.. autoclass:: DensityLayerModelClassification
+.. autoclass:: MDNRegression
 
 
 
@@ -368,6 +358,27 @@ Masked Ensemble Classification
 ``````````````````````````````
 
 .. autoclass:: MasksemblesClassification
+
+
+Density Uncertainty Model
+-------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.density_uncertainty
+
+Density Uncertainty Base
+````````````````````````
+
+.. autoclass:: DensityLayerModelBase
+
+Density Uncertainty Regression
+``````````````````````````````
+
+.. autoclass:: DensityLayerModelRegression
+
+Density Uncertainty Classification
+``````````````````````````````````
+
+.. autoclass:: DensityLayerModelClassification
 
 
 Generative Models

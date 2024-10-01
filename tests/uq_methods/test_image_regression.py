@@ -40,6 +40,7 @@ model_config_paths = [
     "tests/configs/image_regression/vbll_attach.yaml",
     "tests/configs/image_regression/masked_ensemble.yaml",
     "tests/configs/image_regression/zigzag.yaml",
+    "tests/configs/image_regression/mixture_density.yaml",
     "tests/configs/image_regression/density_layer.yaml",
 ]
 
@@ -243,6 +244,7 @@ frozen_config_paths = [
     "tests/configs/image_regression/due.yaml",
     "tests/configs/image_regression/sngp.yaml",
     "tests/configs/image_regression/der.yaml",
+    "tests/configs/image_regression/mixture_density.yaml",
 ]
 
 

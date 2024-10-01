@@ -43,6 +43,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ✅           |
 | Mean Variance Estimation (MVE)                |     ✅     |       ❌       |      ❌      |          ✅           |
 | ZigZag                                        |     ✅     |       ✅       |      ❌      |          ❌           |
+| Mixture Density Networks                      |     ✅     |       ❌       |      ❌      |          ⏳           |
 
 ### Approximate Bayesian Methods
 

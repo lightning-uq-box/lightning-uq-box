@@ -26,4 +26,5 @@ regression/card
 regression/zigzag
 regression/density_layer
 regression/evaluation_uncertainty
+regression/mixture_density
 ```

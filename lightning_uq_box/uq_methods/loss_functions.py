@@ -290,3 +290,30 @@ class VAELoss(nn.Module):
             -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1)
         )
         return self.kl_scale * KLD, recon_loss
+
+
+class MixtureDensityLoss(nn.Module):
+    """Mixture Density Network Regression Loss Function."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize a new instance of Mixture Density Loss."""
+        super().__init__(*args, **kwargs)
+
+    def forward(self, log_pi: Tensor, mu: Tensor, sigma: Tensor, y: Tensor) -> Tensor:
+        """Compute the loss of the Mixture Density Model.
+
+        Args:
+            log_pi: shape [batch_size, num_mdn_components]
+            mu: shape [batch_size, num_mdn_components, dim_out]
+            sigma: shape [batch_size, num_mdn_components, dim_out]
+            y: target of shape [batch_size, dim_out]
+
+        Returns:
+            NLL loss, averaged over the batch size
+        """
+        z_score = (y.unsqueeze(1) - mu) / sigma
+        normal_loglik = -0.5 * torch.einsum(
+            "bij,bij->bi", z_score, z_score
+        ) - torch.sum(torch.log(sigma), dim=-1)
+        loglik = torch.logsumexp(log_pi + normal_loglik, dim=-1)
+        return -loglik.mean()
