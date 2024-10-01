@@ -183,8 +183,6 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
                     int(n_points * 1.5),
                 )[:, None]
             )
-            # self.Y_gtext = self._n2t(generate_y(self.X_gtext, noise=False))
-            # self.X_gtext = self._n2t(scalers["Y"].transform(self.X_gtext))
 
     @staticmethod
     def _n2t(x):
