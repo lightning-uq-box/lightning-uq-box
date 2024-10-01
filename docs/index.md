@@ -61,6 +61,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Variational Bayesian Last Layer (VBLL)        |     ✅     |       ✅       |      ❌      |          ❌           |
 | Deep Ensemble                                 |     ✅     |       ✅       |      ✅      |          ✅           |
 | Masked Ensemble                               |     ✅     |       ✅       |      ⏳      |          ⏳           |
+| Density Uncertainty Layer                     |     ✅     |       ✅       |      ❌      |          ❌           |
 
 ### Generative Models
 
