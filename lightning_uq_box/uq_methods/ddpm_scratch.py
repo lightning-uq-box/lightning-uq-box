@@ -75,11 +75,10 @@ class DDPM(BaseModule):
                 Generally expects a forward pass method that accepts the arguments
                 (x, t, **model_kwargs) where x is the input image, t is the time step,
                 and model_kwargs are additional arguments, in that order.
-
             betas: Noise scheduling betas for the diffusion process, shape (num_timesteps,).
-                For different noise schedules, see 
+                For different noise schedules, see `this file <../ddpm_utils.py>`_.
             ema_decay: The exponential moving average decay.
-            ema_update_every: The number of steps to update the EMA.
+            ema_update_every: How often to update the EMA model, in terms of every n gradient steps.
             image_size: The size of the input images when coming from the dataloader, and also the size
                 of the images that will be generated during sampling
             input_channels: The number of input channels of the images coming from the dataloader
@@ -102,9 +101,10 @@ class DDPM(BaseModule):
         self.lr_scheduler = lr_scheduler
 
         self.latent_model = latent_model
-        for param in self.latent_model.parameters():
-            param.requires_grad = False
-        self.latent_model.eval()
+        if self.latent_model:
+            for param in self.latent_model.parameters():
+                param.requires_grad = False
+            self.latent_model.eval()
 
         # setup noise scheduling terms
         self.define_noise_scheduling_terms(betas)
@@ -121,7 +121,6 @@ class DDPM(BaseModule):
         self.condition = False
         self.self_condition = False
         self.latent_scale_factor = 1.0
-        # self.loss_weight = torch.ones_like(self.betas)
 
     def extract(self, a, t, x_shape) -> Tensor:
         """Extract the noise scheduling terms onto input tensor."""
@@ -207,6 +206,7 @@ class DDPM(BaseModule):
         """
         b, *_, device = *x.shape, self.device
         batched_times = torch.full((b,), t, device=device, dtype=torch.long)
+        import pdb; pdb.set_trace()
         model_mean, _, model_log_variance, x_start = self.p_mean_variance(x=x, t=batched_times, cond_variables=cond_variables, clip_denoised=(self.latent_model is None))
         noise = torch.randn_like(x) if t > 0 else 0.  # no noise if t == 0
         pred_img = model_mean + (0.5 * model_log_variance).exp() * noise
