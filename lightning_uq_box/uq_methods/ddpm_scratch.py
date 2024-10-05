@@ -10,6 +10,7 @@
 
 
 from typing import Any
+import warnings
 
 import os
 from functools import partial
@@ -206,7 +207,6 @@ class DDPM(BaseModule):
         """
         b, *_, device = *x.shape, self.device
         batched_times = torch.full((b,), t, device=device, dtype=torch.long)
-        import pdb; pdb.set_trace()
         model_mean, _, model_log_variance, x_start = self.p_mean_variance(x=x, t=batched_times, cond_variables=cond_variables, clip_denoised=(self.latent_model is None))
         noise = torch.randn_like(x) if t > 0 else 0.  # no noise if t == 0
         pred_img = model_mean + (0.5 * model_log_variance).exp() * noise
@@ -370,7 +370,9 @@ class DDPM(BaseModule):
         Returns:
             encoded image
         """
-        assert img.min() >= -1 and img.max() <= 1, "Input image should be normalized to be in range [-1, 1]."
+        # Raise warning and not error
+        if img.min() < -1 or img.max() > 1:
+            warnings.warn("Input image should be normalized to be in range [-1, 1].", UserWarning)
         if up_sample:
             img = F.interpolate(img, scale_factor=self.upsample_factor, mode='bicubic')
         if latent_model:
@@ -440,8 +442,17 @@ class DDPM(BaseModule):
             targets: target data from data loader (if available)
         """
         if hasattr(self.trainer.datamodule, "mean") and hasattr(self.trainer.datamodule, "std"):
-            mean = torch.Tensor(self.trainer.datamodule.mean).to(preds.device)
-            std = torch.Tensor(self.trainer.datamodule.std).to(preds.device)
+            mean = self.trainer.datamodule.mean
+            std = self.trainer.datamodule.std
+            if isinstance(mean, list):
+                mean = torch.Tensor(mean).to(preds.device)
+                std = torch.Tensor(std).to(preds.device)
+            elif isinstance(mean, Tensor):
+                mean = mean.to(preds.device)
+                std = std.to(preds.device)
+            elif isinstance(mean, float):
+                mean = torch.Tensor([mean]).to(preds.device)
+                std = torch.Tensor([std]).to(preds.device)
             preds = Normalize((-1*mean/std), (1.0/std))(preds).clamp(0, 1)
         elif preds.min() >= -1 and preds.max() <= 1:
             preds = (preds + 1) / 2

@@ -152,6 +152,7 @@ class DDPM(BaseModule):
         fig.savefig(
             self.trainer.default_root_dir + f"/sample_{self.trainer.global_step}.png"
         )
+        plt.close()
 
     def on_after_backward(self):
         """Update EMA after each backward pass."""

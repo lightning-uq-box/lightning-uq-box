@@ -82,8 +82,9 @@ class ResShiftBase(DDPM):
             lr_scheduler = lr_scheduler,
         )
 
-        self.normalize_input = True
+        self.normalize_input = False
         self.latent_flag = (latent_model is not None)
+        self.upsample_factor = 1
 
 
     def define_noise_scheduling_terms(self, betas: Tensor) -> None:
@@ -226,10 +227,73 @@ class ResShiftBase(DDPM):
             ret = self.decode_latent(ret)
 
         # clamp and normalize to 0, 1
-        ret = (ret.clamp(-1, 1) + 1) / 2
+        if not self.normalize_input:
+            ret = (ret.clamp(-1, 1) + 1) / 2
 
         return ret
 
+    def training_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> Tensor:
+        """Compute and return the training loss."""
+        # compute the loss
+        lq_img, hq_img = batch[self.input_key], batch[self.target_key]
+
+        t = torch.randint(0, self.num_timesteps, (lq_img.shape[0],), device = self.device).long()
+
+        loss = self.p_losses(hq_img, lq_img, t)
+
+        self.log("train_loss", loss)
+        return loss
+
+    def validation_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> Tensor:
+        """Compute and return the validation loss."""
+        # compute metrics on some valiation set
+        
+        # TODO maybe configure so that one batch of images is generated and saved
+        # per log_samples_every_n_epochs
+        if self.current_epoch % self.log_samples_every_n_epochs == 0 and batch_idx == 0 and self.trainer.global_rank == 0:
+            preds = self.predict_step(batch[self.input_key], return_all_timesteps = False)
+        #     samples = self.sample(batch_size = 16)
+            self.log_samples(preds["pred"], preds["lq"], batch[self.target_key])
+
+    def predict_step(self, lq_img: Tensor, return_all_timesteps: bool = False) -> dict[str, Tensor]:
+        """Predict the super resolved image."""
+        hq_imgs = self.p_sample_loop(lq_img, return_all_timesteps = return_all_timesteps)
+
+        return {"pred": hq_imgs, "lq": lq_img}
+
+    def log_samples(self, preds: Tensor, inputs: Tensor, targets: Tensor) -> None:
+        """Log samples to local directory.
+
+        Args:
+            preds: model predictions (samples)
+            inputs: input data from data loader, the low quality images
+            targets: target data from data loader, the high quality images
+        """
+        # normalize inputs to 0, 1 for plotting
+        # inputs = (inputs + 1) / 2
+        # targets = (targets + 1) / 2
+
+        rows, cols = preds.shape[0] // 4, 4
+        batch_size = preds.shape[0]
+        # sample random img indices
+        random_idxs = np.random.choice(range(batch_size), 8, replace=False)
+        _, axs = plt.subplots(len(random_idxs), 3, figsize=(cols * 2, rows * 2))
+        for axs_idx, i in enumerate(random_idxs):
+            axs[axs_idx, 0].imshow(inputs[i].cpu().numpy().transpose(1, 2, 0))
+            axs[axs_idx, 0].axis("off")
+            axs[axs_idx, 1].imshow(preds[i].cpu().numpy().transpose(1, 2, 0))
+            axs[axs_idx, 1].axis("off")
+            axs[axs_idx, 2].imshow(targets[i].cpu().numpy().transpose(1, 2, 0))
+            axs[axs_idx, 2].axis("off")
+
+        axs[0, 0].set_title("LQ Image")
+        axs[0, 1].set_title("Prediction")
+        axs[0, 2].set_title("HQ Image")
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.trainer.default_root_dir, f"sample_{self.current_epoch}.png"))
+        plt.close()
+        
     def _scale_input(self, inputs: Tensor, t: Tensor) -> Tensor:
         """Scale the latent encodings."""
         if self.normalize_input:
@@ -446,7 +510,7 @@ class DeblurResShift(ResShiftBase):
         batch_size = preds.shape[0]
         # sample random img indices
         random_idxs = np.random.choice(range(batch_size), 8, replace=False)
-        _, axs = plt.subplots(len(random_idxs), 3, figsize=(cols * 2, rows * 2)
+        _, axs = plt.subplots(len(random_idxs), 3, figsize=(cols * 2, rows * 2))
         for axs_idx, i in enumerate(random_idxs):
             axs[axs_idx, 0].imshow(inputs[i].cpu().numpy().transpose(1, 2, 0))
             axs[axs_idx, 0].axis("off")
