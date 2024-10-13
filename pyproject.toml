@@ -66,7 +66,9 @@ dependencies = [
     # torchseg for segmentation, pixelwise regression
     "torchseg>=0.0.1a1",
     # saving pixelwise and segmentation predictions
-    "h5py==3.11.0"
+    "h5py==3.11.0",
+    # exponential moving average for pytorch models
+    "ema-pytorch>=0.7.0"
 ]
 dynamic = ["version"]
 
