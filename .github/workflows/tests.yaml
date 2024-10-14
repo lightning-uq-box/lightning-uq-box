@@ -37,6 +37,6 @@ jobs:
       run: |
         python -m pytest -v tests --cov=lightning_uq_box --cov-report=xml
     - name: Report coverage
-      uses: codecov/codecov-action@v3.1.1
+      uses: codecov/codecov-action@v4.6.0
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
