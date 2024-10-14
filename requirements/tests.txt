@@ -8,5 +8,5 @@ omegaconf==2.3.0
 timm==0.9.16
 jsonargparse[signatures]==4.33.2
 torchseg==0.0.1a4
-h5py==3.11.0
+h5py==3.12.1
 vbll==0.1.3
