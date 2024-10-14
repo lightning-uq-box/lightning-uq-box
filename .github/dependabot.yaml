@@ -1,10 +1,6 @@
 # https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 version: 2
 updates:
-  - package-ecosystem: 'devcontainers'
-    directory: '/.devcontainer'
-    schedule:
-      interval: 'weekly'
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
@@ -25,8 +21,3 @@ updates:
         update-types: ['version-update:semver-patch']
       # segmentation-models-pytorch pins timm, must update in unison
       - dependency-name: 'timm'
-  - package-ecosystem: 'npm'
-    directory: '/'
-    schedule:
-      interval: 'weekly'
-    versioning-strategy: 'lockfile-only'
