@@ -5,4 +5,4 @@ sphinx_book_theme==1.1.2
 myst-parser==2.0.0
 sphinx-togglebutton==0.3.2
 ipykernel==6.29.3
-setuptools==69.5.1
+setuptools==75.1.0
