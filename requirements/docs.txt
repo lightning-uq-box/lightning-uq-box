@@ -1,6 +1,6 @@
 # docs
 ipywidgets==8.1.2
-nbsphinx==0.9.3
+nbsphinx==0.9.5
 sphinx_book_theme==1.1.2
 myst-parser==2.0.0
 sphinx-togglebutton==0.3.2
