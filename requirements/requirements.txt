@@ -10,7 +10,7 @@ scikit-learn==1.5.2
 gpytorch==1.11
 pandas==2.2.1
 uncertainty-toolbox==0.1.1
-kornia==0.7.1
+kornia==0.7.3
 h5py==3.12.1
 laplace-torch==0.2.1
 ema-pytorch==0.7.0
