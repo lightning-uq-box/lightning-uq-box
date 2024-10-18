@@ -2,9 +2,9 @@
 setuptools==75.2.0
 
 # install
-torch==2.4.1
+torch==2.5.0
 torchmetrics==1.4.3
-torchvision==0.19.1
+torchvision==0.20.0
 lightning==2.4.0
 scikit-learn==1.5.2
 gpytorch==1.11
