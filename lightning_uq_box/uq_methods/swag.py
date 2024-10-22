@@ -106,7 +106,7 @@ class SWAGBase(DeterministicModel):
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+    ) -> Tensor:
         """Compute SWAG optimization step.
 
         Args:
@@ -117,13 +117,15 @@ class SWAGBase(DeterministicModel):
         swag_opt = self.optimizers()
         swag_opt.zero_grad()
 
-        if self.trainer.global_step % self.hparams.snapshot_freq == 0:
+        if self.trainer.global_step % self.hparams["snapshot_freq"] == 0:
             self.update_uncertainty_buffers()
 
         loss = self.loss_fn(self.model(batch[self.input_key]), batch[self.target_key])
         self.manual_backward(loss)
 
         swag_opt.step()
+
+        return loss
 
     def on_train_epoch_end(self):
         """Do not Log epoch-level training metrics."""
@@ -230,8 +232,8 @@ class SWAGBase(DeterministicModel):
             if name in self.model_w_and_b_module_names:
                 K_sample = (
                     Normal(
-                        torch.zeros(self.hparams.max_swag_snapshots),
-                        torch.ones(self.hparams.max_swag_snapshots),
+                        torch.zeros(self.hparams["max_swag_snapshots"]),
+                        torch.ones(self.hparams["max_swag_snapshots"]),
                     )
                     .sample()
                     .to(param.device)  # should have lightning device
@@ -250,9 +252,9 @@ class SWAGBase(DeterministicModel):
                 (0.5 * (squared_mean - mean.pow(2)).clamp(1e-30)).sqrt(),
             ).sample()
             shape = d_block.shape[1:]
-            aux = d_block.reshape(self.hparams.max_swag_snapshots, -1)
+            aux = d_block.reshape(self.hparams["max_swag_snapshots"], -1)
             p3 = torch.matmul(K_sample, aux).reshape(shape) / math.sqrt(
-                2 * (self.hparams.max_swag_snapshots - 1)
+                2 * (self.hparams["max_swag_snapshots"] - 1)
             )
             sampled[name] = p1 + p2 + p3
         return sampled
@@ -313,7 +315,7 @@ class SWAGBase(DeterministicModel):
             predictions of shape [batch_size x num_outputs x num_mc_samples]
         """
         preds = []
-        for i in range(self.hparams.num_mc_samples):
+        for i in range(self.hparams["num_mc_samples"]):
             # sample weights
             self.sample_state()
             with torch.no_grad():
@@ -324,14 +326,14 @@ class SWAGBase(DeterministicModel):
 
         return preds
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> torch.optim.Optimizer:
         """Manually implemented SWAG optimization."""
         swag_params: list[nn.Parameter] = [
             param
             for name, param in self.model.named_parameters()
             if name in self.model_w_and_b_module_names
         ]
-        swag_optimizer = torch.optim.SGD(swag_params, lr=self.hparams.swag_lr)
+        swag_optimizer = torch.optim.SGD(swag_params, lr=self.hparams["swag_lr"])
         return swag_optimizer
 
 
@@ -383,12 +385,17 @@ class SWAGRegression(SWAGBase):
         self.test_metrics = default_regression_metrics("test")
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -509,12 +516,17 @@ class SWAGClassification(SWAGBase):
         return process_classification_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -600,7 +612,7 @@ class SWAGSegmentation(SWAGClassification):
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],
+        outputs: dict[str, Tensor],  # type: ignore[override]
         batch: Any,
         batch_idx: int,
         dataloader_idx: int = 0,

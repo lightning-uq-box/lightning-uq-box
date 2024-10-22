@@ -24,7 +24,7 @@
 
 import os
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 import torch
 import torch.nn as nn
@@ -75,7 +75,7 @@ class HierarchicalProbUNet(BaseModule):
         top_k_percentage: float | None = None,
         deterministic_top_k: int | None = None,
         num_samples: int = 5,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,

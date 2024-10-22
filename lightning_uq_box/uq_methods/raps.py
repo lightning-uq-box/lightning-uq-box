@@ -13,6 +13,7 @@ to be integrated with Lightning and port several functions to pytorch.
 
 import os
 from functools import partial
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -57,7 +58,7 @@ class RAPS(PosthocBase):
         allow_zero_sets: bool = False,
         pct_param_tune: float = 0.3,
         lamda_criterion: str = "size",
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
     ) -> None:
         """Initialize RAPS.
 
@@ -258,12 +259,17 @@ class RAPS(PosthocBase):
         self.post_hoc_fitted = True
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -336,7 +342,7 @@ def find_lamda_param_size(
     kreg: float,
     randomized: bool,
     allow_zero_sets: bool,
-) -> Tensor:
+) -> float:
     """Find lamda parameter for size criterion.
 
     Args:
@@ -383,7 +389,7 @@ def find_lamda_param_adaptiveness(
     randomized: bool,
     allow_zero_sets: bool,
     strata: list[list[int]] = [[0, 1], [2, 3], [4, 6], [7, 10], [11, 100], [101, 1000]],
-) -> Tensor:
+) -> float:
     """Find lamda parameter for adaptiveness criterion.
 
     Args:
@@ -396,7 +402,7 @@ def find_lamda_param_adaptiveness(
         allow_zero_sets: whether to allow sets of size zero
         strata: strata to use for adaptiveness criterion
     """
-    lamda_star = 0
+    lamda_star = 0.0
     best_violation = 1
     for temp_lam in [0, 1e-5, 1e-4, 8e-4, 9e-4, 1e-3, 1.5e-3, 2e-3]:
         conformal_model = ConformalModelLogits(

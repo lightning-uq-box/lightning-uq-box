@@ -4,7 +4,7 @@
 """Deep Kernel Learning."""
 
 import os
-from typing import Any
+from typing import Any, Literal
 
 import gpytorch
 import numpy as np
@@ -57,7 +57,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         n_inducing_points: int,
         gp_kernel: str = "RBF",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model.
 
@@ -134,7 +134,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.initial_inducing_points, self.initial_lengthscale = compute_initial_values(
             train_dataset,
             self.feature_extractor,
-            self.hparams.n_inducing_points,
+            self.hparams["n_inducing_points"],
             augmentation,
             self.input_key,
             self.target_key,
@@ -299,7 +299,7 @@ class DKLRegression(DKLBase):
         gp_kernel: str = "RBF",
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Regression.
 
@@ -362,12 +362,17 @@ class DKLRegression(DKLBase):
             self.likelihood = self.likelihood.cuda()
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -430,11 +435,11 @@ class DKLClassification(DKLBase):
         feature_extractor: nn.Module,
         n_inducing_points: int,
         num_classes: int,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         gp_kernel: str = "RBF",
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Classification.
 
@@ -604,12 +609,17 @@ class DKLClassification(DKLBase):
         return {"pred": mean, "pred_uct": entropy, "out": gp_dist, "logits": mean}
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -720,7 +730,7 @@ def compute_initial_values(
     augmentation,
     input_key: str,
     target_key: str,
-) -> tuple[Tensor]:
+) -> tuple[Tensor, Tensor]:
     """Compute the inital values.
 
     Args:

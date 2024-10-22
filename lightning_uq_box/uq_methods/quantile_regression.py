@@ -39,7 +39,7 @@ class QuantileRegressionBase(DeterministicModel):
         quantiles: list[float] = [0.1, 0.5, 0.9],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 
@@ -86,7 +86,7 @@ class QuantileRegression(QuantileRegressionBase):
         quantiles: list[float] = [0.1, 0.5, 0.9],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 
@@ -150,7 +150,7 @@ class QuantileRegression(QuantileRegressionBase):
             out = self.model(X)  # [batch_size, len(self.quantiles)]
 
         median = self.adapt_output_for_metrics(out)
-        _, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
+        _, std = compute_sample_mean_std_from_quantile(out, self.quantiles)
 
         return {
             "pred": median,
@@ -161,12 +161,17 @@ class QuantileRegression(QuantileRegressionBase):
         }
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

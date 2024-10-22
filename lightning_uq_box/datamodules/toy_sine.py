@@ -60,8 +60,8 @@ class ToySineDatamodule(LightningDataModule):
 
         # test over the whole line
         self.X_test = torch.linspace(
-            X_train.min() + X_train.min() * 0.1,
-            X_train.max() + X_train.max() * 0.1,
+            (X_train.min() + X_train.min() * 0.1).item(),
+            (X_train.max() + X_train.max() * 0.1).item(),
             n_data,
         ).unsqueeze(-1)
         self.Y_test = torch.sin(self.X_test)
