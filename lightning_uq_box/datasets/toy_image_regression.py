@@ -3,8 +3,9 @@
 
 """Toy Image Regression Dataset."""
 
+from typing import Any
+
 import torch
-from torch import Tensor
 from torch.utils.data import Dataset
 
 
@@ -23,7 +24,7 @@ class ToyImageRegressionDataset(Dataset):
         """Return the length of the dataset."""
         return self.num_samples
 
-    def __getitem__(self, index: int) -> Tensor:
+    def __getitem__(self, index: int) -> dict[str, Any]:
         """Retrieve single sample from the dataset.
 
         Args:

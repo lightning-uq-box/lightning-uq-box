@@ -3,8 +3,9 @@
 
 """Toy Pixelwise Regression Dataset."""
 
+from typing import Any
+
 import torch
-from torch import Tensor
 from torch.utils.data import Dataset
 
 
@@ -25,7 +26,7 @@ class ToyPixelWiseRegressionDataset(Dataset):
         """Return the number of images in the dataset."""
         return self.num_images
 
-    def __getitem__(self, idx: int) -> dict[str, Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, Any]:
         """Generate a random grayscale image and corresponding target.
 
         Args:

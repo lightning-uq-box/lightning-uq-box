@@ -17,7 +17,7 @@ class ToyGaussianSideWays(Dataset):
         radius: float = 1.0,
         n_samples: int = 1000,
         noise: float = 0.1,
-        random_state: bool = None,
+        random_state: int | None = None,
     ):
         """Initialize a new instance of the dataset.
 
