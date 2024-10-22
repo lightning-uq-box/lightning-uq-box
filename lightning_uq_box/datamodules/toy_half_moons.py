@@ -1,9 +1,7 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Two Moons Toy Classification Datamodule."""
-
-from typing import Optional
 
 import numpy as np
 import torch
@@ -31,33 +29,35 @@ class TwoMoonsDataModule(LightningDataModule):
 
         self.setup()
 
-    def setup(self, stage: Optional[str] = None):
+    def setup(self, stage: str | None = None):
         """Set up the DataModule.
 
         Args:
             stage: The stage ('fit' or 'test'). Defaults to None.
         """
         # Generate the half-moon dataset
-        X, y = make_moons(n_samples=self.n_samples, noise=0.1)
+        X, y = make_moons(n_samples=self.n_samples, noise=0.1, random_state=0)
+        min_x0, max_x0 = X[:, 0].min(), X[:, 0].max()
+        min_x1, max_x1 = X[:, 1].min(), X[:, 1].max()
 
-        # Convert the numpy arrays to PyTorch tensors
         X_tensor = torch.tensor(X, dtype=torch.float32)
         y_tensor = torch.tensor(y, dtype=torch.long)
 
         # Split the dataset into training, validation, and test sets
-        X_temp, self.X_test, y_temp, self.y_test = train_test_split(
+        X_temp, self.X_test, y_temp, self.Y_test = train_test_split(
             X_tensor, y_tensor, test_size=0.2
         )
-        self.X_train, self.X_val, self.y_train, self.y_val = train_test_split(
+        self.X_train, self.X_val, self.Y_train, self.y_val = train_test_split(
             X_temp, y_temp, test_size=0.25
         )
 
         # Create a grid of test points
-        x_min, x_max = X[:, 0].min() - 1, X[:, 0].max() + 1
-        y_min, y_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+        x_min, x_max = min_x0 - 1, max_x0 + 1
+        y_min, y_max = min_x1 - 1, max_x1 + 1
         xx, yy = np.meshgrid(
-            np.linspace(x_min, x_max, 50), np.linspace(y_min, y_max, 50)
+            np.linspace(x_min, x_max, 100), np.linspace(y_min, y_max, 100)
         )
+
         self.test_grid_points = torch.from_numpy(np.c_[xx.ravel(), yy.ravel()]).to(
             torch.float32
         )
@@ -68,7 +68,7 @@ class TwoMoonsDataModule(LightningDataModule):
         Returns:
             The DataLoader for the training set.
         """
-        train_dataset = TensorDataset(self.X_train.float(), self.y_train)
+        train_dataset = TensorDataset(self.X_train.float(), self.Y_train)
         return DataLoader(
             train_dataset,
             batch_size=self.batch_size,
@@ -96,7 +96,7 @@ class TwoMoonsDataModule(LightningDataModule):
         Returns:
             The DataLoader for the test set.
         """
-        test_dataset = TensorDataset(self.X_test.float(), self.y_test)
+        test_dataset = TensorDataset(self.X_test.float(), self.Y_test)
         return DataLoader(
             test_dataset,
             batch_size=self.batch_size,

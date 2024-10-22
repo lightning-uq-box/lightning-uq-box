@@ -1,0 +1,15 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.SNGPRegression
+  feature_extractor:
+    _target_: timm.create_model
+    model_name: resnet18
+    num_classes: 8 # number of latent features
+    drop_rate: 0.1
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ConstantLR
+    _partial_: true
+  num_targets: 1
+  loss_fn:
+    _target_: torch.nn.MSELoss
+  input_size: 64
+  

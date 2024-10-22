@@ -1,14 +1,13 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Stochastic Gradient Langevin Dynamics (SGLD) model."""
 # TO DO:
 # SGLD with ensembles
 
-
 import os
 from collections.abc import Iterator
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import torch
 import torch.nn as nn
@@ -56,18 +55,18 @@ class SGLD(Optimizer):
         super().__init__(params, defaults)
         self.lr = lr
 
-    def step(self, closure: Optional[callable] = None):
+    def step(self, closure: callable):
         """Perform a single optimization step.
 
         Args:
-            closure (callable, optional): A closure that reevaluates the model
+            closure: A closure that reevaluates the model
 
         Returns:
             updated loss
         """
         loss = None
-        if closure is not None:
-            loss = closure()
+        # if closure is not None:
+        loss = closure()
 
         for group in self.param_groups:
             weight_decay = group["weight_decay"]
@@ -221,6 +220,8 @@ class SGLDRegression(SGLDBase):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -245,7 +246,9 @@ class SGLDRegression(SGLDBase):
 
         loss = sgld_opt.step(closure=closure)
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         self.train_metrics(self.adapt_output_for_metrics(out), y)
 
         # return loss
@@ -256,9 +259,9 @@ class SGLDRegression(SGLDBase):
         """Predict step with SGLD, take n_sgld_sampled models, get mean and variance.
 
         Args:
-            self: SGLD class
-            batch_idx: default int=0
-            dataloader_idx: default int=0
+            X: input tensor
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             output dictionary with uncertainty estimates
@@ -357,6 +360,8 @@ class SGLDClassification(SGLDBase):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -377,7 +382,9 @@ class SGLDClassification(SGLDBase):
 
         loss = sgld_opt.step(closure=closure)
 
-        self.log("train_loss", loss)  # logging to Logger
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
         self.train_metrics(self.adapt_output_for_metrics(out), y)
 
         return loss
@@ -389,6 +396,8 @@ class SGLDClassification(SGLDBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             output dictionary with uncertainty estimates

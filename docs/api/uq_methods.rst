@@ -34,12 +34,56 @@ Quantile Regression
 
 .. autoclass:: QuantileRegression
 
+Quantile Pixelwise Regression
+`````````````````````````````
+
+.. autoclass:: QuantilePxRegression
+
 Deep Evidential Regression
 --------------------------
 
 .. currentmodule:: lightning_uq_box.uq_methods.deep_evidential_regression
 
+Deep Evidential Regression
+``````````````````````````
 .. autoclass:: DER
+
+Deep Evidential Pixelwise Regression
+````````````````````````````````````
+
+.. autoclass:: DERPxRegression
+
+Zig Zag
+-------
+
+.. currentmodule:: lightning_uq_box.uq_methods.zigzag
+
+Zig Zag Base
+````````````
+
+.. autoclass:: ZigZagBase
+
+Zig Zag Regression
+``````````````````
+
+.. autoclass:: ZigZagRegression
+
+Zig Zag Classification
+``````````````````````
+
+.. autoclass:: ZigZagClassification
+
+
+Mixture Density Networks
+------------------------
+
+.. currentmodules:: lightning_uq_box.uq_methods.mixture_density
+
+Mixture Density Regression
+``````````````````````````
+
+.. autoclass:: MDNRegression
+
 
 Approximate Bayesian Methods
 ============================
@@ -68,6 +112,11 @@ MC-Dropout Segmentation
 ```````````````````````
 
 .. autoclass:: MCDropoutSegmentation
+
+MC-Dropout Pixelwise Regression
+```````````````````````````````
+
+.. autoclass:: MCDropoutPxRegression
 
 Laplace Approximation
 ---------------------
@@ -175,6 +224,11 @@ SWAG Segmentation
 
 .. autoclass:: SWAGSegmentation
 
+SWAG Pixelwise Regression
+`````````````````````````
+
+.. autoclass:: SWAGPxRegression
+
 
 Stochastic Gradient Langevin Dynamics (SGLD)
 --------------------------------------------
@@ -182,6 +236,39 @@ Stochastic Gradient Langevin Dynamics (SGLD)
 .. currentmodule:: lightning_uq_box.uq_methods.sgld
 
 .. autoclass:: SGLD
+
+Variational Bayes Last Layer
+----------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.vbll
+
+VBLL Classification
+```````````````````
+
+.. autoclass:: VBLLClassification
+
+VBLL Regression
+```````````````
+
+.. autoclass:: VBLLRegression
+
+Spectral Normalized Gaussian Process (SNGP)
+-------------------------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.sngp
+
+SNGPBase
+````````
+.. autoclass:: SNGPBase
+
+SNGPRegression
+```````````````
+
+.. autoclass:: SNGPRegression
+
+SNGPClassification
+``````````````````
+.. autoclass:: SNGPClassification
 
 Deep Kernel Learning (DKL)
 --------------------------
@@ -217,7 +304,7 @@ DUE Regression
 DUE Classification
 ``````````````````
 
-.. autoclass:: DUEClassification    
+.. autoclass:: DUEClassification
 
 
 Deep Ensembles
@@ -238,12 +325,59 @@ Deep Ensemble Regression
 Deep Ensemble Classification
 ````````````````````````````
 
-.. autoclass:: DeepEnsembleClassification   
+.. autoclass:: DeepEnsembleClassification
 
 Deep Ensemble Segmentation
 ``````````````````````````
 
-.. autoclass:: DeepEnsembleSegmentation 
+.. autoclass:: DeepEnsembleSegmentation
+
+Deep Ensemble Pixelwise Regression
+``````````````````````````````````
+
+.. autoclass:: DeepEnsemblePxRegression
+
+
+Masked Ensemble
+---------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.masked_ensemble
+
+Masked Ensemble Base
+````````````````````
+
+.. autoclass:: MasksemblesBase
+
+Masked Ensemble Regression
+``````````````````````````
+
+.. autoclass:: MasksemblesRegression
+
+Masked Ensemble Classification
+``````````````````````````````
+
+.. autoclass:: MasksemblesClassification
+
+
+Density Uncertainty Model
+-------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.density_uncertainty
+
+Density Uncertainty Base
+````````````````````````
+
+.. autoclass:: DensityLayerModelBase
+
+Density Uncertainty Regression
+``````````````````````````````
+
+.. autoclass:: DensityLayerModelRegression
+
+Density Uncertainty Classification
+``````````````````````````````````
+
+.. autoclass:: DensityLayerModelClassification
 
 
 Generative Models
@@ -286,12 +420,21 @@ Probabilistic UNet
 Hierachical Probabilistic UNet
 ------------------------------
 
-.. currentmodule:: lightning_uq_box.uq_methods.hierachical_prob_unet
+.. currentmodule:: lightning_uq_box.uq_methods.hierarchical_prob_unet
 
-.. autoclass:: HierachicalProbUNet
+.. autoclass:: HierarchicalProbUNet
 
 UQ Calibration Methods
 ======================
+
+Test Time Augmentation (TTA)
+----------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.inference_time_augmentation
+
+.. autoclass:: TTABase
+.. autoclass:: TTAClassification
+.. autoclass:: TTARegression
 
 Conformal Quantile Regression
 -----------------------------
@@ -313,3 +456,10 @@ Regularized Adaptive Prediction Sets (RAPS)
 .. currentmodule:: lightning_uq_box.uq_methods.raps
 
 .. autoclass:: RAPS
+
+Image to Image Conformal
+------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.img2img_conformal
+
+.. autoclass:: Img2ImgConformal

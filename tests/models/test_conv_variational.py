@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Test Conv Variational Layer."""
 
@@ -42,7 +42,6 @@ class TestConvVariational:
         assert isinstance(out, torch.Tensor)
         assert out.shape[0] == 5
         assert out.shape[1] == conv1d_layer.out_channels
-        print(conv1d_layer)
 
     @pytest.fixture(
         params=itertools.product([ConvTranspose1dVariational], layer_types, biases)
@@ -67,7 +66,6 @@ class TestConvVariational:
         assert isinstance(out, torch.Tensor)
         assert out.shape[0] == 5
         assert out.shape[1] == convtranspose1d_layer.in_channels
-        print(convtranspose1d_layer)
 
     @pytest.fixture(params=itertools.product([Conv2dVariational], layer_types, biases))
     def conv2d_layer(self, request: SubRequest) -> Conv2dVariational:
@@ -88,7 +86,6 @@ class TestConvVariational:
         assert isinstance(out, torch.Tensor)
         assert out.shape[0] == 5
         assert out.shape[1] == conv2d_layer.out_channels
-        print(conv2d_layer)
 
     @pytest.fixture(
         params=itertools.product([ConvTranspose2dVariational], layer_types, biases)
@@ -113,7 +110,6 @@ class TestConvVariational:
         assert isinstance(out, torch.Tensor)
         assert out.shape[0] == 5
         assert out.shape[1] == convtranspose2d_layer.in_channels
-        print(convtranspose2d_layer)
 
     @pytest.fixture(params=itertools.product([Conv3dVariational], layer_types, biases))
     def conv3d_layer(self, request: SubRequest) -> Conv3dVariational:
@@ -134,7 +130,6 @@ class TestConvVariational:
         assert isinstance(out, torch.Tensor)
         assert out.shape[0] == 5
         assert out.shape[1] == conv3d_layer.out_channels
-        print(conv3d_layer)
 
     @pytest.fixture(
         params=itertools.product([ConvTranspose3dVariational], layer_types, biases)
@@ -159,4 +154,3 @@ class TestConvVariational:
         assert isinstance(out, torch.Tensor)
         assert out.shape[0] == 5
         assert out.shape[1] == convtranspose3d_layer.in_channels
-        print(convtranspose3d_layer)

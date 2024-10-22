@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 from pathlib import Path
 
@@ -38,7 +38,9 @@ def test_deterministic_regression_on_toy_datasets(datamodule, tmp_path: Path):
     )
 
     # Initialize the trainer
-    trainer = Trainer(max_epochs=1, fast_dev_run=True, default_root_dir=tmp_path)
+    trainer = Trainer(
+        accelerator="cpu", max_epochs=1, fast_dev_run=True, default_root_dir=tmp_path
+    )
 
     # Fit and test
     trainer.fit(model, datamodule=data_module)

@@ -1,9 +1,7 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Datamodule for Toy Sinusoidal example."""
-
-from typing import Union
 
 import torch
 from lightning import LightningDataModule
@@ -20,8 +18,8 @@ class ToySineDatamodule(LightningDataModule):
         n_data: int = 500,
         sigma_noise_1: float = 0.1,
         sigma_noise_2: float = 0.4,
-        x_min: Union[int, float] = -2,
-        x_max: Union[int, float] = 15,
+        x_min: int | float = -2,
+        x_max: int | float = 15,
         batch_size: int = 500,
     ) -> None:
         """Define a sinosoidal toy regression dataset.
@@ -54,11 +52,11 @@ class ToySineDatamodule(LightningDataModule):
         # create simple sinusoid data set and
         # add gaussian noise with different variances
         label_noise = noise_1 + noise_2
-        y_train = torch.sin(X_train) + label_noise
+        Y_train = torch.sin(X_train) + label_noise
 
         # update X_train
         self.X_train = X_train[~test_idx, :]
-        self.y_train = y_train[~test_idx, :]
+        self.Y_train = Y_train[~test_idx, :]
 
         # test over the whole line
         self.X_test = torch.linspace(
@@ -66,14 +64,14 @@ class ToySineDatamodule(LightningDataModule):
             (X_train.max() + X_train.max() * 0.1).item(),
             n_data,
         ).unsqueeze(-1)
-        self.y_test = torch.sin(self.X_test)
+        self.Y_test = torch.sin(self.X_test)
 
         self.batch_size = batch_size
 
     def train_dataloader(self) -> DataLoader:
         """Return train dataloader."""
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train),
+            TensorDataset(self.X_train, self.Y_train),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )
@@ -82,7 +80,7 @@ class ToySineDatamodule(LightningDataModule):
         """Return val dataloader."""
         # TODO Validation data
         return DataLoader(
-            TensorDataset(self.X_train, self.y_train),
+            TensorDataset(self.X_train, self.Y_train),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )
@@ -90,7 +88,7 @@ class ToySineDatamodule(LightningDataModule):
     def test_dataloader(self) -> DataLoader:
         """Return test dataloader."""
         return DataLoader(
-            TensorDataset(self.X_test, self.y_test),
+            TensorDataset(self.X_test, self.Y_test),
             batch_size=self.batch_size,
             collate_fn=collate_fn_tensordataset,
         )

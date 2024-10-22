@@ -14,7 +14,7 @@
 
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 # Changes
 # - Removed all references to tensorflow
 # - adapt to lightning training framework
@@ -22,7 +22,9 @@
 
 """Hierarchical Probabilistic U-Net."""
 
-from typing import Any, Callable, Dict, Literal, Optional, Tuple
+import os
+from collections.abc import Callable
+from typing import Any, Literal
 
 import torch
 import torch.nn as nn
@@ -38,7 +40,11 @@ from ..models.hierarchical_prob_unet import (
     _HierarchicalCore,
     _StitchingDecoder,
 )
-from .utils import default_segmentation_metrics, process_segmentation_prediction
+from .utils import (
+    default_segmentation_metrics,
+    process_segmentation_prediction,
+    save_image_predictions,
+)
 
 
 class HierarchicalProbUNet(BaseModule):
@@ -51,26 +57,28 @@ class HierarchicalProbUNet(BaseModule):
 
     valid_loss_types = ["elbo", "geco"]
     valid_tasks = ["multiclass", "binary"]
+    pred_dir_name = "preds"
 
     def __init__(
         self,
-        latent_dims: Tuple[int, ...] = (1, 1, 1, 1),
-        channels_per_block: Optional[Tuple[int, ...]] = None,
+        latent_dims: tuple[int, ...] = (1, 1, 1, 1),
+        channels_per_block: tuple[int, ...] | None = None,
         num_in_channels: int = 3,
         num_classes: int = 2,
-        down_channels_per_block: Optional[Tuple[int, ...]] = None,
+        down_channels_per_block: tuple[int, ...] | None = None,
         activation_fn: Callable[[Tensor], Tensor] = F.relu,
         convs_per_block: int = 3,
         blocks_per_level: int = 3,
         loss_type: str = "geco",
         kappa: int = 10,
-        beta: Optional[float] = 100,
-        top_k_percentage: Optional[float] = None,
-        deterministic_top_k: Optional[int] = None,
+        beta: float | None = 100,
+        top_k_percentage: float | None = None,
+        deterministic_top_k: int | None = None,
         num_samples: int = 5,
         task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new HierarchicalProbUNET.
 
@@ -100,6 +108,7 @@ class HierarchicalProbUNet(BaseModule):
             task: task type, either "multiclass" or "binary"
             optimizer: optimizer
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         super().__init__()
 
@@ -111,6 +120,8 @@ class HierarchicalProbUNet(BaseModule):
         self.activation_fn = activation_fn
         self.convs_per_block = convs_per_block
         self.blocks_per_level = blocks_per_level
+
+        self.save_preds = save_preds
 
         self._build_model()
 
@@ -245,7 +256,7 @@ class HierarchicalProbUNet(BaseModule):
             return
 
     def compute_loss(
-        self, batch: Dict[str, Tensor], loss_mask: Optional[Tensor] = None
+        self, batch: dict[str, Tensor], loss_mask: Tensor | None = None
     ) -> Tensor:
         """Compute the loss from the output of the model.
 
@@ -322,14 +333,14 @@ class HierarchicalProbUNet(BaseModule):
             "reconstruction": reconstruction,
         }
 
-    def reconstruct(self, mean: bool = False) -> Dict[str, Any]:
+    def reconstruct(self, mean: bool = False) -> dict[str, Any]:
         """Reconstruct the input.
 
         Args:
             mean (bool, optional): Whether to use the mean. Defaults to False.
 
         Returns:
-            Dict[str, Any]: A dictionary containing encoder and decoder features.
+            dict[str, Any]: A dictionary containing encoder and decoder features.
         """
         if mean:
             prior_out = self._p_sample_z_q_mean
@@ -341,7 +352,7 @@ class HierarchicalProbUNet(BaseModule):
             encoder_features=encoder_features, decoder_features=decoder_features
         )
 
-    def kl(self) -> Dict[int, torch.Tensor]:
+    def kl(self) -> dict[int, torch.Tensor]:
         """Compute the KL divergence.
 
         Returns:
@@ -361,8 +372,8 @@ class HierarchicalProbUNet(BaseModule):
         return kl
 
     def sample(
-        self, img: torch.Tensor, mean: bool = False, z_q: Optional[torch.Tensor] = None
-    ) -> Dict[str, Any]:
+        self, img: torch.Tensor, mean: bool = False, z_q: torch.Tensor | None = None
+    ) -> dict[str, Any]:
         """Sample from the model.
 
         Args:
@@ -387,6 +398,8 @@ class HierarchicalProbUNet(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -398,7 +411,11 @@ class HierarchicalProbUNet(BaseModule):
         self.log("train_rec_loss", loss_dict["rec_loss"])
 
         # compute metrics with reconstruction
-        self.train_metrics(loss_dict["reconstruction"], batch[self.target_key])
+        self.train_metrics(
+            loss_dict["reconstruction"],
+            batch[self.target_key],
+            batch_size=batch[self.input_key].shape[0],
+        )
 
         return loss_dict["loss"]
 
@@ -422,7 +439,11 @@ class HierarchicalProbUNet(BaseModule):
         self.log("val_rec_loss", loss_dict["rec_loss"])
 
         # compute metrics with reconstruction
-        self.val_metrics(loss_dict["reconstruction"], batch[self.target_key])
+        self.val_metrics(
+            loss_dict["reconstruction"],
+            batch[self.target_key],
+            batch_size=batch[self.input_key].shape[0],
+        )
 
         return loss_dict["loss"]
 
@@ -442,9 +463,41 @@ class HierarchicalProbUNet(BaseModule):
         preds = self.predict_step(batch[self.input_key])
 
         # compute metrics with sampled reconstruction
-        self.test_metrics(preds["logits"], batch[self.target_key])
+        self.test_metrics(
+            preds["pred"],
+            batch[self.target_key],
+            batch_size=batch[self.input_key].shape[0],
+        )
+
+        preds = self.add_aux_data_to_dict(preds, batch)
+
+        preds[self.target_key] = batch[self.target_key]
 
         return preds
+
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir) and self.save_preds:
+            os.makedirs(self.pred_dir)
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -515,10 +568,10 @@ def _topk_mask(score: Tensor, k: int) -> Tensor:
 def ce_loss(
     logits: Tensor,
     labels: Tensor,
-    mask: Optional[Tensor] = None,
-    top_k_percentage: Optional[float] = None,
+    mask: Tensor | None = None,
+    top_k_percentage: float | None = None,
     deterministic: bool = False,
-) -> Dict[str, Tensor]:
+) -> dict[str, Tensor]:
     """Compute the cross-entropy loss between logits and labels.
 
     Args:

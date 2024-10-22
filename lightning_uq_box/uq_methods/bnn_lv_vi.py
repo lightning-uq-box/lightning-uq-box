@@ -1,11 +1,11 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 import math
 import os
-from typing import Any, Optional, Tuple, Union
+from typing import Any
 
 import einops
 import numpy as np
@@ -48,7 +48,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         model: nn.Module,
         latent_net: nn.Module,
         num_training_points: int,
-        prediction_head: Optional[nn.Module] = None,
+        prediction_head: nn.Module | None = None,
         latent_variable_intro: str = "first",
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
@@ -64,9 +64,10 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         lv_prior_std: float = 1.0,
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        stochastic_module_names: list[str | int] | None = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of BNN+LV.
 
@@ -95,6 +96,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             init_scaling: init scaling factor for q(z) in latent variable network
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
 
@@ -114,6 +116,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             alpha,
             bayesian_layer_type,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )
@@ -134,6 +137,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
         self.prediction_head = prediction_head
 
+        self.freeze_backbone = freeze_backbone
         self._setup_bnn_with_vi_lv(latent_net)
 
     def setup_task(self) -> None:
@@ -164,7 +168,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                 )
 
             lv_init_std = math.sqrt(module.in_features)
-            new_init_args: dict[str, Union[str, int, float]] = {}
+            new_init_args: dict[str, str | int | float] = {}
             new_init_args["in_features"] = (
                 module.in_features + self.hparams["lv_latent_dim"]
             )
@@ -194,10 +198,10 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             first_module_args = retrieve_module_init_args(module)
             if "in_features" in first_module_args:
                 data_dim = first_module_args["in_features"]  # first layer lin
-                test_x = torch.randn(5, 5, data_dim)
+                test_x = torch.randn(5, data_dim)
             else:
                 data_dim = first_module_args["in_channels"]  # first layer conv
-                test_x = torch.randn(5, 3, data_dim, data_dim)
+                test_x = torch.randn(5, data_dim, 224, 224)
 
             with torch.no_grad():
                 feature_output = self.model(test_x)
@@ -255,7 +259,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         )
 
     def forward(
-        self, X: Tensor, y: Optional[Tensor] = None, training: bool = True
+        self, X: Tensor, y: Tensor | None = None, training: bool = True
     ) -> Tensor:
         """Forward pass BNN LV.
 
@@ -314,7 +318,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         batch_size = X.shape[0]
         return torch.randn(batch_size, self.hparams["lv_latent_dim"]).to(self.device)
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -367,13 +371,15 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
 
         Returns:
             prediction dictionary
         """
-        n_aleatoric = self.hparams["n_mc_samples_epistemic"]
+        n_aleatoric = self.hparams.n_mc_samples_epistemic
 
-        if self.hparams["latent_variable_intro"] == "first":
+        if self.hparams.latent_variable_intro == "first":
             output_dim = self.prediction_head.out_features
         else:
             key, module = _get_output_layer_name_and_module(self.prediction_head)
@@ -415,7 +421,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                     model_preds[i, j, :, :] = pred
                 self.unfreeze_layers()
 
-        mean_out = model_preds.mean(dim=(0, 1)).squeeze()
+        mean_out = model_preds.mean(dim=(0, 1))
 
         def entropy(x, dim=None):
             var_x = x.var(dim=dim)
@@ -507,7 +513,7 @@ class BNN_LV_VI_Regression(BNN_LV_VI_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
+        del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )
@@ -526,7 +532,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         model: nn.Module,
         latent_net: nn.Module,
         num_training_points: int,
-        prediction_head: Optional[nn.Module] = None,
+        prediction_head: nn.Module | None = None,
         latent_variable_intro: str = "first",
         n_mc_samples_train: int = 25,
         n_mc_samples_test: int = 50,
@@ -542,9 +548,10 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         lv_prior_std: float = 1,
         lv_latent_dim: int = 1,
         init_scaling: float = 0.1,
-        stochastic_module_names: Optional[list[Union[str, int]]] = None,
+        stochastic_module_names: list[str | int] | None = None,
+        freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of BNN+LV Batched.
 
@@ -558,6 +565,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             n_mc_samples_train: number of MC samples during training when computing
                 the negative ELBO loss
             n_mc_samples_test: number of MC samples during test and prediction
+            n_mc_samples_epistemic: number of epistemic samples during prediction
             output_noise_scale: scale of predicted sigmas
             prior_mu: prior mean value for bayesian layer
             prior_sigma: prior variance value for bayesian layer
@@ -569,11 +577,12 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             lv_prior_mu: prior mean for latent variable network
             lv_prior_std: prior std for latent variable network
             lv_latent_dim: number of latent dimension
+            init_scaling: init scaling factor for q(z) in latent variable network
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
+            freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
-
 
         Raises:
             AssertionError: if ``n_mc_samples_train`` is not positive
@@ -600,6 +609,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             lv_latent_dim,
             init_scaling,
             stochastic_module_names,
+            freeze_backbone,
             optimizer,
             lr_scheduler,
         )
@@ -621,7 +631,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
     def forward(
         self,
         X: Tensor,
-        y: Optional[Tensor] = None,
+        y: Tensor | None = None,
         n_samples: int = 5,
         training: bool = True,
     ) -> Tensor:
@@ -631,6 +641,8 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             X: input data
             y: target
             n_samples: number of samples to compute
+            training: if yes, sample from lv posterior,
+                else use sample from prior or provide z
 
         Returns:
             bnn output [batch_size, output_dim, num_samples]
@@ -657,7 +669,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             self.device
         )
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> Tuple[Tensor]:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -692,18 +704,24 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         X: Tensor,
         batch_idx: int = 0,
         dataloader_idx: int = 0,
-        n_samples_pred: int = 100,
+        n_samples_pred: int | None = None,
     ) -> dict[str, Tensor]:
         """Prediction step.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the data loader
+            n_samples_pred: number of samples to use for prediction
 
         Returns:
             prediction dictionary
         """
-        n_aleatoric = self.hparams["n_mc_samples_epistemic"]
-        n_samples = self.hparams["n_mc_samples_test"]
+        n_aleatoric = self.hparams.n_mc_samples_epistemic
+        if n_samples_pred is None:
+            n_samples = self.hparams.n_mc_samples_test
+        else:
+            n_samples = n_samples_pred
 
         if self.hparams["latent_variable_intro"] == "first":
             output_dim = self.prediction_head.out_features
@@ -767,7 +785,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
                     ] = pred
                 self.unfreeze_layers()
 
-        mean_out = model_preds.mean(dim=(0, 1)).squeeze()
+        mean_out = model_preds.mean(dim=(0, 1))
 
         def entropy(x, dim=None):
             var_x = x.var(dim=dim)
@@ -832,7 +850,7 @@ class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        outputs = {k: v for k, v in outputs.items() if len(v.squeeze().shape) == 1}
+        del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
         )

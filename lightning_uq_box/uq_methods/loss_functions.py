@@ -1,11 +1,10 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Loss Functions specific to UQ-methods."""
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
 
 
@@ -39,7 +38,7 @@ class EnergyAlphaDivergence(nn.Module):
             log_f_hat: ["num_samples"]
             log_Z_prior: 0 shape
             log_normalizer: 0 shape
-            log_noramlizer_z: 0 shape
+            log_normalizer_z: 0 shape
             log_f_hat_z: [num_samples,batch_size]
             loss_terms: collected loss terms over the variational layer weights
             #where are the loss terms?
@@ -107,7 +106,8 @@ class EnergyAlphaDivergence(nn.Module):
 #         """Compute LowRankMultivariateNormal_NLL Loss.
 
 #         Args:
-#           preds: batch_size x (rank + 2) x tager_shape, consisting of mu,Gamma and Psi
+#           preds: batch_size x (rank + 2) x target_shape, consisting of
+#                mu,Gamma and Psi
 #           target: batch_size x target_shape, regression targets
 
 #         Returns:
@@ -117,7 +117,7 @@ class EnergyAlphaDivergence(nn.Module):
 #         mu, gamma, psi = (
 #             preds[:, 0:1],
 #             preds[:, 1 : self.rank + 1],
-#             preds[:, self.tran + 1].exp() + self.eps,
+#             preds[:, self.rank + 1].exp() + self.eps,
 #         )
 
 #         [b, w, h] = target.shape
@@ -145,70 +145,15 @@ class NLL(nn.Module):
         """Compute NLL Loss.
 
         Args:
-          preds: batch_size x 2, consisting of mu and log_sigma_2
-          target: batch_size x 1, regression targets
+          preds: batch_size x 2 x other dims, consisting of mu and log_sigma_2
+          target: batch_size x 1 x other dims, regression targets
 
         Returns:
           computed loss for the entire batch
         """
-        mu, log_sigma_2 = preds[:, 0].unsqueeze(-1), preds[:, 1].unsqueeze(-1)
+        mu, log_sigma_2 = preds[:, 0:1, ...], preds[:, 1:2, ...]
         loss = 0.5 * log_sigma_2 + (
             0.5 * torch.exp(-log_sigma_2) * torch.pow((target - mu), 2)
-        )
-        loss = torch.mean(loss, dim=0)
-        return loss
-
-
-class QuantileLoss(nn.Module):
-    """Quantile or Pinball Loss function."""
-
-    def __init__(self, quantiles: list[float]) -> None:
-        """Initialize a new instance of Quantile Loss function."""
-        super().__init__()
-        self.quantiles = quantiles
-
-    def pinball_loss(self, y: Tensor, y_hat: Tensor, alpha: float):
-        """Pinball Loss for a desired quantile alpha.
-
-        Args:
-            y: true targets of shape [batch_size]
-            y_hat: model predictions for specific quantile of shape [batch_size]
-            alpha: quantile
-
-        Returns:
-            computed loss for a single quantile
-        """
-        # delta = y - y_hat  # (shape: (batch_size))
-        # abs_delta = torch.abs(delta)  # (shape: (batch_size))
-
-        # loss = torch.zeros_like(y)  # (shape: (batch_size))
-        # loss[delta > 0] = alpha * abs_delta[delta > 0]  # (shape: (batch_size))
-        # loss[delta <= 0] = (1.0 - alpha) * abs_delta[
-        #     delta <= 0
-        # ]  # (shape: (batch_size))
-        # loss = torch.mean(loss)
-
-        delta_y = y - y_hat
-        loss = torch.max(torch.mul(alpha, delta_y), torch.mul((alpha - 1), delta_y))
-        return torch.mean(loss)
-
-    def forward(self, preds: Tensor, target: Tensor):
-        """Compute Quantile Loss.
-
-        Args:
-            preds: model predictions of shape [batch_size x num_quantiles]
-            target: targets of shape [batch_size x 1]
-
-        Returns:
-            computed loss for all quantiles over the entire batch
-        """
-        # import pdb
-        # pdb.set_trace()
-        loss = torch.stack(
-            [
-                self.pinball_loss(preds[:, idx], target.squeeze(), alpha)
-                for idx, alpha in enumerate(self.quantiles)
-            ]
         )
         return loss.mean()
 
@@ -259,39 +204,6 @@ class PinballLoss(nn.Module):
         return loss.mean()
 
 
-class HuberQLoss(nn.Module):
-    """Huber Quantile Loss function."""
-
-    def __init__(self, quantiles: list[float], delta: float = 1.0) -> None:
-        """Initialize a new instance of Huberized Quantile Loss."""
-        super().__init__()
-        self.quantiles = quantiles
-        self.delta = delta
-
-    def compute_loss(self, y: Tensor, y_hat: Tensor, alpha: float):
-        """Compute the loss for one quantile."""
-        error = y_hat - y
-        zero_error = torch.zeros_like(error)
-        sq = torch.maximum(-error, zero_error)
-        s1_q = torch.maximum(error, zero_error)
-        hqloss = alpha * F.huber_loss(
-            sq, zero_error, reduction="mean", delta=self.delta
-        ) + (1 - alpha) * F.huber_loss(
-            s1_q, zero_error, reduction="mean", delta=self.delta
-        )
-        return hqloss
-
-    def forward(self, preds: Tensor, target: Tensor):
-        """Compute Huberized Quantile Loss."""
-        loss = torch.stack(
-            [
-                self.compute_loss(preds[:, idx], target.squeeze(), alpha)
-                for idx, alpha in enumerate(self.quantiles)
-            ]
-        )
-        return loss.mean()
-
-
 class DERLoss(nn.Module):
     """Deep Evidential Regression Loss.
 
@@ -318,15 +230,90 @@ class DERLoss(nn.Module):
         """DER Loss.
 
         Args:
-          logits: predicted tensor from model [batch_size x 4]
-          y_true: true regression target of shape [batch_size x 1]
+          logits: predicted tensor from model [batch_size x 4 x other dims]
+          y_true: true regression target of shape [batch_size x 1 x other dims]
 
         Returns:
           DER loss
         """
-        y_true = y_true.squeeze(-1)
-        gamma, nu, _, beta = logits[:, 0], logits[:, 1], logits[:, 2], logits[:, 3]
+        assert (
+            logits.shape[1] == 4
+        ), "logits should have shape [batch_size x 4 x other dims]"
+        assert (
+            y_true.shape[1] == 1
+        ), "y_true should have shape [batch_size x 1 x other dims]"
+        gamma, nu, _, beta = (
+            logits[:, 0:1, ...],
+            logits[:, 1:2, ...],
+            logits[:, 2:3, ...],
+            logits[:, 3:4, ...],
+        )
         error = gamma - y_true
         var = beta / nu
 
         return torch.mean(torch.log(var) + (1.0 + self.coeff * nu) * error**2 / var)
+
+
+class VAELoss(nn.Module):
+    """VAE Loss Function.
+
+    Consists of the KL Divergence and Reconstruction Loss (MSE).
+    """
+
+    def __init__(self, kl_scale: float = 1e-4) -> None:
+        """Initialize a new instance of the VAE Loss Function.
+
+        Args:
+            kl_scale: The scale of the KL loss. Default is 1e-4, based on empirical
+                results. However, this value can significantly affect the
+                reconstruction and sample diversity.
+        """
+        super().__init__()
+        self.kl_scale = kl_scale
+
+    def forward(
+        self, x_recon: Tensor, target: Tensor, mu: Tensor, log_var: Tensor
+    ) -> tuple[Tensor]:
+        """Compute the VAE Loss.
+
+        Args:
+            x_recon: The reconstructed input tensor.
+            target: The input tensor.
+            mu: The mean of the latent space.
+            log_var: The log variance of the latent space.
+
+        Returns:
+            The computed KL and reconstruction loss
+        """
+        recon_loss = nn.functional.mse_loss(x_recon, target, reduction="mean")
+        KLD = torch.mean(
+            -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), dim=1)
+        )
+        return self.kl_scale * KLD, recon_loss
+
+
+class MixtureDensityLoss(nn.Module):
+    """Mixture Density Network Regression Loss Function."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        """Initialize a new instance of Mixture Density Loss."""
+        super().__init__(*args, **kwargs)
+
+    def forward(self, log_pi: Tensor, mu: Tensor, sigma: Tensor, y: Tensor) -> Tensor:
+        """Compute the loss of the Mixture Density Model.
+
+        Args:
+            log_pi: shape [batch_size, num_mdn_components]
+            mu: shape [batch_size, num_mdn_components, dim_out]
+            sigma: shape [batch_size, num_mdn_components, dim_out]
+            y: target of shape [batch_size, dim_out]
+
+        Returns:
+            NLL loss, averaged over the batch size
+        """
+        z_score = (y.unsqueeze(1) - mu) / sigma
+        normal_loglik = -0.5 * torch.einsum(
+            "bij,bij->bi", z_score, z_score
+        ) - torch.sum(torch.log(sigma), dim=-1)
+        loglik = torch.logsumexp(log_pi + normal_loglik, dim=-1)
+        return -loglik.mean()

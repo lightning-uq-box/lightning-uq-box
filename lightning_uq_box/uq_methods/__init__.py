@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """UQ-Methods as Lightning Modules."""
 
@@ -7,7 +7,9 @@ from .base import (
     BaseModule,
     DeterministicClassification,
     DeterministicModel,
+    DeterministicPixelRegression,
     DeterministicRegression,
+    DeterministicSegmentation,
     PosthocBase,
 )
 from .bnn_lv_vi import (
@@ -28,10 +30,11 @@ from .conformal_qr import ConformalQR
 from .deep_ensemble import (
     DeepEnsemble,
     DeepEnsembleClassification,
+    DeepEnsemblePxRegression,
     DeepEnsembleRegression,
     DeepEnsembleSegmentation,
 )
-from .deep_evidential_regression import DER
+from .deep_evidential_regression import DER, DERPxRegression
 from .deep_kernel_learning import (
     DKLBase,
     DKLClassification,
@@ -39,21 +42,40 @@ from .deep_kernel_learning import (
     DKLRegression,
     compute_initial_values,
 )
+from .density_uncertainty import (
+    DensityLayerModelBase,
+    DensityLayerModelClassification,
+    DensityLayerModelRegression,
+)
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .hierarchical_prob_unet import HierarchicalProbUNet
+from .img2img_conformal import Img2ImgConformal
+from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
-from .loss_functions import NLL, DERLoss, HuberQLoss, PinballLoss, QuantileLoss
+from .loss_functions import NLL, DERLoss, PinballLoss, VAELoss
+from .masked_ensemble import (
+    MasksemblesBase,
+    MasksemblesClassification,
+    MasksemblesRegression,
+)
 from .mc_dropout import (
     MCDropoutBase,
     MCDropoutClassification,
+    MCDropoutPxRegression,
     MCDropoutRegression,
     MCDropoutSegmentation,
 )
-from .mean_variance_estimation import MVEBase, MVERegression
+from .mean_variance_estimation import MVEBase, MVEPxRegression, MVERegression
+from .mixture_density import MDNRegression
 from .prob_unet import ProbUNet
-from .quantile_regression import QuantileRegression, QuantileRegressionBase
+from .quantile_regression import (
+    QuantilePxRegression,
+    QuantileRegression,
+    QuantileRegressionBase,
+)
 from .raps import RAPS
 from .sgld import SGLDBase, SGLDClassification, SGLDRegression
+from .sngp import SNGPBase, SNGPClassification, SNGPRegression
 from .spectral_normalized_layers import (
     SpectralBatchNorm1d,
     SpectralBatchNorm2d,
@@ -61,8 +83,17 @@ from .spectral_normalized_layers import (
     SpectralNormFC,
     spectral_normalize_model_layers,
 )
-from .swag import SWAGBase, SWAGClassification, SWAGRegression, SWAGSegmentation
+from .swag import (
+    SWAGBase,
+    SWAGClassification,
+    SWAGPxRegression,
+    SWAGRegression,
+    SWAGSegmentation,
+)
 from .temp_scaling import TempScaling
+from .vae import VAE, ConditionalVAE
+from .vbll import VBLLClassification, VBLLRegression
+from .zigzag import ZigZagBase, ZigZagClassification, ZigZagRegression
 
 __all__ = (
     # Base Module
@@ -72,6 +103,8 @@ __all__ = (
     "DeterministicModel",
     "DeterministicClassification",
     "DeterministicRegression",
+    "DeterministicSegmentation",
+    "DeterministicPixelRegression",
     # CARDS
     "CARDBase",
     "CARDRegression",
@@ -84,6 +117,8 @@ __all__ = (
     "MCDropoutRegression",
     "MCDropoutClassification",
     "MCDropoutSegmentation",
+    # Mixture Density Network
+    "MDNRegression",
     # Laplace Approximation
     "LaplaceBase",
     "LaplaceRegression",
@@ -97,9 +132,20 @@ __all__ = (
     "DeepEnsembleRegression",
     "DeepEnsembleClassification",
     "DeepEnsembleSegmentation",
+    "DeepEnsemblePxRegression",
+    # Density Uncertainty Layer Model
+    "DensityLayerModelBase",
+    "DensityLayerModelRegression",
+    "DensityLayerModelClassification",
+    # Masked Ensemble
+    "MasksemblesBase",
+    "MasksemblesRegression",
+    "MasksemblesClassification",
     # Mean Variance Estimation Network
     "MVEBase",
     "MVERegression",
+    "MVEPxRegression",
+    "MCDropoutPxRegression",
     # Deep Uncertainty Estimation Model
     "DUERegression",
     "DUEClassification",
@@ -115,16 +161,22 @@ __all__ = (
     "SWAGRegression",
     "SWAGClassification",
     "SWAGSegmentation",
+    "SWAGPxRegression",
     # SGLD Model.
     "SGLDBase",
     "SGLDRegression",
     "SGLDClassification",
+    # SNGP Model
+    "SNGPBase",
+    "SNGPRegression",
+    "SNGPClassification",
     # RAPS Model
     "RAPS",
     # Temperature Scaling
     "TempScaling",
     # Deep Evidential Regression Model
     "DER",
+    "DERPxRegression",
     # Spectral Normalization Layers
     "SpectralBatchNorm1d",
     "SpectralBatchNorm2d",
@@ -145,14 +197,29 @@ __all__ = (
     "BNN_LV_VI_Regression",
     "BNN_LV_VI_Batched_Base",
     "BNN_LV_VI_Batched_Regression",
+    # Variational Bayes Last Layer
+    "VBLLClassification",
+    "VBLLRegression",
+    # Image-to-Image Conformal Uncertainty Estimation
+    "Img2ImgConformal",
     # Probabilistic Unet
     "ProbUNet",
     # Hierarchical Probabilistic Unet
     "HierarchicalProbUNet",
     # Loss Functions
     "NLL",
-    "QuantileLoss",
     "DERLoss",
-    "HuberQLoss",
     "PinballLoss",
+    "VAELoss",
+    # Test time augmentation
+    "TTABase",
+    "TTARegression",
+    "TTAClassification",
+    # VAE
+    "VAE",
+    "ConditionalVAE",
+    # Zig Zag
+    "ZigZagBase",
+    "ZigZagRegression",
+    "ZigZagClassification",
 )

@@ -1,11 +1,14 @@
-model:
+uq_method:
   _target_: lightning_uq_box.uq_methods.SWAGSegmentation
   model:
-    _target_: segmentation_models_pytorch.Unet
+    _target_: torchseg.Unet
     encoder_name: resnet18
     encoder_weights: imagenet
     classes: 4
     in_channels: 3
+    encoder_depth: 2
+    decoder_channels: [16, 8]
+  stochastic_module_names: ["decoder.blocks.0.conv2.0", "segmentation_head.0"]
   max_swag_snapshots: 4
   snapshot_freq: 1
   num_mc_samples: 10

@@ -17,7 +17,7 @@
 # - enable selections of stochastic modules
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Stochastic Weight Averaging - Gaussian.
 
@@ -29,7 +29,7 @@ import math
 import os
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -40,6 +40,7 @@ from .base import DeterministicModel
 from .utils import (
     _get_num_outputs,
     default_classification_metrics,
+    default_px_regression_metrics,
     default_regression_metrics,
     default_segmentation_metrics,
     map_stochastic_modules,
@@ -47,6 +48,7 @@ from .utils import (
     process_regression_prediction,
     process_segmentation_prediction,
     save_classification_predictions,
+    save_image_predictions,
     save_regression_predictions,
 )
 
@@ -67,8 +69,7 @@ class SWAGBase(DeterministicModel):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        stochastic_module_names: Optional[list[Union[int, str]]] = None,
-        num_datapoints_for_bn_update: int = 0,
+        stochastic_module_names: list[int | str] | None = None,
     ) -> None:
         """Initialize a new instance of SWAG Model Wrapper.
 
@@ -80,8 +81,7 @@ class SWAGBase(DeterministicModel):
             swag_lr: learning rate for swag
             loss_fn: loss function
             stochastic_module_names: list of module names or indices that should
-                be converted to variational layers
-            num_datapoints_for_bn_update: num of datapoints to use for batchnorm update
+                be converted to variational layer
         """
         super().__init__(model, loss_fn, None, None)
         self.stochastic_module_names = map_stochastic_modules(
@@ -304,13 +304,6 @@ class SWAGBase(DeterministicModel):
         """Update the state with a sample."""
         sampled_state_dict = self._sample_state_dict()
         self._update_tracked_state_dict(sampled_state_dict)
-        if self.hparams["num_datapoints_for_bn_update"] > 0:
-            update_bn(
-                self.train_loader,
-                self.model,
-                device=self.device,
-                num_datapoints=self.hparams["num_datapoints_for_bn_update"],
-            )
 
     def sample_predictions(self, X: Tensor) -> Tensor:
         """Sample predictions.
@@ -349,8 +342,8 @@ class SWAGRegression(SWAGBase):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    """  # noqa: E501
 
     pred_file_name = "preds.csv"
 
@@ -362,8 +355,7 @@ class SWAGRegression(SWAGBase):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
-        num_datapoints_for_bn_update: int = 0,
+        stochastic_module_names: list[int] | list[str] | None = None,
     ) -> None:
         """Initialize a new instance of SWAG Model for Regression.
 
@@ -376,7 +368,6 @@ class SWAGRegression(SWAGBase):
             swag_lr: learning rate for swag
             loss_fn: loss function
             stochastic_module_names: names of modules that are partially stochastic
-            num_datapoints_for_bn_update: num of datapoints to use for batchnorm update
         """
         super().__init__(
             model,
@@ -386,7 +377,6 @@ class SWAGRegression(SWAGBase):
             swag_lr,
             loss_fn,
             stochastic_module_names,
-            num_datapoints_for_bn_update,
         )
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
@@ -415,7 +405,7 @@ class SWAGRegression(SWAGBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Prediction step that with SWAG uncertainty.
 
         Args:
@@ -441,8 +431,8 @@ class SWAGClassification(SWAGBase):
 
     If you use this model in your research, please cite the following paper:
 
-    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html # noqa: E501
-    """
+    * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
+    """  # noqa: E501
 
     pred_file_name = "preds.csv"
     valid_tasks = ["binary", "multiclass", "multilable"]
@@ -455,9 +445,8 @@ class SWAGClassification(SWAGBase):
         num_mc_samples: int,
         swag_lr: float,
         loss_fn: nn.Module,
-        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
-        stochastic_module_names: Optional[Union[list[int], list[str]]] = None,
-        num_datapoints_for_bn_update: int = 0,
+        task: str = "multiclass",
+        stochastic_module_names: list[int] | list[str] | None = None,
     ) -> None:
         """Initialize a new instance of SWAG Model for Classification.
 
@@ -471,7 +460,6 @@ class SWAGClassification(SWAGBase):
             loss_fn: loss function
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             stochastic_module_names: names of modules that are partially stochastic
-            num_datapoints_for_bn_update: num of datapoints to use for batchnorm update
         """
         assert task in self.valid_tasks
         self.task = task
@@ -485,7 +473,6 @@ class SWAGClassification(SWAGBase):
             swag_lr,
             loss_fn,
             stochastic_module_names,
-            num_datapoints_for_bn_update,
         )
         self.save_hyperparameters(ignore=["model", "loss_fn"])
 
@@ -508,11 +495,13 @@ class SWAGClassification(SWAGBase):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Prediction step with SWAG uncertainty.
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             prediction dictionary
@@ -549,6 +538,46 @@ class SWAGClassification(SWAGBase):
 class SWAGSegmentation(SWAGClassification):
     """SWAG Model for Segmentation."""
 
+    pred_dir_name = "preds"
+
+    def __init__(
+        self,
+        model: nn.Module,
+        max_swag_snapshots: int,
+        snapshot_freq: int,
+        num_mc_samples: int,
+        swag_lr: float,
+        loss_fn: nn.Module,
+        task: str = "multiclass",
+        stochastic_module_names: list[int] | list[str] | None = None,
+        save_preds: bool = False,
+    ) -> None:
+        """Initialize a new instance of SWAG Model for Segmentation.
+
+        Args:
+            model: pytorch model
+            num_swag_epochs: number of epochs to train swag
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            task: segmentation task, one of ['binary', 'multiclass']
+            stochastic_module_names: names of modules that are partially stochastic
+            save_preds: save predictions
+        """
+        super().__init__(
+            model,
+            max_swag_snapshots,
+            snapshot_freq,
+            num_mc_samples,
+            swag_lr,
+            loss_fn,
+            task,
+            stochastic_module_names,
+        )
+        self.save_preds = save_preds
+
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         self.test_metrics = default_segmentation_metrics(
@@ -557,7 +586,7 @@ class SWAGSegmentation(SWAGClassification):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Prediction step with SWAG uncertainty.
 
         Args:
@@ -575,6 +604,12 @@ class SWAGSegmentation(SWAGClassification):
         preds = self.sample_predictions(X)
         return process_segmentation_prediction(preds)
 
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir) and self.save_preds:
+            os.makedirs(self.pred_dir)
+
     def on_test_batch_end(
         self,
         outputs: dict[str, Tensor],  # type: ignore[override]
@@ -590,76 +625,74 @@ class SWAGSegmentation(SWAGClassification):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        pass
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
-# Adapted from https://github.com/GSK-AI/afterglow/blob/master/afterglow/trackers/batchnorm.py # noqa: E501
-def update_bn(
-    loader: torch.utils.data.DataLoader,
-    model: torch.nn.Module,
-    device: Optional[Union[str, torch.device]] = None,
-    num_datapoints: Optional[int] = None,
-):
-    """Update BatchNorm running_mean, running_var buffers in the model.
+class SWAGPxRegression(SWAGRegression):
+    """SWAG Model for Pixelwise Regression."""
 
-    It performs one pass over data in `loader` to estimate the activation
-    statistics for BatchNorm layers in the model.
+    pred_dir_name = "preds"
 
-    Args:
-        loader: dataset loader to compute the
-            activation statistics on. Each data batch should be either a
-            tensor, or a list/tuple whose first element is a tensor
-            containing data.
-        model: model for which we seek to update BatchNorm
-            statistics.
-        device: If set, data will be transferred to
-            :attr:`device` before being passed into :attr:`model`.
-        num_datapoints: number of examples to use to perform the update.
+    def __init__(
+        self,
+        model: nn.Module,
+        max_swag_snapshots: int,
+        snapshot_freq: int,
+        num_mc_samples: int,
+        swag_lr: float,
+        loss_fn: nn.Module,
+        stochastic_module_names: list[int] | list[str] | None = None,
+        save_preds: bool = False,
+    ) -> None:
+        """Initialize a new instance of SWAG Model for Pixelwise Regression.
 
-    .. note::
-        The `update_bn` utility assumes that each data batch in :attr:`loader`
-        is either a tensor or a list or tuple of tensors; in the latter case it
-        is assumed that :meth:`model.forward()` should be called on the first
-        element of the list or tuple corresponding to the data batch.
-    """
-    if num_datapoints is None:
-        num_datapoints = len(loader.dataset)
+        Args:
+            model: pytorch model
+            num_swag_epochs: number of epochs to train swag
+            max_swag_snapshots: maximum number of snapshots to store
+            snapshot_freq: frequency of snapshots
+            num_mc_samples: number of MC samples during prediction
+            swag_lr: learning rate for swag
+            loss_fn: loss function
+            stochastic_module_names: names of modules that are partially stochastic
+            save_preds: save predictions
+        """
+        super().__init__(
+            model,
+            max_swag_snapshots,
+            snapshot_freq,
+            num_mc_samples,
+            swag_lr,
+            loss_fn,
+            stochastic_module_names,
+        )
+        self.save_preds = save_preds
 
-    momenta = {}
-    for module in model.modules():
-        if isinstance(module, torch.nn.modules.batchnorm._BatchNorm):
-            module.running_mean = torch.zeros_like(module.running_mean)
-            module.running_var = torch.ones_like(module.running_var)
-            momenta[module] = module.momentum
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        self.test_metrics = default_px_regression_metrics("test")
 
-    if not momenta:
-        return
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir) and self.save_preds:
+            os.makedirs(self.pred_dir)
 
-    was_training = model.training
-    model.train()
-    for module in momenta.keys():
-        module.momentum = None
-        module.num_batches_tracked *= 0
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        """Test batch end save predictions.
 
-    datapoints_used_for_update = 0
-    for batch in loader:
-        if datapoints_used_for_update == num_datapoints:
-            break
-        if isinstance(batch, (list, tuple)):
-            input = batch[0]
-        if isinstance(batch, (dict)):
-            import pdb
-
-            pdb.set_trace()
-            input = batch["image"]
-        if device is not None:
-            input = input.to(device)
-        input = input[: num_datapoints - datapoints_used_for_update]
-
-        model(input)
-
-        datapoints_used_for_update += len(input)
-
-    for bn_module in momenta.keys():
-        bn_module.momentum = momenta[bn_module]
-    model.train(was_training)
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)

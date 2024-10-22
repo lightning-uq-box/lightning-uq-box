@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """CARD Regression Diffusion Model.
 
@@ -8,10 +8,11 @@ Based on official PyTorch implementation from https://github.com/XzwHan/CARD # n
 
 import math
 import os
-from typing import Any, Literal, Optional, Tuple, Union
+from typing import Any, Literal
 
 import torch
 import torch.nn as nn
+from ema_pytorch import EMA
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor
 
@@ -26,8 +27,6 @@ from .utils import (
 )
 
 
-# TODO check EMA support
-# Support classification
 class CARDBase(BaseModule):
     """CARD Model.
 
@@ -49,8 +48,11 @@ class CARDBase(BaseModule):
         beta_start: float = 1e-5,
         beta_end: float = 1e-2,
         n_z_samples: int = 100,
+        ema_decay: float = 0.995,
+        ema_update_every: float = 10,
+        ema_update_after_step: int = 0,
         guidance_optim: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of the CARD Model.
 
@@ -63,8 +65,15 @@ class CARDBase(BaseModule):
             beta_start: start value of beta scheduling
             beta_end: end value of beta scheduling
             n_z_samples: number of samples during prediction
+            ema_decay: exponential moving average decay
+            ema_update_every: How often to update the EMA model,
+                in terms of every n gradient steps.
+            ema_update_after_step: after which step to start updating the EMA model
             guidance_optim: optimizer for the guidance model
             lr_scheduler: learning rate scheduler
+
+        .. versionchanged:: 0.2.0
+           Added arguments `ema_decay`, `ema_update_every`, `ema_update_after_step` for EMA support.
         """
         super().__init__()
 
@@ -80,13 +89,24 @@ class CARDBase(BaseModule):
         self.guidance_optim = guidance_optim
         self.lr_scheduler = lr_scheduler
 
+        self.ema_decay = ema_decay
+        self.ema_update_every = ema_update_every
+        self.ema_update_after_step = ema_update_after_step
+        self.ema = EMA(
+            self.guidance_model,
+            beta=self.ema_decay,
+            update_after_step=self.ema_update_after_step,
+            update_every=self.ema_update_every,
+        )
+        self.use_ema_model = False
+
         self.setup_task()
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
         pass
 
-    def diffusion_process(self, batch: dict[str, Tensor]) -> Tuple[Tensor, Tensor]:
+    def diffusion_process(self, batch: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
         """Diffusion process during training.
 
         Args:
@@ -120,7 +140,10 @@ class CARDBase(BaseModule):
             noise=e,
         )
 
-        guidance_output = self.guidance_model(x, y_t_sample, y_0_hat, ant_samples_t)
+        if self.use_ema_model:
+            guidance_output = self.ema.ema_model(x, y_t_sample, y_0_hat, ant_samples_t)
+        else:
+            guidance_output = self.guidance_model(x, y_t_sample, y_0_hat, ant_samples_t)
 
         # in classification y usually don't have target dimension
         # but in regression they do so for broadcasting align them
@@ -132,6 +155,10 @@ class CARDBase(BaseModule):
 
         return loss, y_t_sample
 
+    def on_after_backward(self):
+        """Update EMA after each backward pass."""
+        self.ema.update()
+
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -139,14 +166,17 @@ class CARDBase(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
         """
-        train_loss, y_t_sample = self.diffusion_process(batch)
+        self.use_ema_model = False
+        loss, y_t_sample = self.diffusion_process(batch)
 
-        self.log("train_loss", train_loss)
-        return train_loss
+        self.log("train_loss", loss, batch_size=batch[self.input_key].shape[0])
+        return loss
 
     # TODO what metrics should be logged?
     # def on_train_epoch_end(self):
@@ -161,13 +191,17 @@ class CARDBase(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             validation loss
         """
-        val_loss, y_t_sample = self.diffusion_process(batch)
-        self.log("val_loss", val_loss)
-        return val_loss
+        self.use_ema_model = True
+        loss, y_t_sample = self.diffusion_process(batch)
+        self.log("val_loss", loss, batch_size=batch[self.input_key].shape[0])
+        self.use_ema_model = False
+        return loss
 
     # def on_validation_epoch_end(self) -> None:
     #     """Log epoch level validation metrics."""
@@ -186,10 +220,13 @@ class CARDBase(BaseModule):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             diffusion samples for each time step
         """
+        self.use_ema_model = True
         # compute y_0_hat only once as the initial prediction
         with torch.no_grad():
             y_0_hat = self.cond_mean_model(X)
@@ -222,7 +259,7 @@ class CARDBase(BaseModule):
                     arr.reshape(self.n_z_samples, X.shape[0], y_t.shape[-1])
                     for arr in y_tile_seq
                 ]
-                y_seg = torch.stack(y_tile_seq, dim=0)
+                _ = torch.stack(y_tile_seq, dim=0)
                 final_recoverd = y_tile_seq[-1]
 
             else:
@@ -242,7 +279,10 @@ class CARDBase(BaseModule):
                 y_seq = torch.stack(y_tile_seq, dim=0)
                 final_recoverd = y_seq[-2:-1, ...]
 
-        return {"pred": final_recoverd, "samples": y_seg}
+                final_recoverd = torch.stack(y_tile_seq, dim=0)
+
+        self.use_ema_model = False
+        return final_recoverd, y_tile_seq
 
     def p_sample(
         self,
@@ -267,9 +307,9 @@ class CARDBase(BaseModule):
             y: sampled y at time step t, y_t.
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
-            t: time step tensor with single element
-            alphas:
-            one_minus_alphas_bar_sqrt:
+            t: time step
+            alphas: noise schedule alpha
+            one_minus_alphas_bar_sqrt: noise schedule one minus alpha sqrt
 
         Returns:
             reverse process sample
@@ -295,7 +335,10 @@ class CARDBase(BaseModule):
         gamma_2 = 1 + (sqrt_alpha_bar_t - 1) * (
             alpha_t.sqrt() + sqrt_alpha_bar_t_m_1
         ) / (sqrt_one_minus_alpha_bar_t.square())
-        eps_theta = self.guidance_model(x, y, y_0_hat, t).detach()
+        if self.use_ema_model:
+            eps_theta = self.ema.ema_model(x, y, y_0_hat, t).detach()
+        else:
+            eps_theta = self.guidance_model(x, y, y_0_hat, t).detach()
         # y_0 reparameterization
         y_0_reparam = (
             1
@@ -332,11 +375,11 @@ class CARDBase(BaseModule):
         """Reverse sample function, sample y_0 given y_1.
 
         Args:
-            x:
+            x: input
             y: sampled y at time step t, y_t.
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
-            one_minus_alphas_bar_sqrt:
+            one_minus_alphas_bar_sqrt: noise schedule one minus alpha bar sqrt
 
         Returns:
             y_0 sample
@@ -345,7 +388,10 @@ class CARDBase(BaseModule):
         t = torch.tensor([0]).to(self.device)
         sqrt_one_minus_alpha_bar_t = self.extract(one_minus_alphas_bar_sqrt, t, y)
         sqrt_alpha_bar_t = (1 - sqrt_one_minus_alpha_bar_t.square()).sqrt()
-        eps_theta = self.guidance_model(x, y, y_0_hat, t).detach()
+        if self.use_ema_model:
+            eps_theta = self.ema.ema_model(x, y, y_0_hat, t).detach()
+        else:
+            eps_theta = self.guidance_model(x, y, y_0_hat, t).detach()
         # y_0 reparameterization
         y_0_reparam = (
             1
@@ -368,11 +414,11 @@ class CARDBase(BaseModule):
         alphas: Tensor,
         one_minus_alphas_bar_sqrt: Tensor,
         only_last_sample: bool = False,
-    ) -> Union[Tensor, list[Tensor]]:
+    ) -> Tensor | list[Tensor]:
         """P sample loop for the entire chain.
 
         Args:
-            x:
+            x: input
             y_0_hat: prediction of pre-trained guidance model.
             y_T_mean: mean of prior distribution at timestep T.
             n_steps: number of diffusion steps
@@ -386,7 +432,7 @@ class CARDBase(BaseModule):
         z = torch.randn_like(y_T_mean).to(self.device)
         cur_y = z + y_T_mean  # sampled y_T
         if only_last_sample:
-            num_t: Optional[int] = 1
+            num_t: int | None = 1
             y_p_seq: list[Tensor] = []
         else:
             num_t = None
@@ -426,8 +472,8 @@ class CARDBase(BaseModule):
         y_0_hat: Tensor,
         alphas_bar_sqrt: Tensor,
         one_minus_alphas_bar_sqrt: Tensor,
-        t: Tensor,
-        noise: Optional[Tensor] = None,
+        t: int,
+        noise: Tensor | None = None,
     ) -> Tensor:
         """Q sampling process.
 
@@ -489,6 +535,8 @@ class CARDBase(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             test loss
@@ -505,12 +553,7 @@ class CARDBase(BaseModule):
             )
 
         # save metadata
-        for key, val in batch.items():
-            if key not in [self.input_key, self.target_key]:
-                if isinstance(val, Tensor):
-                    out_dict[key] = val.detach().squeeze(-1)
-                else:
-                    out_dict[key] = val
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
 
         return out_dict
 
@@ -603,8 +646,11 @@ class CARDClassification(CARDBase):
         beta_end: float = 0.01,
         n_z_samples: int = 100,
         task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
+        ema_decay: float = 0.995,
+        ema_update_every: float = 10,
+        ema_update_after_step: int = 0,
         guidance_optim: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of the CARD Classification.
 
@@ -618,8 +664,15 @@ class CARDClassification(CARDBase):
             beta_end: end value of beta scheduling
             n_z_samples: number of samples during prediction
             task: classification task, either `binary` or `multiclass`
+            ema_decay: exponential moving average decay
+            ema_update_every: How often to update the EMA model,
+                in terms of every n gradient steps.
+            ema_update_after_step: after which step to start updating the EMA model
             guidance_optim: optimizer for the guidance model
             lr_scheduler: learning rate scheduler
+
+        .. versionchanged:: 0.2.0
+           Added arguments `ema_decay`, `ema_update_every`, `ema_update_after_step` for EMA support.
         """
         assert task in self.valid_tasks
         self.task = task
@@ -634,6 +687,9 @@ class CARDClassification(CARDBase):
             beta_start,
             beta_end,
             n_z_samples,
+            ema_decay,
+            ema_update_every,
+            ema_update_after_step,
             guidance_optim,
             lr_scheduler,
         )
@@ -665,6 +721,8 @@ class CARDClassification(CARDBase):
 
         Args:
             X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             predictions
@@ -763,8 +821,7 @@ class NoiseScheduler:
     def quadratic_schedule(self) -> Tensor:
         """Quadratic Schedule."""
         return (
-            torch.linspace(self.beta_start**0.5, self.beta_end**0.5, self.n_steps)
-            ** 2
+            torch.linspace(self.beta_start**0.5, self.beta_end**0.5, self.n_steps) ** 2
         )
 
     def sigmoid_schedule(self) -> Tensor:

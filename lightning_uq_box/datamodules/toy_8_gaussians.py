@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Toy 8 Gaussians Datamodule."""
 
@@ -23,11 +23,11 @@ class Toy8GaussiansDataModule(LightningDataModule):
         self.batch_size = batch_size
         self.n_samples = n_samples
         self.train_dataset = Toy8GaussiansDataset(n_samples=n_samples)
-        self.X_train, self.y_train = self.train_dataset.X, self.train_dataset.y
+        self.X_train, self.Y_train = self.train_dataset.X, self.train_dataset.y
         self.val_dataset = Toy8GaussiansDataset(n_samples=int(0.2 * n_samples))
         self.X_val, self.y_val = self.val_dataset.X, self.val_dataset.y
         self.test_dataset = Toy8GaussiansDataset(n_samples=int(0.4 * n_samples))
-        self.X_test, self.y_test = self.test_dataset.X, self.test_dataset.y
+        self.X_test, self.Y_test = self.test_dataset.X, self.test_dataset.y
 
     def train_dataloader(self):
         """Create the train DataLoader."""

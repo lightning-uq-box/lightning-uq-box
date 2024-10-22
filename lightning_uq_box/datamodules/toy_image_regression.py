@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Toy Image Regression Datamodule."""
 
@@ -27,6 +27,10 @@ class ToyImageRegressionDatamodule(LightningDataModule):
 
     def val_dataloader(self) -> DataLoader:
         """Return Val Dataloader."""
+        return DataLoader(ToyImageRegressionDataset(), batch_size=self.batch_size)
+
+    def calib_dataloader(self) -> DataLoader:
+        """Return Calib Dataloader."""
         return DataLoader(ToyImageRegressionDataset(), batch_size=self.batch_size)
 
     def test_dataloader(self) -> DataLoader:

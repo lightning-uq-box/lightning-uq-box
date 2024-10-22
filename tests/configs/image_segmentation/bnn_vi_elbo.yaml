@@ -1,11 +1,13 @@
-model:
+uq_method:
   _target_: lightning_uq_box.uq_methods.BNN_VI_ELBO_Segmentation
   model:
-    _target_: segmentation_models_pytorch.Unet
+    _target_: torchseg.Unet
     encoder_name: resnet18
     encoder_weights: imagenet
     classes: 4
     in_channels: 3
+    encoder_depth: 2
+    decoder_channels: [16, 8]
   optimizer:
     _target_: torch.optim.SGD
     _partial_: true

@@ -1,11 +1,10 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 """Toy image segmentation dataset."""
 
-from typing import Dict
+from typing import Any
 
 import torch
-from torch import Tensor
 from torch.utils.data import Dataset
 
 
@@ -30,7 +29,7 @@ class ToySegmentationDataset(Dataset):
         """Return the number of images in the dataset."""
         return self.num_images
 
-    def __getitem__(self, idx: int) -> Dict[str, Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, Any]:
         """Generate a random grayscale image and corresponding mask."""
         # Generate a random grayscale image and corresponding mask
         image = torch.randint(
@@ -39,5 +38,4 @@ class ToySegmentationDataset(Dataset):
         mask = torch.randint(
             0, self.num_classes, (self.image_size, self.image_size), dtype=torch.long
         )
-
-        return {"input": image, "target": mask}
+        return {"input": image, "target": mask, "index": idx, "aux": "random_aux_data"}

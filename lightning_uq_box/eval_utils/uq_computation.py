@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Utilities for computing Uncertainties."""
 
@@ -38,8 +38,8 @@ def compute_epistemic_uncertainty(sample_mean_preds: Tensor) -> Tensor:
     Returns:
       epistemic uncertainty for each sample
     """
-    right_term = sample_mean_preds.mean(1) ** 2
-    return torch.sqrt((sample_mean_preds**2).mean(axis=1) - right_term)
+    right_term = sample_mean_preds.mean(-1) ** 2
+    return torch.sqrt((sample_mean_preds**2).mean(axis=-1) - right_term)
 
 
 def compute_aleatoric_uncertainty(sample_sigma_preds: Tensor) -> Tensor:
@@ -53,7 +53,7 @@ def compute_aleatoric_uncertainty(sample_sigma_preds: Tensor) -> Tensor:
     Returns:
       aleatoric uncertainty for each sample
     """
-    return torch.sqrt(sample_sigma_preds.mean(-1))
+    return torch.sqrt((sample_sigma_preds**2.0).mean(-1))
 
 
 def compute_predictive_uncertainty(
@@ -71,7 +71,7 @@ def compute_predictive_uncertainty(
       predictive uncertainty for each sample
     """
     return torch.sqrt(
-        sample_sigma_preds.mean(-1)
+        (sample_sigma_preds**2.0).mean(-1)
         + (sample_mean_preds**2).mean(-1)
         - (sample_mean_preds.mean(-1) ** 2)
     )
@@ -79,7 +79,7 @@ def compute_predictive_uncertainty(
 
 def compute_sample_mean_std_from_quantile(
     inter_range_quantiles: Tensor, quantiles: list[float]
-) -> Tensor:
+) -> tuple[Tensor, Tensor]:
     """Compute sample mean and std from inter quantiles.
 
     Taken from: https://stats.stackexchange.com/questions/256456/
@@ -106,7 +106,7 @@ def compute_sample_mean_std_from_quantile(
 
 
 def compute_quantiles_from_std(
-    means: np.array, stds: np.array, quantiles: list[float]
+    means: np.ndarray, stds: np.ndarray, quantiles: list[float]
 ) -> np.ndarray:
     """Compute quantiles from standard deviations assuming a Gaussian.
 
@@ -128,21 +128,21 @@ def compute_quantiles_from_std(
             p = dist.ppf(ppf)
             ppfs[ppf].append(p)
 
-    quantiles = np.stack(list(ppfs.values()), axis=-1)
-    return quantiles
+    return np.stack(list(ppfs.values()), axis=-1)
 
 
-def compute_empirical_coverage(quantile_preds: np.ndarray, targets: np.ndarray):
+def compute_empirical_coverage(quantile_preds: Tensor, targets: Tensor):
     """Compute the empirical coverage.
 
     Args:
       quantile_preds: predicted quantiles
-      labels: regression targets
+      targets: regression targets
 
     Returns:
       computed empirical coverage over all samples
     """
-    targets = targets.squeeze()
+    assert quantile_preds.dim() == targets.dim(), "Dimension mismatch."
     return (
-        (targets >= quantile_preds[:, 0]) & (targets <= quantile_preds[:, -1])
-    ).mean()
+        (targets >= quantile_preds[:, 0:1, ...])
+        & (targets <= quantile_preds[:, -1, ...].unsqueeze(1))
+    ).sum() / targets.shape[0]

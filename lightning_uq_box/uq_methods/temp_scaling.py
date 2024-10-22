@@ -5,7 +5,7 @@ Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperat
 
 import os
 from functools import partial
-from typing import Any, Dict, Literal, Union
+from typing import Any, Literal
 
 import torch
 import torch.nn as nn
@@ -32,7 +32,7 @@ class TempScaling(PosthocBase):
 
     def __init__(
         self,
-        model: Union[LightningModule, nn.Module],
+        model: LightningModule | nn.Module,
         optim_lr: float = 0.01,
         max_iter: int = 50,
         task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
@@ -75,7 +75,7 @@ class TempScaling(PosthocBase):
         """
         return temp_scale_logits(model_logits, self.temperature)
 
-    def on_validation_epoch_end(self) -> None:
+    def on_train_epoch_end(self) -> None:
         """Perform CQR computation to obtain q_hat for predictions.
 
         Args:
@@ -93,7 +93,7 @@ class TempScaling(PosthocBase):
 
         self.post_hoc_fitted = True
 
-    def predict_step(self, X: Tensor) -> Dict[str, Tensor]:
+    def predict_step(self, X: Tensor) -> dict[str, Tensor]:
         """Prediction step with applied temperature scaling.
 
         Args:
@@ -101,7 +101,9 @@ class TempScaling(PosthocBase):
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(
-                "Model has not been post hoc fitted, please call trainer.fit(model, datamodule) first."  # noqa: E501
+                "Model has not been post hoc fitted, "
+                "please call "
+                "trainer.fit(model, train_dataloaders=dm.calib_dataloader()) first."
             )
         with torch.no_grad():
             temp_scaled_outputs = self.forward(X)
@@ -127,9 +129,11 @@ class TempScaling(PosthocBase):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        preds = self.predict_step(batch[self.input_key])
-        self.test_metrics(preds["pred"], batch[self.target_key])
-        return preds
+        out_dict = self.predict_step(batch[self.input_key])
+        out_dict[self.target_key] = batch[self.target_key]
+        self.test_metrics(out_dict["pred"], batch[self.target_key])
+        out_dict = self.add_aux_data_to_dict(out_dict, batch)
+        return out_dict
 
     def on_test_batch_end(
         self,
@@ -170,7 +174,7 @@ def run_temperature_optimization(
     criterion: nn.Module,
     temperature: nn.Parameter,
     optimizer: type[torch.optim.Optimizer] = partial(LBFGS, lr=0.01, max_iter=50),
-    max_iter: int = 50,
+    max_iter: int | None = 50,
 ) -> Tensor:
     """Run temperature optimization.
 

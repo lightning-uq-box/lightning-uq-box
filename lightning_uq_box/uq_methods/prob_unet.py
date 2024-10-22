@@ -14,14 +14,15 @@
 
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 # Changes from https://github.com/stefanknegt/Probabilistic-Unet-Pytorch/blob/master/probabilistic_unet.py: # noqa: E501
 # - adapt ProbUnet implementation to lightning training framework
 # - make Unet flexible to be any segmentation model
 
 """Probabilistic U-Net."""
 
-from typing import Any, Dict, List, Literal, Optional
+import os
+from typing import Any, Literal
 
 import torch
 import torch.nn as nn
@@ -33,7 +34,11 @@ from torch.distributions import kl
 from lightning_uq_box.uq_methods import BaseModule
 
 from ..models.prob_unet import AxisAlignedConvGaussian, Fcomb
-from .utils import default_segmentation_metrics, process_segmentation_prediction
+from .utils import (
+    default_segmentation_metrics,
+    process_segmentation_prediction,
+    save_image_predictions,
+)
 
 
 class ProbUNet(BaseModule):
@@ -46,19 +51,23 @@ class ProbUNet(BaseModule):
 
     valid_tasks = ["multiclass", "binary"]
 
+    pred_dir_name = "preds"
+
     def __init__(
         self,
         model: nn.Module,
         latent_dim: int = 6,
-        num_filters: List[int] = [32, 64, 128, 192],
+        num_filters: list[int] = [32, 64, 128, 192],
         num_convs_per_block: int = 3,
         num_convs_fcomb: int = 4,
         fcomb_filter_size: int = 32,
         beta: float = 10.0,
         num_samples: int = 5,
         task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
+        criterion: nn.Module | None = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
+        save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of ProbUNet.
 
@@ -72,8 +81,10 @@ class ProbUNet(BaseModule):
             beta: beta parameter
             num_samples: number of latent samples to use during prediction
             task: task type, either "multiclass" or "binary"
+            criterion: reconstruction criterion, Cross Entropy Loss by default
             optimizer: optimizer
             lr_scheduler: learning rate scheduler
+            save_preds: whether to save predictions
         """
         super().__init__()
         self.latent_dim = latent_dim
@@ -114,10 +125,13 @@ class ProbUNet(BaseModule):
             use_tile=True,
         )
 
-        self.criterion = nn.BCEWithLogitsLoss(reduction="none")
+        if criterion is None:
+            criterion = nn.CrossEntropyLoss()
+        self.criterion = criterion
 
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
+        self.save_preds = save_preds
 
         self.setup_task()
 
@@ -133,19 +147,18 @@ class ProbUNet(BaseModule):
             prefix="test", num_classes=self.num_classes, task=self.task
         )
 
-    def compute_loss(self, batch: Dict[str, Tensor]) -> Dict[str, Tensor]:
+    def compute_loss(self, batch: dict[str, Tensor]) -> dict[str, Tensor]:
         """Compute the evidence lower bound (ELBO) of the log-likelihood of P(Y|X).
 
         Args:
-            seg_mask: segmentation target mask
+            batch: batch of data with input and target key
 
         Returns:
             A dictionary containing the total loss,
             reconstruction loss, KL loss, and the reconstruction
         """
         img, seg_mask = batch[self.input_key], batch[self.target_key]
-        # check dimensions, add channel dimension to seg_mask under assumption
-        # that it is a binary mask
+        # posterior expects one hot encoding
         if len(seg_mask.shape) == 3:
             seg_mask_target = seg_mask.long()
             seg_mask_target = F.one_hot(seg_mask_target, num_classes=self.num_classes)
@@ -155,6 +168,8 @@ class ProbUNet(BaseModule):
 
             # channel dimension for concatenation
             seg_mask = seg_mask.unsqueeze(1)
+        else:
+            seg_mask_target = seg_mask
 
         self.posterior_latent_space = self.posterior.forward(img, seg_mask)
         self.prior_latent_space = self.prior.forward(img)
@@ -168,11 +183,11 @@ class ProbUNet(BaseModule):
             use_posterior_mean=False, z_posterior=z_posterior
         )
 
-        rec_loss = self.criterion(input=reconstruction, target=seg_mask_target)
+        rec_loss = self.criterion(reconstruction, batch[self.target_key])
         rec_loss_sum = torch.sum(rec_loss)
         rec_loss_mean = torch.mean(rec_loss)
 
-        loss = -(rec_loss_sum + self.beta * kl_loss)
+        loss = rec_loss_mean + self.beta * kl_loss
 
         return {
             "loss": loss,
@@ -183,7 +198,7 @@ class ProbUNet(BaseModule):
         }
 
     def kl_divergence(
-        self, analytic: bool = True, z_posterior: Optional[Tensor] = None
+        self, analytic: bool = True, z_posterior: Tensor | None = None
     ) -> Tensor:
         """Compute the KL divergence between the posterior and prior KL(Q||P).
 
@@ -210,7 +225,7 @@ class ProbUNet(BaseModule):
         return kl_div
 
     def reconstruct(
-        self, use_posterior_mean: bool = False, z_posterior: Optional[Tensor] = None
+        self, use_posterior_mean: bool = False, z_posterior: Tensor | None = None
     ) -> Tensor:
         """Reconstruct a segmentation from a posterior sample.
 
@@ -254,6 +269,8 @@ class ProbUNet(BaseModule):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
@@ -266,10 +283,19 @@ class ProbUNet(BaseModule):
         self.log("train_kl_loss", loss_dict["kl_loss"])
 
         # compute metrics with reconstruction
-        self.train_metrics(loss_dict["reconstruction"], batch[self.target_key])
+        self.train_metrics(
+            loss_dict["reconstruction"],
+            batch[self.target_key],
+            batch_size=batch[self.input_key].shape[0],
+        )
 
         # return loss to optimize
         return loss_dict["loss"]
+
+    def on_train_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.train_metrics.compute())
+        self.train_metrics.reset()
 
     def validation_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -291,13 +317,22 @@ class ProbUNet(BaseModule):
         self.log("val_rec_loss_mean", loss_dict["rec_loss_mean"])
         self.log("val_kl_loss", loss_dict["kl_loss"])
         # compute metrics with reconstruction
-        self.val_metrics(loss_dict["reconstruction"], batch[self.target_key])
+        self.val_metrics(
+            loss_dict["reconstruction"],
+            batch[self.target_key],
+            batch_size=batch[self.input_key].shape[0],
+        )
 
         return loss_dict["loss"]
 
+    def on_validation_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.val_metrics.compute())
+        self.val_metrics.reset()
+
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Compute and return the test loss.
 
         Args:
@@ -311,13 +346,49 @@ class ProbUNet(BaseModule):
         preds = self.predict_step(batch[self.input_key])
 
         # compute metrics with sampled reconstruction
-        self.test_metrics(preds["logits"], batch[self.target_key])
+        self.test_metrics(
+            preds["pred"],
+            batch[self.target_key],
+            batch_size=batch[self.input_key].shape[0],
+        )
+
+        preds = self.add_aux_data_to_dict(preds, batch)
+
+        preds[self.target_key] = batch[self.target_key]
 
         return preds
 
+    def on_test_start(self) -> None:
+        """Create logging directory and initialize metrics."""
+        self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
+        if not os.path.exists(self.pred_dir):
+            os.makedirs(self.pred_dir)
+
+    def on_test_epoch_end(self):
+        """Log epoch-level test metrics."""
+        self.log_dict(self.test_metrics.compute())
+        self.test_metrics.reset()
+
+    def on_test_batch_end(
+        self,
+        outputs: dict[str, Tensor],
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        save_image_predictions(outputs, batch_idx, self.pred_dir)
+
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         """Compute and return the prediction.
 
         Args:

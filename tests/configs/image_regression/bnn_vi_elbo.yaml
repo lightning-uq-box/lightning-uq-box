@@ -1,4 +1,4 @@
-model:
+uq_method:
   _target_: lightning_uq_box.uq_methods.BNN_VI_ELBO_Regression
   model:
     _target_: timm.create_model

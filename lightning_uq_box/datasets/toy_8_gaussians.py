@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """8 Gaussians Toy Dataset."""
 
@@ -61,21 +61,21 @@ class Toy8GaussiansDataset(Dataset):
             (-1.0 / np.sqrt(2), -1.0 / np.sqrt(2)),
         ]
         centers = [(self.radius * x, self.radius * y) for x, y in centers]
-        dataset = []
+        dataset_list = []
         for _ in range(self.points_per_gaussian):
             for i in range(8):
                 point = np.random.randn(2) * self.std_dev
                 center = centers[i]
                 point[0] += center[0]
                 point[1] += center[1]
-                dataset.append(point)
+                dataset_list.append(point)
 
         # Convert the list of numpy arrays to a 2D numpy array
-        ds_array = np.array(dataset)
+        dataset = np.array(dataset_list)
 
         # Normalize the data
         scaler = StandardScaler()
-        ds_norm = scaler.fit_transform(ds_array)
+        ds_norm = scaler.fit_transform(dataset)
 
         # Convert the 2D numpy array back to a list of tensors
         self.X = torch.tensor(

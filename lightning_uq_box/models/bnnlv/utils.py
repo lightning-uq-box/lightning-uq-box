@@ -1,10 +1,9 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Utility functions for BNN+VI/LV implementation."""
 
 import inspect
-from typing import Union
 
 import torch.nn as nn
 
@@ -14,7 +13,8 @@ def get_log_normalizer(models: list[nn.Module]):
     """Compute terms for energy functional.
 
     Args:
-        model: bnn with lvs model.
+        models: list of models like the bnn and lvs model
+            to retrieve the log normalizer from
 
     Returns:
         log_normalizer: (3.18) in [1].
@@ -37,7 +37,8 @@ def get_log_f_hat(models: list[nn.Module]):
     """Compute summed log_f_hat.
 
     Args:
-        model: bnn with lvs model.
+        models: list of models like the bnn and lvs model
+            to retrieve the log_f_hat term from
 
     Returns:
         log_f_hat: log of (3.16) in [1].
@@ -60,7 +61,8 @@ def get_log_Z_prior(models: list[nn.Module]):
     """Compute summed log_Z_prior.
 
     Args:
-        model: bnn with lvs model.
+        models: list of models like the bnn and lvs model
+            to retrieve the summed log_Z_prior from
 
     Returns:
         summed log_Z_prior.
@@ -94,17 +96,17 @@ def replace_module(model: nn.Module, module_name: str, new_module: nn.Module) ->
 
 def retrieve_module_init_args(
     current_module: type[nn.Module],
-) -> dict[str, Union[str, float, int, bool]]:
+) -> dict[str, str | float | int | bool]:
     """Reinitialize a new layer with arguments.
 
     Args:
-        new_module: nn.Module class to initialize the new layer
+        current_module: nn.Module class to initialize the new layer
 
     Returns:
         nn.Modules init args
     """
     current_init_arg_names = list(inspect.signature(current_module.__init__).parameters)
-    current_args: dict[str, Union[str, float, int, bool]] = {}
+    current_args: dict[str, str | float | int | bool] = {}
     for name in current_init_arg_names:
         if name == "bias":
             current_args[name] = current_module.bias is not None

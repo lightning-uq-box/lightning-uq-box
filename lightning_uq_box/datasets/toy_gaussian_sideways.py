@@ -1,5 +1,5 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Toy Gaussian Sideway Datamodule."""
 
@@ -17,7 +17,7 @@ class ToyGaussianSideWays(Dataset):
         radius: float = 1.0,
         n_samples: int = 1000,
         noise: float = 0.1,
-        random_state: int = 42,
+        random_state: int | None = None,
     ):
         """Initialize a new instance of the dataset.
 

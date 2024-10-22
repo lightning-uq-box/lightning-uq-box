@@ -1,12 +1,10 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
-# Licensed under the MIT License.
+# Licensed under the Apache License 2.0.
 
 """Spectral Normalization Layers and conversion tools.
 
 Adapted from https://github.com/y0ast/DUE/tree/main/due/layers
 """
-
-from typing import Tuple
 
 import torch
 from torch import Tensor, nn
@@ -18,6 +16,59 @@ from torch.nn.utils.spectral_norm import (
     SpectralNormLoadStateDictPreHook,
     SpectralNormStateDictHook,
 )
+
+from .utils import _get_input_layer_name_and_module
+
+
+def collect_input_sizes(feature_extractor, input_size) -> dict[str, torch.Size]:
+    """Spectral Normalization needs input sizes to each layer.
+
+    Args:
+        feature_extractor: feature extractor model
+        input_size: input size of image data to the model
+
+    Returns:
+        input_dimensions: dictionary of input dimensions to each layer
+    """
+    _, module = _get_input_layer_name_and_module(feature_extractor)
+
+    if isinstance(module, torch.nn.Linear):
+        input_tensor = torch.zeros(1, module.in_features)
+    elif isinstance(module, torch.nn.Conv2d):
+        input_tensor = torch.zeros(1, module.in_channels, input_size, input_size)
+
+    input_dimensions = {}
+
+    hook_handles = []
+
+    def hook_fn(layer_name):
+        def forward_hook(module, input, output):
+            layer_name = f"{id(module)}"  # register unique id for each module
+            input_dimensions[layer_name] = input[0].shape[
+                1:
+            ]  # Assuming input is a tuple
+
+            input_dimensions[layer_name] = input[0].shape[
+                1:
+            ]  # Assuming input is a tuple
+
+        return forward_hook
+
+    # Register the forward hooks for each convolutional layer in the model
+    for name, module in feature_extractor.named_modules():
+        if isinstance(module, nn.Conv2d):
+            hook = hook_fn(name)
+            handle = module.register_forward_hook(hook)
+            hook_handles.append(handle)
+
+    # Perform a forward pass
+    _ = feature_extractor(input_tensor)
+
+    # Remove the hooks
+    for handle in hook_handles:
+        handle.remove()
+
+    return input_dimensions
 
 
 def spectral_normalize_model_layers(
@@ -53,7 +104,6 @@ def spectral_normalize_model_layers(
                 ),
             )
         elif "Conv2d" in model._modules[name].__class__.__name__:
-            # TODO: need to get input dimension (3,32,32) for example to this conv layer
             setattr(
                 model,
                 name,
@@ -63,6 +113,10 @@ def spectral_normalize_model_layers(
                     input_dim=input_dimensions[str(id(model._modules[name]))],
                     n_power_iterations=n_power_iterations,
                 ),
+            )
+        elif "BatchNorm" in model._modules[name].__class__.__name__:
+            setattr(
+                model, name, spectral_norm_batch_norm(model._modules[name], coeff=coeff)
             )
         else:
             pass
@@ -157,9 +211,11 @@ class _SpectralBatchNorm(_NormBase):
         return F.batch_norm(
             input,
             # If buffers are not to be tracked, ensure that they won't be updated
-            self.running_mean
-            if not self.training or self.track_running_stats
-            else None,
+            (
+                self.running_mean
+                if not self.training or self.track_running_stats
+                else None
+            ),
             self.running_var if not self.training or self.track_running_stats else None,
             weight,
             self.bias,
@@ -187,6 +243,45 @@ class SpectralBatchNorm3d(_SpectralBatchNorm, nn.BatchNorm3d):
     pass
 
 
+def spectral_norm_batch_norm(
+    module: nn.Module,
+    coeff: float,
+    eps: float = 1e-5,
+    momentum: float = 0.01,
+    affine: bool = True,
+) -> nn.Module:
+    """Replace Batch Norm layer with Spectral Normalized Batch Norm layer.
+
+    Args:
+        module: module
+        coeff: soft normalization only when sigma larger than coeff
+        eps: a value added to the denominator for numerical stability.
+            Default: 1e-5
+        momentum: the value used for the running_mean and running_var
+            computation. Can be set to ``None`` for cumulative moving average
+            (i.e. simple average).
+        affine: a boolean value that when set to ``True``, this module has
+            learnable affine parameters.
+
+    Returns:
+        The replaced module with SpectralBatchNorm
+    """
+    if isinstance(module, nn.BatchNorm1d):
+        return SpectralBatchNorm1d(
+            module.num_features, coeff, eps=eps, momentum=momentum, affine=affine
+        )
+    elif isinstance(module, nn.BatchNorm2d):
+        return SpectralBatchNorm2d(
+            module.num_features, coeff, eps=eps, momentum=momentum, affine=affine
+        )
+    elif isinstance(module, nn.BatchNorm3d):
+        return SpectralBatchNorm3d(
+            module.num_features, coeff, eps=eps, momentum=momentum, affine=affine
+        )
+    else:
+        raise ValueError(f"BatchNorm type {module.__class__.__name__} not supported")
+
+
 """
 From: https://github.com/jhjacobsen/invertible-resnet
 Which is based on: https://arxiv.org/abs/1811.00995
@@ -201,11 +296,13 @@ Based on: Regularisation of Neural Networks by Enforcing Lipschitz Continuity
 class SpectralNormConv(SpectralNorm):
     """Spectral Norm Convolutional Layer."""
 
-    def compute_weight(self, module, do_power_iteration: bool) -> torch.Tensor:
+    def compute_weight(
+        self, module: nn.Module, do_power_iteration: bool
+    ) -> torch.Tensor:
         """Compute spectral normalized weight.
 
         Args:
-            module:
+            module: Conv layer module
             do_power_iteration: whether or not to apply power iterations
 
         Returns:
@@ -217,7 +314,9 @@ class SpectralNormConv(SpectralNorm):
 
         # get settings from conv-module (for transposed convolution parameters)
         stride = module.stride
-        padding = module.padding
+        if stride[0] > 2:
+            raise RuntimeError("Implementation does not generalize to stride > 2.")
+        padding = module._reversed_padding_repeated_twice[0:2]
 
         if do_power_iteration:
             with torch.no_grad():
@@ -284,7 +383,7 @@ class SpectralNormConv(SpectralNorm):
     def apply(
         module: nn.Module,
         coeff: float,
-        input_dim: Tuple[int],
+        input_dim: tuple[int],
         name: str,
         n_power_iterations: int,
         eps: float,
@@ -304,7 +403,7 @@ class SpectralNormConv(SpectralNorm):
             if isinstance(hook, SpectralNormConv) and hook.name == name:
                 raise RuntimeError(
                     "Cannot register two spectral_norm hooks on "
-                    "the same parameter {}".format(name)
+                    f"the same parameter {name}"
                 )
 
         fn = SpectralNormConv(name, n_power_iterations, eps=eps)
@@ -387,12 +486,14 @@ with additional variable `coeff` or max spectral norm.
 class SpectralNormFC(SpectralNorm):
     """Spectral Norm Fully Connected."""
 
-    def compute_weight(self, module, do_power_iteration: bool) -> torch.Tensor:
+    def compute_weight(
+        self, module: nn.Module, do_power_iteration: bool
+    ) -> torch.Tensor:
         """Compute spectral normalized weight.
 
         Args:
-            module:
-            do_power_iteration
+            module: linear layer module
+            do_power_iteration: whether or not to apply power iterations
 
         Returns:
             computed weight tensor
@@ -440,12 +541,12 @@ class SpectralNormFC(SpectralNorm):
         """Apply spectral normalization.
 
         Args:
-            module:
-            coeff:
-            name:
-            n_power_iterations:
-            dim:
-            eps:
+            module: module
+            coeff: soft normalization only when sigma larger than coeff
+            name: name of weight parameter
+            n_power_iterations: number of power iterations
+            dim: dimensions corresponding to number of outputs
+            eps: epsilon
 
         Returns:
             spectral normalized layer
@@ -454,7 +555,7 @@ class SpectralNormFC(SpectralNorm):
             if isinstance(hook, SpectralNorm) and hook.name == name:
                 raise RuntimeError(
                     "Cannot register two spectral_norm hooks on "
-                    "the same parameter {}".format(name)
+                    f"the same parameter {name}"
                 )
 
         fn = SpectralNormFC(name, n_power_iterations, dim, eps)
@@ -486,7 +587,7 @@ class SpectralNormFC(SpectralNorm):
 
 
 def spectral_norm_fc(
-    module,
+    module: nn.Module,
     coeff: float,
     n_power_iterations: int = 1,
     name: str = "weight",
@@ -496,14 +597,14 @@ def spectral_norm_fc(
     """Apply spectral normalization.
 
     Args:
-        module (nn.Module): containing module
-        coeff (float, optional): coefficient to normalize to
-        n_power_iterations (int, optional): number of power iterations to
+        module: containing module
+        coeff: coefficient to normalize to
+        n_power_iterations: number of power iterations to
             calculate spectral norm
-        name (str, optional): name of weight parameter
-        eps (float, optional): epsilon for numerical stability in
+        name: name of weight parameter
+        eps: epsilon for numerical stability in
             calculating norms
-        dim (int, optional): dimension corresponding to number of outputs,
+        dim: dimension corresponding to number of outputs,
             the default is ``0``, except for modules that are instances of
             ConvTranspose{1,2,3}d, when it is ``1``
 
@@ -522,11 +623,9 @@ def spectral_norm_fc(
     if dim is None:
         if isinstance(
             module,
-            (
-                torch.nn.ConvTranspose1d,
-                torch.nn.ConvTranspose2d,
-                torch.nn.ConvTranspose3d,
-            ),
+            torch.nn.ConvTranspose1d
+            | torch.nn.ConvTranspose2d
+            | torch.nn.ConvTranspose3d,
         ):
             dim = 1
         else:
