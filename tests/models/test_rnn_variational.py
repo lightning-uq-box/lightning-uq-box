@@ -63,7 +63,7 @@ class TestLSTMVariational:
 
 class TestBnnLstmConversion:
     @pytest.fixture
-    def lstm_model(self) -> nn.Module:
+    def lstm_model(self) -> nn.Sequential:
         """Initialize a deterministic LSTM model."""
         return nn.Sequential(
             nn.LSTM(input_size=10, hidden_size=20, num_layers=2), nn.Linear(20, 10)
@@ -79,14 +79,14 @@ class TestBnnLstmConversion:
             "posterior_rho_init": -3,
         }
 
-    def test_conversion(self, lstm_model: nn.Module, bnn_params: dict) -> None:
+    def test_conversion(self, lstm_model: nn.Sequential, bnn_params: dict) -> None:
         """Test conversion of deterministic LSTM model to Bayesian LSTM model."""
         convert_deterministic_to_bnn(lstm_model, bnn_params, ["0"])
 
         assert isinstance(lstm_model[0], LSTMVariational)
         assert isinstance(lstm_model[1], nn.Linear)
 
-    def test_forward_pass(self, lstm_model: nn.Module, bnn_params: dict) -> None:
+    def test_forward_pass(self, lstm_model: nn.Sequential, bnn_params: dict) -> None:
         """Test forward of LSTMVariational model."""
         convert_deterministic_to_bnn(lstm_model, bnn_params, ["0"])
 
