@@ -25,9 +25,9 @@ class EmpiricalCoverageBase(Metric):
         """
         super().__init__(**kwargs)
         self.alpha = alpha
-        self.covered = 0.0
-        self.total = 0.0
-        self.set_size = 0.0
+        self.covered = 0
+        self.total = 0
+        self.set_size = 0
         self.topk = topk
 
     def update(
@@ -71,14 +71,17 @@ class EmpiricalCoverageBase(Metric):
         self.set_size += set_size
         self.total += targets.shape[0]
 
-    def compute(self) -> Tensor:
+    def compute(self) -> dict[str, float]:
         """Compute the coverage of the prediction sets.
 
         Returns:
             The coverage of the prediction sets.
         """
         # compute average coverage and set size
-        raise NotImplementedError
+        return {
+            "coverage": self.covered / self.total,
+            "set_size": self.set_size / self.total,
+        }
 
 
 class EmpiricalCoverage(EmpiricalCoverageBase):
