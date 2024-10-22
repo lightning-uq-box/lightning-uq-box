@@ -55,7 +55,7 @@ def init_weights(m: nn.Module) -> None:
     """
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
-        if m.bias:
+        if m.bias is not None:
             truncated_normal_(m.bias, mean=0, std=0.001)
 
 
@@ -67,9 +67,8 @@ def init_weights_orthogonal_normal(m: nn.Module) -> None:
     """
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         nn.init.orthogonal_(m.weight)
-        if m.bias:
+        if m.bias is not None:
             truncated_normal_(m.bias, mean=0, std=0.001)
-        # nn.init.normal_(m.bias, std=0.001)
 
 
 class Encoder(nn.Module):

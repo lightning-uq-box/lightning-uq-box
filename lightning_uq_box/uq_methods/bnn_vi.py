@@ -438,7 +438,6 @@ class BNN_VI_Regression(BNN_VI_Base):
                 dim=0,
             ).cpu()
         # model_preds [batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=0).detach()
         mean_out = model_preds.mean(dim=0)
 
         # how can this happen that there is so little sample diversity

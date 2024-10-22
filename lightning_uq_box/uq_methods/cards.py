@@ -8,8 +8,9 @@ Based on official PyTorch implementation from https://github.com/XzwHan/CARD # n
 
 import math
 import os
-from typing import Any, Literal
+from typing import Any
 
+import numpy as np
 import torch
 import torch.nn as nn
 from ema_pytorch import EMA
@@ -52,7 +53,7 @@ class CARDBase(BaseModule):
         ema_update_every: float = 10,
         ema_update_after_step: int = 0,
         guidance_optim: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable | None = None,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instance of the CARD Model.
 
@@ -106,7 +107,7 @@ class CARDBase(BaseModule):
         """Setup task specific attributes."""
         pass
 
-    def diffusion_process(self, batch: dict[str, Tensor]) -> tuple[Tensor, Tensor]:
+    def diffusion_process(self, batch: dict[str, Tensor]) -> Tensor:
         """Diffusion process during training.
 
         Args:
@@ -215,7 +216,7 @@ class CARDBase(BaseModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
+    ) -> dict[str, np.ndarray]:
         """Prediction step.
 
         Args:
@@ -259,12 +260,12 @@ class CARDBase(BaseModule):
                     arr.reshape(self.n_z_samples, X.shape[0], y_t.shape[-1])
                     for arr in y_tile_seq
                 ]
-                _ = torch.stack(y_tile_seq, dim=0)
+
                 final_recoverd = y_tile_seq[-1]
 
             else:
                 # TODO make this more efficient
-                y_tile_seq = [
+                y_tile_seq: list[Tensor] = [
                     self.p_sample_loop(
                         X,
                         y_0_hat,
@@ -275,9 +276,6 @@ class CARDBase(BaseModule):
                     )[-1]
                     for i in range(self.n_z_samples)
                 ]
-                # TODO check this computation
-                y_seq = torch.stack(y_tile_seq, dim=0)
-                final_recoverd = y_seq[-2:-1, ...]
 
                 final_recoverd = torch.stack(y_tile_seq, dim=0)
 
@@ -290,7 +288,7 @@ class CARDBase(BaseModule):
         y: Tensor,
         y_0_hat: Tensor,
         y_T_mean: Tensor,
-        t: Tensor,
+        t: int,
         alphas: Tensor,
         one_minus_alphas_bar_sqrt: Tensor,
     ) -> Tensor:
@@ -315,7 +313,7 @@ class CARDBase(BaseModule):
             reverse process sample
         """
         z = torch.randn_like(y)  # if t > 1 else torch.zeros_like(y)
-        t = t.to(self.device)
+        t = torch.tensor([t]).to(self.device)
         alpha_t = self.extract(alphas, t, y)
         sqrt_one_minus_alpha_bar_t = self.extract(one_minus_alphas_bar_sqrt, t, y)
         sqrt_one_minus_alpha_bar_t_m_1 = self.extract(
@@ -414,7 +412,7 @@ class CARDBase(BaseModule):
         alphas: Tensor,
         one_minus_alphas_bar_sqrt: Tensor,
         only_last_sample: bool = False,
-    ) -> Tensor | list[Tensor]:
+    ) -> list[Tensor]:
         """P sample loop for the entire chain.
 
         Args:
@@ -429,24 +427,17 @@ class CARDBase(BaseModule):
         Returns:
             list of samples for each diffusion time step
         """
+        num_t, y_p_seq = None, None
         z = torch.randn_like(y_T_mean).to(self.device)
         cur_y = z + y_T_mean  # sampled y_T
         if only_last_sample:
-            num_t: int | None = 1
-            y_p_seq: list[Tensor] = []
+            num_t = 1
         else:
-            num_t = None
             y_p_seq = [cur_y]
         for t in reversed(range(1, n_steps)):
             y_t = cur_y
             cur_y = self.p_sample(
-                x,
-                y_t,
-                y_0_hat,
-                y_T_mean,
-                torch.Tensor([t]),
-                alphas,
-                one_minus_alphas_bar_sqrt,
+                x, y_t, y_0_hat, y_T_mean, t, alphas, one_minus_alphas_bar_sqrt
             )  # y_{t-1}
             if only_last_sample:
                 num_t += 1
@@ -512,12 +503,12 @@ class CARDBase(BaseModule):
         )
         return y_t
 
-    def extract(self, input: Tensor, t: Tensor, x: Tensor) -> Tensor:
+    def extract(self, input: Tensor, t: int, x: Tensor) -> Tensor:
         """Extract noise level at time step t from schedule.
 
         Args:
             input: noise input
-            t: time step tensor of single dimension
+            t: time step
             x: tensor to make noisy version of
 
         Returns:
@@ -530,7 +521,7 @@ class CARDBase(BaseModule):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
+    ) -> Tensor:
         """Compute and return the test loss.
 
         Args:
@@ -566,7 +557,7 @@ class CARDBase(BaseModule):
         self.cond_mean_model = self.cond_mean_model.to(self.device)
 
         if self.lr_scheduler is not None:
-            lr_scheduler = self.lr_scheduler(optimizer)
+            lr_scheduler = self.lr_scheduler(optimizer=optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {"scheduler": lr_scheduler, "monitor": "val_loss"},
@@ -602,23 +593,26 @@ class CARDRegression(CARDBase):
         Returns:
             prediction dictionary with uncertainty estimates and samples
         """
-        pred_dict = super().predict_step(X, batch_idx, dataloader_idx)
+        final_recoverd, y_tile_seq = super().predict_step(X, batch_idx, dataloader_idx)
 
         # momenet matching
-        pred_dict["pred"] = pred_dict["pred"].mean(dim=0).detach().cpu().squeeze()
-        pred_std = pred_dict["pred"].std(dim=0).detach().cpu().squeeze()
-        pred_dict["pred_uct"] = pred_std
+        mean_pred = final_recoverd.mean(dim=0).detach().cpu().squeeze()
+        std_pred = final_recoverd.std(dim=0).detach().cpu().squeeze()
 
-        pred_dict["aleatoric_uct"] = pred_std
-        return pred_dict
+        return {
+            "pred": mean_pred,
+            "pred_uct": std_pred,
+            "aleatoric_uct": std_pred,
+            "samples": y_tile_seq,
+        }
 
     def on_test_batch_end(
         self,
-        outputs: dict[str, Tensor],
+        outputs: dict[str, np.ndarray],
         batch: Any,
         batch_idx: int,
-        dataloader_idx: int = 0,
-    ) -> None:
+        dataloader_idx=0,
+    ):
         """Test batch end save predictions."""
         del outputs["samples"]
         save_regression_predictions(
@@ -645,12 +639,12 @@ class CARDClassification(CARDBase):
         beta_start: float = 0.00001,
         beta_end: float = 0.01,
         n_z_samples: int = 100,
-        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
+        task: str = "multiclass",
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
         ema_update_after_step: int = 0,
         guidance_optim: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable | None = None,
+        lr_scheduler: LRSchedulerCallable = None,
     ) -> None:
         """Initialize a new instance of the CARD Classification.
 
@@ -727,27 +721,23 @@ class CARDClassification(CARDBase):
         Returns:
             predictions
         """
-        pred_dict = super().predict_step(X, batch_idx, dataloader_idx)
+        final_recoverd, y_tile_seq = super().predict_step(X, batch_idx, dataloader_idx)
         # change from [num_samples, ...] to shape [batch_size, num_classes, num_samples]
-        pred_dict["pred"] = pred_dict["pred"].permute(1, 2, 0)
+        final_recoverd = final_recoverd.permute(1, 2, 0).cpu()
 
         # momenet matching
-        pred_dict["pred"] = process_classification_prediction(pred_dict["pred"])
+        pred_dict = process_classification_prediction(final_recoverd)
+        pred_dict["samples"] = y_tile_seq
 
         return pred_dict
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],  # type: ignore[override]
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
-            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
