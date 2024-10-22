@@ -11,7 +11,7 @@ import pandas as pd
 import uncertainty_toolbox as uct
 
 
-def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.figure:
+def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.Figure:
     """Plot training metrics from latest lightning CSVLogger version.
 
     Args:
@@ -69,7 +69,7 @@ def plot_two_moons_data(
         y_val: Validation data labels
 
     Returns:
-        figure of twoo moons dataset
+        figure of two moons dataset
     """
     fig, axs = plt.subplots(1, 2, figsize=(10, 5))
 
@@ -89,7 +89,7 @@ def plot_predictions_classification(
     Y_test: np.ndarray,
     y_pred: np.ndarray,
     test_grid_points,
-    pred_uct: np.ndarray = None,
+    pred_uct: np.ndarray | None = None,
 ) -> plt.Figure:
     """Plot the classification results and the associated uncertainty.
 
@@ -103,7 +103,7 @@ def plot_predictions_classification(
     num_cols = 3 if pred_uct is not None else 2
 
     fig, axs = plt.subplots(1, num_cols, figsize=(num_cols * 6, 6))
-    cm = plt.cm.plasma
+    cm = plt.cm.get_cmap("plasma")
 
     grid_size = int(np.sqrt(test_grid_points.shape[0]))
     xx = test_grid_points[:, 0].reshape(grid_size, grid_size)
@@ -157,7 +157,7 @@ def plot_predictions_regression(
     epistemic: np.ndarray | None = None,
     aleatoric: np.ndarray | None = None,
     samples: np.ndarray | None = None,
-    title: str = None,
+    title: str | None = None,
     show_bands: bool = False,
 ) -> plt.Figure:
     """Plot predictive uncertainty as well as epistemic and aleatoric separately.
@@ -298,7 +298,7 @@ def plot_predictions_regression(
     return fig
 
 
-def sort_by(X: np.ndarray, *args: np.ndarray) -> tuple:
+def sort_by(X: np.ndarray, *args: np.ndarray | None) -> tuple:
     """Sort arrays based on X."""
     sort_idx = np.argsort(X.squeeze())
     return tuple(
