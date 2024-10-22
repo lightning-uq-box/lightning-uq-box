@@ -7,7 +7,7 @@ import glob
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 import pytest
@@ -162,7 +162,9 @@ class TestDeepEnsemble:
             for data_config_path in data_config_paths
         ]
     )
-    def ensemble_members_dict(self, request, tmp_path_factory: TempPathFactory) -> None:
+    def ensemble_members_dict(
+        self, request, tmp_path_factory: TempPathFactory
+    ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -191,7 +193,7 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(ensemble_members_dict)
@@ -220,7 +222,10 @@ class TestTTAModel:
     @pytest.mark.parametrize("model_config_path", tta_model_paths)
     @pytest.mark.parametrize("merge_strategy", ["mean", "median", "sum", "max", "min"])
     def test_trainer(
-        self, model_config_path: str, merge_strategy: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        merge_strategy: Literal["mean", "median", "sum", "max", "min"],
+        tmp_path: Path,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         base_model = instantiate(model_conf.uq_method)

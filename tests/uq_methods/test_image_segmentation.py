@@ -88,7 +88,9 @@ class TestDeepEnsemble:
             for data_config_path in data_config_paths
         ]
     )
-    def ensemble_members_dict(self, request, tmp_path_factory: TempPathFactory) -> None:
+    def ensemble_members_dict(
+        self, request, tmp_path_factory: TempPathFactory
+    ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -117,7 +119,7 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleSegmentation(
