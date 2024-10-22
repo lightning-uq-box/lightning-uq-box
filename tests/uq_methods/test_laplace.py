@@ -19,8 +19,8 @@ model_config_path = "tests/configs/image_regression/laplace_nn.yaml"
 
 @pytest.fixture
 def common_setup(tmp_path: Path):
-    model_conf = OmegaConf.load(model_config_path)
-    data_conf = OmegaConf.load(data_config_path)
+    model_conf = OmegaConf.load(model_config_path)  # type: ignore[index]
+    data_conf = OmegaConf.load(data_config_path)  # type: ignore[index]
 
     sigma_val = 1.234
     precision_val = 1.789
