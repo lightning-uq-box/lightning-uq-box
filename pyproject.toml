@@ -5,9 +5,6 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-include = ["lightning_uq_box*"]
-
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 [project]
 name = "lightning-uq-box"
@@ -89,7 +86,7 @@ tests = [
     "jsonargparse[signatures]>=4.28.0",
     ## Style
     # ruff 0.2+ required for [ruff.lint]
-    "ruff>=0.2", 
+    "ruff>=0.2",
 ]
 
 docs = [
@@ -112,6 +109,8 @@ docs = [
     "ipykernel>=6.29.3",
 ]
 
+[project.scripts]
+uq-box = "lightning_uq_box.main:main"
 
 [tool.pytest.ini_options]
 # Skip slow tests by default
@@ -165,9 +164,6 @@ filterwarnings = [
 [tool.env]
 USE_IOMP = "0"
 
-[tool.setuptools.dynamic]
-version = {attr = "lightning_uq_box.__version__"}
-
 [tool.ruff]
 extend-include = ["*.ipynb"]
 fix = true
@@ -188,5 +184,11 @@ split-on-trailing-comma = false
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[project.scripts]
-uq-box = "lightning_uq_box.main:main"
+[tool.setuptools.dynamic]
+version = {attr = "lightning_uq_box.__version__"}
+
+[tool.setuptools.package-data]
+torchgeo = ["py.typed"]
+
+[tool.setuptools.packages.find]
+include = ["lightning_uq_box*"]
