@@ -9,6 +9,7 @@
 import torch
 import math
 
+
 def linear_beta_schedule(timesteps: int) -> torch.Tensor:
     """
     Generate a linear beta schedule for the given number of timesteps.
@@ -23,6 +24,7 @@ def linear_beta_schedule(timesteps: int) -> torch.Tensor:
     beta_start = scale * 0.0001
     beta_end = scale * 0.02
     return torch.linspace(beta_start, beta_end, timesteps, dtype=torch.float64)
+
 
 def cosine_beta_schedule(timesteps: int, s: float = 0.008) -> torch.Tensor:
     """
@@ -42,7 +44,14 @@ def cosine_beta_schedule(timesteps: int, s: float = 0.008) -> torch.Tensor:
     betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
     return torch.clip(betas, 0, 0.999)
 
-def sigmoid_beta_schedule(timesteps: int, start: float = -3, end: float = 3, tau: float = 1, clamp_min: float = 1e-5) -> torch.Tensor:
+
+def sigmoid_beta_schedule(
+    timesteps: int,
+    start: float = -3,
+    end: float = 3,
+    tau: float = 1,
+    clamp_min: float = 1e-5,
+) -> torch.Tensor:
     """
     Generate a sigmoid beta schedule for the given number of timesteps.
 
@@ -60,18 +69,27 @@ def sigmoid_beta_schedule(timesteps: int, start: float = -3, end: float = 3, tau
     t = torch.linspace(0, timesteps, steps, dtype=torch.float64) / timesteps
     v_start = torch.tensor(start / tau).sigmoid()
     v_end = torch.tensor(end / tau).sigmoid()
-    alphas_cumprod = (-((t * (end - start) + start) / tau).sigmoid() + v_end) / (v_end - v_start)
+    alphas_cumprod = (-((t * (end - start) + start) / tau).sigmoid() + v_end) / (
+        v_end - v_start
+    )
     alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
     betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
     return torch.clip(betas, 0, 0.999)
 
-def exponential_beta_schedule(timesteps, min_noise_level, etas_end: float =0.99, kappa : float =1.0, power: float =1.0):
+
+def exponential_beta_schedule(
+    timesteps,
+    min_noise_level,
+    etas_end: float = 0.99,
+    kappa: float = 1.0,
+    power: float = 1.0,
+):
     """Exponential beta schedule."""
     # https://github.com/zsyOAOA/ResShift/blob/dfc2ff705a962de1601a491511b43a93b97d9622/models/gaussian_diffusion.py#L45
     betas_start = min(min_noise_level / kappa, min_noise_level)
     increaser = math.exp(1 / (timesteps - 1) * math.log(etas_end / betas_start))
     base = torch.ones(timesteps) * increaser
     power_timestep = torch.linspace(0, 1, timesteps) ** power
-    power_timestep *= (timesteps - 1)
+    power_timestep *= timesteps - 1
     sqrt_betas = torch.pow(base, power_timestep) * betas_start
     return torch.pow(sqrt_betas, 2)

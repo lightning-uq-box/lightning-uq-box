@@ -23,6 +23,7 @@ from functools import partial
 def exists(x):
     return x is not None
 
+
 def default(val, d):
     if exists(val):
         return val
@@ -35,12 +36,13 @@ class ResShiftBase(DDPM):
     def __init__(
         self,
         model: nn.Module,
-        betas: Tensor, 
+        betas: Tensor,
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
         image_size: int = 224,
         in_channels: int = 3,
         out_channels: int = 3,
+        model_kwargs_keys: list[str] = [],
         kappa: float = 1.0,
         log_samples_every_n_epochs: int = 10,
         latent_model: nn.Module | None = None,
@@ -53,13 +55,17 @@ class ResShiftBase(DDPM):
             model: The denoising model, common choices are Unet architectures such as
 
             betas: Noise scheduling betas for the diffusion process, shape (num_timesteps,).
-                For different noise schedules, see 
+                For different noise schedules, see
             ema_decay: The exponential moving average decay.
             ema_update_every: The number of steps to update the EMA.
             image_size: The size of the input images when coming from the dataloader, and also the size
                 of the images that will be generated during sampling
-            input_channels: The number of input channels of the images coming from the dataloader
-            output_channels: The number of output channels of the images to be generated
+            in_channels: The number of input channels of the images coming from the dataloader
+            out_channels: The number of output channels of the images to be generated
+            model_kwargs_keys: The names of additional keyword arguments that the forward pass of the model
+                can accept. The keys will be used to extract the values from the batch dictionary, and
+                passed to the model as keyword arguments.
+            log_samples_every_n_epochs: The number of epochs between logging samples.
             kappa: The kappa value for the noise schedule.
             log_samples_every_n_epochs: The number of epochs between logging samples.
             latent_model: Optional latent model to encode the data,
@@ -69,61 +75,76 @@ class ResShiftBase(DDPM):
         """
         self.kappa = kappa
         super().__init__(
-            model = model,
-            betas = betas,
-            ema_decay = ema_decay,
-            ema_update_every = ema_update_every,
-            image_size = image_size,
-            in_channels = in_channels,
-            out_channels = out_channels,
-            log_samples_every_n_epochs = log_samples_every_n_epochs,
-            latent_model = latent_model,
-            optimizer = optimizer,
-            lr_scheduler = lr_scheduler,
+            model=model,
+            betas=betas,
+            ema_decay=ema_decay,
+            ema_update_every=ema_update_every,
+            image_size=image_size,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            model_kwargs_keys=model_kwargs_keys,
+            log_samples_every_n_epochs=log_samples_every_n_epochs,
+            latent_model=latent_model,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
         )
 
         self.normalize_input = False
-        self.latent_flag = (latent_model is not None)
+        self.latent_flag = latent_model is not None
         self.upsample_factor = 1
-
 
     def define_noise_scheduling_terms(self, betas: Tensor) -> None:
         """Define noise scheduling terms.
-        
+
         Args:
             betas: The noise scheduling betas.
         """
         super().define_noise_scheduling_terms(betas)
 
-        register_buffer = lambda name, val: self.register_buffer(name, val.to(torch.float32))
+        register_buffer = lambda name, val: self.register_buffer(
+            name, val.to(torch.float32)
+        )
 
-        register_buffer('sqrt_betas', torch.sqrt(betas))
+        register_buffer("sqrt_betas", torch.sqrt(betas))
         self.betas_prev = np.append(0.0, self.betas[:-1])
-        posterior_variance = self.kappa**2 * self.betas_prev / self.betas * (self.betas - self.betas_prev)
+        posterior_variance = (
+            self.kappa**2
+            * self.betas_prev
+            / self.betas
+            * (self.betas - self.betas_prev)
+        )
         posterior_variance_clipped = torch.cat(
             (posterior_variance[1].unsqueeze(0), posterior_variance[1:])
         )
-        register_buffer('posterior_variance', posterior_variance)
-        register_buffer('posterior_log_variance_clipped', torch.log(posterior_variance_clipped.clamp(min =1e-20)))
-        register_buffer('posterior_mean_coef1', self.betas_prev / self.betas)
-        register_buffer('posterior_mean_coef2', (self.betas - self.betas_prev) / self.betas)
+        register_buffer("posterior_variance", posterior_variance)
+        register_buffer(
+            "posterior_log_variance_clipped",
+            torch.log(posterior_variance_clipped.clamp(min=1e-20)),
+        )
+        register_buffer("posterior_mean_coef1", self.betas_prev / self.betas)
+        register_buffer(
+            "posterior_mean_coef2", (self.betas - self.betas_prev) / self.betas
+        )
 
-    def q_sample(self, x_start, lq_img, t, noise = None):
+    def q_sample(self, x_start, lq_img, t, noise=None):
         """Q sample q(x_t | x_0}) with shift based on lq_img"""
         noise = default(noise, lambda: torch.randn_like(x_start))
         return (
-            self.extract(self.betas, t, x_start.shape) * (lq_img - x_start) + x_start +
-            self.extract(self.sqrt_betas * self.kappa, t, x_start.shape) * noise
+            self.extract(self.betas, t, x_start.shape) * (lq_img - x_start)
+            + x_start
+            + self.extract(self.sqrt_betas * self.kappa, t, x_start.shape) * noise
         )
 
     def q_posterior(self, x_start, x_t, t):
         """Compute the posterior mean and variance."""
         posterior_mean = (
-            self.extract(self.posterior_mean_coef1, t, x_t.shape) * x_t +
-            self.extract(self.posterior_mean_coef2, t, x_t.shape) * x_start
+            self.extract(self.posterior_mean_coef1, t, x_t.shape) * x_t
+            + self.extract(self.posterior_mean_coef2, t, x_t.shape) * x_start
         )
         posterior_variance = self.extract(self.posterior_variance, t, x_t.shape)
-        posterior_log_variance_clipped = self.extract(self.posterior_log_variance_clipped, t, x_t.shape)
+        posterior_log_variance_clipped = self.extract(
+            self.posterior_log_variance_clipped, t, x_t.shape
+        )
         # print("After Q Posterior Mean Variance")
         # print(posterior_mean.min(), posterior_mean.max(), posterior_mean.mean(), posterior_mean.std())
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
@@ -136,80 +157,74 @@ class ResShiftBase(DDPM):
         if noise is None:
             noise = torch.randn_like(y)
 
-        t = torch.tensor([self.num_timesteps-1,] * y.shape[0], device=y.device).long()
+        t = torch.tensor([self.num_timesteps - 1] * y.shape[0], device=y.device).long()
 
         return y + self.extract(self.kappa * self.sqrt_betas, t, y.shape) * noise
 
-    def model_predictions(self, x, t, lq_img: Tensor, clip_x_start = False):
+    def model_predictions(
+        self, x, t, lq_img: Tensor, model_kwargs: dict[str, Tensor] | None = None, clip_x_start=False
+    ):
         """Model predictions for the given input."""
         if self.use_ema_model:
-            model_output = self.ema.ema_model(self._scale_input(x, t), t, lq_img)
+            model_output = self.ema.ema_model(
+                self._scale_input(x, t), t, lq=lq_img, **model_kwargs
+            )
         else:
-            model_output = self.model(self._scale_input(x, t), t, lq_img)
-        maybe_clip = partial(torch.clamp, min = -1., max = 1.) if clip_x_start else torch.nn.Identity()
+            model_output = self.model(self._scale_input(x, t), t, lq=lq_img, **model_kwargs)
+        maybe_clip = (
+            partial(torch.clamp, min=-1.0, max=1.0)
+            if clip_x_start
+            else torch.nn.Identity()
+        )
 
         x_start = model_output
         x_start = maybe_clip(x_start)
         pred_noise = self.predict_noise_from_start(x, t, x_start)
-        return {
-            "pred_noise": pred_noise,
-            "pred_x_start": x_start,
-        }
+        return {"pred_noise": pred_noise, "pred_x_start": x_start}
 
-    def p_mean_variance(self, x, lq_img: Tensor, t, clip_denoised = True):
-        preds = self.model_predictions(x, t, lq_img)
+    def p_mean_variance(
+        self,
+        x,
+        lq_img: Tensor,
+        t: Tensor,
+        model_kwargs: dict[str, Tensor] | None = None,
+        clip_denoised=True,
+    ):
+        preds = self.model_predictions(x, t, lq_img, model_kwargs=model_kwargs)
         x_start = preds["pred_x_start"]
 
         if clip_denoised:
-            x_start.clamp_(-1., 1.)
+            x_start.clamp_(-1.0, 1.0)
 
-        model_mean, posterior_variance, posterior_log_variance = self.q_posterior(x_start = x_start, x_t = x, t = t)
+        model_mean, posterior_variance, posterior_log_variance = self.q_posterior(
+            x_start=x_start, x_t=x, t=t
+        )
         return model_mean, posterior_variance, posterior_log_variance, x_start
 
     @torch.inference_mode()
-    def p_sample(self, x, lq_img: Tensor, t: int):
+    def p_sample(
+        self, x, lq_img: Tensor, t: int, model_kwargs: dict[str, Tensor] | None = None, clip_denoised=False
+    ):
         b, *_, device = *x.shape, self.device
-        batched_times = torch.full((b,), t, device = device, dtype = torch.long)
-        model_mean, _, model_log_variance, x_start = self.p_mean_variance(x = x, lq_img=lq_img, t = batched_times, clip_denoised = (self.latent_model is None))
-        noise = torch.randn_like(x) if t > 0 else 0. # no noise if t == 0
+        batched_times = torch.full((b,), t, device=device, dtype=torch.long)
+        model_mean, _, model_log_variance, x_start = self.p_mean_variance(
+            x=x,
+            lq_img=lq_img,
+            t=batched_times,
+            model_kwargs=model_kwargs,
+            clip_denoised=(self.latent_model is None) and clip_denoised,
+        )
+        noise = torch.randn_like(x) if t > 0 else 0.0  # no noise if t == 0
         pred_img = model_mean + (0.5 * model_log_variance).exp() * noise
         return pred_img, x_start
 
-    def p_losses(self, x_start, lq_img, t, noise = None, offset_noise_strength = None):
-        """Compute the prediction loss.
-        
-        Args:
-            x_start: The image to predict, in the case of super resolution, this is the HR image.
-            lq_img: The low quality image, could be the LR image in super resolution.
-            t: The time step.
-            noise: The noise to use for the sampling.
-            offset_noise_strength: The noise strength to use for the offset.
-        """
-        b, c, h, w = x_start.shape
-
-        # HR Image gets encoded to be the prediction target
-        x_start = self.encode_img(self.latent_model, x_start, up_sample = False)
-            
-        noise = default(noise, lambda: torch.randn_like(x_start))
-
-        # for q_sampling the lq_img is also encoded
-        # https://github.com/zsyOAOA/ResShift/blob/dfc2ff705a962de1601a491511b43a93b97d9622/models/gaussian_diffusion.py#L555
-        x = self.q_sample(x_start = x_start, lq_img =self.encode_img(self.latent_model, lq_img, up_sample = True), t = t, noise = noise)
-
-        # predict and take gradient step
-        # for the model input, the lq_img is not encoded
-        # see https://github.com/zsyOAOA/ResShift/blob/dfc2ff705a962de1601a491511b43a93b97d9622/models/gaussian_diffusion.py#L566 model_kwargs
-        model_out = self.model(self._scale_input(x, t), t, lq_img)
-
-        target = x_start
-        return self.compute_loss(model_out, target, t)
-
-
-    def p_sample_loop(self, lq_img: Tensor, return_all_timesteps = False):
+    def p_sample_loop(
+        self, lq_img: Tensor, model_kwargs: dict[str, Tensor] | None = None, return_all_timesteps=False
+    ):
         """Sample the HR image."""
         batch, device = lq_img.shape[0], self.device
-        
-        z_y = self.encode_img(self.latent_model, lq_img, up_sample = True)
+
+        z_y = self.encode_img(self.latent_model, lq_img, up_sample=True)
 
         # img to start sampling process with
         img = self.prior_sample(z_y, torch.randn_like(z_y))
@@ -217,49 +232,123 @@ class ResShiftBase(DDPM):
 
         x_start = None
 
-        for t in tqdm(reversed(range(0, self.num_timesteps)), desc = 'sampling loop time step', total = self.num_timesteps):
-            img, x_start = self.p_sample(img, lq_img, t)
+        for t in tqdm(
+            reversed(range(0, self.num_timesteps)),
+            desc="sampling loop time step",
+            total=self.num_timesteps,
+        ):
+            # do not clip_denoised on the last time step
+            clip_denoised = t > 0
+            img, x_start = self.p_sample(x=img, lq_img=lq_img, t=t, model_kwargs=model_kwargs, clip_denoised=clip_denoised)
             imgs.append(img)
 
-        ret = img if not return_all_timesteps else torch.stack(imgs, dim = 1)
+        ret = img if not return_all_timesteps else torch.stack(imgs, dim=1)
 
         if self.latent_model:
             ret = self.decode_latent(ret)
 
         # clamp and normalize to 0, 1
-        if not self.normalize_input:
+        if self.normalize_input:
             ret = (ret.clamp(-1, 1) + 1) / 2
 
         return ret
 
-    def training_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> Tensor:
+    def p_losses(
+        self,
+        x_start: Tensor,
+        lq_img: Tensor,
+        t,
+        model_kwargs: dict[str, Tensor] | None = None,
+        noise=None,
+        offset_noise_strength=None,
+    ):
+        """Compute the prediction loss.
+
+        Args:
+            x_start: The image to predict, in the case of super resolution, this is the HR image.
+            lq_img: The low quality image, could be the LR image in super resolution.
+            t: The time step.
+            mask: Optional mask to use for inpainting.
+            noise: The noise to use for the sampling.
+            offset_noise_strength: The noise strength to use for the offset.
+        """
+        b, c, h, w = x_start.shape
+
+        # HR Image gets encoded to be the prediction target
+        x_start = self.encode_img(self.latent_model, x_start, up_sample=False)
+
+        noise = default(noise, lambda: torch.randn_like(x_start))
+
+        # for q_sampling the lq_img is also encoded
+        # https://github.com/zsyOAOA/ResShift/blob/dfc2ff705a962de1601a491511b43a93b97d9622/models/gaussian_diffusion.py#L555
+        x = self.q_sample(
+            x_start=x_start,
+            lq_img=self.encode_img(self.latent_model, lq_img, up_sample=True),
+            t=t,
+            noise=noise,
+        )
+
+        # predict and take gradient step
+        # for the model input, the lq_img is not encoded
+        # see https://github.com/zsyOAOA/ResShift/blob/dfc2ff705a962de1601a491511b43a93b97d9622/models/gaussian_diffusion.py#L566 model_kwargs
+        model_out = self.model(self._scale_input(x, t), t, lq=lq_img, **model_kwargs)
+
+        target = x_start
+
+        # loss = self.compute_loss(model_out, target, t)
+
+        return self.compute_loss(model_out, target, t)
+        
+
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the training loss."""
         # compute the loss
         lq_img, hq_img = batch[self.input_key], batch[self.target_key]
 
-        t = torch.randint(0, self.num_timesteps, (lq_img.shape[0],), device = self.device).long()
+        # gather all other batch data as kwargs
+        model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
 
-        loss = self.p_losses(hq_img, lq_img, t)
+        t = torch.randint(
+            0, self.num_timesteps, (lq_img.shape[0],), device=self.device
+        ).long()
+
+
+        # loss = self.p_losses(hq_img, lq_img, t, img_cond=batch["condition"], date=batch["timestamp"], lonlat=batch["lonlat"])
+        loss = self.p_losses(hq_img, lq_img, t, **model_kwargs)
 
         self.log("train_loss", loss)
         return loss
 
-    def validation_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> Tensor:
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the validation loss."""
         # compute metrics on some valiation set
-        
+
         # TODO maybe configure so that one batch of images is generated and saved
         # per log_samples_every_n_epochs
-        if self.current_epoch % self.log_samples_every_n_epochs == 0 and batch_idx == 0 and self.trainer.global_rank == 0:
-            preds = self.predict_step(batch[self.input_key], return_all_timesteps = False)
-        #     samples = self.sample(batch_size = 16)
-            self.log_samples(preds["pred"], preds["lq"], batch[self.target_key])
+        preds = self.predict_step(batch, batch_idx=batch_idx, return_all_timesteps=False)
+        if (
+            self.current_epoch % self.log_samples_every_n_epochs == 0
+            and batch_idx == 0
+            and self.trainer.global_rank == 0
+        ):
+            self.log_samples(preds, batch[self.input_key], batch[self.target_key])
+        
+        # compute mse
+        mse = torch.nn.functional.mse_loss(preds, batch[self.target_key])
+        self.log("val_loss", mse, sync_dist=True)
 
-    def predict_step(self, lq_img: Tensor, return_all_timesteps: bool = False) -> dict[str, Tensor]:
+    def predict_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0, return_all_timesteps: bool = False
+    ) -> dict[str, Tensor]:
         """Predict the super resolved image."""
-        hq_imgs = self.p_sample_loop(lq_img, return_all_timesteps = return_all_timesteps)
-
-        return {"pred": hq_imgs, "lq": lq_img}
+        model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
+        return self.p_sample_loop(
+            batch[self.input_key], model_kwargs=model_kwargs, return_all_timesteps=return_all_timesteps
+        )
 
     def log_samples(self, preds: Tensor, inputs: Tensor, targets: Tensor) -> None:
         """Log samples to local directory.
@@ -291,18 +380,26 @@ class ResShiftBase(DDPM):
         axs[0, 2].set_title("HQ Image")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(self.trainer.default_root_dir, f"sample_{self.current_epoch}.png"))
+        plt.savefig(
+            os.path.join(
+                self.trainer.default_root_dir, f"sample_{self.current_epoch}.png"
+            )
+        )
         plt.close()
-        
+
     def _scale_input(self, inputs: Tensor, t: Tensor) -> Tensor:
         """Scale the latent encodings."""
         if self.normalize_input:
             if self.latent_flag:
                 # the variance of latent code is around 1.0
-                std = torch.sqrt(self.extract(self.betas, t, inputs.shape) * self.kappa**2 + 1)
+                std = torch.sqrt(
+                    self.extract(self.betas, t, inputs.shape) * self.kappa**2 + 1
+                )
                 inputs_norm = inputs / std
             else:
-                inputs_max = self.extract(self.sqrt_betas, t, inputs.shape) * self.kappa * 3 + 1
+                inputs_max = (
+                    self.extract(self.sqrt_betas, t, inputs.shape) * self.kappa * 3 + 1
+                )
                 inputs_norm = inputs / inputs_max
         else:
             inputs_norm = inputs
@@ -315,12 +412,13 @@ class ResShiftSR(ResShiftBase):
     def __init__(
         self,
         model: nn.Module,
-        betas: Tensor, 
+        betas: Tensor,
         ema_decay: float = 0.995,
         ema_update_every: float = 10,
         image_size: int = 224,
         in_channels: int = 3,
         out_channels: int = 3,
+        model_kwargs_keys: list[str] = [],
         kappa: float = 1.0,
         super_res_factor: int = 4,
         log_samples_every_n_epochs: int = 10,
@@ -334,13 +432,16 @@ class ResShiftSR(ResShiftBase):
             model: The denoising model, common choices are Unet architectures such as
 
             betas: Noise scheduling betas for the diffusion process, shape (num_timesteps,).
-                For different noise schedules, see 
+                For different noise schedules, see
             ema_decay: The exponential moving average decay.
             ema_update_every: The number of steps to update the EMA.
             image_size: The size of the input images when coming from the dataloader, and also the size
                 of the images that will be generated during sampling
-            input_channels: The number of input channels of the images coming from the dataloader
-            output_channels: The number of output channels of the images to be generated
+            in_channels: The number of input channels of the images coming from the dataloader
+            out_channels: The number of output channels of the images to be generated
+            model_kwargs_keys: The names of additional keyword arguments that the forward pass of the model
+                can accept. The keys will be used to extract the values from the batch dictionary, and
+                passed to the model as keyword arguments.
             kappa: The kappa value for the noise schedule.
             super_res_factor: The super resolution factor.
             log_samples_every_n_epochs: The number of epochs between logging samples.
@@ -354,56 +455,68 @@ class ResShiftSR(ResShiftBase):
         self.upsample_factor = super_res_factor
 
         super().__init__(
-            model = model,
-            betas = betas,
-            ema_decay = ema_decay,
-            ema_update_every = ema_update_every,
-            image_size = image_size,
-            in_channels = in_channels,
-            out_channels = out_channels,
-            log_samples_every_n_epochs = log_samples_every_n_epochs,
-            latent_model = latent_model,
-            optimizer = optimizer,
-            lr_scheduler = lr_scheduler,
+            model=model,
+            betas=betas,
+            ema_decay=ema_decay,
+            ema_update_every=ema_update_every,
+            image_size=image_size,
+            in_channels=in_channels,
+            out_channels=out_channels,
+            model_kwargs_keys=model_kwargs_keys,
+            log_samples_every_n_epochs=log_samples_every_n_epochs,
+            latent_model=latent_model,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
         )
         self.normalize_input = True
-        self.latent_flag = (latent_model is not None)
+        self.latent_flag = latent_model is not None
 
-
-    def training_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> Tensor:
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the training loss."""
         # compute the loss
         lq_img, hr_img = batch[self.input_key], batch[self.target_key]
 
-        t = torch.randint(0, self.num_timesteps, (lq_img.shape[0],), device = self.device).long()
+        t = torch.randint(
+            0, self.num_timesteps, (lq_img.shape[0],), device=self.device
+        ).long()
 
         loss = self.p_losses(hr_img, lq_img, t)
 
         self.log("train_loss", loss)
         return loss
 
-    def validation_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> Tensor:
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the validation loss."""
         # compute metrics on some valiation set
-        
+        preds = self.predict_step(batch[self.input_key], return_all_timesteps=False)
         # TODO maybe configure so that one batch of images is generated and saved
         # per log_samples_every_n_epochs
-        if self.current_epoch % self.log_samples_every_n_epochs == 0 and batch_idx == 0 and self.trainer.global_rank == 0:
-            preds = self.predict_step(batch[self.input_key], return_all_timesteps = False)
-        #     samples = self.sample(batch_size = 16)
+        if (
+            self.current_epoch % self.log_samples_every_n_epochs == 0
+            and batch_idx == 0
+            and self.trainer.global_rank == 0
+        ):
             self.log_samples(preds["pred"], preds["lr"], batch[self.target_key])
+
+        mse = torch.nn.functional.mse_loss(preds["pred"], batch[self.target_key])
+        self.log("val_loss", mse, sync_dist=True)
+
 
     def log_samples(self, preds: Tensor, inputs: Tensor, targets: Tensor) -> None:
         """Log samples to local directory.
-        
+
         Args:
             preds: model predictions (samples)
             inputs: input data from data loader, the low resolution images
             targets: target data from data loader, the high resolution images
         """
-       # normalize inputs to 0, 1 for plotting
-        inputs = (inputs + 1) / 2
-        targets = (targets + 1) / 2
+        # normalize inputs to 0, 1 for plotting
+        # inputs = (inputs + 1) / 2
+        # targets = (targets + 1) / 2
 
         rows, cols = preds.shape[0] // 4, 4
         batch_size = preds.shape[0]
@@ -417,42 +530,99 @@ class ResShiftSR(ResShiftBase):
             axs[axs_idx, 1].axis("off")
             axs[axs_idx, 2].imshow(targets[i].cpu().numpy().transpose(1, 2, 0))
             axs[axs_idx, 2].axis("off")
-        
+
         axs[0, 0].set_title("LR Image")
         axs[0, 1].set_title("Prediction")
         axs[0, 2].set_title("HR Image")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(self.trainer.default_root_dir, f"sample_{self.current_epoch}.png"))
+        plt.savefig(
+            os.path.join(
+                self.trainer.default_root_dir, f"sample_{self.current_epoch}.png"
+            )
+        )
         plt.close()
 
-
-    def predict_step(self, lq_img: Tensor, return_all_timesteps: bool = False) -> dict[str, Tensor]:
+    def predict_step(
+        self, lq_img: Tensor, return_all_timesteps: bool = False
+    ) -> dict[str, Tensor]:
         """Predict the super resolved image."""
-        hr_imgs = self.p_sample_loop(lq_img, return_all_timesteps = return_all_timesteps)
-
+        hr_imgs = self.p_sample_loop(lq_img, return_all_timesteps=return_all_timesteps)
         return {"pred": hr_imgs, "lr": lq_img}
-        
+
 
 class InpaintingResShift(ResShiftBase):
     """Inpainting with Residual Shift."""
-    
-    def training_step(self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0) -> Tensor:
+
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Compute and return the training loss."""
         # compute the loss
         # TODO
         # mask is expected to be in range 0, 1, where 0 is the masked region...
-        lq_img, mask, hr_img = batch[self.input_key], batch["mask"], batch[self.target_key]
+        lq_img, hr_img = (
+            batch[self.input_key],
+            batch[self.target_key],
+        )
 
-        t = torch.randint(0, self.num_timesteps, (lq_img.shape[0],), device = self.device).long()
+        model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
+
+        t = torch.randint(
+            0, self.num_timesteps, (lq_img.shape[0],), device=self.device
+        ).long()
 
         # adapt p_losses to inpainting
-        loss = self.p_losses(hr_img, lq_img, t)
+        loss = self.p_losses(hr_img, lq_img, t, model_kwargs=model_kwargs)
 
         self.log("train_loss", loss)
         return loss
 
-    def log_samples(self, preds: Tensor, inputs: Tensor, masks: Tensor, targets: Tensor) -> None:
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute and return the validation loss.
+
+        Args:
+            batch: The batch of data, should contain the masked
+                image under ``input_key``, the mask, and the full target image under ``target_key``.
+            batch_idx: The batch index.
+            dataloader_idx: The dataloader index.
+        """
+        preds = self.predict_step(batch, return_all_timesteps=False)
+        if (
+            self.current_epoch % self.log_samples_every_n_epochs == 0
+            and batch_idx == 0
+            and self.trainer.global_rank == 0
+        ):
+            #     samples = self.sample(batch_size = 16)
+            self.log_samples(
+                preds["pred"], preds["lr"], batch["mask"], batch[self.target_key]
+            )
+        
+        mse = torch.nn.functional.mse_loss(preds["pred"], batch[self.target_key])
+        self.log("val_loss", mse, sync_dist=True)
+
+    def predict_step(
+        self, batch: dict[str, Tensor], return_all_timesteps: bool = False
+    ) -> dict[str, Tensor]:
+        """Predict the inpainted image.
+
+        Args:
+            batch: The batch of data, should contain the masked
+                image under ``input_key``, and the mask
+            return_all_timesteps: Whether to return all timesteps.
+        """
+        lq_img = batch[self.input_key]
+        model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
+        hr_imgs = self.p_sample_loop(
+            lq_img, model_kwargs=model_kwargs, return_all_timesteps=return_all_timesteps
+        )
+        return {"pred": hr_imgs, "lr": lq_img}
+
+    def log_samples(
+        self, preds: Tensor, inputs: Tensor, masks: Tensor, targets: Tensor
+    ) -> None:
         """Log samples to local directory.
 
         Args:
@@ -474,7 +644,9 @@ class InpaintingResShift(ResShiftBase):
             axs[axs_idx, 0].imshow(inputs[i].cpu().numpy().transpose(1, 2, 0))
             axs[axs_idx, 0].axis("off")
             # apply the mask to the input and plot
-            axs[axs_idx, 1].imshow((inputs[i] * masks[i]).cpu().numpy().transpose(1, 2, 0))
+            axs[axs_idx, 1].imshow(
+                (inputs[i] * masks[i]).cpu().numpy().transpose(1, 2, 0)
+            )
             axs[axs_idx, 1].axis("off")
             axs[axs_idx, 2].imshow(preds[i].cpu().numpy().transpose(1, 2, 0))
             axs[axs_idx, 2].axis("off")
@@ -487,13 +659,17 @@ class InpaintingResShift(ResShiftBase):
         axs[0, 3].set_title("HR Image")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(self.trainer.default_root_dir, f"sample_{self.current_epoch}.png"))
+        plt.savefig(
+            os.path.join(
+                self.trainer.default_root_dir, f"sample_{self.current_epoch}.png"
+            )
+        )
         plt.close()
 
 
 class DeblurResShift(ResShiftBase):
     """Deblurring with Residual Shift."""
-    
+
     def log_samples(self, preds: Tensor, inputs: Tensor, targets: Tensor) -> None:
         """Log samples to local directory.
 
@@ -524,5 +700,9 @@ class DeblurResShift(ResShiftBase):
         axs[0, 2].set_title("HQ Image")
 
         plt.tight_layout()
-        plt.savefig(os.path.join(self.trainer.default_root_dir, f"sample_{self.current_epoch}.png"))
+        plt.savefig(
+            os.path.join(
+                self.trainer.default_root_dir, f"sample_{self.current_epoch}.png"
+            )
+        )
         plt.close()
