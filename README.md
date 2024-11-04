@@ -30,7 +30,7 @@ For a comprehensive document that provides more mathematical details for each me
 
 # Installation
 
-For the latest released version you can run, 
+The recommended way to install the latest released version is via pip, 
 
 ```console
 pip install lightning-uq-box
@@ -41,6 +41,8 @@ For the latest development version you can run,
 ```console
 pip install git+https://github.com/lightning-uq-box/lightning-uq-box.git
 ```
+
+The package is also available for installation via conda or spack. You can find instructions in the [documention](https://lightning-uq-box.readthedocs.io/en/latest/installation.html)
 
 # UQ-Methods
 
