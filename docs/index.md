@@ -1,5 +1,11 @@
 # Lightning-UQ-Box
 
+## Installation 
+
+For installation instructions, see the [dedicated page](https://lightning-uq-box.readthedocs.io/en/latest/installation.html).
+
+## Introduction
+
 Welcome to the lightning-uq-box documentation page. Our goal is to give you both an intuition of how different UQ-Methods work as well as demonstrate how you can apply these methods in your research or projects. To this end, we aim to give both a theoretical and practical overview of implemented UQ-Methods since there exist a wide variety of UQ-Methods. Similarly, there are several general tasks for which practitioners might require uncertainty estimates. The library currently supports the following four tasks:
 
 1. **Regression** for tabular/image inputs with 1D scalar targets
@@ -16,18 +22,6 @@ In the tables that follow below, you can see what UQ-Method/Task combination is 
 - ✅ supported
 - ❌ not designed for this task
 - ⏳ in progress
-
-To get started, 
-
-```console
-pip install lightning-uq-box
-```
-
-For the latest development version you can run,
-
-```console
-pip install git+https://github.com/lightning-uq-box/lightning-uq-box.git
-```
 
 ## Classification of UQ-Methods
 
@@ -87,6 +81,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 ```{toctree}
 :maxdepth: 2
 
+installation
 user_guide
 tutorial_overview
 running_experiments
