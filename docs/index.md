@@ -81,6 +81,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 ```{toctree}
 :maxdepth: 2
 
+installation
 user_guide
 tutorial_overview
 running_experiments
