@@ -1,3 +1,5 @@
+(guide)=
+
 # Installation
 
 ## pip
