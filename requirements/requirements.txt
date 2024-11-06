@@ -8,7 +8,7 @@ torchvision==0.20.1
 lightning==2.4.0
 scikit-learn==1.5.2
 gpytorch==1.13
-pandas==2.2.1
+pandas==2.2.3
 uncertainty-toolbox==0.1.1
 kornia==0.7.4
 h5py==3.12.1
