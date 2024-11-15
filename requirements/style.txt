@@ -1,2 +1,2 @@
 # style
-ruff==0.7.3
+ruff==0.7.4
