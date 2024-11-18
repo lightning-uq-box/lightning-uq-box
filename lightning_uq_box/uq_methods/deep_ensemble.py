@@ -68,7 +68,7 @@ class DeepEnsemble(BaseModule):
         for model_config in self.ensemble_members:
             # load the weights into the network
             model_config["base_model"].load_state_dict(
-                torch.load(model_config["ckpt_path"])["state_dict"]
+                torch.load(model_config["ckpt_path"], weights_only=True)["state_dict"]
             )
             model_config["base_model"].to(X.device).eval()
             out.append(model_config["base_model"](X))
