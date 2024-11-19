@@ -6,7 +6,7 @@
 [![style](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/style.yaml/badge.svg)](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/style.yaml)
 [![tests](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/tests.yaml/badge.svg)](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/tests.yaml)
 [![codecov](https://codecov.io/gh/lightning-uq-box/lightning-uq-box/branch/main/graph/badge.svg?token=oa3Z3PMVOg)](https://app.codecov.io/gh/lightning-uq-box/lightning-uq-box)
-[![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/lightning-uq-box/lightning-uq-box/blob/main/LICENSE) 
+[![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/lightning-uq-box/lightning-uq-box/blob/main/LICENSE)
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a> &emsp;
 
@@ -33,7 +33,7 @@ For a comprehensive document that provides more mathematical details for each me
 
 # Installation
 
-The recommended way to install the latest released version is via pip, 
+The recommended way to install the latest released version is via pip,
 
 ```console
 pip install lightning-uq-box
@@ -115,3 +115,16 @@ Head over to the [tutorials](https://lightning-uq-box.readthedocs.io/en/latest/t
 
 # Documentation
 We aim to provide an extensive documentation on all included UQ-methods that provide some theoretical background, as well as tutorials that illustrate these methods on toy datasets.
+
+# Citation
+
+If you use this software in your work, please cite our [paper](https://arxiv.org/abs/2410.03390):
+
+```bibtex
+@article{Lehmann_Lightning_UQ_Box_2024,
+  author = {Lehmann, Nils and Gawlikowski, Jakob and Stewart, Adam J. and Jancauskas, Vytautas and Depeweg, Stefan and Nalisnick, Eric and Gottschling, Nina M.},
+  journal = {arXiv preprint arXiv:2410.03390},
+  title = {{Lightning UQ Box}: A Comprehensive Framework for Uncertainty Quantification in Deep Learning},
+  year = {2024}
+}
+```
