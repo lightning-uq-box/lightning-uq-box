@@ -118,14 +118,13 @@ We aim to provide an extensive documentation on all included UQ-methods that pro
 
 # Citation
 
-
 If you use this software in your work, please cite our [paper](https://arxiv.org/abs/2410.03390):
 
 ```bibtex
-@article{lehmann2024lightning,
-  title={Lightning UQ Box: A Comprehensive Framework for Uncertainty Quantification in Deep Learning},
-  author={Lehmann, Nils and Gawlikowski, Jakob and Stewart, Adam J and Jancauskas, Vytautas and Depeweg, Stefan and Nalisnick, Eric and Gottschling, Nina Maria},
-  journal={arXiv preprint arXiv:2410.03390},
-  year={2024}
+@article{Lehmann_Lightning_UQ_Box_2024,
+  author = {Lehmann, Nils and Gawlikowski, Jakob and Stewart, Adam J. and Jancauskas, Vytautas and Depeweg, Stefan and Nalisnick, Eric and Gottschling, Nina M.},
+  journal = {arXiv preprint arXiv:2410.03390},
+  title = {{Lightning UQ Box}: A Comprehensive Framework for Uncertainty Quantification in Deep Learning},
+  year = {2024}
 }
 ```
