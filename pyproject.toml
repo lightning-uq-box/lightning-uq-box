@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 [project]
 name = "lightning-uq-box"
-description = "Lighning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
+description = "Lightning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
