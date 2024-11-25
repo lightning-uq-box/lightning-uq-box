@@ -188,7 +188,7 @@ convention = "google"
 version = {attr = "lightning_uq_box.__version__"}
 
 [tool.setuptools.package-data]
-torchgeo = ["py.typed"]
+lightning_uq_box = ["py.typed"]
 
 [tool.setuptools.packages.find]
 include = ["lightning_uq_box*"]
