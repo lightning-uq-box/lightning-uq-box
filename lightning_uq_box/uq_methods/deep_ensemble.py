@@ -34,23 +34,18 @@ class DeepEnsemble(BaseModule):
     """
 
     def __init__(
-        self,
-        n_ensemble_members: int,
-        ensemble_members: list[dict[str, type[LightningModule] | str]],
+        self, ensemble_members: list[dict[str, type[LightningModule] | str]]
     ) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
         Args:
-            n_ensemble_members: number of ensemble members
             ensemble_members: List of dicts where each element specifies the
                 LightningModule class and a path to a checkpoint
             save_dir: path to directory where to store prediction
             quantiles: quantile values to compute for prediction
         """
         super().__init__()
-        assert len(ensemble_members) == n_ensemble_members
-        # make hparams accessible
-        self.save_hyperparameters(ignore=["ensemble_members"])
+        self.n_ensemble_members = len(ensemble_members)
         self.ensemble_members = ensemble_members
 
         self.setup_task()
@@ -73,9 +68,9 @@ class DeepEnsemble(BaseModule):
         for model_config in self.ensemble_members:
             # load the weights into the network
             model_config["base_model"].load_state_dict(
-                torch.load(model_config["ckpt_path"])["state_dict"]
+                torch.load(model_config["ckpt_path"], weights_only=True)["state_dict"]
             )
-            model_config["base_model"].to(X.device)
+            model_config["base_model"].to(X.device).eval()
             out.append(model_config["base_model"](X))
         return torch.stack(out, dim=-1)
 
@@ -137,7 +132,7 @@ class DeepEnsembleRegression(DeepEnsemble):
         """Compute prediction step for a deep ensemble.
 
         Args:
-            X: input tensor of shape [batch_size, input_di]
+            X: input tensor of shape [batch_size, input_dims]
             batch_idx: the index of this batch
             dataloader_idx: the index of the dataloader
 
@@ -147,7 +142,9 @@ class DeepEnsembleRegression(DeepEnsemble):
         with torch.no_grad():
             preds = self.generate_ensemble_predictions(X)
 
-        return process_regression_prediction(preds)
+        pred_dict = process_regression_prediction(preds)
+        pred_dict["samples"] = preds
+        return pred_dict
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -177,7 +174,6 @@ class DeepEnsembleClassification(DeepEnsemble):
 
     def __init__(
         self,
-        n_ensemble_members: int,
         ensemble_members: list[dict[str, type[LightningModule] | str]],
         num_classes: int,
         task: str = "multiclass",
@@ -185,7 +181,6 @@ class DeepEnsembleClassification(DeepEnsemble):
         """Initialize a new instance of DeepEnsemble for Classification.
 
         Args:
-            n_ensemble_members: number of ensemble members
             ensemble_members: List of dicts where each element specifies the
                 LightningModule class and a path to a checkpoint
             num_classes: number of classes
@@ -194,7 +189,7 @@ class DeepEnsembleClassification(DeepEnsemble):
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = num_classes
-        super().__init__(n_ensemble_members, ensemble_members)
+        super().__init__(ensemble_members)
 
     def setup_task(self) -> None:
         """Set up task for classification."""
@@ -208,7 +203,7 @@ class DeepEnsembleClassification(DeepEnsemble):
         """Compute prediction step for a deep ensemble.
 
         Args:
-            X: input tensor of shape [batch_size, input_di]
+            X: input tensor of shape [batch_size, input_dims]
             batch_idx: the index of this batch
             dataloader_idx: the index of the dataloader
 
@@ -245,6 +240,25 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
 
     pred_dir_name = "preds"
 
+    def __init__(
+        self,
+        ensemble_members: list[dict[str, type[LightningModule] | str]],
+        num_classes: int,
+        task: str = "multiclass",
+        save_preds: bool = False,
+    ) -> None:
+        """Initialize a new instance of DeepEnsemble for Segmentation.
+
+        Args:
+            ensemble_members: List of dicts where each element specifies the
+                LightningModule class and a path to a checkpoint
+            num_classes: number of classes
+            task: classification task, one of "multiclass", "binary" or "multilabel"
+            save_preds: whether to save predictions
+        """
+        super().__init__(ensemble_members, num_classes, task)
+        self.save_preds = save_preds
+
     def setup_task(self) -> None:
         """Set up task for segmentation."""
         self.test_metrics = default_segmentation_metrics(
@@ -272,7 +286,7 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -290,7 +304,8 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)
 
 
 class DeepEnsemblePxRegression(DeepEnsembleRegression):
@@ -301,6 +316,21 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
     * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
     """  # noqa: E501
 
+    def __init__(
+        self,
+        ensemble_members: list[dict[str, type[LightningModule] | str]],
+        save_preds: bool = False,
+    ) -> None:
+        """Initialize a new instance of DeepEnsemble for Pixelwise Regression.
+
+        Args:
+            ensemble_members: List of dicts where each element specifies the
+                LightningModule class and a path to a checkpoint
+            save_preds: whether to save predictions
+        """
+        super().__init__(ensemble_members)
+        self.save_preds = save_preds
+
     pred_dir_name = "preds"
 
     def setup_task(self) -> None:
@@ -310,7 +340,7 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
         self.pred_dir = os.path.join(self.trainer.default_root_dir, self.pred_dir_name)
-        if not os.path.exists(self.pred_dir):
+        if not os.path.exists(self.pred_dir) and self.save_preds:
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
@@ -328,4 +358,5 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
             batch_idx: the index of this batch
             dataloader_idx: the index of the dataloader
         """
-        save_image_predictions(outputs, batch_idx, self.pred_dir)
+        if self.save_preds:
+            save_image_predictions(outputs, batch_idx, self.pred_dir)

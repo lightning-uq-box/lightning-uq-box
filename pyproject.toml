@@ -5,13 +5,10 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.packages.find]
-include = ["lightning_uq_box*"]
-
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 [project]
 name = "lightning-uq-box"
-description = "Lighning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
+description = "Lightning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
@@ -38,7 +35,7 @@ dependencies = [
     # einops 0.3+ required for einops.repeat
     "einops>=0.3",
     # lightning 2+ required for LightningCLI args + sys.argv support
-    "lightning>=2.1.1",
+    "lightning>=2.4.0",
     # matplotlib 3.5 required for Python 3.10 wheels
     "matplotlib>=3.5",
     # numpy 1.21.1+ required by Python 3.10 wheels
@@ -56,7 +53,7 @@ dependencies = [
     # for deep kernel learning and other GP models
     "gpytorch>=1.11",
     # Laplace Approximation
-    "laplace-torch>=0.1a2",
+    "laplace-torch>=0.2.1",
     # Uncertainty toolbox metrics
     "uncertainty-toolbox>=0.1.1",
     # Kornia for Test Time Augmentations and other image processing
@@ -66,12 +63,14 @@ dependencies = [
     # torchseg for segmentation, pixelwise regression
     "torchseg>=0.0.1a1",
     # saving pixelwise and segmentation predictions
-    "h5py==3.10.0"
+    "h5py>=3.12.1",
+    # exponential moving average for pytorch models
+    "ema-pytorch>=0.7.0"
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
-dev = [
+tests = [
     ### Tests ###
     # pytest 7.3+ required for tmp_path_retention_policy
     "pytest>=7.3",
@@ -87,10 +86,14 @@ dev = [
     "timm>=0.9.2",
     # torchseg for segmentation models
     "torchseg>=0.0.1a1",
-    # denoising diffusion denoising_diffusion_pytorch
-    "denoising_diffusion_pytorch",
+    # jsonargparse
+    "jsonargparse[signatures]>=4.28.0",
+    ## Style
+    # ruff 0.2+ required for [ruff.lint]
+    "ruff>=0.2",
+]
 
-
+docs = [
     ### Docs ###
     # sphinx
     "sphinx>=4,<7",
@@ -108,12 +111,10 @@ dev = [
     "jupytext>=1.15.2",
     # ipykernel to run notebooks
     "ipykernel>=6.29.3",
-
-    ## Style
-    # ruff 0.2+ required for [ruff.lint]
-    "ruff>=0.2",
 ]
 
+[project.scripts]
+uq-box = "lightning_uq_box.main:main"
 
 [tool.pytest.ini_options]
 # Skip slow tests by default
@@ -167,9 +168,6 @@ filterwarnings = [
 [tool.env]
 USE_IOMP = "0"
 
-[tool.setuptools.dynamic]
-version = {attr = "lightning_uq_box.__version__"}
-
 [tool.ruff]
 extend-include = ["*.ipynb"]
 fix = true
@@ -190,5 +188,11 @@ split-on-trailing-comma = false
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[project.scripts]
-uq-box = "lightning_uq_box.main:main"
+[tool.setuptools.dynamic]
+version = {attr = "lightning_uq_box.__version__"}
+
+[tool.setuptools.package-data]
+lightning_uq_box = ["py.typed"]
+
+[tool.setuptools.packages.find]
+include = ["lightning_uq_box*"]

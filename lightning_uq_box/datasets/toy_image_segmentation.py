@@ -2,8 +2,9 @@
 # Licensed under the Apache License 2.0.
 """Toy image segmentation dataset."""
 
+from typing import Any
+
 import torch
-from torch import Tensor
 from torch.utils.data import Dataset
 
 
@@ -28,7 +29,7 @@ class ToySegmentationDataset(Dataset):
         """Return the number of images in the dataset."""
         return self.num_images
 
-    def __getitem__(self, idx: int) -> dict[str, Tensor]:
+    def __getitem__(self, idx: int) -> dict[str, Any]:
         """Generate a random grayscale image and corresponding mask."""
         # Generate a random grayscale image and corresponding mask
         image = torch.randint(

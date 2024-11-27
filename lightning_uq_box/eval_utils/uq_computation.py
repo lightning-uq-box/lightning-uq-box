@@ -53,7 +53,7 @@ def compute_aleatoric_uncertainty(sample_sigma_preds: Tensor) -> Tensor:
     Returns:
       aleatoric uncertainty for each sample
     """
-    return torch.sqrt(sample_sigma_preds.mean(-1))
+    return torch.sqrt((sample_sigma_preds**2.0).mean(-1))
 
 
 def compute_predictive_uncertainty(
@@ -71,7 +71,7 @@ def compute_predictive_uncertainty(
       predictive uncertainty for each sample
     """
     return torch.sqrt(
-        sample_sigma_preds.mean(-1)
+        (sample_sigma_preds**2.0).mean(-1)
         + (sample_mean_preds**2).mean(-1)
         - (sample_mean_preds.mean(-1) ** 2)
     )
@@ -79,7 +79,7 @@ def compute_predictive_uncertainty(
 
 def compute_sample_mean_std_from_quantile(
     inter_range_quantiles: Tensor, quantiles: list[float]
-) -> Tensor:
+) -> tuple[Tensor, Tensor]:
     """Compute sample mean and std from inter quantiles.
 
     Taken from: https://stats.stackexchange.com/questions/256456/
@@ -106,7 +106,7 @@ def compute_sample_mean_std_from_quantile(
 
 
 def compute_quantiles_from_std(
-    means: np.array, stds: np.array, quantiles: list[float]
+    means: np.ndarray, stds: np.ndarray, quantiles: list[float]
 ) -> np.ndarray:
     """Compute quantiles from standard deviations assuming a Gaussian.
 
@@ -128,8 +128,7 @@ def compute_quantiles_from_std(
             p = dist.ppf(ppf)
             ppfs[ppf].append(p)
 
-    quantiles = np.stack(list(ppfs.values()), axis=-1)
-    return quantiles
+    return np.stack(list(ppfs.values()), axis=-1)
 
 
 def compute_empirical_coverage(quantile_preds: Tensor, targets: Tensor):

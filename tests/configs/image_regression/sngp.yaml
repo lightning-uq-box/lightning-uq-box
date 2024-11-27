@@ -10,6 +10,6 @@ uq_method:
     _partial_: true
   num_targets: 1
   loss_fn:
-    _target_: torch.nn.CrossEntropyLoss
+    _target_: torch.nn.MSELoss
   input_size: 64
   

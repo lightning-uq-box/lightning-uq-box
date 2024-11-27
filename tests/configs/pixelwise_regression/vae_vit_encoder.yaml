@@ -1,0 +1,19 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.VAE
+  encoder:
+    _target_: torchseg.encoders.TimmViTEncoder
+    name: vit_tiny_patch16_224
+    in_chans: 3
+    depth: 4
+  latent_size: 10
+  img_size: 224
+  out_channels: 1
+  num_samples: 5
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+
+data:
+  _target_: lightning_uq_box.datamodules.ToyPixelwiseRegressionDataModule
+  image_size: 224

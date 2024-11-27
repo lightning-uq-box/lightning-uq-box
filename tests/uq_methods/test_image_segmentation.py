@@ -34,7 +34,7 @@ model_config_paths = [
 data_config_paths = ["tests/configs/image_segmentation/toy_segmentation.yaml"]
 
 
-class TestImageClassificationTask:
+class TestImageSegmentationTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
@@ -43,7 +43,7 @@ class TestImageClassificationTask:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
 
-        model = instantiate(model_conf.uq_method)
+        model = instantiate(model_conf.uq_method, save_preds=True)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
             accelerator="cpu",
@@ -55,14 +55,95 @@ class TestImageClassificationTask:
         )
 
         trainer.fit(model, datamodule)
-        trainer.test(ckpt_path="best", datamodule=datamodule)
+        if "mc_dropout" in model_config_path:
+            with pytest.raises(UserWarning, match="No dropout layers found in model"):
+                trainer.test(ckpt_path="best", datamodule=datamodule)
+        else:
+            trainer.test(ckpt_path="best", datamodule=datamodule)
 
-        with h5py.File(os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r") as f:
+            with h5py.File(
+                os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r"
+            ) as f:
+                assert "pred" in f
+                assert "target" in f
+                for key, value in f.items():
+                    if key == "logits":
+                        assert value.shape[1] == 64
+                        assert value.shape[2] == 64
+                    else:
+                        assert value.shape[-1] == 64
+                        assert value.shape[-2] == 64
+                assert "aux" in f.attrs
+                assert "index" in f.attrs
+
+
+ensemble_model_config_paths = ["tests/configs/image_segmentation/base.yaml"]
+
+
+class TestDeepEnsemble:
+    @pytest.fixture(
+        params=[
+            (model_config_path, data_config_path)
+            for model_config_path in ensemble_model_config_paths
+            for data_config_path in data_config_paths
+        ]
+    )
+    def ensemble_members_dict(
+        self, request, tmp_path_factory: TempPathFactory
+    ) -> list[dict[str, Any]]:
+        model_config_path, data_config_path = request.param
+        model_conf = OmegaConf.load(model_config_path)
+        data_conf = OmegaConf.load(data_config_path)
+        # train networks for deep ensembles
+        ckpt_paths = []
+        for i in range(3):
+            tmp_path = tmp_path_factory.mktemp(f"run_{i}")
+
+            model = instantiate(model_conf.uq_method, save_preds=True)
+            datamodule = instantiate(data_conf.data)
+            trainer = Trainer(
+                accelerator="cpu",
+                max_epochs=1,
+                log_every_n_steps=1,
+                default_root_dir=str(tmp_path),
+            )
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
+
+            # Find the .ckpt file in the lightning_logs directory
+            ckpt_file = glob.glob(
+                f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
+            )[0]
+            ckpt_paths.append({"base_model": model, "ckpt_path": ckpt_file})
+
+        return ckpt_paths
+
+    def test_deep_ensemble(
+        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
+    ) -> None:
+        """Test Deep Ensemble."""
+        ensemble_model = DeepEnsembleSegmentation(
+            ensemble_members_dict, num_classes=4, save_preds=True
+        )
+
+        datamodule = ToySegmentationDataModule()
+
+        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
+
+        trainer.test(ensemble_model, datamodule=datamodule)
+
+        with h5py.File(
+            os.path.join(ensemble_model.pred_dir, "batch_0_sample_0.hdf5"), "r"
+        ) as f:
             assert "pred" in f
             assert "target" in f
             for key, value in f.items():
-                assert value.shape[-1] == 64
-                assert value.shape[-2] == 64
+                if key == "logits":
+                    assert value.shape[1] == 64
+                    assert value.shape[2] == 64
+                else:
+                    assert value.shape[-1] == 64
+                    assert value.shape[-2] == 64
             assert "aux" in f.attrs
             assert "index" in f.attrs
 
@@ -85,6 +166,11 @@ class TestFrozenSegmentation:
         model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
         model_conf.uq_method.model["encoder_name"] = backbone
 
+        if model_name == "DeepLabV3Plus":
+            # drop depth and decoder_channels
+            model_conf.uq_method.model.pop("encoder_depth")
+            model_conf.uq_method.model.pop("decoder_channels")
+
         module = instantiate(model_conf.uq_method, freeze_backbone=True)
         seg_model = module.model
 
@@ -102,6 +188,11 @@ class TestFrozenSegmentation:
         model_conf = OmegaConf.load(model_config_path)
         model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
 
+        if model_name == "DeepLabV3Plus":
+            # drop depth and decoder_channels as this decoder needs different config
+            model_conf.uq_method.model.pop("encoder_depth")
+            model_conf.uq_method.model.pop("decoder_channels")
+
         module = instantiate(model_conf.uq_method, freeze_decoder=True)
         seg_model = module.model
 
@@ -112,68 +203,3 @@ class TestFrozenSegmentation:
         assert all(
             [param.requires_grad for param in seg_model.segmentation_head.parameters()]
         )
-
-
-ensemble_model_config_paths = ["tests/configs/image_segmentation/mc_dropout.yaml"]
-
-
-class TestDeepEnsemble:
-    @pytest.fixture(
-        params=[
-            (model_config_path, data_config_path)
-            for model_config_path in ensemble_model_config_paths
-            for data_config_path in data_config_paths
-        ]
-    )
-    def ensemble_members_dict(self, request, tmp_path_factory: TempPathFactory) -> None:
-        model_config_path, data_config_path = request.param
-        model_conf = OmegaConf.load(model_config_path)
-        data_conf = OmegaConf.load(data_config_path)
-        # train networks for deep ensembles
-        ckpt_paths = []
-        for i in range(5):
-            tmp_path = tmp_path_factory.mktemp(f"run_{i}")
-
-            model = instantiate(model_conf.uq_method)
-            datamodule = instantiate(data_conf.data)
-            trainer = Trainer(
-                accelerator="cpu",
-                max_epochs=2,
-                log_every_n_steps=1,
-                default_root_dir=str(tmp_path),
-            )
-            trainer.fit(model, datamodule)
-            trainer.test(ckpt_path="best", datamodule=datamodule)
-
-            # Find the .ckpt file in the lightning_logs directory
-            ckpt_file = glob.glob(
-                f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
-            )[0]
-            ckpt_paths.append({"base_model": model, "ckpt_path": ckpt_file})
-
-        return ckpt_paths
-
-    def test_deep_ensemble(
-        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
-    ) -> None:
-        """Test Deep Ensemble."""
-        ensemble_model = DeepEnsembleSegmentation(
-            len(ensemble_members_dict), ensemble_members_dict, num_classes=4
-        )
-
-        datamodule = ToySegmentationDataModule()
-
-        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
-
-        trainer.test(ensemble_model, datamodule=datamodule)
-
-        with h5py.File(
-            os.path.join(ensemble_model.pred_dir, "batch_0_sample_0.hdf5"), "r"
-        ) as f:
-            assert "pred" in f
-            assert "target" in f
-            for key, value in f.items():
-                assert value.shape[-1] == 64
-                assert value.shape[-2] == 64
-            assert "aux" in f.attrs
-            assert "index" in f.attrs

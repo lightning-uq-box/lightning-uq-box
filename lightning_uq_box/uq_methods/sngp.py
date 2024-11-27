@@ -470,7 +470,6 @@ class SNGPClassification(SNGPBase):
         pred_dict["pred"] = self.mean_field_logits(
             pred_dict["pred"], pred_dict["pred_cov"]
         )
-        pred_dict["logits"] = pred_dict["pred"]
         return pred_dict
 
 
@@ -505,6 +504,9 @@ class RandomFourierFeatures(nn.Module):
         super().__init__()
         if feature_scale is None:
             feature_scale = math.sqrt(num_random_features / 2)
+
+        self.in_features = in_dim
+        self.out_features = num_random_features
 
         self.register_buffer("feature_scale", torch.tensor(feature_scale))
 

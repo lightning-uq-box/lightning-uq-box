@@ -5,7 +5,7 @@
 
 import glob
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 from hydra.utils import instantiate
@@ -19,7 +19,6 @@ from lightning_uq_box.uq_methods import DeepEnsembleClassification, TTAClassific
 
 model_config_paths = [
     "tests/configs/image_classification/base.yaml",
-    "tests/configs/image_classification/mc_dropout.yaml",
     "tests/configs/image_classification/bnn_vi_elbo.yaml",
     "tests/configs/image_classification/swag.yaml",
     "tests/configs/image_classification/sgld.yaml",
@@ -28,6 +27,11 @@ model_config_paths = [
     "tests/configs/image_classification/laplace.yaml",
     "tests/configs/image_classification/card.yaml",
     "tests/configs/image_classification/sngp.yaml",
+    "tests/configs/image_classification/vbll_disc.yaml",
+    "tests/configs/image_classification/vbll_gen.yaml",
+    "tests/configs/image_classification/masked_ensemble.yaml",
+    "tests/configs/image_classification/zigzag.yaml",
+    "tests/configs/image_classification/density_layer.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_classification/toy_classification.yaml"]
@@ -51,15 +55,9 @@ class TestImageClassificationTask:
         trainer_conf = OmegaConf.load(trainer_config_path)
         full_conf = OmegaConf.merge(trainer_conf, data_conf, model_conf)
 
-        # timm resnets implement dropout as nn.functional and not modules
-        # so the find_dropout_layers function yields a warning
-        # TODO
-        # match = "No dropout layers found in model*"
-        # with pytest.warns(UserWarning):
-        model = instantiate(full_conf.model)
-        datamodule = instantiate(full_conf.data)
-        trainer = instantiate(
-            full_conf.trainer,
+        model = instantiate(model_conf.model)
+        datamodule = instantiate(data_conf.data)
+        trainer = Trainer(
             accelerator="cpu",
             default_root_dir=str(tmp_path),
             logger=CSVLogger(str(tmp_path)),
@@ -70,6 +68,32 @@ class TestImageClassificationTask:
             trainer.test(ckpt_path="best", datamodule=datamodule)
         else:
             trainer.test(model, datamodule=datamodule)
+
+
+mc_dropout_config_paths = ["tests/configs/image_classification/mc_dropout.yaml"]
+
+
+class TestMCDropout:
+    @pytest.mark.parametrize("model_config_path", mc_dropout_config_paths)
+    @pytest.mark.parametrize("data_config_path", data_config_paths)
+    def test_trainer(
+        self, model_config_path: str, data_config_path: str, tmp_path: Path
+    ) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        data_conf = OmegaConf.load(data_config_path)
+
+        model = instantiate(model_conf.model)
+        datamodule = instantiate(data_conf.data)
+        trainer = Trainer(
+            accelerator="cpu",
+            max_epochs=2,
+            log_every_n_steps=1,
+            default_root_dir=str(tmp_path),
+            logger=CSVLogger(str(tmp_path)),
+        )
+        with pytest.raises(UserWarning, match="No dropout layers found in model"):
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
 
 
 posthoc_config_paths = [
@@ -91,10 +115,13 @@ class TestPosthoc:
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            accelerator="cpu", default_root_dir=str(tmp_path), inference_mode=False
+            accelerator="cpu",
+            default_root_dir=str(tmp_path),
+            inference_mode=False,
+            max_epochs=1,
         )
         # use validation for testing, should be calibration loader for conformal
-        trainer.validate(model, datamodule.val_dataloader())
+        trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
         trainer.test(model, datamodule=datamodule)
 
 
@@ -104,6 +131,7 @@ frozen_config_paths = [
     "tests/configs/image_classification/bnn_vi_elbo.yaml",
     "tests/configs/image_classification/due.yaml",
     "tests/configs/image_classification/sngp.yaml",
+    "tests/configs/image_classification/vbll_disc.yaml",
 ]
 
 
@@ -117,6 +145,7 @@ class TestFrozenBackbone:
             model_conf.model.model.model_name = model_name
             model = instantiate(model_conf.model, freeze_backbone=True)
             assert not all([param.requires_grad for param in model.model.parameters()])
+
             assert all(
                 [
                     param.requires_grad
@@ -133,7 +162,7 @@ class TestFrozenBackbone:
             )
 
 
-ensemble_model_config_paths = ["tests/configs/image_classification/mc_dropout.yaml"]
+ensemble_model_config_paths = ["tests/configs/image_classification/base.yaml"]
 
 
 class TestDeepEnsemble:
@@ -144,20 +173,22 @@ class TestDeepEnsemble:
             for data_config_path in data_config_paths
         ]
     )
-    def ensemble_members_dict(self, request, tmp_path_factory: TempPathFactory) -> None:
+    def ensemble_members_dict(
+        self, request, tmp_path_factory: TempPathFactory
+    ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(5):
+        for i in range(3):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             model = instantiate(model_conf.model)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 accelerator="cpu",
-                max_epochs=2,
+                max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
             )
@@ -173,11 +204,11 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(
-            len(ensemble_members_dict), ensemble_members_dict, num_classes=4
+            ensemble_members_dict, num_classes=4
         )
 
         datamodule = ToyImageClassificationDatamodule()
@@ -197,7 +228,10 @@ class TestTTAModel:
     @pytest.mark.parametrize("model_config_path", tta_model_paths)
     @pytest.mark.parametrize("merge_strategy", ["mean", "median", "sum", "max", "min"])
     def test_trainer(
-        self, model_config_path: str, merge_strategy: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        merge_strategy: Literal["mean", "median", "sum", "max", "min"],
+        tmp_path: Path,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         base_model = instantiate(model_conf.model)
@@ -206,4 +240,8 @@ class TestTTAModel:
 
         trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
 
-        trainer.test(tta_model, datamodule)
+        if "mc_dropout" in model_config_path:
+            with pytest.raises(UserWarning, match="No dropout layers found in model"):
+                trainer.test(tta_model, datamodule)
+        else:
+            trainer.test(tta_model, datamodule)

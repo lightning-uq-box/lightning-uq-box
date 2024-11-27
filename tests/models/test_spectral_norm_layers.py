@@ -67,6 +67,16 @@ def test_spectral_norm_conv_unsupported_type():
         spectral_norm_conv(linear, coeff=0.5, input_dim=1)
 
 
+def test_spectral_norm_conv_stride_larger():
+    conv = nn.Conv2d(
+        in_channels=3, out_channels=20, kernel_size=(3, 3), padding=1, stride=3
+    )
+    input = torch.randn(3, 64, 64)
+    spectral_norm_conv(conv, coeff=0.5, input_dim=input.shape)
+    with pytest.raises(RuntimeError):
+        conv(input.unsqueeze(0))
+
+
 @pytest.mark.parametrize(
     "module, input_tensor", [(nn.Linear(10, 20), torch.randn(20, 10))]
 )

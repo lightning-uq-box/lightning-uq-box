@@ -62,7 +62,7 @@ class TestUQMethods:
         for param_tensor in model.state_dict():
             assert torch.allclose(
                 model.state_dict()[param_tensor],
-                torch.load(ckpt_path)["state_dict"][param_tensor],
+                torch.load(ckpt_path, weights_only=True)["state_dict"][param_tensor],
             )
 
     def test_checkpoint_load_model(self, exp_run):
@@ -75,5 +75,7 @@ class TestUQMethods:
             assert torch.allclose(
                 model.state_dict()[param_tensor],
                 # need to prepred model for the lightning module state dict
-                torch.load(ckpt_path)["state_dict"]["model." + param_tensor],
+                torch.load(ckpt_path, weights_only=True)["state_dict"][
+                    "model." + param_tensor
+                ],
             )

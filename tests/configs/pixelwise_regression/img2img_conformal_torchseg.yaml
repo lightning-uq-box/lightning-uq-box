@@ -6,3 +6,5 @@ uq_method:
     encoder_weights: imagenet
     classes: 3 # [0.1, 0.5, 0.9] quantile
     in_channels: 3
+    encoder_depth: 2
+    decoder_channels: [16, 8]
