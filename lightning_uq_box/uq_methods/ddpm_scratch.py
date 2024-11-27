@@ -66,6 +66,7 @@ class DDPM(BaseModule):
         image_size: int = 224,
         in_channels: int = 3,
         out_channels: int = 3,
+        loss_fn: nn.Module = nn.MSELoss(),
         model_kwargs_keys: list[str] = [],
         log_samples_every_n_epochs: int = 10,
         latent_model: nn.Module | None = None,
@@ -87,6 +88,9 @@ class DDPM(BaseModule):
                 of the images that will be generated during sampling
             in_channels: The number of input channels of the images coming from the dataloader
             out_channels: The number of output channels of the images to be generated
+            loss_fn: The loss function to use. By default, the loss function is called with the model prediction
+                and target. If you need to pass additional arguments or need more control, you can override
+                :method:`~DDPM.compute_loss` method.
             model_kwargs_keys: The names of additional keyword arguments that the forward pass of the model
                 can accept. The keys will be used to extract the values from the batch dictionary, and
                 passed to the model as keyword arguments.
@@ -120,6 +124,8 @@ class DDPM(BaseModule):
         self.use_ema_model = False
 
         self.ema = EMA(model, beta=self.ema_decay, update_every=self.ema_update_every)
+
+        self.loss_fn = loss_fn
 
         # TODO
         self.condition = False
@@ -240,6 +246,10 @@ class DDPM(BaseModule):
         )
         noise = torch.randn_like(x) if t > 0 else 0.0  # no noise if t == 0
         pred_img = model_mean + (0.5 * model_log_variance).exp() * noise
+        if t != 0:
+            # i.e if train model with multiple outputs, then input during backward pass
+            # should be the mean/median output
+            pred_img = self.adapt_output_for_metrics(pred_img)
         return pred_img, x_start
 
     @torch.inference_mode()
@@ -354,6 +364,19 @@ class DDPM(BaseModule):
         pred_noise = self.predict_noise_from_start(x, t, x_start)
         return {"pred_noise": pred_noise, "pred_x_start": x_start}
 
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt model output to be compatible for metric computation, this can be useful
+        when training a model with multiple outputs, for example NLL optimization, but only
+        want to compute metrics on the mean/median output.
+
+        Args:
+            out: output from the model
+
+        Returns:
+            mean/median output
+        """
+        return out
+
     def p_mean_variance(
         self, x, t, model_kwargs: dict[str, Tensor] | None = None, clip_denoised=True
     ):
@@ -401,10 +424,10 @@ class DDPM(BaseModule):
     def compute_loss(self, pred: Tensor, target: Tensor, t: Tensor) -> Tensor:
         """Compute the loss for the model."""
         # TODO make this more varible, probably by also an argument
-        loss = F.mse_loss(pred, target, reduction="none")
-        loss = reduce(loss, "b ... -> b", "mean")
-        loss = loss * self.extract(self.loss_weight, t, loss.shape)
-        return loss.mean()
+        # loss = F.mse_loss(pred, target, reduction="none")
+        # loss = reduce(loss, "b ... -> b", "mean")
+        # loss = loss * self.extract(self.loss_weight, t, loss.shape)
+        return self.loss_fn(pred, target)
 
     def encode_img(
         self, latent_model: nn.Module, img: Tensor, up_sample: bool = False
