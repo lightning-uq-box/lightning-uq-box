@@ -12,5 +12,5 @@ pandas==2.2.3
 uncertainty-toolbox==0.1.1
 kornia==0.7.4
 h5py==3.12.1
-laplace-torch==0.2.1
+laplace-torch==0.2.2.2
 ema-pytorch==0.7.6
