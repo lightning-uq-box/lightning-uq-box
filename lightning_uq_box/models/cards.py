@@ -17,10 +17,9 @@ class ConditionalLinear(nn.Module):
         """Initialize a new instance of the layer.
 
         Args:
-            n_inputs: number of inputs to the layer
-            n_outputs: number of outputs from the layer
+            n_inputs: number of inputs to the layer, could be the number of pixels
+            n_outputs: number of outputs from the layer, number of classes
             n_steps: number of diffusion steps in embedding
-
         """
         super().__init__()
         self.n_outputs = n_outputs
@@ -63,6 +62,51 @@ class DiffusionSequential(nn.Sequential):
             else:
                 input = module(input)
         return input
+
+
+class ConditionalEncoder(nn.Module):
+    """Conditional Encoder Model.
+
+    This is a simple encoder model that takes in an image input,
+    creates a feature representation and then passes it through
+    a ConditionalLinear Layer.
+    """
+
+    def __init__(self, encoder: nn.Module, n_outputs: int, n_steps: int) -> None:
+        """Initialize a new instance of Conditional Encoder.
+
+        Args:
+            encoder: encoder model
+            n_outputs: number of outputs from the conditional linear classifier,
+                number of classes
+            n_steps: number of diffusion steps
+        """
+        super().__init__()
+
+        self.encoder = encoder
+        self.n_outputs = n_outputs
+        self.n_steps = n_steps
+
+        _, module = _get_output_layer_name_and_module(self.encoder)
+        self.enc_out_features = module.out_features
+
+        self.model = DiffusionSequential(
+            self.encoder,
+            # nn.BatchNorm1d(self.enc_out_features, self.enc_out_features),
+            ConditionalLinear(self.enc_out_features, n_outputs, n_steps),
+        )
+
+    def forward(self, X: Tensor, t: Tensor) -> Tensor:
+        """Forward pass of the Conditional Encoder.
+
+        Args:
+            X: input data
+            t: time tensor
+
+        Returns:
+            output of the conditional encoder
+        """
+        return self.model(X, t)
 
 
 class ConditionalGuidedLinearModel(nn.Module):
