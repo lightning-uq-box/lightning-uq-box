@@ -39,6 +39,7 @@ class MasksemblesBase(BaseModule):
     The input from the dataloader will be repeated for each estimator, so
     consider this when defining the batch size regarding memory usage.
 
+    .. versionadded:: 0.2
     """
 
     def __init__(
@@ -234,6 +235,8 @@ class MasksemblesRegression(MasksemblesBase):
 
     The input from the dataloader will be repeated for each estimator, so
     consider this when defining the batch size regarding memory usage.
+
+    .. versionadded:: 0.2
     """
 
     pred_file_name = "preds.csv"
@@ -314,6 +317,8 @@ class MasksemblesClassification(MasksemblesBase):
 
     The input from the dataloader will be repeated for each estimator, so
     consider this when defining the batch size regarding memory usage.
+
+    .. versionadded:: 0.2
     """
 
     pred_file_name = "preds.csv"
