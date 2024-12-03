@@ -269,7 +269,7 @@ class SGLDRegression(SGLDBase):
         # create predictions from models loaded from checkpoints
         preds: list[torch.Tensor] = []
         for ckpt_path in self.dir_list:
-            self.model.load_state_dict(torch.load(ckpt_path))
+            self.model.load_state_dict(torch.load(ckpt_path, weights_only=True))
             preds.append(self.model(X))
 
         preds = torch.stack(preds, dim=-1).detach()
@@ -400,7 +400,7 @@ class SGLDClassification(SGLDBase):
         # create predictions from models loaded from checkpoints
         preds: list[torch.Tensor] = []
         for ckpt_path in self.dir_list:
-            self.model.load_state_dict(torch.load(ckpt_path))
+            self.model.load_state_dict(torch.load(ckpt_path, weights_only=True))
             preds.append(self.model(X))
 
         preds = torch.stack(preds, dim=-1).detach()

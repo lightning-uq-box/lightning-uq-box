@@ -6,6 +6,8 @@ uq_method:
     encoder_weights: imagenet
     classes: 2 # NLL output
     in_channels: 3
+    encoder_depth: 2
+    decoder_channels: [16, 8]
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true

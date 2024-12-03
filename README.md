@@ -6,6 +6,9 @@
 [![style](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/style.yaml/badge.svg)](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/style.yaml)
 [![tests](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/tests.yaml/badge.svg)](https://github.com/lightning-uq-box/lightning-uq-box/actions/workflows/tests.yaml)
 [![codecov](https://codecov.io/gh/lightning-uq-box/lightning-uq-box/branch/main/graph/badge.svg?token=oa3Z3PMVOg)](https://app.codecov.io/gh/lightning-uq-box/lightning-uq-box)
+[![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/lightning-uq-box/lightning-uq-box/blob/main/LICENSE)
+<a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
+<a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a> &emsp;
 
 # lightning-uq-box
 
@@ -24,11 +27,25 @@ The goal of this library is threefold:
 
 To this end, each UQ-Method is essentially just a [Lightning Module](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) which can be used with a [Lightning Data Module](https://lightning.ai/docs/pytorch/stable/data/datamodule.html) and a [Trainer](https://lightning.ai/docs/pytorch/stable/common/trainer.html) to execute training, evaluation and inference for your desired task. The library also utilizes the [Lightning Command Line Interface (CLI)](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html) for better reproducibility of experiments and setting up experiments at scale.
 
+# Theory Guide
+
+For a comprehensive document that provides more mathematical details for each method and generally forms the basis of our implementations, please see the [Theory Guide](./docs/api/Lightning_UQ_Box_Theory_Guide.pdf). As a living document, we plan to update it as the library encompasses more methods. If you have any questions, or find typos or errors, feel free to open an issue.
+
 # Installation
 
+The recommended way to install the latest released version is via pip,
+
 ```console
-$ pip install lightning-uq-box
+pip install lightning-uq-box
 ```
+
+For the latest development version you can run,
+
+```console
+pip install git+https://github.com/lightning-uq-box/lightning-uq-box.git
+```
+
+The package is also available for installation via conda or spack. You can find instructions in the [documention](https://lightning-uq-box.readthedocs.io/en/latest/installation.html)
 
 # UQ-Methods
 
@@ -52,6 +69,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ✅           |
 | Mean Variance Estimation (MVE)                |     ✅     |       ❌       |      ❌      |          ✅           |
 | ZigZag                                        |     ✅     |       ✅       |      ❌      |          ❌           |
+| Mixture Density Networks                      |     ✅     |       ❌       |      ❌      |          ⏳           |
 
 ### Approximate Bayesian Methods
 
@@ -69,6 +87,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Variational Bayesian Last Layer (VBLL)        |     ✅     |       ✅       |      ❌      |          ❌           |
 | Deep Ensemble                                 |     ✅     |       ✅       |      ✅      |          ✅           |
 | Masked Ensemble                               |     ✅     |       ✅       |      ⏳      |          ⏳           |
+| Density Uncertainty Layer                     |     ✅     |       ✅       |      ❌      |          ❌           |
 
 ### Generative Models
 
@@ -77,6 +96,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Classification And Regression Diffusion (CARD)|     ✅     |       ✅       |      ❌      |          ❌           |
 | Probabilistic UNet                            |     ❌     |       ❌       |      ✅      |          ❌           |
 | Hierarchical Probabilistic UNet               |     ❌     |       ❌       |      ✅      |          ❌           |
+| Variational Auto-Encoder (VAE)                |     ❌     |       ❌       |      ❌      |          ✅           |
 
 ### Post-Hoc methods
 
@@ -95,3 +115,16 @@ Head over to the [tutorials](https://lightning-uq-box.readthedocs.io/en/latest/t
 
 # Documentation
 We aim to provide an extensive documentation on all included UQ-methods that provide some theoretical background, as well as tutorials that illustrate these methods on toy datasets.
+
+# Citation
+
+If you use this software in your work, please cite our [paper](https://arxiv.org/abs/2410.03390):
+
+```bibtex
+@article{Lehmann_Lightning_UQ_Box_2024,
+  author = {Lehmann, Nils and Gawlikowski, Jakob and Stewart, Adam J. and Jancauskas, Vytautas and Depeweg, Stefan and Nalisnick, Eric and Gottschling, Nina M.},
+  journal = {arXiv preprint arXiv:2410.03390},
+  title = {{Lightning UQ Box}: A Comprehensive Framework for Uncertainty Quantification in Deep Learning},
+  year = {2024}
+}
+```

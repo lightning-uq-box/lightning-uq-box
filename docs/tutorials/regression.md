@@ -19,11 +19,12 @@ regression/swag
 regression/sngp
 regression/deep_kernel_learning
 regression/vbll
-regressoin/vbll_sngp
+regression/vbll_sngp
 regression/deep_ensemble
-regression/masksemble_mse
 regression/masksemble_nll
 regression/card
 regression/zigzag
 regression/evaluation_uncertainty
+regression/mixture_density
+regression/density_layer
 ```

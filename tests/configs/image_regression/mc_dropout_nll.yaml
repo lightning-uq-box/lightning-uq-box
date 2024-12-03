@@ -4,6 +4,7 @@ uq_method:
     _target_: timm.create_model
     model_name: resnet18
     num_classes: 2
+    drop_rate: 0.2
   optimizer:
     _target_: torch.optim.Adam
     _partial_: true
@@ -13,5 +14,5 @@ uq_method:
   lr_scheduler:
     _target_: torch.optim.lr_scheduler.ConstantLR
     _partial_: true
-  num_mc_samples: 10
+  num_mc_samples: 3
   burnin_epochs: 1

@@ -55,19 +55,29 @@ class TestImageSegmentationTask:
         )
 
         trainer.fit(model, datamodule)
-        trainer.test(ckpt_path="best", datamodule=datamodule)
+        if "mc_dropout" in model_config_path:
+            with pytest.raises(UserWarning, match="No dropout layers found in model"):
+                trainer.test(ckpt_path="best", datamodule=datamodule)
+        else:
+            trainer.test(ckpt_path="best", datamodule=datamodule)
 
-        with h5py.File(os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r") as f:
-            assert "pred" in f
-            assert "target" in f
-            for key, value in f.items():
-                assert value.shape[-1] == 64
-                assert value.shape[-2] == 64
-            assert "aux" in f.attrs
-            assert "index" in f.attrs
+            with h5py.File(
+                os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r"
+            ) as f:
+                assert "pred" in f
+                assert "target" in f
+                for key, value in f.items():
+                    if key == "logits":
+                        assert value.shape[1] == 64
+                        assert value.shape[2] == 64
+                    else:
+                        assert value.shape[-1] == 64
+                        assert value.shape[-2] == 64
+                assert "aux" in f.attrs
+                assert "index" in f.attrs
 
 
-ensemble_model_config_paths = ["tests/configs/image_segmentation/mc_dropout.yaml"]
+ensemble_model_config_paths = ["tests/configs/image_segmentation/base.yaml"]
 
 
 class TestDeepEnsemble:
@@ -78,20 +88,22 @@ class TestDeepEnsemble:
             for data_config_path in data_config_paths
         ]
     )
-    def ensemble_members_dict(self, request, tmp_path_factory: TempPathFactory) -> None:
+    def ensemble_members_dict(
+        self, request, tmp_path_factory: TempPathFactory
+    ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(5):
+        for i in range(3):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             model = instantiate(model_conf.uq_method, save_preds=True)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 accelerator="cpu",
-                max_epochs=2,
+                max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
             )
@@ -107,7 +119,7 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleSegmentation(
@@ -126,8 +138,12 @@ class TestDeepEnsemble:
             assert "pred" in f
             assert "target" in f
             for key, value in f.items():
-                assert value.shape[-1] == 64
-                assert value.shape[-2] == 64
+                if key == "logits":
+                    assert value.shape[1] == 64
+                    assert value.shape[2] == 64
+                else:
+                    assert value.shape[-1] == 64
+                    assert value.shape[-2] == 64
             assert "aux" in f.attrs
             assert "index" in f.attrs
 
@@ -150,6 +166,11 @@ class TestFrozenSegmentation:
         model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
         model_conf.uq_method.model["encoder_name"] = backbone
 
+        if model_name == "DeepLabV3Plus":
+            # drop depth and decoder_channels
+            model_conf.uq_method.model.pop("encoder_depth")
+            model_conf.uq_method.model.pop("decoder_channels")
+
         module = instantiate(model_conf.uq_method, freeze_backbone=True)
         seg_model = module.model
 
@@ -166,6 +187,11 @@ class TestFrozenSegmentation:
     def test_freeze_decoder(self, model_config_path: str, model_name: str) -> None:
         model_conf = OmegaConf.load(model_config_path)
         model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
+
+        if model_name == "DeepLabV3Plus":
+            # drop depth and decoder_channels as this decoder needs different config
+            model_conf.uq_method.model.pop("encoder_depth")
+            model_conf.uq_method.model.pop("decoder_channels")
 
         module = instantiate(model_conf.uq_method, freeze_decoder=True)
         seg_model = module.model

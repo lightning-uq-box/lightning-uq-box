@@ -42,12 +42,17 @@ from .deep_kernel_learning import (
     DKLRegression,
     compute_initial_values,
 )
+from .density_uncertainty import (
+    DensityLayerModelBase,
+    DensityLayerModelClassification,
+    DensityLayerModelRegression,
+)
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .hierarchical_prob_unet import HierarchicalProbUNet
 from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
-from .loss_functions import NLL, DERLoss, PinballLoss
+from .loss_functions import NLL, DERLoss, PinballLoss, VAELoss
 from .masked_ensemble import (
     MasksemblesBase,
     MasksemblesClassification,
@@ -61,6 +66,7 @@ from .mc_dropout import (
     MCDropoutSegmentation,
 )
 from .mean_variance_estimation import MVEBase, MVEPxRegression, MVERegression
+from .mixture_density import MDNRegression
 from .prob_unet import ProbUNet
 from .quantile_regression import (
     QuantilePxRegression,
@@ -85,6 +91,7 @@ from .swag import (
     SWAGSegmentation,
 )
 from .temp_scaling import TempScaling
+from .vae import VAE, ConditionalVAE
 from .vbll import VBLLClassification, VBLLRegression
 from .zigzag import ZigZagBase, ZigZagClassification, ZigZagRegression
 
@@ -110,6 +117,8 @@ __all__ = (
     "MCDropoutRegression",
     "MCDropoutClassification",
     "MCDropoutSegmentation",
+    # Mixture Density Network
+    "MDNRegression",
     # Laplace Approximation
     "LaplaceBase",
     "LaplaceRegression",
@@ -124,6 +133,10 @@ __all__ = (
     "DeepEnsembleClassification",
     "DeepEnsembleSegmentation",
     "DeepEnsemblePxRegression",
+    # Density Uncertainty Layer Model
+    "DensityLayerModelBase",
+    "DensityLayerModelRegression",
+    "DensityLayerModelClassification",
     # Masked Ensemble
     "MasksemblesBase",
     "MasksemblesRegression",
@@ -197,10 +210,14 @@ __all__ = (
     "NLL",
     "DERLoss",
     "PinballLoss",
+    "VAELoss",
     # Test time augmentation
     "TTABase",
     "TTARegression",
     "TTAClassification",
+    # VAE
+    "VAE",
+    "ConditionalVAE",
     # Zig Zag
     "ZigZagBase",
     "ZigZagRegression",

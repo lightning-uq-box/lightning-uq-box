@@ -1,5 +1,11 @@
 # Lightning-UQ-Box
 
+## Installation 
+
+For installation instructions, see the [dedicated page](https://lightning-uq-box.readthedocs.io/en/latest/installation.html).
+
+## Introduction
+
 Welcome to the lightning-uq-box documentation page. Our goal is to give you both an intuition of how different UQ-Methods work as well as demonstrate how you can apply these methods in your research or projects. To this end, we aim to give both a theoretical and practical overview of implemented UQ-Methods since there exist a wide variety of UQ-Methods. Similarly, there are several general tasks for which practitioners might require uncertainty estimates. The library currently supports the following four tasks:
 
 1. **Regression** for tabular/image inputs with 1D scalar targets
@@ -9,17 +15,13 @@ Welcome to the lightning-uq-box documentation page. Our goal is to give you both
 
 While some UQ-Methods like MC-Dropout or Deep Ensembles can be applied across tasks, other methods are specifically developed for certain tasks. The following aims to give an overview of supported methods for the different tasks.
 
+For a comprehensive document that provides more mathematical details for each method and forms the basis of our implementations, please see [the Theory Guide](./api/Lightning_UQ_Box_Theory_Guide.pdf).
+
 In the tables that follow below, you can see what UQ-Method/Task combination is currently supported by the Lightning-UQ-Box via these indicators:
 
 - ✅ supported
 - ❌ not designed for this task
 - ⏳ in progress
-
-To get started, 
-
-```console
-$ pip install lightning-uq-box
-```
 
 ## Classification of UQ-Methods
 
@@ -35,6 +37,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Deep Evidential (DE)                          |     ✅     |       ⏳       |      ⏳      |          ✅           |
 | Mean Variance Estimation (MVE)                |     ✅     |       ❌       |      ❌      |          ✅           |
 | ZigZag                                        |     ✅     |       ✅       |      ❌      |          ❌           |
+| Mixture Density Networks                      |     ✅     |       ❌       |      ❌      |          ⏳           |
 
 ### Approximate Bayesian Methods
 
@@ -52,6 +55,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Variational Bayesian Last Layer (VBLL)        |     ✅     |       ✅       |      ❌      |          ❌           |
 | Deep Ensemble                                 |     ✅     |       ✅       |      ✅      |          ✅           |
 | Masked Ensemble                               |     ✅     |       ✅       |      ⏳      |          ⏳           |
+| Density Uncertainty Layer                     |     ✅     |       ✅       |      ❌      |          ❌           |
 
 ### Generative Models
 
@@ -77,6 +81,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 ```{toctree}
 :maxdepth: 2
 
+installation
 user_guide
 tutorial_overview
 running_experiments

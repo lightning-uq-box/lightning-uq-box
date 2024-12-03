@@ -156,13 +156,21 @@ class RAPS(PosthocBase):
                 logits = self.model.predict_step(X)["logits"]
             else:
                 logits = self.model(X)
+            # temp scale logits just for prediction processing
             scores = temp_scale_logits(logits, self.temperature)
+            # adjust model logits for set prediction
             S = self.adjust_model_logits(logits)
 
-        def identity(x, dim=None):
-            return x
+        if logits.ndim == 3:
+            agg_func = torch.mean
+        else:
 
-        pred_dict = process_classification_prediction(scores, aggregate_fn=identity)
+            def identity(x, dim=None):
+                return x
+
+            agg_func = identity
+
+        pred_dict = process_classification_prediction(scores, aggregate_fn=agg_func)
         pred_dict["pred_set"] = S
         pred_dict["size"] = torch.tensor([len(x) for x in S])
 
@@ -179,6 +187,8 @@ class RAPS(PosthocBase):
         """
         scores = temp_scale_logits(model_logits, self.temperature)
         softmax_scores = F.softmax(scores, dim=1)
+        if softmax_scores.ndim == 3:  # predictions from MC-type model
+            softmax_scores = softmax_scores.mean(-1)
         sorted_score_indices, ordered, cumsum = sort_sum(softmax_scores)
 
         return gen_cond_quantile_function(

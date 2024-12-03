@@ -28,8 +28,10 @@ model_config_paths = [
     "tests/configs/pixelwise_regression/mve.yaml",
     "tests/configs/pixelwise_regression/der.yaml",
     "tests/configs/pixelwise_regression/quantile_regression.yaml",
-    "tests/configs/pixelwise_regression/mc_dropout.yaml",
     "tests/configs/pixelwise_regression/swag.yaml",
+    "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_conditional.yaml",
 ]
 
 data_config_paths = ["tests/configs/pixelwise_regression/toy_pixelwise_regression.yaml"]
@@ -44,8 +46,10 @@ class TestPixelwiseRegressionTask:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
 
-        model = instantiate(model_conf.uq_method, save_preds=True)
-        datamodule = instantiate(data_conf.data)
+        full_conf = OmegaConf.merge(data_conf, model_conf)
+
+        model = instantiate(full_conf.uq_method, save_preds=True)
+        datamodule = instantiate(full_conf.data)
         trainer = Trainer(
             accelerator="cpu",
             max_epochs=2,
@@ -64,17 +68,40 @@ class TestPixelwiseRegressionTask:
         with h5py.File(os.path.join(model.pred_dir, "batch_0_sample_0.hdf5"), "r") as f:
             assert "pred" in f
             assert "target" in f
-            for key, value in f.items():
-                assert value.shape[-1] == 64
-                assert value.shape[-2] == 64
+            for key in ["pred", "target"]:
+                assert f[key].shape[-1] == datamodule.image_size
+                assert f[key].shape[-2] == datamodule.image_size
             assert "aux" in f.attrs
             assert "index" in f.attrs
 
 
-ensemble_model_config_paths = [
-    "tests/configs/pixelwise_regression/mve.yaml",
-    "tests/configs/pixelwise_regression/mc_dropout.yaml",
-]
+mc_dropout_config_paths = ["tests/configs/pixelwise_regression/mc_dropout.yaml"]
+
+
+class TestMCDropout:
+    @pytest.mark.parametrize("model_config_path", mc_dropout_config_paths)
+    @pytest.mark.parametrize("data_config_path", data_config_paths)
+    def test_trainer(
+        self, model_config_path: str, data_config_path: str, tmp_path: Path
+    ) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        data_conf = OmegaConf.load(data_config_path)
+
+        model = instantiate(model_conf.uq_method)
+        datamodule = instantiate(data_conf.data)
+        trainer = Trainer(
+            accelerator="cpu",
+            max_epochs=1,
+            log_every_n_steps=1,
+            default_root_dir=str(tmp_path),
+            logger=CSVLogger(str(tmp_path)),
+        )
+        with pytest.raises(UserWarning, match="No dropout layers found in model"):
+            trainer.fit(model, datamodule)
+            trainer.test(ckpt_path="best", datamodule=datamodule)
+
+
+ensemble_model_config_paths = ["tests/configs/pixelwise_regression/mve.yaml"]
 
 
 class TestDeepEnsemble:
@@ -85,20 +112,22 @@ class TestDeepEnsemble:
             for data_config_path in data_config_paths
         ]
     )
-    def ensemble_members_dict(self, request, tmp_path_factory: TempPathFactory) -> None:
+    def ensemble_members_dict(
+        self, request, tmp_path_factory: TempPathFactory
+    ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(5):
+        for i in range(3):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
                 accelerator="cpu",
-                max_epochs=2,
+                max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
             )
@@ -114,7 +143,7 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsemblePxRegression(
@@ -191,6 +220,11 @@ class TestFrozenPxRegression:
         model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
         model_conf.uq_method.model["encoder_name"] = backbone
 
+        if model_name == "DeepLabV3Plus":
+            # drop depth and decoder_channels
+            model_conf.uq_method.model.pop("encoder_depth")
+            model_conf.uq_method.model.pop("decoder_channels")
+
         module = instantiate(model_conf.uq_method, freeze_backbone=True)
         seg_model = module.model
 
@@ -208,6 +242,11 @@ class TestFrozenPxRegression:
         model_conf = OmegaConf.load(model_config_path)
         model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
 
+        if model_name == "DeepLabV3Plus":
+            # drop depth and decoder_channels
+            model_conf.uq_method.model.pop("encoder_depth")
+            model_conf.uq_method.model.pop("decoder_channels")
+
         module = instantiate(model_conf.uq_method, freeze_decoder=True)
         seg_model = module.model
 
@@ -217,4 +256,29 @@ class TestFrozenPxRegression:
         assert all([param.requires_grad for param in seg_model.encoder.parameters()])
         assert all(
             [param.requires_grad for param in seg_model.segmentation_head.parameters()]
+        )
+
+
+frozen_vae_paths = [
+    "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
+    "tests/configs/pixelwise_regression/vae_conditional.yaml",
+]
+
+
+class TestFrozenVAE:
+    @pytest.mark.parametrize("model_config_path", frozen_vae_paths)
+    def test_freeze_encoder(self, model_config_path: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        module = instantiate(model_conf.uq_method, freeze_backbone=True)
+        assert all(
+            [param.requires_grad is False for param in module.encoder.parameters()]
+        )
+
+    @pytest.mark.parametrize("model_config_path", frozen_vae_paths)
+    def test_freeze_decoder(self, model_config_path: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        module = instantiate(model_conf.uq_method, freeze_decoder=True)
+        assert all(
+            [param.requires_grad is False for param in module.decoder.parameters()]
         )

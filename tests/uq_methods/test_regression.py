@@ -41,6 +41,8 @@ model_config_paths = [
     "tests/configs/regression/cards.yaml",
     "tests/configs/regression/sngp.yaml",
     "tests/configs/regression/vbll.yaml",
+    "tests/configs/regression/mixture_density.yaml",
+    "tests/configs/regression/density_layer.yaml",
 ]
 
 data_config_paths = ["tests/configs/regression/toy_regression.yaml"]
@@ -133,7 +135,9 @@ class TestDeepEnsemble:
             for data_config_path in data_config_paths
         ]
     )
-    def ensemble_members_dict(self, request, tmp_path_factory: TempPathFactory) -> None:
+    def ensemble_members_dict(
+        self, request, tmp_path_factory: TempPathFactory
+    ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         # train networks for deep ensembles
         ckpt_paths = []
@@ -173,7 +177,7 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: dict[str, Any], tmp_path: Path
+        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(ensemble_members_dict)

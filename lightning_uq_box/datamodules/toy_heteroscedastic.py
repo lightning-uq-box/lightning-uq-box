@@ -59,6 +59,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         generate_y: Callable = noisy_sine,
         noise_seed: int = 42,
         split_seed: int = 42,
+        invert: bool = False,
     ) -> None:
         """Define a heteroscedastic toy regression dataset.
 
@@ -94,11 +95,12 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
                 signature f(x, noise: bool)
             noise_seed: random seed for x points positions and y noise
             split_seed: random seed for train/test/val split
-
-        .. versionchanged:: 0.2.0
-           Add 'fraction' arguments to control test, validation and calibration
+            invert: whether to model the inverse problem, swaps X and Y
+                in the DataLoader and variables
         """
         super().__init__()
+
+        self.invert = invert
 
         # TODO: use rng=np.random.default_rng(seed) and pass to noisY_sine()
         np.random.seed(noise_seed)
@@ -163,6 +165,24 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
                     arr_name,
                     self._n2t(scalers[xy].transform(getattr(self, arr_name))),
                 )
+
+        if self.invert:
+            for arr_type in ["train", "test", "val", "calib", "all"]:
+                X_arr_name = f"X_{arr_type}"
+                Y_arr_name = f"Y_{arr_type}"
+                X_data = getattr(self, X_arr_name)
+                Y_data = getattr(self, Y_arr_name)
+                setattr(self, X_arr_name, Y_data)
+                setattr(self, Y_arr_name, X_data)
+
+            # handle the extended line separately
+            self.X_gtext = self._n2t(
+                np.linspace(
+                    self.Y_all.min() - span * 0.1,
+                    self.Y_all.max() + span * 0.1,
+                    int(n_points * 1.5),
+                )[:, None]
+            )
 
     @staticmethod
     def _n2t(x):
