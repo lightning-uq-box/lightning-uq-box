@@ -55,7 +55,7 @@ class BNN_VI_Base(DeterministicModel):
         stochastic_module_names: list[str | int] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of BNN VI.
 
@@ -87,7 +87,7 @@ class BNN_VI_Base(DeterministicModel):
         assert n_mc_samples_test > 0, "Need to sample at least once during testing."
 
         # update hparams
-        self.hparams.weight_decay = 0.0
+        self.hparams["weight_decay"] = 0.0
         self.save_hyperparameters(
             ignore=["model", "optimizer", "lr_scheduler", "latent_net"]
         )
@@ -106,11 +106,11 @@ class BNN_VI_Base(DeterministicModel):
     def _define_bnn_args(self):
         """Define BNN Args."""
         return {
-            "prior_mu": self.hparams.prior_mu,
-            "prior_sigma": self.hparams.prior_sigma,
-            "posterior_mu_init": self.hparams.posterior_mu_init,
-            "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.bayesian_layer_type,
+            "prior_mu": self.hparams["prior_mu"],
+            "prior_sigma": self.hparams["prior_sigma"],
+            "posterior_mu_init": self.hparams["posterior_mu_init"],
+            "posterior_rho_init": self.hparams["posterior_rho_init"],
+            "layer_type": self.hparams["bayesian_layer_type"],
         }
 
     def _setup_bnn_with_vi(self) -> None:
@@ -145,7 +145,7 @@ class BNN_VI_Base(DeterministicModel):
             self.trainer.datamodule.train_dataloader().dataset
         )
         self.energy_loss_module = EnergyAlphaDivergence(
-            N=self.num_training_points, alpha=self.hparams.alpha
+            N=self.num_training_points, alpha=self.hparams["alpha"]
         )
 
     def training_step(
@@ -298,7 +298,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         stochastic_module_names: list[int] | list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of BNN VI Regression.
 
@@ -357,7 +357,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor, Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -376,7 +376,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
 
         # draw samples for all stochastic functions
-        for i in range(self.hparams.n_mc_samples_train):
+        for i in range(self.hparams["n_mc_samples_train"]):
             # mean prediction
             pred = self.forward(X)
             model_preds.append(pred)
@@ -402,12 +402,17 @@ class BNN_VI_Regression(BNN_VI_Base):
         return energy_loss, mean_out.detach()
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -428,11 +433,11 @@ class BNN_VI_Regression(BNN_VI_Base):
         """
         # output from forward: [n_samples, batch_size, outputs]
         with torch.no_grad():
-            model_preds = [
-                self.forward(X) for _ in range(self.hparams.n_mc_samples_test)
-            ]
+            model_preds = torch.stack(
+                [self.forward(X) for _ in range(self.hparams["n_mc_samples_test"])],
+                dim=0,
+            ).cpu()
         # model_preds [batch_size, output_dim]
-        model_preds = torch.stack(model_preds, dim=0).detach()
         mean_out = model_preds.mean(dim=0)
 
         # how can this happen that there is so little sample diversity
@@ -475,7 +480,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         stochastic_module_names: list[str | int] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of BNN VI Batched.
 
@@ -525,14 +530,14 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
     def _define_bnn_args(self):
         """Define BNN Args."""
         return {
-            "prior_mu": self.hparams.prior_mu,
-            "prior_sigma": self.hparams.prior_sigma,
-            "posterior_mu_init": self.hparams.posterior_mu_init,
-            "posterior_rho_init": self.hparams.posterior_rho_init,
-            "layer_type": self.hparams.bayesian_layer_type,
+            "prior_mu": self.hparams["prior_mu"],
+            "prior_sigma": self.hparams["prior_sigma"],
+            "posterior_mu_init": self.hparams["posterior_mu_init"],
+            "posterior_rho_init": self.hparams["posterior_rho_init"],
+            "layer_type": self.hparams["bayesian_layer_type"],
             "batched_samples": True,
             "max_n_samples": max(
-                self.hparams.n_mc_samples_train, self.hparams.n_mc_samples_test
+                self.hparams["n_mc_samples_train"], self.hparams["n_mc_samples_test"]
             ),
         }
 
@@ -561,19 +566,19 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
                 over samples, dim [n_mc_samples_train, output_dim]
         """
         out = self.forward(
-            X, n_samples=self.hparams.n_mc_samples_train
+            X, n_samples=self.hparams["n_mc_samples_train"]
         )  # [num_samples, batch_size, output_dim]
-        y = torch.tile(y[None, ...], (self.hparams.n_mc_samples_train, 1, 1))
+        y = torch.tile(y[None, ...], (self.hparams["n_mc_samples_train"], 1, 1))
 
         output_var = torch.ones_like(y) * (torch.exp(self.log_aleatoric_std)) ** 2
         # BUGS here in log_f_hat should be shape [n_samples]
 
         # batched sampling is implemented for a max amount of samples
-        # however, self.hparams.n_mc_samples_train might be smaller
+        # however, self.hparams["n_mc_samples_train"] might be smaller
         # thus pick those number of sapmles from log_f_hat
         energy_loss = self.energy_loss_module(
             self.nll_loss(out, y, output_var),
-            get_log_f_hat([self.model])[: self.hparams.n_mc_samples_train],
+            get_log_f_hat([self.model])[: self.hparams["n_mc_samples_train"]],
             get_log_Z_prior([self.model]),
             get_log_normalizer([self.model]),
             log_normalizer_z=torch.zeros(1).to(self.device),  # log_normalizer_z

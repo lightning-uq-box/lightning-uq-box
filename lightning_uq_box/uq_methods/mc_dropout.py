@@ -4,7 +4,7 @@
 """Mc-Dropout module."""
 
 import os
-from typing import Any
+from typing import Any, Literal
 
 import torch
 import torch.nn as nn
@@ -62,7 +62,7 @@ class MCDropoutBase(DeterministicModel):
         dropout_layer_names: list[str] = [],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of MCDropoutModel.
 
@@ -80,6 +80,7 @@ class MCDropoutBase(DeterministicModel):
         if not dropout_layer_names:
             dropout_layer_names = find_dropout_layers(model)
         self.dropout_layer_names = dropout_layer_names
+        self.num_mc_samples = num_mc_samples
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -157,7 +158,7 @@ class MCDropoutRegression(MCDropoutBase):
         dropout_layer_names: list[str] = [],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Regression.
 
@@ -181,6 +182,7 @@ class MCDropoutRegression(MCDropoutBase):
             optimizer,
             lr_scheduler,
         )
+        self.burnin_epochs = burnin_epochs
         self.save_hyperparameters(
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )
@@ -220,7 +222,7 @@ class MCDropoutRegression(MCDropoutBase):
         """
         out = self.forward(batch[self.input_key])
 
-        if self.current_epoch < self.hparams.burnin_epochs:
+        if self.current_epoch < self.burnin_epochs:
             loss = nn.functional.mse_loss(
                 self.adapt_output_for_metrics(out), batch[self.target_key]
             )
@@ -250,18 +252,23 @@ class MCDropoutRegression(MCDropoutBase):
         self.activate_dropout()
         with torch.no_grad():
             preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
+                [self.model(X) for _ in range(self.num_mc_samples)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
         return process_regression_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -286,11 +293,11 @@ class MCDropoutClassification(MCDropoutBase):
         model: nn.Module,
         num_mc_samples: int,
         loss_fn: nn.Module,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         dropout_layer_names: list[str] = [],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Classification.
 
@@ -359,12 +366,17 @@ class MCDropoutClassification(MCDropoutBase):
         return process_classification_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -458,7 +470,7 @@ class MCDropoutSegmentation(MCDropoutClassification):
         self.activate_dropout()  # activate dropout during prediction
         with torch.no_grad():
             preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
+                [self.model(X) for _ in range(self.num_mc_samples)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
         return process_segmentation_prediction(preds)

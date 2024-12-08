@@ -22,7 +22,7 @@
 """Probabilistic U-Net."""
 
 import os
-from typing import Any
+from typing import Any, Literal
 
 import torch
 import torch.nn as nn
@@ -63,7 +63,7 @@ class ProbUNet(BaseModule):
         fcomb_filter_size: int = 32,
         beta: float = 10.0,
         num_samples: int = 5,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         criterion: nn.Module | None = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,

@@ -35,7 +35,7 @@ class MVEBase(DeterministicModel):
         burnin_epochs: int,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of Deterministic Gaussian Model.
 
@@ -47,6 +47,8 @@ class MVEBase(DeterministicModel):
             lr_scheduler: learning rate scheduler
         """
         super().__init__(model, NLL(), freeze_backbone, optimizer, lr_scheduler)
+
+        self.burnin_epochs = burnin_epochs
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -69,7 +71,7 @@ class MVEBase(DeterministicModel):
         """
         out = self.forward(batch[self.input_key])
 
-        if self.current_epoch < self.hparams.burnin_epochs:
+        if self.current_epoch < self.burnin_epochs:
             loss = nn.functional.mse_loss(
                 self.adapt_output_for_metrics(out), batch[self.target_key]
             )
@@ -100,7 +102,7 @@ class MVERegression(MVEBase):
         burnin_epochs: int,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of Mean Variance Estimation Model for Regression.
 
@@ -142,12 +144,17 @@ class MVERegression(MVEBase):
         return {"pred": mean, "pred_uct": std, "aleatoric_uct": std, "out": preds}
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

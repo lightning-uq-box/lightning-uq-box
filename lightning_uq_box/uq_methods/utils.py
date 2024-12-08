@@ -6,6 +6,7 @@
 import os
 from collections import OrderedDict
 from collections.abc import Callable
+from typing import Literal, cast
 
 import h5py
 import numpy as np
@@ -81,17 +82,20 @@ def default_px_regression_metrics(prefix: str):
 
 def default_classification_metrics(prefix: str, task: str, num_classes: int):
     """Return a set of default classification metrics."""
-    return MetricCollection(
-        {
-            "Acc": Accuracy(task=task, num_classes=num_classes),
-            "Calibration": CalibrationError(task, num_classes=num_classes),
-            "Empirical Coverage": EmpiricalCoverage(),
-        },
-        prefix=prefix,
-    )
+    metrics = {
+        "Acc": Accuracy(task=task, num_classes=num_classes),
+        "Empirical Coverage": EmpiricalCoverage(),
+    }
+    if task in ["binary", "multiclass"]:
+        metrics["Calibration"] = CalibrationError(
+            cast(Literal["binary", "multiclass"], task), num_classes=num_classes
+        )
+    return MetricCollection(metrics, prefix=prefix)
 
 
-def default_segmentation_metrics(prefix: str, task: str, num_classes: int):
+def default_segmentation_metrics(
+    prefix: str, task: Literal["binary", "multiclass", "multilabel"], num_classes: int
+):
     """Return a set of default segmentation metrics."""
     return MetricCollection(
         {
@@ -141,11 +145,11 @@ def process_regression_prediction(
 
     # check if quantiles are present
     if quantiles is not None:
-        quantiles = compute_quantiles_from_std(
+        comp_quantiles = compute_quantiles_from_std(
             mean.detach().cpu().numpy(), std, quantiles
         )
-        pred_dict["lower_quant"] = torch.from_numpy(quantiles[:, 0])
-        pred_dict["upper_quant"] = torch.from_numpy(quantiles[:, -1])
+        pred_dict["lower_quant"] = torch.from_numpy(comp_quantiles[:, 0])
+        pred_dict["upper_quant"] = torch.from_numpy(comp_quantiles[:, -1])
 
     return pred_dict
 

@@ -75,15 +75,15 @@ class Toy8GaussiansDataset(Dataset):
 
         # Normalize the data
         scaler = StandardScaler()
-        dataset = scaler.fit_transform(dataset)
+        ds_norm = scaler.fit_transform(dataset)
 
         # Convert the 2D numpy array back to a list of tensors
         self.X = torch.tensor(
-            [point[0] for point in dataset], dtype=torch.float32
+            [point[0] for point in ds_norm], dtype=torch.float32
         ).unsqueeze(-1)
         self.y = torch.tensor(
-            [point[1] for point in dataset], dtype=torch.float32
+            [point[1] for point in ds_norm], dtype=torch.float32
         ).unsqueeze(-1)
 
         # Convert the 2D numpy array back to a list of tensors
-        return [torch.tensor(point, dtype=torch.float32) for point in dataset]
+        return [torch.tensor(point, dtype=torch.float32) for point in ds_norm]

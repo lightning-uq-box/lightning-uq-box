@@ -5,6 +5,7 @@ Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperat
 
 import os
 from functools import partial
+from typing import Any, Literal
 
 import torch
 import torch.nn as nn
@@ -34,7 +35,7 @@ class TempScaling(PosthocBase):
         model: LightningModule | nn.Module,
         optim_lr: float = 0.01,
         max_iter: int = 50,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
     ) -> None:
         """Initialize Temperature Scaling method.
 
@@ -135,12 +136,17 @@ class TempScaling(PosthocBase):
         return out_dict
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

@@ -181,6 +181,9 @@ extend-select = ["D", "I", "UP"]
 [tool.ruff.lint.isort]
 split-on-trailing-comma = false
 
+[tool.mypy]
+ignore_missing_imports = true
+
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 

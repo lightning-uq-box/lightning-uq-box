@@ -4,7 +4,7 @@
 """Implement a Deep Ensemble Model for prediction."""
 
 import os
-from typing import Any
+from typing import Any, Literal
 
 import torch
 from lightning import LightningModule
@@ -147,12 +147,17 @@ class DeepEnsembleRegression(DeepEnsemble):
         return pred_dict
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -169,14 +174,14 @@ class DeepEnsembleClassification(DeepEnsemble):
     * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
     """  # noqa: E501
 
-    valid_tasks = ["multiclass", "binary", "multilabel"]
+    valid_tasks: list[str] = ["binary", "multiclass", "multilabel"]
     pred_file_name = "preds.csv"
 
     def __init__(
         self,
         ensemble_members: list[dict[str, type[LightningModule] | str]],
         num_classes: int,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
     ) -> None:
         """Initialize a new instance of DeepEnsemble for Classification.
 
@@ -216,12 +221,17 @@ class DeepEnsembleClassification(DeepEnsemble):
         return process_classification_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """

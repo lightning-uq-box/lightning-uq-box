@@ -4,7 +4,7 @@
 """Bayesian Neural Networks with Variational Inference."""
 
 import os
-from typing import Any
+from typing import Any, Literal
 
 import torch
 import torch.nn as nn
@@ -57,7 +57,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -192,7 +192,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
 
         return elbo_loss
 
-    def compute_elbo_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+    def compute_elbo_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor, Tensor]:
         """Compute the ELBO loss with mse/nll.
 
         Args:
@@ -204,9 +204,9 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             for logging
         """
         model_preds: list[Tensor] = []
-        pred_losses = torch.zeros(self.hparams.num_mc_samples_train)
+        pred_losses = torch.zeros(self.hparams["num_mc_samples_train"])
 
-        for i in range(self.hparams.num_mc_samples_train):
+        for i in range(self.hparams["num_mc_samples_train"]):
             # mean prediction
             pred = self.forward(X)
             pred_losses[i] = self.compute_task_loss(pred, y)
@@ -277,7 +277,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             a "lr dict" according to the pytorch lightning documentation
         """
         params = self.exclude_from_wt_decay(
-            self.named_parameters(), weight_decay=self.hparams.weight_decay
+            self.named_parameters(), weight_decay=self.hparams["weight_decay"]
         )
 
         optimizer = self.optimizer(params)
@@ -318,7 +318,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         stochastic_module_names: list[int] | list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -387,7 +387,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         Returns:
             nll loss for the task
         """
-        if self.current_epoch < self.hparams.burnin_epochs or isinstance(
+        if self.current_epoch < self.hparams["burnin_epochs"] or isinstance(
             self.criterion, nn.MSELoss
         ):
             # compute mse loss with output noise scale, is like mse
@@ -409,18 +409,24 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         """
         with torch.no_grad():
             preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+                [self.model(X) for _ in range(self.hparams["num_mc_samples_test"])],
+                dim=-1,
             )  # shape [batch_size, num_outputs, num_samples]
 
         return process_regression_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -444,7 +450,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         self,
         model: nn.Module,
         criterion: nn.Module,
-        task: str = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
         beta: float = 100,
         num_mc_samples_train: int = 10,
         num_mc_samples_test: int = 50,
@@ -457,7 +463,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         stochastic_module_names: list[int] | list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -555,18 +561,24 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         """
         with torch.no_grad():
             preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+                [self.model(X) for _ in range(self.hparams["num_mc_samples_test"])],
+                dim=-1,
             )  # shape [batch_size, num_classes, num_samples]
 
         return process_classification_prediction(preds)
 
     def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: dict[str, Tensor],  # type: ignore[override]
+        batch: Any,
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Test batch end save predictions.
 
         Args:
             outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
@@ -689,7 +701,8 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
         """
         with torch.no_grad():
             preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
+                [self.model(X) for _ in range(self.hparams["num_mc_samples_test"])],
+                dim=-1,
             )  # shape [batch_size, num_classes, height, width, num_samples]
 
         return process_segmentation_prediction(preds)
