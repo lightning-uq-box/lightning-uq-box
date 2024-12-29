@@ -88,9 +88,9 @@ class LatentVariableNetwork(nn.Module):
 
         self.z_mu = torch.tensor(0.0)
 
-        self.log_f_hat_z = None
-        self.log_normalizer_z = None
-        self.weight_eps = None
+        self.log_f_hat_z: Tensor | None = None
+        self.log_normalizer_z: Tensor | None = None
+        self.weight_eps: Tensor | None = None
 
     def fix_randomness(self) -> None:
         """Fix the randomness of reparameterization trick."""

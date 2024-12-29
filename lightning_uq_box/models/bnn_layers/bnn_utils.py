@@ -115,19 +115,19 @@ def convert_deterministic_to_bnn(
         target_layer_name = layer_names[-1]
         current_layer = dict(current_module.named_children())[target_layer_name]
 
-        if "Conv" in current_layer.__class__.__name__:
+        if isinstance(current_layer, nn.Conv1d | nn.Conv2d | nn.Conv3d):
             setattr(
                 current_module,
                 target_layer_name,
                 bnn_conv_layer(bnn_prior_parameters, current_layer),
             )
-        elif "Linear" in current_layer.__class__.__name__:
+        elif isinstance(current_layer, nn.Linear):
             setattr(
                 current_module,
                 target_layer_name,
                 bnn_linear_layer(bnn_prior_parameters, current_layer),
             )
-        elif "LSTM" in current_layer.__class__.__name__:
+        elif isinstance(current_layer, nn.LSTM):
             setattr(
                 current_module,
                 target_layer_name,
@@ -153,6 +153,7 @@ def get_kl_loss(model: nn.Module) -> Tensor:
                 kl_loss = layer.kl_loss()
             else:
                 kl_loss += layer.kl_loss()
+    assert kl_loss
     return kl_loss
 
 

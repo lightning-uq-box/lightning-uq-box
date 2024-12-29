@@ -55,6 +55,7 @@ def init_weights(m: nn.Module) -> None:
     """
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
+        assert m.bias
         truncated_normal_(m.bias, mean=0, std=0.001)
 
 
@@ -66,6 +67,7 @@ def init_weights_orthogonal_normal(m: nn.Module) -> None:
     """
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         nn.init.orthogonal_(m.weight)
+        assert m.bias
         truncated_normal_(m.bias, mean=0, std=0.001)
         # nn.init.normal_(m.bias, std=0.001)
 
@@ -106,15 +108,15 @@ class Encoder(nn.Module):
             # so increase the input_channels.
             self.input_channels += 1
 
-        layers = []
+        layers: list[nn.Module] = []
         for i in range(len(self.num_filters)):
             """
             Determine input_dim and output_dim of conv layers in this block.
             The first layer is input x output,
             All the subsequent layers are output x output.
             """
-            input_dim = self.input_channels if i == 0 else output_dim  # noqa: F821
             output_dim = num_filters[i]
+            input_dim = self.input_channels if i == 0 else output_dim
 
             if i != 0:
                 layers.append(
@@ -185,15 +187,16 @@ class AxisAlignedConvGaussian(nn.Module):
         self.conv_layer = nn.Conv2d(
             num_filters[-1], 2 * self.latent_dim, (1, 1), stride=1
         )
-        self.show_img = 0
-        self.show_seg = 0
-        self.show_concat = 0
-        self.show_enc = 0
-        self.sum_input = 0
+        self.show_img = torch.tensor(0)
+        self.show_seg = torch.tensor(0)
+        self.show_concat = torch.tensor(0)
+        self.show_enc = torch.tensor(0)
+        self.sum_input = torch.tensor(0)
 
         nn.init.kaiming_normal_(
             self.conv_layer.weight, mode="fan_in", nonlinearity="relu"
         )
+        assert self.conv_layer.bias
         nn.init.normal_(self.conv_layer.bias)
 
     def forward(self, input: Tensor, segm: Tensor | None = None) -> Independent:
@@ -279,7 +282,7 @@ class Fcomb(nn.Module):
         self.name = "Fcomb"
 
         if self.use_tile:
-            layers = []
+            layers: list[nn.Module] = []
 
             # Decoder of N x a 1x1 convolution followed by a ReLU except for last layer
             layers.append(nn.Conv2d(self.input_size, self.filter_size, kernel_size=1))
@@ -351,3 +354,5 @@ class Fcomb(nn.Module):
             feature_map = torch.cat((feature_map, z), dim=self.channel_axis)
             output = self.layers(feature_map)
             return self.last_layer(output)
+        else:
+            return z
