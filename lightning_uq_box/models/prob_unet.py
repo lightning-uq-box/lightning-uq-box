@@ -187,11 +187,11 @@ class AxisAlignedConvGaussian(nn.Module):
         self.conv_layer = nn.Conv2d(
             num_filters[-1], 2 * self.latent_dim, (1, 1), stride=1
         )
-        self.show_img = torch.tensor(0)
-        self.show_seg = torch.tensor(0)
-        self.show_concat = torch.tensor(0)
-        self.show_enc = torch.tensor(0)
-        self.sum_input = torch.tensor(0)
+        self.show_img = torch.tensor(0.0)
+        self.show_seg = torch.tensor(0.0)
+        self.show_concat = torch.tensor(0.0)
+        self.show_enc = torch.tensor(0.0)
+        self.sum_input = torch.tensor(0.0)
 
         nn.init.kaiming_normal_(
             self.conv_layer.weight, mode="fan_in", nonlinearity="relu"
