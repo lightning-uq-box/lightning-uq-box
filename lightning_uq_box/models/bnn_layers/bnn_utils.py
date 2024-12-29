@@ -153,7 +153,7 @@ def get_kl_loss(model: nn.Module) -> Tensor:
                 kl_loss = layer.kl_loss()
             else:
                 kl_loss += layer.kl_loss()
-    assert kl_loss
+    assert kl_loss is not None
     return kl_loss
 
 

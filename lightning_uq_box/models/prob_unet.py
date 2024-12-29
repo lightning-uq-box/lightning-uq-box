@@ -55,7 +55,7 @@ def init_weights(m: nn.Module) -> None:
     """
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
-        assert m.bias
+        assert m.bias is not None
         truncated_normal_(m.bias, mean=0, std=0.001)
 
 
@@ -67,7 +67,7 @@ def init_weights_orthogonal_normal(m: nn.Module) -> None:
     """
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         nn.init.orthogonal_(m.weight)
-        assert m.bias
+        assert m.bias is not None
         truncated_normal_(m.bias, mean=0, std=0.001)
         # nn.init.normal_(m.bias, std=0.001)
 
@@ -196,7 +196,7 @@ class AxisAlignedConvGaussian(nn.Module):
         nn.init.kaiming_normal_(
             self.conv_layer.weight, mode="fan_in", nonlinearity="relu"
         )
-        assert self.conv_layer.bias
+        assert self.conv_layer.bias is not None
         nn.init.normal_(self.conv_layer.bias)
 
     def forward(self, input: Tensor, segm: Tensor | None = None) -> Independent:

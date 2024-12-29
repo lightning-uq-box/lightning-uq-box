@@ -23,7 +23,7 @@ def convert_deterministic_to_masked_ensemble(
             the interval [1, 6].
     """
     for name, value in list(deterministic_model._modules.items()):
-        assert value
+        assert value is not None
         if value._modules:
             convert_deterministic_to_masked_ensemble(
                 value, num_estimators=num_estimators, scale=scale
