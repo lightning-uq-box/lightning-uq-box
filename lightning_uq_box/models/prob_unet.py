@@ -115,8 +115,8 @@ class Encoder(nn.Module):
             The first layer is input x output,
             All the subsequent layers are output x output.
             """
-            output_dim = num_filters[i]
             input_dim = self.input_channels if i == 0 else output_dim
+            output_dim = num_filters[i]
 
             if i != 0:
                 layers.append(
