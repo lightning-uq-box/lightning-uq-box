@@ -414,7 +414,9 @@ class BaseConvLayer_(BaseVariationalLayer_):
             out = outputs + perturbed_outputs
         return out
 
-    def apply_convolution(self, x: Tensor, weight: Tensor, bias: Tensor) -> Tensor:
+    def apply_convolution(
+        self, x: Tensor, weight: Tensor, bias: Tensor | None
+    ) -> Tensor:
         """Apply convolution."""
         return self.conv_function(
             x,
@@ -525,7 +527,9 @@ class BaseTransposeConvLayer_(BaseConvLayer_):
 
         super().init_parameters()
 
-    def apply_convolution(self, x: Tensor, weight: Tensor, bias: Tensor) -> Tensor:
+    def apply_convolution(
+        self, x: Tensor, weight: Tensor, bias: Tensor | None
+    ) -> Tensor:
         """Apply convolution."""
         return self.conv_function(
             x,
