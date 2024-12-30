@@ -164,6 +164,12 @@ filterwarnings = [
 [tool.env]
 USE_IOMP = "0"
 
+# https://mypy.readthedocs.io/en/stable/config_file.html
+[tool.mypy]
+# Import discovery
+ignore_missing_imports = true
+exclude = "(dist|docs|requirements|.*egg-info)/"
+
 [tool.ruff]
 extend-include = ["*.ipynb"]
 fix = true
