@@ -109,6 +109,7 @@ class Encoder(nn.Module):
             self.input_channels += 1
 
         layers: list[nn.Module] = []
+        output_dim = 0
         for i in range(len(self.num_filters)):
             """
             Determine input_dim and output_dim of conv layers in this block.
