@@ -47,7 +47,7 @@ class ConditionalLinear(nn.Module):
 class DiffusionSequential(nn.Sequential):
     """My Sequential to accept multiple inputs."""
 
-    def forward(self, input: Tensor, t: Tensor):
+    def forward(self, input: Tensor, t: Tensor) -> Tensor:  # type: ignore[override]
         """Forward pass.
 
         Args:

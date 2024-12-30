@@ -22,6 +22,7 @@
 """Model Parts for Hierarchical Probabilistic U-Net."""
 
 from collections.abc import Callable
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -76,7 +77,7 @@ class _HierarchicalCore(nn.Module):
 
     def forward(
         self, inputs: Tensor, mean: bool | list[bool] = False, z_q: Tensor | None = None
-    ) -> dict[str, Tensor | list[Tensor]]:
+    ) -> dict[str, Any]:
         """Forward pass through the HierarchicalCore.
 
         Args:
@@ -327,6 +328,8 @@ def resize_down(input_features: Tensor, scale: int = 2) -> Tensor:
 
 class MovingAverage(nn.Module):
     """Moving Average Compute Module."""
+
+    average: Tensor
 
     def __init__(self, decay: float = 0.99, differentiable=False):
         """Initialize the MovingAverage.

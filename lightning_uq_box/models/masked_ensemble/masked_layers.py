@@ -89,15 +89,15 @@ def generate_masks_(m: int, num_masks: int, s: float) -> Tensor:
         A tensor containing the generated binary masks.
     """
     total_positions = int(m * s)
-    masks = []
+    masks_list = []
 
     for _ in range(num_masks):
         new_vector = torch.zeros(total_positions)
         idx = torch.randperm(total_positions)[:m]
         new_vector[idx] = 1
-        masks.append(new_vector)
+        masks_list.append(new_vector)
 
-    masks = torch.stack(masks)
+    masks = torch.stack(masks_list)
     # drop useless positions
     masks = masks[:, ~(masks == 0).all(dim=0)]
     return masks

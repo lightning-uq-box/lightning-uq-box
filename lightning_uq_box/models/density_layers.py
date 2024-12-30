@@ -151,7 +151,7 @@ class DensityConv2d(DensityLayerBase_):
         self,
         in_channels: int,
         out_channels: int,
-        kernel_size: tuple[int],
+        kernel_size: tuple[int, int],
         stride: int,
         padding: int = 0,
         bias: bool = True,

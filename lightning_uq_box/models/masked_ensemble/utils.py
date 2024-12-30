@@ -23,44 +23,41 @@ def convert_deterministic_to_masked_ensemble(
             the interval [1, 6].
     """
     for name, value in list(deterministic_model._modules.items()):
-        if deterministic_model._modules[name]._modules:
+        assert value is not None
+        if value._modules:
             convert_deterministic_to_masked_ensemble(
-                deterministic_model._modules[name],
-                num_estimators=num_estimators,
-                scale=scale,
+                value, num_estimators=num_estimators, scale=scale
             )
-        elif "Conv2d" in deterministic_model._modules[name].__class__.__name__:
-            curr_layer = deterministic_model._modules[name]
-            if curr_layer.in_channels >= 10:
+        elif isinstance(value, nn.Conv2d):
+            if value.in_channels >= 10:
                 setattr(
                     deterministic_model,
                     name,
                     MaskedConv2d(
                         num_estimators=num_estimators,
                         scale=scale,
-                        in_channels=curr_layer.in_channels,
-                        out_channels=curr_layer.out_channels,
-                        kernel_size=curr_layer.kernel_size,
-                        stride=curr_layer.stride,
-                        padding=curr_layer.padding,
-                        dilation=curr_layer.dilation,
-                        groups=curr_layer.groups,
-                        bias=curr_layer.bias is not None,
+                        in_channels=value.in_channels,
+                        out_channels=value.out_channels,
+                        kernel_size=value.kernel_size,  # type: ignore[arg-type]
+                        stride=value.stride,  # type: ignore[arg-type]
+                        padding=value.padding,  # type: ignore[arg-type]
+                        dilation=value.dilation,  # type: ignore[arg-type]
+                        groups=value.groups,
+                        bias=value.bias is not None,
                     ),
                 )
 
-        elif "Linear" in deterministic_model._modules[name].__class__.__name__:
-            curr_layer = deterministic_model._modules[name]
-            if curr_layer.in_features >= 10:
+        elif isinstance(value, nn.Linear):
+            if value.in_features >= 10:
                 setattr(
                     deterministic_model,
                     name,
                     MaskedLinear(
                         num_estimators=num_estimators,
                         scale=scale,
-                        in_features=curr_layer.in_features,
-                        out_features=curr_layer.out_features,
-                        bias=curr_layer.bias is not None,
+                        in_features=value.in_features,
+                        out_features=value.out_features,
+                        bias=value.bias is not None,
                     ),
                 )
         else:

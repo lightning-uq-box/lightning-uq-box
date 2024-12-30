@@ -3,6 +3,8 @@
 
 """Adapted from torchseg: https://github.com/isaaccorley/torchseg/blob/main/torchseg/decoders/unet/decoder.py."""
 
+from collections.abc import Sequence
+
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
@@ -18,7 +20,7 @@ class DecoderBlock(nn.Module):
         in_channels: int,
         out_channels: int,
         use_batchnorm: bool = True,
-        attention_type=None,
+        attention_type: bool | None = None,
     ):
         """Initialize the Decoder Block.
 
@@ -66,9 +68,9 @@ class VAEDecoder(nn.Module):
 
     def __init__(
         self,
-        decoder_channels: int,
+        decoder_channels: Sequence[int],
         use_batchnorm: bool = True,
-        attention_type: bool = None,
+        attention_type: bool | None = None,
     ):
         """Initialize the VAE Decoder.
 
@@ -85,9 +87,8 @@ class VAEDecoder(nn.Module):
         dec_out_channels = list(decoder_channels[1:])
 
         # combine decoder keyword arguments
-        kwargs = dict(use_batchnorm=use_batchnorm, attention_type=attention_type)
         blocks = [
-            DecoderBlock(in_ch, out_ch, **kwargs)
+            DecoderBlock(in_ch, out_ch, use_batchnorm, attention_type)
             for in_ch, out_ch in zip(dec_in_channels, dec_out_channels)
         ]
         blocks.append(
