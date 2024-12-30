@@ -374,8 +374,8 @@ class BaseConvLayer_(BaseVariationalLayer_):
         # compute delta_weight
         delta_weight = sigma_weight * eps_weight
 
-        bias = torch.tensor(0.0)
-        delta_bias = torch.tensor(0.0)
+        bias = None
+        delta_bias = None
         if self.bias:
             if self.is_frozen:
                 eps_bias = self.eps_bias
