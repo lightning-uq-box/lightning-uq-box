@@ -1,5 +1,5 @@
 # setup
-setuptools==75.7.0
+setuptools==75.8.0
 
 # install
 torch==2.5.1
