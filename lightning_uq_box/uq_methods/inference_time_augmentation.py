@@ -81,9 +81,9 @@ class TTABase(PosthocBase):
 
         self.tt_augmentation = tt_augmentation
 
-        assert (
-            merge_strategy in self.valid_merge_strategies
-        ), f"Merge strategy must be one of {self.valid_merge_strategies}"
+        assert merge_strategy in self.valid_merge_strategies, (
+            f"Merge strategy must be one of {self.valid_merge_strategies}"
+        )
         self.merge_strategy = merge_strategy
 
     def compute_predictive_uncertainty(self, aug_tensor: Tensor) -> dict[str, Tensor]:
