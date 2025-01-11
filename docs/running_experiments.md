@@ -17,9 +17,9 @@ model: # model is the keyword for the lightning cli
       init_args:
         n_outputs: 10
         n_hidden: [50]
+    n_inducing_points: 10
     num_targets: 1
     gp_kernel: "RBF"
-    batch_size: int = 16: 10
     optimizer:
       class_path: torch.optim.Adam
       init_args:
