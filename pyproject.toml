@@ -85,8 +85,8 @@ tests = [
     # jsonargparse
     "jsonargparse[signatures]>=4.28.0",
     ## Style
-    # ruff 0.2+ required for [ruff.lint]
-    "ruff>=0.2",
+    # ruff 0.9+ required for 2025 style guide
+    "ruff>=0.9",
 ]
 
 docs = [

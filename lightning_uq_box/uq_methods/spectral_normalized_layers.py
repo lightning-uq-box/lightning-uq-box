@@ -370,9 +370,9 @@ class SpectralNormConv(SpectralNorm):
             module: module
             inputs: inputs
         """
-        assert (
-            inputs[0].shape[1:] == self.input_dim[1:]
-        ), "Input dims don't match actual input"
+        assert inputs[0].shape[1:] == self.input_dim[1:], (
+            "Input dims don't match actual input"
+        )
         setattr(
             module,
             self.name,
