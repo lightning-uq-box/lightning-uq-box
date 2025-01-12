@@ -1,12 +1,12 @@
 # setup
-setuptools==75.6.0
+setuptools==75.8.0
 
 # install
 torch==2.5.1
 torchmetrics==1.6.1
 torchvision==0.20.1
 lightning==2.5.0.post0
-scikit-learn==1.6.0
+scikit-learn==1.6.1
 gpytorch==1.13
 pandas==2.2.3
 uncertainty-toolbox==0.1.1

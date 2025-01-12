@@ -39,9 +39,9 @@ class MixtureDensityLayer(nn.Module):
             fixed_noise_level: in case of 'fixed' noise_type, specify the fixed noise
                 level you want to use
         """
-        assert (
-            noise_type in self.valid_noise_types
-        ), f"Please choose one of {self.valid_noise_types}, you specified {noise_type}."
+        assert noise_type in self.valid_noise_types, (
+            f"Please choose one of {self.valid_noise_types}, you specified {noise_type}."
+        )
 
         super().__init__()
         assert (fixed_noise_level is not None) == (noise_type == "fixed")

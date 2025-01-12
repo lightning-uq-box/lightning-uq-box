@@ -85,8 +85,8 @@ tests = [
     # jsonargparse
     "jsonargparse[signatures]>=4.28.0",
     ## Style
-    # ruff 0.2+ required for [ruff.lint]
-    "ruff>=0.2",
+    # ruff 0.9+ required for 2025 style guide
+    "ruff>=0.9",
 ]
 
 docs = [
@@ -163,6 +163,12 @@ filterwarnings = [
 
 [tool.env]
 USE_IOMP = "0"
+
+# https://mypy.readthedocs.io/en/stable/config_file.html
+[tool.mypy]
+# Import discovery
+ignore_missing_imports = true
+exclude = "(dist|docs|requirements|.*egg-info)/"
 
 [tool.ruff]
 extend-include = ["*.ipynb"]

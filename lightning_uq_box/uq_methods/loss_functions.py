@@ -236,12 +236,12 @@ class DERLoss(nn.Module):
         Returns:
           DER loss
         """
-        assert (
-            logits.shape[1] == 4
-        ), "logits should have shape [batch_size x 4 x other dims]"
-        assert (
-            y_true.shape[1] == 1
-        ), "y_true should have shape [batch_size x 1 x other dims]"
+        assert logits.shape[1] == 4, (
+            "logits should have shape [batch_size x 4 x other dims]"
+        )
+        assert y_true.shape[1] == 1, (
+            "y_true should have shape [batch_size x 1 x other dims]"
+        )
         gamma, nu, _, beta = (
             logits[:, 0:1, ...],
             logits[:, 1:2, ...],
