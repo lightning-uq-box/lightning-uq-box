@@ -1,16 +1,18 @@
 # setup
-setuptools==75.6.0
+setuptools==75.8.0
 
 # install
+jsonargparse[signatures]==4.35.0
+omegaconf==2.3.0
 torch==2.5.1
-torchmetrics==1.6.0
+torchmetrics==1.6.1
 torchvision==0.20.1
-lightning==2.4.0
-scikit-learn==1.5.2
+lightning==2.5.0.post0
+scikit-learn==1.6.1
 gpytorch==1.13
 pandas==2.2.3
 uncertainty-toolbox==0.1.1
 kornia==0.7.4
 h5py==3.12.1
-laplace-torch==0.2.1
-ema-pytorch==0.7.6
+laplace-torch==0.2.2.2
+ema-pytorch==0.7.7
