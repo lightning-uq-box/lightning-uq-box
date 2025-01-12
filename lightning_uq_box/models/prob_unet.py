@@ -319,4 +319,3 @@ class Fcomb(nn.Module):
         feature_map = torch.cat((feature_map, z), dim=self.channel_axis)
         output = self.layers(feature_map)
         return self.last_layer(output)
-
