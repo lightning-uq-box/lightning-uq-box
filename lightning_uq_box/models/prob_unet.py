@@ -22,8 +22,6 @@
 
 """Probabilistic UNet Model parts."""
 
-from collections.abc import Callable
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -46,19 +44,6 @@ def truncated_normal_(tensor: torch.Tensor, mean: float = 0, std: float = 1) -> 
     tensor.data.copy_(tmp.gather(-1, ind).squeeze(-1))
     tensor.data.mul_(std).add_(mean)
 
-
-def init_weights(m: nn.Module) -> None:
-    """Initialize weights of the model.
-
-    Args:
-        m: Model whose weights need to be initialized
-    """
-    if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
-        nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
-        assert m.bias is not None
-        truncated_normal_(m.bias, mean=0, std=0.001)
-
-
 def init_weights_orthogonal_normal(m: nn.Module) -> None:
     """Initialize weights of the model with orthogonal initialization.
 
@@ -69,7 +54,6 @@ def init_weights_orthogonal_normal(m: nn.Module) -> None:
         nn.init.orthogonal_(m.weight)
         assert m.bias is not None
         truncated_normal_(m.bias, mean=0, std=0.001)
-        # nn.init.normal_(m.bias, std=0.001)
 
 
 class Encoder(nn.Module):
@@ -252,13 +236,7 @@ class Fcomb(nn.Module):
     """
 
     def __init__(
-        self,
-        input_size: int,
-        filter_size: int,
-        num_classes: int,
-        no_convs_fcomb: int,
-        initializers: dict[str, Callable],
-        use_tile: bool = True,
+        self, input_size: int, filter_size: int, num_classes: int, no_convs_fcomb: int
     ) -> None:
         """Initialize a new instance of Fcomb.
 
@@ -268,7 +246,6 @@ class Fcomb(nn.Module):
             num_classes: Number of classes
             no_convs_fcomb: Number of 1x1 convolutions
             initializers: dictionary of initializers for the layers
-            use_tile: Whether to use tiling
         """
         # TODO combine filter size with no_convs_fcomb as a list because
         # it is redundant
@@ -278,35 +255,25 @@ class Fcomb(nn.Module):
         self.num_classes = num_classes
         self.channel_axis = 1
         self.spatial_axes = [2, 3]
-        self.use_tile = use_tile
         self.no_convs_fcomb = no_convs_fcomb
         self.name = "Fcomb"
 
-        if self.use_tile:
-            layers: list[nn.Module] = []
+        layers: list[nn.Module] = []
 
-            # Decoder of N x a 1x1 convolution followed by a ReLU except for last layer
-            layers.append(nn.Conv2d(self.input_size, self.filter_size, kernel_size=1))
+        # Decoder of N x a 1x1 convolution followed by a ReLU except for last layer
+        layers.append(nn.Conv2d(self.input_size, self.filter_size, kernel_size=1))
+        layers.append(nn.ReLU(inplace=True))
+
+        for _ in range(no_convs_fcomb - 2):
+            layers.append(nn.Conv2d(self.filter_size, self.filter_size, kernel_size=1))
             layers.append(nn.ReLU(inplace=True))
 
-            for _ in range(no_convs_fcomb - 2):
-                layers.append(
-                    nn.Conv2d(self.filter_size, self.filter_size, kernel_size=1)
-                )
-                layers.append(nn.ReLU(inplace=True))
+        self.layers = nn.Sequential(*layers)
 
-            self.layers = nn.Sequential(*layers)
+        self.last_layer = nn.Conv2d(self.filter_size, self.num_classes, kernel_size=1)
 
-            self.last_layer = nn.Conv2d(
-                self.filter_size, self.num_classes, kernel_size=1
-            )
-
-            if initializers["w"] == "orthogonal":
-                self.layers.apply(init_weights_orthogonal_normal)
-                self.last_layer.apply(init_weights_orthogonal_normal)
-            else:
-                self.layers.apply(init_weights)
-                self.last_layer.apply(init_weights)
+        self.layers.apply(init_weights_orthogonal_normal)
+        self.last_layer.apply(init_weights_orthogonal_normal)
 
     def tile(self, a: Tensor, dim: int, n_tile: int) -> Tensor:
         """Tile function.
@@ -344,16 +311,13 @@ class Fcomb(nn.Module):
         Returns:
             Output tensor
         """
-        if self.use_tile:
-            z = torch.unsqueeze(z, 2)
-            z = self.tile(z, 2, feature_map.shape[self.spatial_axes[0]])
-            z = torch.unsqueeze(z, 3)
-            z = self.tile(z, 3, feature_map.shape[self.spatial_axes[1]])
+        z = torch.unsqueeze(z, 2)
+        z = self.tile(z, 2, feature_map.shape[self.spatial_axes[0]])
+        z = torch.unsqueeze(z, 3)
+        z = self.tile(z, 3, feature_map.shape[self.spatial_axes[1]])
 
-            # Concatenate the feature map (output of the UNet) and the sample
-            # taken from the latent space
-            feature_map = torch.cat((feature_map, z), dim=self.channel_axis)
-            output = self.layers(feature_map)
-            return self.last_layer(output)
-        else:
-            return z
+        # Concatenate the feature map (output of the UNet) and the sample
+        # taken from the latent space
+        feature_map = torch.cat((feature_map, z), dim=self.channel_axis)
+        output = self.layers(feature_map)
+        return self.last_layer(output)

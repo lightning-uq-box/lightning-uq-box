@@ -777,9 +777,9 @@ class NoiseScheduler:
         Raises:
             AssertionError if schedule is invalid
         """
-        assert (
-            schedule in self.valid_schedules
-        ), f"Invalid schedule, please choose one of {self.valid_schedules}."
+        assert schedule in self.valid_schedules, (
+            f"Invalid schedule, please choose one of {self.valid_schedules}."
+        )
         self.schedule = schedule
         self.n_steps = n_steps
         self.beta_start = beta_start

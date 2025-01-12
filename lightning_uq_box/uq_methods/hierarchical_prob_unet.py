@@ -125,14 +125,14 @@ class HierarchicalProbUNet(BaseModule):
 
         self._build_model()
 
-        assert (
-            loss_type in self.valid_loss_types
-        ), f"Loss type {loss_type} not valid, please choose from {self.valid_loss_types}"  # noqa: E501
+        assert loss_type in self.valid_loss_types, (
+            f"Loss type {loss_type} not valid, please choose from {self.valid_loss_types}"
+        )  # noqa: E501
         self.loss_type = loss_type
 
-        assert (
-            task in self.valid_tasks
-        ), f"Task {task} not valid, please choose from {self.valid_tasks}."
+        assert task in self.valid_tasks, (
+            f"Task {task} not valid, please choose from {self.valid_tasks}."
+        )
         self.task = task
 
         # TODO check that beta can only be used with elbo loss

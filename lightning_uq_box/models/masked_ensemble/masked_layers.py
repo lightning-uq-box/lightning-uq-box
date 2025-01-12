@@ -44,9 +44,9 @@ class MasksemblesLayer(nn.Module):
         self.channels = channels
         self.num_masks = num_masks
 
-        assert (
-            scale >= 1 and scale <= 6
-        ), "Scale factor should be in the interval [1, 6]."
+        assert scale >= 1 and scale <= 6, (
+            "Scale factor should be in the interval [1, 6]."
+        )
 
         self.scale = scale
 
@@ -203,9 +203,9 @@ class MaskedLinear(nn.Module):
         """
         super().__init__()
 
-        assert (
-            scale >= 1 and scale <= 6
-        ), "Scale factor should be in the interval [1, 6]."
+        assert scale >= 1 and scale <= 6, (
+            "Scale factor should be in the interval [1, 6]."
+        )
         assert in_features >= 10, "Number of input features must be >= 10."
 
         self.mask = MasksemblesLayer(in_features, num_masks=num_estimators, scale=scale)
@@ -278,9 +278,9 @@ class MaskedConv2d(nn.Module):
         """
         super().__init__()
 
-        assert (
-            scale >= 1 and scale <= 6
-        ), "Scale factor should be in the interval [1, 6]."
+        assert scale >= 1 and scale <= 6, (
+            "Scale factor should be in the interval [1, 6]."
+        )
         assert in_channels >= 10, "Number of input features must be >= 10."
 
         self.mask = MasksemblesLayer(in_channels, num_masks=num_estimators, scale=scale)

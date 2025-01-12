@@ -93,14 +93,14 @@ class LinearVariational(BaseVariationalLayer_):
         )
 
         if batched_samples:
-            assert isinstance(
-                max_n_samples, int
-            ), "If you use `batched_samples`, you need to specify `max_n_samples`."
+            assert isinstance(max_n_samples, int), (
+                "If you use `batched_samples`, you need to specify `max_n_samples`."
+            )
             self.max_n_samples = max_n_samples
 
-        assert (
-            layer_type in self.valid_layer_types
-        ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
+        assert layer_type in self.valid_layer_types, (
+            f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
+        )
         self.layer_type = layer_type
 
         self.in_features = in_features

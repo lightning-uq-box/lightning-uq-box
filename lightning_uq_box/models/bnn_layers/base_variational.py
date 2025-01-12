@@ -89,9 +89,9 @@ class BaseVariationalLayer_(nn.Module):
         self.posterior_rho_init = posterior_rho_init
         self.bias = bias
 
-        assert (
-            layer_type in self.valid_layer_types
-        ), f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
+        assert layer_type in self.valid_layer_types, (
+            f"Only {self.valid_layer_types} are valid layer types but found {layer_type}"
+        )
         self.layer_type = layer_type
         self.is_frozen = False
 
