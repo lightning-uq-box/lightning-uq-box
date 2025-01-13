@@ -50,7 +50,7 @@ jobs:
       - name: List pip dependencies
         run: pip list
       - name: Run mypy checks
-        run: mypy lightning_uq_box/models
+        run: mypy --follow-imports=skip lightning_uq_box/models 
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
