@@ -171,9 +171,7 @@ USE_IOMP = "0"
 # Import discovery
 ignore_missing_imports = true
 exclude = "(dist|docs|requirements|.*egg-info)/"
-files = [
-    lightning_uq_box/models,
-]   
+files = ["lightning_uq_box/models"]   
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
