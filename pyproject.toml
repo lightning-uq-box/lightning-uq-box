@@ -170,8 +170,10 @@ USE_IOMP = "0"
 [tool.mypy]
 # Import discovery
 ignore_missing_imports = true
-exclude = "(dist|docs|requirements|.*egg-info)/"
-files = ["lightning_uq_box/models"]   
+exclude = [
+    "(dist|docs|requirements|.*egg-info)/",
+    "lightning_uq_box/uq_methods"
+]  
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
