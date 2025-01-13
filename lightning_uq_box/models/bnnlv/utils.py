@@ -95,7 +95,7 @@ def replace_module(model: nn.Module, module_name: str, new_module: nn.Module) ->
 
 
 def retrieve_module_init_args(
-    current_module: type[nn.Module],
+    current_module: nn.Module,
 ) -> dict[str, str | float | int | bool]:
     """Reinitialize a new layer with arguments.
 
@@ -105,7 +105,7 @@ def retrieve_module_init_args(
     Returns:
         nn.Modules init args
     """
-    current_init_arg_names = list(inspect.signature(current_module.__init__).parameters)
+    current_init_arg_names = list(inspect.signature(current_module.__init__).parameters)  # type: ignore[misc]
     current_args: dict[str, str | float | int | bool] = {}
     for name in current_init_arg_names:
         if name == "bias":

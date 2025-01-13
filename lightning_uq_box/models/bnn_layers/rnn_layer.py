@@ -166,8 +166,8 @@ class LSTMVariational(BaseVariationalLayer_):
         """
         batch_size, seq_size, _ = X.size()
 
-        hidden_seq = []
-        c_ts = []
+        hidden_seq_list = []
+        c_ts_list = []
 
         if hidden_states is None:
             h_t, c_t = (
@@ -197,11 +197,11 @@ class LSTMVariational(BaseVariationalLayer_):
             c_t = f_t * c_t + i_t * g_t
             h_t = o_t * torch.tanh(c_t)
 
-            hidden_seq.append(h_t.unsqueeze(0))
-            c_ts.append(c_t.unsqueeze(0))
+            hidden_seq_list.append(h_t.unsqueeze(0))
+            c_ts_list.append(c_t.unsqueeze(0))
 
-        hidden_seq = torch.cat(hidden_seq, dim=0)
-        c_ts = torch.cat(c_ts, dim=0)
+        hidden_seq = torch.cat(hidden_seq_list, dim=0)
+        c_ts = torch.cat(c_ts_list, dim=0)
         # reshape from shape (sequence, batch, feature) to (batch, sequence, feature)
         hidden_seq = hidden_seq.transpose(0, 1).contiguous()
         c_ts = c_ts.transpose(0, 1).contiguous()

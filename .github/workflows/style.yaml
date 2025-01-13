@@ -20,12 +20,6 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
-    # - name: Cache dependencies
-    #   uses: actions/cache@v4.1.1
-    #   id: cache
-    #   with:
-    #     path: ${{ env.pythonLocation }}
-    #     key: ${{ env.pythonLocation }}-${{ hashFiles('requirements/style.txt') }}
     - name: Install pip dependencies
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
@@ -37,6 +31,26 @@ jobs:
       run: |
         ruff check --output-format=github --no-fix .
         ruff format --diff
+  mypy:
+    name: mypy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@v4
+      - name: Set up python
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pip dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          pip install -r requirements/requirements.txt -r requirements/style.txt -r requirements/tests.txt
+          pip cache purge
+      - name: List pip dependencies
+        run: pip list
+      - name: Run mypy checks
+        run: mypy --follow-imports=skip --exclude lightning_uq_box/uq_methods .
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
