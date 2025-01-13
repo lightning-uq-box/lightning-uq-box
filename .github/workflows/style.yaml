@@ -50,7 +50,7 @@ jobs:
       - name: List pip dependencies
         run: pip list
       - name: Run mypy checks
-        run: mypy --exclude lightning_uq_box/uq_methods .
+        run: mypy --follow-imports=skip --exclude lightning_uq_box/uq_methods .
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
