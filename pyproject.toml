@@ -85,6 +85,8 @@ tests = [
     # jsonargparse
     "jsonargparse[signatures]>=4.28.0",
     ## Style
+    # Mypy
+    "mypy>=0.900",
     # ruff 0.9+ required for 2025 style guide
     "ruff>=0.9",
 ]
@@ -169,6 +171,9 @@ USE_IOMP = "0"
 # Import discovery
 ignore_missing_imports = true
 exclude = "(dist|docs|requirements|.*egg-info)/"
+files = [
+    lightning_uq_box/models
+]   
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
