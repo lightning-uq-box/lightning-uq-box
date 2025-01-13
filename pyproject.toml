@@ -172,7 +172,7 @@ USE_IOMP = "0"
 ignore_missing_imports = true
 exclude = "(dist|docs|requirements|.*egg-info)/"
 files = [
-    lightning_uq_box/models
+    lightning_uq_box/models,
 ]   
 
 [tool.ruff]
