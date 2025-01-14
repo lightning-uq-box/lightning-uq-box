@@ -67,6 +67,7 @@ class DDPM(BaseModule):
         in_channels: int = 3,
         out_channels: int = 3,
         loss_fn: nn.Module = nn.MSELoss(),
+        clip_denoised: bool = True,
         model_kwargs_keys: list[str] = [],
         log_samples_every_n_epochs: int = 10,
         latent_model: nn.Module | None = None,
@@ -91,6 +92,8 @@ class DDPM(BaseModule):
             loss_fn: The loss function to use. By default, the loss function is called with the model prediction
                 and target. If you need to pass additional arguments or need more control, you can override
                 :method:`~DDPM.compute_loss` method.
+            clip_denoised: Whether to clip the denoised image to be in the range [-1, 1] after each time step, makes
+                sense for modalities with fixed ranges like RGB imagery, and use of Pretrained RGB Latent models.
             model_kwargs_keys: The names of additional keyword arguments that the forward pass of the model
                 can accept. The keys will be used to extract the values from the batch dictionary, and
                 passed to the model as keyword arguments.
@@ -111,6 +114,7 @@ class DDPM(BaseModule):
         self.model_kwargs_keys = model_kwargs_keys
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
+        self.clip_denoised = clip_denoised
 
         self.latent_model = latent_model
         if self.latent_model:
@@ -242,7 +246,7 @@ class DDPM(BaseModule):
             x=x,
             t=batched_times,
             model_kwargs=model_kwargs,
-            clip_denoised=(self.latent_model is None),
+            clip_denoised=(self.latent_model is None) and self.clip_denoised,
         )
         noise = torch.randn_like(x) if t > 0 else 0.0  # no noise if t == 0
         pred_img = model_mean + (0.5 * model_log_variance).exp() * noise
@@ -419,15 +423,15 @@ class DDPM(BaseModule):
         model_out = self.model(x, t, **model_kwargs)
 
         # Predict X_0
-        return self.compute_loss(model_out, x_start, t)
+        return self.compute_loss(model_out, x_start, t, model_kwargs)
 
-    def compute_loss(self, pred: Tensor, target: Tensor, t: Tensor) -> Tensor:
+    def compute_loss(self, pred: Tensor, target: Tensor, t: Tensor, model_kwargs) -> Tensor:
         """Compute the loss for the model."""
         # TODO make this more varible, probably by also an argument
         # loss = F.mse_loss(pred, target, reduction="none")
         # loss = reduce(loss, "b ... -> b", "mean")
         # loss = loss * self.extract(self.loss_weight, t, loss.shape)
-        return self.loss_fn(pred, target)
+        return self.loss_fn(pred, target, **model_kwargs)
 
     def encode_img(
         self, latent_model: nn.Module, img: Tensor, up_sample: bool = False

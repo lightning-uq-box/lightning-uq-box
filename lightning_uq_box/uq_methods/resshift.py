@@ -43,6 +43,7 @@ class ResShiftBase(DDPM):
         in_channels: int = 3,
         out_channels: int = 3,
         loss_fn: nn.Module | None = nn.MSELoss(),
+        clip_denoised: bool = True,
         model_kwargs_keys: list[str] = [],
         kappa: float = 1.0,
         log_samples_every_n_epochs: int = 10,
@@ -85,6 +86,7 @@ class ResShiftBase(DDPM):
             in_channels=in_channels,
             out_channels=out_channels,
             loss_fn=loss_fn,
+            clip_denoised=clip_denoised,
             model_kwargs_keys=model_kwargs_keys,
             log_samples_every_n_epochs=log_samples_every_n_epochs,
             latent_model=latent_model,
@@ -164,8 +166,7 @@ class ResShiftBase(DDPM):
 
         if self.sqrt_betas.device != y.device:
             self.sqrt_betas = self.sqrt_betas.to(y.device)
-        # import pdb
-        # pdb.set_trace()
+  
         return y + self.extract(self.kappa * self.sqrt_betas, t, y.shape) * noise
 
     def model_predictions(
@@ -183,7 +184,6 @@ class ResShiftBase(DDPM):
             if clip_x_start
             else torch.nn.Identity()
         )
-
         x_start = model_output
         x_start = maybe_clip(x_start)
         pred_noise = self.predict_noise_from_start(x, t, x_start)
@@ -200,7 +200,7 @@ class ResShiftBase(DDPM):
         preds = self.model_predictions(x, t, lq_img, model_kwargs=model_kwargs)
         x_start = preds["pred_x_start"]
 
-        if clip_denoised:
+        if clip_denoised and self.clip_denoised:
             x_start.clamp_(-1.0, 1.0)
 
         model_mean, posterior_variance, posterior_log_variance = self.q_posterior(
@@ -249,7 +249,11 @@ class ResShiftBase(DDPM):
             total=self.num_timesteps,
         ):
             # do not clip_denoised on the last time step
-            clip_denoised = t > 0
+            # TODO: SHOULD WE CLIP DENOISED ON THE LAST TIME STEP?
+            if self.clip_denoised:
+                clip_denoised = t > 0
+            else:
+                clip_denoised = False
             img, x_start = self.p_sample(x=img, lq_img=lq_img, t=t, model_kwargs=model_kwargs, clip_denoised=clip_denoised)
             imgs.append(img)
 
@@ -307,14 +311,13 @@ class ResShiftBase(DDPM):
 
         # predict and take gradient step
         # for the model input, the lq_img is not encoded
+
         # see https://github.com/zsyOAOA/ResShift/blob/dfc2ff705a962de1601a491511b43a93b97d9622/models/gaussian_diffusion.py#L566 model_kwargs
         model_out = self.model(self._scale_input(x, t), t, lq=lq_img, **model_kwargs)
 
         target = x_start
 
-        # loss = self.compute_loss(model_out, target, t)
-
-        return self.compute_loss(model_out, target, t)
+        return self.compute_loss(model_out, target, t, model_kwargs=model_kwargs)
         
 
     def training_step(
@@ -356,8 +359,9 @@ class ResShiftBase(DDPM):
             self.log_samples(preds, batch[self.input_key], batch[self.target_key])
         
         # compute mse
-        mse = torch.nn.functional.mse_loss(preds, batch[self.target_key])
-        self.log("val_loss", mse, sync_dist=True)
+        model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
+        loss = self.loss_fn(preds, batch[self.target_key], **model_kwargs)
+        self.log("val_loss", loss, sync_dist=True)
 
     def predict_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0, return_all_timesteps: bool = False
@@ -436,6 +440,8 @@ class ResShiftSR(ResShiftBase):
         image_size: int = 224,
         in_channels: int = 3,
         out_channels: int = 3,
+        loss_fn: nn.Module | None = nn.MSELoss(),
+        clip_denoised: bool = True,
         model_kwargs_keys: list[str] = [],
         kappa: float = 1.0,
         super_res_factor: int = 4,
@@ -457,6 +463,7 @@ class ResShiftSR(ResShiftBase):
                 of the images that will be generated during sampling
             in_channels: The number of input channels of the images coming from the dataloader
             out_channels: The number of output channels of the images to be generated
+            loss_fn: The loss function to use
             model_kwargs_keys: The names of additional keyword arguments that the forward pass of the model
                 can accept. The keys will be used to extract the values from the batch dictionary, and
                 passed to the model as keyword arguments.
@@ -480,13 +487,15 @@ class ResShiftSR(ResShiftBase):
             image_size=image_size,
             in_channels=in_channels,
             out_channels=out_channels,
+            loss_fn=loss_fn,
+            clip_denoised=clip_denoised,
             model_kwargs_keys=model_kwargs_keys,
             log_samples_every_n_epochs=log_samples_every_n_epochs,
             latent_model=latent_model,
             optimizer=optimizer,
             lr_scheduler=lr_scheduler,
         )
-        self.normalize_input = True
+        self.normalize_input = False
         self.latent_flag = latent_model is not None
 
     def training_step(
@@ -496,11 +505,14 @@ class ResShiftSR(ResShiftBase):
         # compute the loss
         lq_img, hr_img = batch[self.input_key], batch[self.target_key]
 
+        # gather all other batch data as kwargs
+        model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
+
         t = torch.randint(
             0, self.num_timesteps, (lq_img.shape[0],), device=self.device
         ).long()
 
-        loss = self.p_losses(hr_img, lq_img, t)
+        loss = self.p_losses(hr_img, lq_img, t, model_kwargs=model_kwargs)
 
         self.log("train_loss", loss)
         return loss
@@ -510,7 +522,7 @@ class ResShiftSR(ResShiftBase):
     ) -> Tensor:
         """Compute and return the validation loss."""
         # compute metrics on some valiation set
-        preds = self.predict_step(batch[self.input_key], batch_idx=batch_idx, return_all_timesteps=False)
+        preds = self.predict_step(batch, batch_idx=batch_idx, return_all_timesteps=False)
         preds = self.adapt_output_for_metrics(preds)
         # TODO maybe configure so that one batch of images is generated and saved
         # per log_samples_every_n_epochs
@@ -519,9 +531,9 @@ class ResShiftSR(ResShiftBase):
             and batch_idx == 0
             and self.trainer.global_rank == 0
         ):
-            self.log_samples(preds["pred"], preds["lr"], batch[self.target_key])
+            self.log_samples(preds, batch[self.input_key], batch[self.target_key])
 
-        mse = torch.nn.functional.mse_loss(preds["pred"], batch[self.target_key])
+        mse = torch.nn.functional.mse_loss(preds, batch[self.target_key])
         self.log("val_loss", mse, sync_dist=True)
 
 
@@ -563,11 +575,19 @@ class ResShiftSR(ResShiftBase):
         plt.close()
 
     def predict_step(
-        self, lq_img: Tensor, batch_idx: int = 0, dataloader_idx: int = 0, return_all_timesteps: bool = False
+        self, batch: dict[str, Tensor], batch_idx: int = 0, dataloader_idx: int = 0, return_all_timesteps: bool = False
     ) -> dict[str, Tensor]:
         """Predict the super resolved image."""
-        hr_imgs = self.p_sample_loop(lq_img, return_all_timesteps=return_all_timesteps)
-        return {"pred": hr_imgs, "lr": lq_img}
+        try:
+            model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
+        except:
+            import pdb
+            pdb.set_trace()
+        return self.p_sample_loop(batch[self.input_key], model_kwargs=model_kwargs, return_all_timesteps=return_all_timesteps)
+
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt the output for the metrics."""
+        return out[:, 0:1, ...]
 
 
 class InpaintingResShift(ResShiftBase):
@@ -734,6 +754,11 @@ class PinballResShift(ResShiftBase):
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt the output for the metrics."""
         return out[:, 1:2, ...]
+
+class NLLResShift(ResShiftBase):
+    def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
+        """Adapt the output for the metrics."""
+        return out[:, 0:1, ...]
 
 # class PinballInpaintResShift(InpaintingResShift):
 #     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
