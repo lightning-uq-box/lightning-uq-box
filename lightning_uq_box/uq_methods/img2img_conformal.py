@@ -42,6 +42,8 @@ class Img2ImgConformal(PosthocBase):
     If you use this model in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2202.05265
+
+    .. versionadded:: 0.2.0
     """
 
     pred_dir_name = "preds"

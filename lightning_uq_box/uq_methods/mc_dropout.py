@@ -320,6 +320,8 @@ class MCDropoutClassification(MCDropoutBase):
         self.save_hyperparameters(
             ignore=["model", "loss_fn", "optimizer", "lr_scheduler"]
         )
+        # FIXME: why isn't save_hyperparameters working?
+        self.num_mc_samples = num_mc_samples
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -353,7 +355,7 @@ class MCDropoutClassification(MCDropoutBase):
         self.activate_dropout()  # activate dropout during prediction
         with torch.no_grad():
             preds = torch.stack(
-                [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
+                [self.model(X) for _ in range(self.num_mc_samples)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
         return process_classification_prediction(preds)
@@ -489,7 +491,10 @@ class MCDropoutSegmentation(MCDropoutClassification):
 
 
 class MCDropoutPxRegression(MCDropoutRegression):
-    """MC-Dropout Model for Pixel-wise Regression."""
+    """MC-Dropout Model for Pixel-wise Regression.
+
+    .. versionadded:: 0.2.0
+    """
 
     pred_dir_name = "preds"
 

@@ -28,6 +28,7 @@ class VBLLRegression(DeterministicRegression):
 
     * https://arxiv.org/abs/2404.11599
 
+    .. versionadded:: 0.2
     """
 
     def __init__(
@@ -254,6 +255,8 @@ class VBLLClassification(DeterministicClassification):
     If you use this method in your research, please cite the following paper:
 
     * https://arxiv.org/abs/2404.11599
+
+    .. versionadded:: 0.2
     """
 
     valid_layer_types = ["disc", "gen"]
@@ -308,14 +311,14 @@ class VBLLClassification(DeterministicClassification):
 
         self.num_targets = num_targets
 
-        assert (
-            layer_type in self.valid_layer_types
-        ), f"layer_type must be one of {self.valid_layer_types}"
+        assert layer_type in self.valid_layer_types, (
+            f"layer_type must be one of {self.valid_layer_types}"
+        )
 
         if layer_type == "gen":
-            assert (
-                parameterization == "diagonal"
-            ), "parameterization must be 'diagonal' for Generative layer"
+            assert parameterization == "diagonal", (
+                "parameterization must be 'diagonal' for Generative layer"
+            )
         self.layer_type = layer_type
 
         # pass freeze model False as we will freeze the backbone in the model below customly

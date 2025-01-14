@@ -220,9 +220,9 @@ class ConditionalGuidedConvModel(nn.Module):
         _, module = _get_output_layer_name_and_module(self.encoder)
         encoder_out_features = module.out_features
 
-        assert (
-            encoder_out_features == cond_guide_model.x_dim
-        ), "Encoder output features has to match the x_dim of the guide model"
+        assert encoder_out_features == cond_guide_model.x_dim, (
+            "Encoder output features has to match the x_dim of the guide model"
+        )
         self.norm = nn.BatchNorm1d(encoder_out_features)
 
         # "connection" modules

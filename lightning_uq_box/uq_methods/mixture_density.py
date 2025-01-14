@@ -61,9 +61,9 @@ class MDNRegression(DeterministicRegression):
             lr_scheduler: The learning rate scheduler to use for training
 
         """
-        assert (
-            noise_type in self.valid_noise_types
-        ), f"Please choose one of {self.valid_noise_types}, you specified {noise_type}."
+        assert noise_type in self.valid_noise_types, (
+            f"Please choose one of {self.valid_noise_types}, you specified {noise_type}."
+        )
 
         self.n_components = n_components
         self.hidden_dims = hidden_dims

@@ -314,6 +314,8 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
     If you use this model in your work, please cite:
 
     * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
+
+    .. versionadded:: 0.2.0
     """  # noqa: E501
 
     def __init__(
