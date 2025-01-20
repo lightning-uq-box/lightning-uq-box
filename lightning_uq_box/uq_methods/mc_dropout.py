@@ -400,9 +400,9 @@ class MCDropoutSegmentation(MCDropoutClassification):
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             dropout_layer_names: names of dropout layers to activate during prediction
             freeze_backbone: whether to freeze the model backbone, by default this is
-                supported for torchseg Unet models
+                supported for SMP Unet models
             freeze_decoder: whether to freeze the model decoder, by default this is
-                supported for torchseg Unet models
+                supported for SMP Unet models
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions

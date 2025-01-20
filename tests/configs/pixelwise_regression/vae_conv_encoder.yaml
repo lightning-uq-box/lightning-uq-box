@@ -1,7 +1,7 @@
 uq_method:
   _target_: lightning_uq_box.uq_methods.VAE
   encoder:
-    _target_: torchseg.encoders.TimmEncoder
+    _target_: segmentation_models_pytorch.encoders.TimmEncoder
     name: resnet18
     depth: 2
   latent_size: 10

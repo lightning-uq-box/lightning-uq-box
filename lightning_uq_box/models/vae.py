@@ -5,9 +5,9 @@
 
 import torch.nn as nn
 import torch.nn.functional as F
+from segmentation_models_pytorch.base import SegmentationHead
+from segmentation_models_pytorch.base.modules import Attention, Conv2dReLU
 from torch import Tensor
-from torchseg.base import SegmentationHead
-from torchseg.base.modules import Attention, Conv2dReLU
 
 
 class DecoderBlock(nn.Module):
