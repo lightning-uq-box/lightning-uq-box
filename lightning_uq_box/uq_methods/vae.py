@@ -21,10 +21,10 @@ from .utils import _get_num_inputs
 
 
 class VAE(DeterministicPixelRegression):
-    """Variational Auto Encoder (VAE) for Torchseg Encoders.
+    """Variational Auto Encoder (VAE) for SMP Encoders.
 
     This VAE is intended to be used with
-    `Torchseg Encoders <https://github.com/isaaccorley/torchseg/blob/main/torchseg/encoders/timm.py>`__
+    `SMP Encoders <https://github.com/qubvel-org/segmentation_models.pytorch>`__
     that support a wide range og `Timm Models <https://rwightman.github.io/pytorch-image-models/>`__.
 
     If you use this method in your work, please cite:
@@ -351,7 +351,7 @@ class VAE(DeterministicPixelRegression):
 
 
 class ConditionalVAE(VAE):
-    """Conditional Variational Auto Encoder for Torchseg."""
+    """Conditional Variational Auto Encoder for SMP."""
 
     def __init__(
         self,
@@ -373,7 +373,7 @@ class ConditionalVAE(VAE):
         """Initialize the Conditional VAE.
 
         Args:
-            encoder: Torchseg model.
+            encoder: SMP model.
             latent_size: The size of the latent space.
             num_samples: The number of samples to draw from the latent space for prediction.
             out_channels: The number of output channels.

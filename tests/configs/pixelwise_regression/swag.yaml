@@ -3,7 +3,7 @@ uq_method:
   model:
     _target_: lightning_uq_box.uq_methods.MVEPxRegression
     model:
-      _target_: torchseg.Unet
+      _target_: segmentation_models_pytorch.Unet
       encoder_name: resnet18
       encoder_weights: imagenet
       classes: 2 # NLL output

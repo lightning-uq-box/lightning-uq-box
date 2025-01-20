@@ -1,7 +1,7 @@
 uq_method:
   _target_: lightning_uq_box.uq_methods.VAE
   encoder:
-    _target_: torchseg.encoders.TimmViTEncoder
+    _target_: segmentation_models_pytorch.encoders.TimmViTEncoder
     name: vit_tiny_patch16_224
     in_chans: 3
     depth: 4

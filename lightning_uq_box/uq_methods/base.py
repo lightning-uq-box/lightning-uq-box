@@ -415,9 +415,9 @@ class DeterministicSegmentation(DeterministicClassification):
             task: what kind of classification task, choose one of
                 ["binary", "multiclass", "multilabel"]
             freeze_backbone: whether to freeze the model backbone, by default this is
-                supported for torchseg Unet models
+                supported for SMP Unet models
             freeze_decoder: whether to freeze the model decoder, by default this is
-                supported for torchseg Unet models
+                supported for SMP Unet models
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions

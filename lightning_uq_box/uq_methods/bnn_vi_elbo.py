@@ -628,9 +628,9 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
             stochastic_module_names: list of module names or indices that should
                 be converted to variational layers
             freeze_backbone: whether to freeze the model backbone, by default this is
-                supported for torchseg Unet models
+                supported for SMP Unet models
             freeze_decoder: whether to freeze the model decoder, by default this is
-                supported for torchseg Unet models
+                supported for SMP Unet models
             lr_scheduler: learning rate scheduler
             optimizer: optimizer used for training
             save_preds: whether to save predictions
