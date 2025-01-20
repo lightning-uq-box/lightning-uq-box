@@ -209,7 +209,7 @@ class LinearVariational(BaseVariationalLayer_):
             output = output.squeeze(0)
         return output
 
-    def sample_weights(self, n_samples: int) -> tuple[Tensor]:
+    def sample_weights(self, n_samples: int) -> tuple[Tensor, Tensor]:
         """Sample variational weights for batched sampling.
 
         Args:

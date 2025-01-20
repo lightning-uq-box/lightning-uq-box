@@ -63,7 +63,7 @@ class MixtureDensityLayer(nn.Module):
             n_outputs=n_components * dim_out + num_sigma_channels,
         )
 
-    def forward(self, x: Tensor, eps=1e-6) -> tuple[Tensor]:
+    def forward(self, x: Tensor, eps=1e-6) -> tuple[Tensor, Tensor, Tensor]:
         """Forward pass of MDN network.
 
         Args:
@@ -85,6 +85,7 @@ class MixtureDensityLayer(nn.Module):
         if self.noise_type == "isotropic_clusters":
             sigma = torch.exp(sigma + eps).repeat(1, self.n_components * self.dim_out)
         if self.noise_type == "fixed":
+            assert self.fixed_noise_level is not None
             sigma = torch.full_like(mu, fill_value=self.fixed_noise_level)
         mu = mu.reshape(-1, self.n_components, self.dim_out)
         sigma = sigma.reshape(-1, self.n_components, self.dim_out)

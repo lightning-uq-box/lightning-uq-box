@@ -121,8 +121,6 @@ class ProbUNet(BaseModule):
             self.fcomb_filter_size,
             self.num_classes,
             self.num_convs_fcomb,
-            initializers={"w": "orthogonal", "b": "normal"},
-            use_tile=True,
         )
 
         if criterion is None:
@@ -277,10 +275,12 @@ class ProbUNet(BaseModule):
         """
         loss_dict = self.compute_loss(batch)
 
-        self.log("train_loss", loss_dict["loss"])
-        self.log("train_rec_loss_sum", loss_dict["rec_loss_sum"])
-        self.log("train_rec_loss_mean", loss_dict["rec_loss_mean"])
-        self.log("train_kl_loss", loss_dict["kl_loss"])
+        bs = batch[self.input_key].shape[0]
+
+        self.log("train_loss", loss_dict["loss"], batch_size=bs)
+        self.log("train_rec_loss_sum", loss_dict["rec_loss_sum"], batch_size=bs)
+        self.log("train_rec_loss_mean", loss_dict["rec_loss_mean"], batch_size=bs)
+        self.log("train_kl_loss", loss_dict["kl_loss"], batch_size=bs)
 
         # compute metrics with reconstruction
         self.train_metrics(
@@ -312,10 +312,12 @@ class ProbUNet(BaseModule):
         """
         loss_dict = self.compute_loss(batch)
 
-        self.log("val_loss", loss_dict["loss"])
-        self.log("val_rec_loss_sum", loss_dict["rec_loss_sum"])
-        self.log("val_rec_loss_mean", loss_dict["rec_loss_mean"])
-        self.log("val_kl_loss", loss_dict["kl_loss"])
+        bs = batch[self.input_key].shape[0]
+
+        self.log("val_loss", loss_dict["loss"], batch_size=bs)
+        self.log("val_rec_loss_sum", loss_dict["rec_loss_sum"], batch_size=bs)
+        self.log("val_rec_loss_mean", loss_dict["rec_loss_mean"], batch_size=bs)
+        self.log("val_kl_loss", loss_dict["kl_loss"], batch_size=bs)
         # compute metrics with reconstruction
         self.val_metrics(
             loss_dict["reconstruction"],

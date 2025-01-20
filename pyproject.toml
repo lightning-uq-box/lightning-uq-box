@@ -34,12 +34,16 @@ classifiers = [
 dependencies = [
     # einops 0.3+ required for einops.repeat
     "einops>=0.3",
+    # jsonargparse
+    "jsonargparse[signatures]>=4.28.0",
     # lightning 2+ required for LightningCLI args + sys.argv support
     "lightning>=2.4.0",
     # matplotlib 3.5 required for Python 3.10 wheels
     "matplotlib>=3.5",
     # numpy 1.21.1+ required by Python 3.10 wheels
     "numpy>=1.21.1",
+    # omegaconf
+    "omegaconf>=2.3.0",
     # pandas 1.1.3+ required for Python 3.10 wheels
     "pandas>=1.1.3",
     # torch 1.12+ required by torchvision
@@ -80,11 +84,9 @@ tests = [
     "pytest-lazy-fixture>=0.6",
     # hydra-core
     "hydra-core>=1.3.2",
-    # omegaconf
-    "omegaconf>=2.3.0",
-    # jsonargparse
-    "jsonargparse[signatures]>=4.28.0",
     ## Style
+    # Mypy
+    "mypy>=0.900",
     # ruff 0.9+ required for 2025 style guide
     "ruff>=0.9",
 ]
@@ -168,7 +170,10 @@ USE_IOMP = "0"
 [tool.mypy]
 # Import discovery
 ignore_missing_imports = true
-exclude = "(dist|docs|requirements|.*egg-info)/"
+exclude = [
+    "(dist|docs|requirements|.*egg-info)/",
+    "lightning_uq_box/uq_methods"
+]  
 
 [tool.ruff]
 extend-include = ["*.ipynb"]

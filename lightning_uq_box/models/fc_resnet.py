@@ -5,6 +5,8 @@
 
 """Fully Connected ResNet architecture."""
 
+from collections.abc import Callable
+
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
@@ -24,7 +26,7 @@ class FCResNet(nn.Module):
         features: int,
         depth: int,
         dropout_rate: float = 0.01,
-        num_outputs: int = None,
+        num_outputs: int | None = None,
         activation: str = "relu",
     ):
         """Initialze a new instance of the FCResNet.
@@ -52,7 +54,7 @@ class FCResNet(nn.Module):
             self.last = nn.Linear(features, num_outputs)
 
         if activation == "relu":
-            self.activation = F.relu
+            self.activation: Callable = F.relu
         elif activation == "elu":
             self.activation = F.elu
         else:

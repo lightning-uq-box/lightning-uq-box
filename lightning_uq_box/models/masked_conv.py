@@ -48,7 +48,7 @@ def conv_mask(width: int, height: int, include_center: bool = False) -> torch.Te
     )
 
 
-def weight_mask(in_channels: int, kernel_size: tuple[int]) -> torch.Tensor:
+def weight_mask(in_channels: int, kernel_size: tuple[int, int]) -> torch.Tensor:
     """Generate a weight mask for a given number of input channels and kernel size.
 
     Args:
@@ -74,7 +74,7 @@ class MaskedConv2d(nn.Module):
     def __init__(
         self,
         in_channels: int,
-        kernel_size: tuple[int] | int,
+        kernel_size: tuple[int, int] | int,
         stride: int = 1,
         padding: int = 0,
     ) -> None:
