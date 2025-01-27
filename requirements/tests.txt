@@ -7,4 +7,4 @@ hydra-core==1.3.2
 timm==0.9.16
 torchseg==0.0.1a4
 h5py==3.12.1
-vbll==0.2.6
+vbll==0.3.0
