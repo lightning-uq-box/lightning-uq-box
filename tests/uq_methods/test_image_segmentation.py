@@ -163,7 +163,9 @@ class TestFrozenSegmentation:
         self, model_config_path: str, model_name: str, backbone: str
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
-        model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
+        model_conf.uq_method.model["_target_"] = (
+            f"segmentation_models_pytorch.{model_name}"
+        )
         model_conf.uq_method.model["encoder_name"] = backbone
 
         if model_name == "DeepLabV3Plus":
@@ -186,7 +188,9 @@ class TestFrozenSegmentation:
     @pytest.mark.parametrize("model_config_path", frozen_config_paths)
     def test_freeze_decoder(self, model_config_path: str, model_name: str) -> None:
         model_conf = OmegaConf.load(model_config_path)
-        model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
+        model_conf.uq_method.model["_target_"] = (
+            f"segmentation_models_pytorch.{model_name}"
+        )
 
         if model_name == "DeepLabV3Plus":
             # drop depth and decoder_channels as this decoder needs different config

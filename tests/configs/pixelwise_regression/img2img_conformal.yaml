@@ -3,7 +3,7 @@ uq_method:
   model:
     _target_: lightning_uq_box.uq_methods.QuantilePxRegression
     model:
-      _target_: torchseg.Unet
+      _target_: segmentation_models_pytorch.Unet
       encoder_name: resnet18
       encoder_weights: imagenet
       classes: 3 # [0.1, 0.5, 0.9] quantile
