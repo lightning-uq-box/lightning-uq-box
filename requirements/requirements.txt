@@ -9,7 +9,7 @@ torchmetrics==1.6.1
 torchvision==0.20.1
 lightning==2.5.0.post0
 scikit-learn==1.6.1
-gpytorch==1.13
+gpytorch==1.14
 pandas==2.2.3
 uncertainty-toolbox==0.1.1
 kornia==0.8.0
