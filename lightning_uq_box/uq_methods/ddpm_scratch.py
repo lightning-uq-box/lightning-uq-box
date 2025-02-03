@@ -19,6 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from torchmetrics.image.fid import FrechetInceptionDistance
 from lightning.pytorch.utilities import rank_zero_only
 from torch import Tensor
 from torchvision.transforms import Normalize
@@ -71,6 +72,7 @@ class DDPM(BaseModule):
         model_kwargs_keys: list[str] = [],
         log_samples_every_n_epochs: int = 10,
         latent_model: nn.Module | None = None,
+        compute_fid: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
@@ -100,6 +102,7 @@ class DDPM(BaseModule):
             log_samples_every_n_epochs: The number of epochs between logging samples.
             latent_model: Optional latent model to encode the data,
                 before running the diffusion process
+            compute_fid: Whether to compute the Frechet Inception Distance (FID) during validation, this can be slow
             optimizer: The optimizer to use.
             lr_scheduler: The learning rate scheduler to use.
         """
@@ -135,6 +138,11 @@ class DDPM(BaseModule):
         self.condition = False
         self.self_condition = False
         self.latent_scale_factor = 1.0
+
+        if compute_fid:
+            self.fid = FrechetInceptionDistance(feature=2048, normalize=True)
+
+        self.compute_fid = compute_fid
 
     def extract(self, a, t, x_shape) -> Tensor:
         """Extract the noise scheduling terms onto input tensor."""
@@ -280,11 +288,12 @@ class DDPM(BaseModule):
 
         x_start = None
 
-        for t in tqdm(
-            reversed(range(0, self.num_timesteps)),
-            desc="sampling loop time step",
-            total=self.num_timesteps,
-        ):
+        # for t in tqdm(
+        #     reversed(range(0, self.num_timesteps)),
+        #     desc="sampling loop time step",
+        #     total=self.num_timesteps,
+        # ):
+        for t in reversed(range(0, self.num_timesteps)):
             # self_cond = cond_variables if self.cond_variables else None
             img, x_start = self.p_sample(img, t, model_kwargs)
             imgs.append(img)
@@ -311,16 +320,15 @@ class DDPM(BaseModule):
         Args:
             batch_size (int, optional): The number of samples to generate. Defaults to 16.
             return_all_timesteps (bool, optional): Whether to return all timesteps. Defaults to False.
-            cond_variables (Tensor | None, optional): Conditioning variables. Defaults to None.
 
         Returns:
             Tensor: The generated samples.
         """
         self.use_ema_model = True
         (h, w), channels = self.image_size, self.out_channels
-        batch_size = (
-            cond_variables.shape[0] if cond_variables is not None else batch_size
-        )
+        # batch_size = (
+        #     cond_variables.shape[0] if cond_variables is not None else batch_size
+        # )
         samples = self.p_sample_loop(
             (batch_size, channels, h, w),
             return_all_timesteps=return_all_timesteps,
@@ -354,9 +362,15 @@ class DDPM(BaseModule):
     ):
         """Model predictions for the given input."""
         if self.use_ema_model:
-            model_output = self.ema.ema_model(x, t, **model_kwargs)
+            if model_kwargs is not None:
+                model_output = self.ema.ema_model(x, t, **model_kwargs)
+            else:
+                model_output = self.ema.ema_model(x, t)
         else:
-            model_output = self.model(x, t, **model_kwargs)
+            if model_kwargs is not None:
+                model_output = self.model(x, t, **model_kwargs)
+            else:
+                model_output = self.model(x, t)
         maybe_clip = (
             partial(torch.clamp, min=-1.0, max=1.0)
             if clip_x_start
@@ -384,7 +398,11 @@ class DDPM(BaseModule):
     def p_mean_variance(
         self, x, t, model_kwargs: dict[str, Tensor] | None = None, clip_denoised=True
     ):
-        preds = self.model_predictions(x, t, **model_kwargs)
+        if model_kwargs is not None:
+            preds = self.model_predictions(x, t, **model_kwargs)
+        else:
+            preds = self.model_predictions(x, t)
+        x_start = preds["pred_x_start"]
         x_start = preds["pred_x_start"]
 
         if clip_denoised:
@@ -420,18 +438,26 @@ class DDPM(BaseModule):
         else:
             cond_variables = None
 
-        model_out = self.model(x, t, **model_kwargs)
+        if model_kwargs is not None:
+            model_out = self.model(x, t, **model_kwargs)
+        else:
+            model_out = self.model(x, t)
 
         # Predict X_0
         return self.compute_loss(model_out, x_start, t, model_kwargs)
 
-    def compute_loss(self, pred: Tensor, target: Tensor, t: Tensor, model_kwargs) -> Tensor:
+    def compute_loss(
+        self, pred: Tensor, target: Tensor, t: Tensor, model_kwargs
+    ) -> Tensor:
         """Compute the loss for the model."""
         # TODO make this more varible, probably by also an argument
         # loss = F.mse_loss(pred, target, reduction="none")
         # loss = reduce(loss, "b ... -> b", "mean")
         # loss = loss * self.extract(self.loss_weight, t, loss.shape)
-        return self.loss_fn(pred, target, **model_kwargs)
+        if model_kwargs is not None:
+            return self.loss_fn(pred, target, **model_kwargs)
+        else:
+            return self.loss_fn(pred, target)
 
     def encode_img(
         self, latent_model: nn.Module, img: Tensor, up_sample: bool = False
@@ -487,16 +513,6 @@ class DDPM(BaseModule):
 
         model_kwargs = {key: batch[key] for key in self.model_kwargs_keys}
 
-        # target = batch[self.target_key]
-        # fig, axs = plt.subplots(nrows=8, ncols=2, figsize=(4, 16))
-        # for i in range(8):
-        #     axs[i, 0].imshow((X[i].permute(1, 2, 0).detach().cpu().numpy() + 1)/2)
-        #     axs[i, 1].imshow((target[i].permute(1, 2, 0).detach().cpu().numpy()+1)/2)
-        #     axs[i, 0].axis('off')
-        #     axs[i, 1].axis('off')
-
-        # plt.tight_layout()
-        # plt.savefig(os.path.join(self.trainer.default_root_dir, f"input_target_{self.current_epoch}.png"))
         # generate a t
         t = torch.randint(
             0, self.num_timesteps, (X.shape[0],), device=self.device
@@ -525,6 +541,20 @@ class DDPM(BaseModule):
         ):
             samples = self.sample(batch_size=16)
             self.log_samples(samples, batch[self.input_key], batch.get("target", None))
+
+        if self.compute_fid:
+            real_images = batch[self.input_key]
+            samples = self.sample(batch_size=real_images.shape[0])
+
+            # update fid metric
+            self.fid.update(real_images, real=True)
+            self.fid.update(samples, real=False)
+
+    def on_validation_epoch_end(self) -> None:
+        """Compute and log the FID score."""
+        if self.compute_fid:
+            fid_score = self.fid.compute()
+            self.log("val_fid", fid_score)
 
     def log_samples(
         self, preds: Tensor, inputs: None | Tensor, targets: None | Tensor

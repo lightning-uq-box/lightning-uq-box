@@ -113,9 +113,9 @@ class TestRePaint:
         batch = next(iter(data.train_dataloader()))
 
         def create_center_square_mask(image_size: int, mask_size: int):
-            assert (
-                image_size >= mask_size
-            ), "Mask size should be smaller or equal to image size"
+            assert image_size >= mask_size, (
+                "Mask size should be smaller or equal to image size"
+            )
 
             mask = torch.zeros((image_size, image_size))
             start = (image_size - mask_size) // 2

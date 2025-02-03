@@ -79,19 +79,28 @@ def sigmoid_beta_schedule(
 
 def quadratic_beta_schedule(timesteps):
     if timesteps < 20:
-        raise ValueError("Warning: Less than 20 timesteps require adjustments to this schedule!")
-    beta_start = 0.0001 * (1000/timesteps) # adjust reference values determined for 1000 steps
-    beta_end = 0.02 * (1000/timesteps)
+        raise ValueError(
+            "Warning: Less than 20 timesteps require adjustments to this schedule!"
+        )
+    beta_start = 0.0001 * (
+        1000 / timesteps
+    )  # adjust reference values determined for 1000 steps
+    beta_end = 0.02 * (1000 / timesteps)
     betas = torch.linspace(beta_start**0.5, beta_end**0.5, timesteps) ** 2
     return torch.clip(betas, 0.0001, 0.9999)
 
+
 def cubic_beta_schedule(timesteps):
     if timesteps < 20:
-        raise ValueError("Warning: Less than 20 timesteps require adjustments to this schedule!")
-    beta_start = 0.0001 * (1000/timesteps) # adjust reference values determined for 1000 steps
-    beta_end = 0.02 * (1000/timesteps)
+        raise ValueError(
+            "Warning: Less than 20 timesteps require adjustments to this schedule!"
+        )
+    beta_start = 0.0001 * (
+        1000 / timesteps
+    )  # adjust reference values determined for 1000 steps
+    beta_end = 0.02 * (1000 / timesteps)
     betas = torch.linspace(beta_start**0.5, beta_end**0.5, timesteps) ** 3
-    return 2*torch.clip(betas, 0.0001, 0.9999)
+    return 2 * torch.clip(betas, 0.0001, 0.9999)
 
 
 def exponential_beta_schedule(

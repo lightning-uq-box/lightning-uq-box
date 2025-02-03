@@ -166,11 +166,16 @@ class ResShiftBase(DDPM):
 
         if self.sqrt_betas.device != y.device:
             self.sqrt_betas = self.sqrt_betas.to(y.device)
-  
+
         return y + self.extract(self.kappa * self.sqrt_betas, t, y.shape) * noise
 
     def model_predictions(
-        self, x, t, lq_img: Tensor, model_kwargs: dict[str, Tensor] | None = None, clip_x_start=False
+        self,
+        x,
+        t,
+        lq_img: Tensor,
+        model_kwargs: dict[str, Tensor] | None = None,
+        clip_x_start=False,
     ):
         """Model predictions for the given input."""
         if self.use_ema_model:
@@ -178,7 +183,9 @@ class ResShiftBase(DDPM):
                 self._scale_input(x, t), t, lq=lq_img, **model_kwargs
             )
         else:
-            model_output = self.model(self._scale_input(x, t), t, lq=lq_img, **model_kwargs)
+            model_output = self.model(
+                self._scale_input(x, t), t, lq=lq_img, **model_kwargs
+            )
         maybe_clip = (
             partial(torch.clamp, min=-1.0, max=1.0)
             if clip_x_start
@@ -210,7 +217,12 @@ class ResShiftBase(DDPM):
 
     @torch.inference_mode()
     def p_sample(
-        self, x, lq_img: Tensor, t: int, model_kwargs: dict[str, Tensor] | None = None, clip_denoised=False
+        self,
+        x,
+        lq_img: Tensor,
+        t: int,
+        model_kwargs: dict[str, Tensor] | None = None,
+        clip_denoised=False,
     ):
         b, *_, device = *x.shape, self.device
         batched_times = torch.full((b,), t, device=device, dtype=torch.long)
@@ -230,7 +242,10 @@ class ResShiftBase(DDPM):
         return pred_img, x_start
 
     def p_sample_loop(
-        self, lq_img: Tensor, model_kwargs: dict[str, Tensor] | None = None, return_all_timesteps=False
+        self,
+        lq_img: Tensor,
+        model_kwargs: dict[str, Tensor] | None = None,
+        return_all_timesteps=False,
     ):
         """Sample the HR image."""
         batch, device = lq_img.shape[0], self.device
@@ -254,7 +269,13 @@ class ResShiftBase(DDPM):
                 clip_denoised = t > 0
             else:
                 clip_denoised = False
-            img, x_start = self.p_sample(x=img, lq_img=lq_img, t=t, model_kwargs=model_kwargs, clip_denoised=clip_denoised)
+            img, x_start = self.p_sample(
+                x=img,
+                lq_img=lq_img,
+                t=t,
+                model_kwargs=model_kwargs,
+                clip_denoised=clip_denoised,
+            )
             imgs.append(img)
 
         if return_all_timesteps:
@@ -318,7 +339,6 @@ class ResShiftBase(DDPM):
         target = x_start
 
         return self.compute_loss(model_out, target, t, model_kwargs=model_kwargs)
-        
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -334,7 +354,6 @@ class ResShiftBase(DDPM):
             0, self.num_timesteps, (lq_img.shape[0],), device=self.device
         ).long()
 
-
         # loss = self.p_losses(hq_img, lq_img, t, img_cond=batch["condition"], date=batch["timestamp"], lonlat=batch["lonlat"])
         loss = self.p_losses(hq_img, lq_img, t, model_kwargs=model_kwargs)
 
@@ -349,7 +368,9 @@ class ResShiftBase(DDPM):
 
         # TODO maybe configure so that one batch of images is generated and saved
         # per log_samples_every_n_epochs
-        preds = self.predict_step(batch, batch_idx=batch_idx, return_all_timesteps=False)
+        preds = self.predict_step(
+            batch, batch_idx=batch_idx, return_all_timesteps=False
+        )
         preds = self.adapt_output_for_metrics(preds)
         if (
             self.current_epoch % self.log_samples_every_n_epochs == 0
@@ -357,19 +378,25 @@ class ResShiftBase(DDPM):
             and self.trainer.global_rank == 0
         ):
             self.log_samples(preds, batch[self.input_key], batch[self.target_key])
-        
+
         # compute mse
         model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
         loss = self.loss_fn(preds, batch[self.target_key], **model_kwargs)
         self.log("val_loss", loss, sync_dist=True)
 
     def predict_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0, return_all_timesteps: bool = False
+        self,
+        batch: dict[str, Tensor],
+        batch_idx: int,
+        dataloader_idx: int = 0,
+        return_all_timesteps: bool = False,
     ) -> dict[str, Tensor]:
         """Predict the super resolved image."""
         model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
         return self.p_sample_loop(
-            batch[self.input_key], model_kwargs=model_kwargs, return_all_timesteps=return_all_timesteps
+            batch[self.input_key],
+            model_kwargs=model_kwargs,
+            return_all_timesteps=return_all_timesteps,
         )
 
     def log_samples(self, preds: Tensor, inputs: Tensor, targets: Tensor) -> None:
@@ -522,7 +549,9 @@ class ResShiftSR(ResShiftBase):
     ) -> Tensor:
         """Compute and return the validation loss."""
         # compute metrics on some valiation set
-        preds = self.predict_step(batch, batch_idx=batch_idx, return_all_timesteps=False)
+        preds = self.predict_step(
+            batch, batch_idx=batch_idx, return_all_timesteps=False
+        )
         preds = self.adapt_output_for_metrics(preds)
         # TODO maybe configure so that one batch of images is generated and saved
         # per log_samples_every_n_epochs
@@ -535,7 +564,6 @@ class ResShiftSR(ResShiftBase):
 
         mse = torch.nn.functional.mse_loss(preds, batch[self.target_key])
         self.log("val_loss", mse, sync_dist=True)
-
 
     def log_samples(self, preds: Tensor, inputs: Tensor, targets: Tensor) -> None:
         """Log samples to local directory.
@@ -575,15 +603,24 @@ class ResShiftSR(ResShiftBase):
         plt.close()
 
     def predict_step(
-        self, batch: dict[str, Tensor], batch_idx: int = 0, dataloader_idx: int = 0, return_all_timesteps: bool = False
+        self,
+        batch: dict[str, Tensor],
+        batch_idx: int = 0,
+        dataloader_idx: int = 0,
+        return_all_timesteps: bool = False,
     ) -> dict[str, Tensor]:
         """Predict the super resolved image."""
         try:
             model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
         except:
             import pdb
+
             pdb.set_trace()
-        return self.p_sample_loop(batch[self.input_key], model_kwargs=model_kwargs, return_all_timesteps=return_all_timesteps)
+        return self.p_sample_loop(
+            batch[self.input_key],
+            model_kwargs=model_kwargs,
+            return_all_timesteps=return_all_timesteps,
+        )
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt the output for the metrics."""
@@ -600,10 +637,7 @@ class InpaintingResShift(ResShiftBase):
         # compute the loss
         # TODO
         # mask is expected to be in range 0, 1, where 0 is the masked region...
-        lq_img, hr_img = (
-            batch[self.input_key],
-            batch[self.target_key],
-        )
+        lq_img, hr_img = (batch[self.input_key], batch[self.target_key])
 
         model_kwargs = {k: batch[k] for k in self.model_kwargs_keys}
 
@@ -628,7 +662,9 @@ class InpaintingResShift(ResShiftBase):
             batch_idx: The batch index.
             dataloader_idx: The dataloader index.
         """
-        preds = self.predict_step(batch, batch_idx=batch_idx, return_all_timesteps=False)
+        preds = self.predict_step(
+            batch, batch_idx=batch_idx, return_all_timesteps=False
+        )
         preds = self.adapt_output_for_metrics(preds)
         if (
             self.current_epoch % self.log_samples_every_n_epochs == 0
@@ -639,12 +675,16 @@ class InpaintingResShift(ResShiftBase):
             self.log_samples(
                 preds["pred"], preds["lr"], batch["mask"], batch[self.target_key]
             )
-        
+
         mse = torch.nn.functional.mse_loss(preds["pred"], batch[self.target_key])
         self.log("val_loss", mse, sync_dist=True)
 
     def predict_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0, return_all_timesteps: bool = False
+        self,
+        batch: dict[str, Tensor],
+        batch_idx: int,
+        dataloader_idx: int = 0,
+        return_all_timesteps: bool = False,
     ) -> dict[str, Tensor]:
         """Predict the inpainted image.
 
@@ -747,21 +787,23 @@ class DeblurResShift(ResShiftBase):
         )
         plt.close()
 
+
 from .loss_functions import PinballLoss
 
-class PinballResShift(ResShiftBase):
 
+class PinballResShift(ResShiftBase):
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt the output for the metrics."""
         return out[:, 1:2, ...]
+
 
 class NLLResShift(ResShiftBase):
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt the output for the metrics."""
         return out[:, 0:1, ...]
 
+
 # class PinballInpaintResShift(InpaintingResShift):
 #     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
 #         """Adapt the output for the metrics."""
 #         return out[:, 1:2, ...]
-
