@@ -5,7 +5,7 @@ setuptools==75.8.0
 jsonargparse[signatures]==4.37.0
 omegaconf==2.3.0
 torch==2.6.0
-torchmetrics==1.6.1
+torchmetrics==1.6.2
 torchvision==0.21.0
 lightning==2.5.0.post0
 scikit-learn==1.6.1
