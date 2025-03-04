@@ -1,0 +1,17 @@
+model:
+  _target_: lightning_uq_box.uq_methods.ElucidatedDDPM
+  diffusion_model:
+    _target_: denoising_diffusion_pytorch.elucidated_diffusion.ElucidatedDiffusion
+    net:
+      _target_: denoising_diffusion_pytorch.denoising_diffusion_pytorch.Unet
+      dim: 16
+      channels: 3
+      out_dim: 3
+      learned_sinusoidal_cond: true
+    image_size: 64
+    num_sample_steps: 10
+  log_samples_every_n_steps: 5
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003

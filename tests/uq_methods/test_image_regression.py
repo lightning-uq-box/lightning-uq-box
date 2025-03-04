@@ -45,16 +45,24 @@ model_config_paths = [
 ]
 
 data_config_paths = ["tests/configs/image_regression/toy_image_regression.yaml"]
+trainer_config_path = ["tests/configs/image_regression/trainer.yaml"]
 
 
 class TestImageRegressionTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
+    @pytest.mark.parametrize("trainer_config_path", trainer_config_path)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        trainer_config_path: str,
+        tmp_path: Path,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
+        trainer_conf = OmegaConf.load(trainer_config_path)
+        full_conf = OmegaConf.merge(trainer_conf, data_conf, model_conf)
 
         model = instantiate(model_conf.uq_method)
         datamodule = instantiate(data_conf.data)
