@@ -1,5 +1,5 @@
 # setup
-setuptools==80.7.0
+setuptools==80.8.0
 
 # install
 jsonargparse[signatures]==4.40.0
