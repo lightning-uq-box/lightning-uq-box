@@ -4,9 +4,9 @@ setuptools==80.9.0
 # install
 jsonargparse[signatures]==4.40.0
 omegaconf==2.3.0
-torch==2.7.0
+torch==2.7.1
 torchmetrics==1.7.2
-torchvision==0.22.0
+torchvision==0.22.1
 lightning==2.5.0.post0
 scikit-learn==1.6.1
 gpytorch==1.14
