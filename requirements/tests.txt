@@ -2,7 +2,7 @@
 mypy==1.16.0
 pytest==8.4.1
 nbmake==1.5.5
-pytest-cov==6.1.1
+pytest-cov==6.2.1
 hydra-core==1.3.2
 timm==0.9.16
 torchseg==0.0.1a4
