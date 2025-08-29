@@ -7,7 +7,7 @@ omegaconf==2.3.0
 torch==2.8.0
 torchmetrics==1.8.1
 torchvision==0.23.0
-lightning==2.5.3
+lightning==2.5.4
 scikit-learn==1.6.1
 gpytorch==1.14
 pandas==2.3.2
