@@ -1,5 +1,5 @@
 # tests
-mypy==1.17.1
+mypy==1.18.2
 pytest==8.4.2
 nbmake==1.5.5
 pytest-cov==6.2.1
