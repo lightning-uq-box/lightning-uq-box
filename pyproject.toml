@@ -58,6 +58,8 @@ dependencies = [
     "gpytorch>=1.11",
     # Laplace Approximation
     "laplace-torch>=0.2.1",
+    # curvlinops need to be fixed: https://github.com/aleximmer/Laplace/issues/285
+    "curvlinops-for-pytorch==2.0.1",
     # Uncertainty toolbox metrics
     "uncertainty-toolbox>=0.1.1",
     # Kornia for Test Time Augmentations and other image processing
