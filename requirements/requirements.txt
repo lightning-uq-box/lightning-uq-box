@@ -2,7 +2,7 @@
 setuptools==80.9.0
 
 # install
-jsonargparse[signatures]==4.41.0
+jsonargparse[signatures]==4.42.0
 omegaconf==2.3.0
 torch==2.9.0
 torchmetrics==1.8.2
