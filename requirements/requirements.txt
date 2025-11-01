@@ -15,5 +15,5 @@ uncertainty-toolbox==0.1.1
 kornia==0.8.0
 h5py==3.13.0
 laplace-torch==0.2.2.2
-curvlinops==2.0.0
+curvlinops-for-pytorch==2.0.1
 ema-pytorch==0.7.7
