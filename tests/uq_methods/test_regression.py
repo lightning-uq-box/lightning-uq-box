@@ -60,7 +60,9 @@ class TestRegressionTask:
             "--config",
             data_config_path,
             "--trainer.accelerator",
-            "cpu",
+            "gpu",
+            "--trainer.devices",
+            "[0]",
             "--trainer.max_epochs",
             "2",
             "--trainer.log_every_n_steps",
@@ -74,8 +76,7 @@ class TestRegressionTask:
         ]
 
         cli = get_uq_box_cli(args)
-        if "laplace" not in model_config_path:
-            cli.trainer.fit(cli.model, cli.datamodule)
+        cli.trainer.fit(cli.model, cli.datamodule)
         cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
         # assert predictions are saved
@@ -102,7 +103,9 @@ class TestPosthoc:
             "--config",
             data_config_path,
             "--trainer.accelerator",
-            "cpu",
+            "gpu",
+            "--trainer.devices",
+            "[0]",
             "--trainer.max_epochs",
             "1",
             "--trainer.log_every_n_steps",
@@ -150,7 +153,9 @@ class TestDeepEnsemble:
                 "--config",
                 data_config_path,
                 "--trainer.accelerator",
-                "cpu",
+                "gpu",
+                "--trainer.devices",
+                "[0]",
                 "--trainer.max_epochs",
                 "1",
                 "--trainer.log_every_n_steps",
@@ -206,7 +211,9 @@ class TestDeepEnsemble:
             "--config",
             data_config_path,
             "--trainer.accelerator",
-            "cpu",
+            "gpu",
+            "--trainer.devices",
+            "[0]",
             "--trainer.max_epochs",
             "1",
             "--trainer.log_every_n_steps",

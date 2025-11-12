@@ -180,7 +180,7 @@ class Img2ImgConformal(PosthocBase):
             sets = self.adjust_model_logits(output, lam)
             losses = losses + [self.rcps_loss_fn(sets, labels)]
 
-        return torch.cat(losses, dim=0).cpu()
+        return torch.cat(losses, dim=0)
 
     @torch.no_grad()
     def on_train_end(self) -> None:
@@ -251,7 +251,7 @@ class Img2ImgConformal(PosthocBase):
         # Compute our metrics
         self.compute_metrics(pred_dict, batch[self.target_key].squeeze(1))
 
-        pred_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
+        pred_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
         pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
 
         return pred_dict

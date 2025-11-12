@@ -71,7 +71,9 @@ dependencies = [
     # saving pixelwise and segmentation predictions
     "h5py>=3.12.1",
     # exponential moving average for pytorch models
-    "ema-pytorch>=0.7.0"
+    "ema-pytorch>=0.7.0",
+    # vbll
+    "vbll>=0.4.9"
 ]
 dynamic = ["version"]
 

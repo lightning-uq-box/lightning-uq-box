@@ -230,7 +230,7 @@ class DKLBase(gpytorch.Module, BaseModule):
     ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
 
         self.log(
             "test_loss",
@@ -242,7 +242,7 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         del out_dict["out"]
 
-        out_dict["pred"] = out_dict["pred"].detach().cpu()
+        out_dict["pred"] = out_dict["pred"].detach()
 
         # save metadata
         out_dict = self.add_aux_data_to_dict(out_dict, batch)
@@ -404,7 +404,7 @@ class DKLRegression(DKLBase):
         ):
             output = self.likelihood(self.forward(X))
             mean = output.mean
-            std = output.stddev.cpu()
+            std = output.stddev
 
         return {"pred": mean, "pred_uct": std, "epistemic_uct": std, "out": output}
 
@@ -600,7 +600,7 @@ class DKLClassification(DKLBase):
             gp_dist = self.forward(X)
             output = self.likelihood(gp_dist)
             mean = output.probs.mean(0)  # take mean over sampling dimension
-            entropy = output.entropy().mean(0).cpu()
+            entropy = output.entropy().mean(0)
         return {"pred": mean, "pred_uct": entropy, "out": gp_dist, "logits": mean}
 
     def on_test_batch_end(
@@ -687,7 +687,7 @@ class DKLGPLayer(ApproximateGP):
                 f"choices are {self.kernel_choices}."
             )
 
-        kernel.lengthscale = initial_lengthscale.cpu() * torch.ones_like(
+        kernel.lengthscale = initial_lengthscale * torch.ones_like(
             kernel.lengthscale
         )
 
@@ -759,7 +759,7 @@ def compute_initial_values(
             y_sample = y_sample.to(device)
 
             X_sample = augmentation({input_key: X_sample, target_key: y_sample})
-            f_X_samples.append(feature_extractor(X_sample).cpu())
+            f_X_samples.append(feature_extractor(X_sample))
 
     f_X_samples = torch.cat(f_X_samples)
 
@@ -805,4 +805,4 @@ def _get_initial_lengthscale(f_X_samples: Tensor) -> Tensor:
 
     initial_lengthscale = torch.pdist(f_X_samples).mean()
 
-    return initial_lengthscale.cpu()
+    return initial_lengthscale

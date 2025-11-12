@@ -267,6 +267,9 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         Returns:
             bnn output of size [batch_size, output_dim]
         """
+        if y.device != X.device:
+            y = y.to(X.device)
+
         if self.hparams.latent_variable_intro == "first":
             if training:
                 # this passes X,y through the whole self.lv_net
@@ -293,11 +296,14 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                     z = y
                 else:
                     z = self.sample_latent_variable_prior(X)
-
-            X = torch.cat(
-                [X, z], -1
-            )  # [batch_size, model output_features+lv_latent_dim]
-            X = self.prediction_head(X)
+            try:
+                X = torch.cat(
+                    [X, z], -1
+                )  # [batch_size, model output_features+lv_latent_dim]
+                X = self.prediction_head(X)
+            except:
+                import pdb
+                pdb.set_trace()
 
         return X
 
@@ -311,7 +317,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             sampled latent variable of shape [batch_size, lv_latent_dim]
         """
         batch_size = X.shape[0]
-        return torch.randn(batch_size, self.hparams.lv_latent_dim).to(self.device)
+        return torch.randn(batch_size, self.hparams.lv_latent_dim, device=X.device)
 
     def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
@@ -380,12 +386,12 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             key, module = _get_output_layer_name_and_module(self.prediction_head)
             output_dim = module.out_features
 
-        in_noise = torch.randn(n_aleatoric)
+        in_noise = torch.randn(n_aleatoric, device=X.device)
         model_preds_hy = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim)
+            (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim), device=X.device
         )
         model_preds = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim)
+            (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim), device=X.device
         )
         o_noise = torch.exp(self.log_aleatoric_std).detach()
         with torch.no_grad():
@@ -394,7 +400,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                 z = torch.tile(in_noise[i], (X.shape[0], 1))
                 pred = self.forward(X, z, training=False)
                 pred += (
-                    torch.tile(torch.randn(1, output_dim), [X.shape[0], 1]) * o_noise
+                    torch.tile(torch.randn(1, output_dim, device=X.device), [X.shape[0], 1]) * o_noise
                 )
                 model_preds_hy[i, :, :] = pred
 
@@ -405,7 +411,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                     z = torch.tile(in_noise[j], (X.shape[0], 1))
                     pred = self.forward(X, z, training=False)
                     pred += (
-                        torch.tile(torch.randn(1, output_dim), [X.shape[0], 1])
+                        torch.tile(torch.randn(1, output_dim, device=X.device), [X.shape[0], 1])
                         * o_noise
                     )
                     model_preds[i, j, :, :] = pred
@@ -423,7 +429,6 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         aleatoric_uncertainty = entropy(model_preds, dim=1).mean(dim=0).flatten()
         epistemic_uncertainty = full_uncertainty - aleatoric_uncertainty
         std_full = model_preds_hy.std(dim=0).squeeze()
-
         return {
             "pred": mean_out,
             "pred_uct": std_full,
@@ -650,7 +655,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         """
         num_samples = X.shape[0]
         batch_size = X.shape[1]
-        return torch.randn(num_samples, batch_size, self.hparams.lv_latent_dim).to(
+        return torch.randn(num_samples, batch_size, self.hparams.lv_latent_dim, device=X.device).to(
             self.device
         )
 
@@ -716,11 +721,11 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
 
         in_noise = torch.randn(n_aleatoric)
         model_preds_hy = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim)
+            (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim), device=X.device
         )
 
         model_preds = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim)
+            (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim), device=X.device
         )
         o_noise = torch.exp(self.log_aleatoric_std).detach()
 
@@ -738,7 +743,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
                 )
                 pred += (
                     torch.tile(
-                        torch.randn(n_samples, 1, output_dim), [1, X.shape[0], 1]
+                        torch.randn(n_samples, 1, output_dim, device=X.device), [1, X.shape[0], 1]
                     )
                     * o_noise
                 )
@@ -756,7 +761,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
                     )
                     pred += (
                         torch.tile(
-                            torch.randn(n_samples, 1, output_dim), [1, X.shape[0], 1]
+                            torch.randn(n_samples, 1, output_dim, device=X.device), [1, X.shape[0], 1]
                         )
                         * o_noise
                     )
@@ -777,6 +782,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         aleatoric_uncertainty = entropy(model_preds, dim=1).mean(dim=0).flatten()
         epistemic_uncertainty = full_uncertainty - aleatoric_uncertainty
         std_full = model_preds_hy.std(dim=0).squeeze()
+
 
         return {
             "pred": mean_out,

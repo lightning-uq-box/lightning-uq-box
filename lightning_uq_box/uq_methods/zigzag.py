@@ -93,7 +93,7 @@ class ZigZagBase(DeterministicModel):
         if y is None:
             if self.input_linear:
                 x_in = torch.concat(
-                    [x, self.blank_const * torch.ones([x.shape[0], 1])], dim=1
+                    [x, self.blank_const * torch.ones([x.shape[0], 1], device=x.device, dtype=x.dtype)], dim=1
                 )
             else:
                 batch_size, _, height, width = x.shape
@@ -215,7 +215,7 @@ class ZigZagBase(DeterministicModel):
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(pred_dict["pred"], batch[self.target_key])
 
-        pred_dict["pred"] = pred_dict["pred"].detach().cpu().squeeze(-1)
+        pred_dict["pred"] = pred_dict["pred"].detach().squeeze(-1)
 
         pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
 

@@ -198,7 +198,7 @@ class MasksemblesBase(BaseModule):
                 self.adapt_output_for_metrics(pred_dict["pred"]), batch[self.target_key]
             )
 
-        pred_dict["pred"] = pred_dict["pred"].detach().cpu().squeeze(-1)
+        pred_dict["pred"] = pred_dict["pred"].detach().squeeze(-1)
 
         pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
 
