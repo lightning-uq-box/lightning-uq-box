@@ -51,7 +51,11 @@ class TestImageRegressionTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -59,7 +63,8 @@ class TestImageRegressionTask:
         model = instantiate(model_conf.uq_method)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            accelerator="cpu",
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
             max_epochs=2,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
@@ -91,7 +96,11 @@ class TestMCDropout:
     @pytest.mark.parametrize("model_config_path", mc_dropout_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -99,7 +108,8 @@ class TestMCDropout:
         model = instantiate(model_conf.uq_method)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            accelerator="cpu",
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
             max_epochs=1,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
@@ -123,6 +133,7 @@ class TestPosthoc:
         data_config_path: str,
         calibration: bool,
         tmp_path: Path,
+        accelerator_config,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -131,7 +142,8 @@ class TestPosthoc:
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
             default_root_dir=str(tmp_path),
-            accelerator="cpu",
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
             max_epochs=1,
             log_every_n_steps=1,
         )
@@ -163,7 +175,7 @@ class TestDeepEnsemble:
         ]
     )
     def ensemble_members_dict(
-        self, request, tmp_path_factory: TempPathFactory
+        self, request, tmp_path_factory: TempPathFactory, accelerator_config
     ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         model_conf = OmegaConf.load(model_config_path)
@@ -176,7 +188,8 @@ class TestDeepEnsemble:
             model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                accelerator="cpu",
+                accelerator=accelerator_config["accelerator"],
+                devices=accelerator_config["devices"],
                 max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
@@ -193,12 +206,19 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
+        self,
+        ensemble_members_dict: list[dict[str, Any]],
+        tmp_path: Path,
+        accelerator_config,
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(ensemble_members_dict)
         datamodule = ToyImageRegressionDatamodule()
-        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
+        trainer = Trainer(
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
+            default_root_dir=str(tmp_path),
+        )
         if "mc_dropout" in ensemble_members_dict[0]["ckpt_path"]:
             with pytest.raises(UserWarning, match="No dropout layers found in model"):
                 trainer.test(ensemble_model, datamodule)
@@ -226,13 +246,18 @@ class TestTTAModel:
         model_config_path: str,
         merge_strategy: Literal["mean", "median", "sum", "max", "min"],
         tmp_path: Path,
+        accelerator_config,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         base_model = instantiate(model_conf.uq_method)
         tta_model = TTARegression(base_model, merge_strategy=merge_strategy)
         datamodule = ToyImageRegressionDatamodule()
 
-        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
+        trainer = Trainer(
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
+            default_root_dir=str(tmp_path),
+        )
 
         if "mc_dropout" in model_config_path:
             with pytest.raises(UserWarning, match="No dropout layers found in model"):

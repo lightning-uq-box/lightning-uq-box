@@ -83,9 +83,9 @@ class DKLBase(gpytorch.Module, BaseModule):
             ]
         )
 
-        assert gp_kernel in self.kernel_choices, (
-            "Please choose one of the supported kernel choices ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']"
-        )  # noqa: E501
+        assert (
+            gp_kernel in self.kernel_choices
+        ), "Please choose one of the supported kernel choices ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']"  # noqa: E501
         self.gp_kernel = gp_kernel
         self.optimizer = optimizer
         self.feature_extractor = feature_extractor
@@ -689,9 +689,7 @@ class DKLGPLayer(ApproximateGP):
         # move kernel to device of initial_lengthscale
         kernel = kernel.to(initial_lengthscale.device)
 
-        kernel.lengthscale = initial_lengthscale * torch.ones_like(
-            kernel.lengthscale
-        )
+        kernel.lengthscale = initial_lengthscale * torch.ones_like(kernel.lengthscale)
 
         self.mean_module = ConstantMean(batch_shape=batch_shape)
 

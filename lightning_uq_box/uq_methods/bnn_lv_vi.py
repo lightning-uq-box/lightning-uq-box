@@ -121,9 +121,9 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             lr_scheduler,
         )
 
-        assert latent_variable_intro in self.lv_intro_options, (
-            f"Only one of {self.lv_intro_options} is possible, but found {latent_variable_intro}."
-        )  # noqa: E501
+        assert (
+            latent_variable_intro in self.lv_intro_options
+        ), f"Only one of {self.lv_intro_options} is possible, but found {latent_variable_intro}."  # noqa: E501
 
         self.save_hyperparameters(
             ignore=[
@@ -296,14 +296,10 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                     z = y
                 else:
                     z = self.sample_latent_variable_prior(X)
-            try:
-                X = torch.cat(
-                    [X, z], -1
-                )  # [batch_size, model output_features+lv_latent_dim]
-                X = self.prediction_head(X)
-            except:
-                import pdb
-                pdb.set_trace()
+            X = torch.cat(
+                [X, z], -1
+            )  # [batch_size, model output_features+lv_latent_dim]
+            X = self.prediction_head(X)
 
         return X
 
@@ -388,10 +384,12 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
         in_noise = torch.randn(n_aleatoric, device=X.device)
         model_preds_hy = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim), device=X.device
+            (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim),
+            device=X.device,
         )
         model_preds = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim), device=X.device
+            (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim),
+            device=X.device,
         )
         o_noise = torch.exp(self.log_aleatoric_std).detach()
         with torch.no_grad():
@@ -400,7 +398,10 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                 z = torch.tile(in_noise[i], (X.shape[0], 1))
                 pred = self.forward(X, z, training=False)
                 pred += (
-                    torch.tile(torch.randn(1, output_dim, device=X.device), [X.shape[0], 1]) * o_noise
+                    torch.tile(
+                        torch.randn(1, output_dim, device=X.device), [X.shape[0], 1]
+                    )
+                    * o_noise
                 )
                 model_preds_hy[i, :, :] = pred
 
@@ -411,7 +412,9 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                     z = torch.tile(in_noise[j], (X.shape[0], 1))
                     pred = self.forward(X, z, training=False)
                     pred += (
-                        torch.tile(torch.randn(1, output_dim, device=X.device), [X.shape[0], 1])
+                        torch.tile(
+                            torch.randn(1, output_dim, device=X.device), [X.shape[0], 1]
+                        )
                         * o_noise
                     )
                     model_preds[i, j, :, :] = pred
@@ -655,9 +658,9 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         """
         num_samples = X.shape[0]
         batch_size = X.shape[1]
-        return torch.randn(num_samples, batch_size, self.hparams.lv_latent_dim, device=X.device).to(
-            self.device
-        )
+        return torch.randn(
+            num_samples, batch_size, self.hparams.lv_latent_dim, device=X.device
+        ).to(self.device)
 
     def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
         """Compute the loss for BNN with alpha divergence.
@@ -721,11 +724,13 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
 
         in_noise = torch.randn(n_aleatoric)
         model_preds_hy = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim), device=X.device
+            (self.hparams.n_mc_samples_epistemic, X.shape[0], output_dim),
+            device=X.device,
         )
 
         model_preds = torch.zeros(
-            (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim), device=X.device
+            (self.hparams.n_mc_samples_epistemic, n_aleatoric, X.shape[0], output_dim),
+            device=X.device,
         )
         o_noise = torch.exp(self.log_aleatoric_std).detach()
 
@@ -743,7 +748,8 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
                 )
                 pred += (
                     torch.tile(
-                        torch.randn(n_samples, 1, output_dim, device=X.device), [1, X.shape[0], 1]
+                        torch.randn(n_samples, 1, output_dim, device=X.device),
+                        [1, X.shape[0], 1],
                     )
                     * o_noise
                 )
@@ -761,7 +767,8 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
                     )
                     pred += (
                         torch.tile(
-                            torch.randn(n_samples, 1, output_dim, device=X.device), [1, X.shape[0], 1]
+                            torch.randn(n_samples, 1, output_dim, device=X.device),
+                            [1, X.shape[0], 1],
                         )
                         * o_noise
                     )
@@ -782,7 +789,6 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         aleatoric_uncertainty = entropy(model_preds, dim=1).mean(dim=0).flatten()
         epistemic_uncertainty = full_uncertainty - aleatoric_uncertainty
         std_full = model_preds_hy.std(dim=0).squeeze()
-
 
         return {
             "pred": mean_out,

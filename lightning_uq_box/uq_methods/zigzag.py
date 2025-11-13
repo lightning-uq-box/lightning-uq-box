@@ -93,7 +93,12 @@ class ZigZagBase(DeterministicModel):
         if y is None:
             if self.input_linear:
                 x_in = torch.concat(
-                    [x, self.blank_const * torch.ones([x.shape[0], 1], device=x.device, dtype=x.dtype)], dim=1
+                    [
+                        x,
+                        self.blank_const
+                        * torch.ones([x.shape[0], 1], device=x.device, dtype=x.dtype),
+                    ],
+                    dim=1,
                 )
             else:
                 batch_size, _, height, width = x.shape

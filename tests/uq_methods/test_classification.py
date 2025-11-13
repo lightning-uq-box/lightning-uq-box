@@ -152,14 +152,21 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
+        self,
+        ensemble_members_dict: list[dict[str, Any]],
+        tmp_path: Path,
+        accelerator_config,
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(ensemble_members_dict, 2)
 
         datamodule = TwoMoonsDataModule()
 
-        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
+        trainer = Trainer(
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
+            default_root_dir=str(tmp_path),
+        )
 
         trainer.test(ensemble_model, datamodule=datamodule)
 
