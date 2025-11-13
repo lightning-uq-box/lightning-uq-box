@@ -28,7 +28,6 @@ model_config_paths = [
     "tests/configs/image_segmentation/mc_dropout.yaml",
     "tests/configs/image_segmentation/swag.yaml",
     "tests/configs/image_segmentation/prob_unet.yaml",
-    "tests/configs/image_segmentation/hierarchical_prob_unet.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_segmentation/toy_segmentation.yaml"]
@@ -38,7 +37,11 @@ class TestImageSegmentationTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -46,11 +49,11 @@ class TestImageSegmentationTask:
         model = instantiate(model_conf.uq_method, save_preds=True)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            accelerator="cpu",
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
             max_epochs=2,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
-            deterministic=True,
             logger=CSVLogger(str(tmp_path)),
         )
 
@@ -89,7 +92,7 @@ class TestDeepEnsemble:
         ]
     )
     def ensemble_members_dict(
-        self, request, tmp_path_factory: TempPathFactory
+        self, request, tmp_path_factory: TempPathFactory, accelerator_config
     ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         model_conf = OmegaConf.load(model_config_path)
@@ -102,7 +105,8 @@ class TestDeepEnsemble:
             model = instantiate(model_conf.uq_method, save_preds=True)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                accelerator="cpu",
+                accelerator=accelerator_config["accelerator"],
+                devices=accelerator_config["devices"],
                 max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
@@ -119,7 +123,10 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
+        self,
+        ensemble_members_dict: list[dict[str, Any]],
+        tmp_path: Path,
+        accelerator_config,
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleSegmentation(
@@ -128,7 +135,11 @@ class TestDeepEnsemble:
 
         datamodule = ToySegmentationDataModule()
 
-        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
+        trainer = Trainer(
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
+            default_root_dir=str(tmp_path),
+        )
 
         trainer.test(ensemble_model, datamodule=datamodule)
 

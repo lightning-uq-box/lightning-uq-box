@@ -1,2 +1,4 @@
 data:
   _target_: lightning_uq_box.datamodules.ToyImageClassificationDatamodule
+  num_samples: 4
+  batch_size: 4

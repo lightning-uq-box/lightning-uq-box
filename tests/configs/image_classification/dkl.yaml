@@ -14,3 +14,9 @@ model:
     _partial_: true
   n_inducing_points: 5
   num_classes: 4
+
+# need more samples to fit lengthscale
+data:
+  _target_: lightning_uq_box.datamodules.ToyImageClassificationDatamodule
+  num_samples: 10
+  batch_size: 4

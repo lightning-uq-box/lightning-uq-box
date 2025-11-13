@@ -180,7 +180,7 @@ class Img2ImgConformal(PosthocBase):
             sets = self.adjust_model_logits(output, lam)
             losses = losses + [self.rcps_loss_fn(sets, labels)]
 
-        return torch.cat(losses, dim=0).cpu()
+        return torch.cat(losses, dim=0)
 
     @torch.no_grad()
     def on_train_end(self) -> None:
@@ -201,7 +201,9 @@ class Img2ImgConformal(PosthocBase):
         self.lam = lambdas[-1] + dlambda - 1e-9
         for lam in reversed(lambdas):
             losses = self.get_rcps_losses_from_outputs(self.out_dataset, lam - dlambda)
-            self.calib_loss_table[:, np.where(lambdas == lam)[0]] = losses[:, None]
+            self.calib_loss_table[:, np.where(lambdas == lam)[0]] = losses[
+                :, None
+            ].cpu()
             Rhat = losses.mean()
             RhatPlus = HB_mu_plus(Rhat.item(), losses.shape[0], self.delta)
             if Rhat >= self.alpha or RhatPlus > self.alpha:
@@ -211,7 +213,7 @@ class Img2ImgConformal(PosthocBase):
         # save the calibration table to log_dir
         np.save(
             os.path.join(self.trainer.default_root_dir, "calib_loss_table.npy"),
-            self.calib_loss_table.numpy(),
+            self.calib_loss_table.detach().numpy(),
         )
 
         self.post_hoc_fitted = True
@@ -251,7 +253,7 @@ class Img2ImgConformal(PosthocBase):
         # Compute our metrics
         self.compute_metrics(pred_dict, batch[self.target_key].squeeze(1))
 
-        pred_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
+        pred_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
         pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
 
         return pred_dict

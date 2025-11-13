@@ -185,8 +185,8 @@ class ConformalQR(PosthocBase):
             dataloader_idx: dataloader index
         """
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
+        out_dict["pred"] = out_dict["pred"].detach().squeeze(-1)
 
         self.test_metrics(out_dict["pred"], out_dict[self.target_key])
 

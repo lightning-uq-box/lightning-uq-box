@@ -15,3 +15,8 @@ uq_method:
     _partial_: true
   n_inducing_points: 5
   input_size: 64
+
+data:
+  _target_: lightning_uq_box.datamodules.ToyImageRegressionDatamodule
+  num_samples: 10
+  batch_size: 10

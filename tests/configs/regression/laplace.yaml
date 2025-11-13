@@ -1,0 +1,18 @@
+model:
+  class_path: lightning_uq_box.uq_methods.LaplaceRegression
+  init_args:
+    laplace_model:
+      class_path: laplace.Laplace
+      init_args:
+        model:
+          class_path: lightning_uq_box.models.MLP
+          init_args:
+            n_outputs: 1
+            n_hidden: [50]
+        likelihood: "regression"
+        sigma_noise: 1.0
+        prior_precision: 1.0
+        prior_mean: 0.0
+        temperature: 1.0
+        subset_of_weights: "last_layer"
+        hessian_structure: "kron"

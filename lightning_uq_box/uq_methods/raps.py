@@ -538,7 +538,6 @@ class ConformalModelLogits(nn.Module):
             allow_zero_sets = self.allow_zero_sets
 
         with torch.no_grad():
-            # logits_numpy = logits.detach().cpu().numpy()
             scores = F.softmax(logits / self.temperature.item(), dim=1)
             sorted_score_indices, ordered, cumsum = sort_sum(scores)
 

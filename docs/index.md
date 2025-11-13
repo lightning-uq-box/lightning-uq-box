@@ -63,7 +63,6 @@ The following sections aims to give an overview of different UQ-Methods by group
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Classification And Regression Diffusion (CARD)|     ✅     |       ✅       |      ❌      |          ❌           |
 | Probabilistic UNet                            |     ❌     |       ❌       |      ✅      |          ❌           |
-| Hierarchical Probabilistic UNet               |     ❌     |       ❌       |      ✅      |          ❌           |
 
 ### Post-Hoc methods
 

@@ -117,11 +117,11 @@ def process_regression_prediction(
     Returns:
         dictionary with mean prediction and predictive uncertainty
     """
-    mean_samples = preds[:, 0, ...].cpu()
+    mean_samples = preds[:, 0, ...]
     mean = aggregate_fn(preds[:, 0:1, ...], dim=-1)
     # assume nll prediction with sigma
     if preds.shape[1] == 2:
-        log_sigma_2_samples = preds[:, 1, ...].cpu()
+        log_sigma_2_samples = preds[:, 1, ...]
         eps = torch.ones_like(log_sigma_2_samples) * 1e-6
         sigma_samples = torch.sqrt(eps + torch.exp(log_sigma_2_samples))
         std = compute_predictive_uncertainty(mean_samples, sigma_samples)

@@ -52,7 +52,11 @@ class TestRegressionTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         args = [
             "--config",
@@ -60,7 +64,9 @@ class TestRegressionTask:
             "--config",
             data_config_path,
             "--trainer.accelerator",
-            "cpu",
+            accelerator_config["accelerator"],
+            "--trainer.devices",
+            str(accelerator_config["devices"]),
             "--trainer.max_epochs",
             "2",
             "--trainer.log_every_n_steps",
@@ -74,8 +80,7 @@ class TestRegressionTask:
         ]
 
         cli = get_uq_box_cli(args)
-        if "laplace" not in model_config_path:
-            cli.trainer.fit(cli.model, cli.datamodule)
+        cli.trainer.fit(cli.model, cli.datamodule)
         cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
         # assert predictions are saved
@@ -94,7 +99,11 @@ class TestPosthoc:
     @pytest.mark.parametrize("model_config_path", posthoc_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         args = [
             "--config",
@@ -102,7 +111,9 @@ class TestPosthoc:
             "--config",
             data_config_path,
             "--trainer.accelerator",
-            "cpu",
+            accelerator_config["accelerator"],
+            "--trainer.devices",
+            str(accelerator_config["devices"]),
             "--trainer.max_epochs",
             "1",
             "--trainer.log_every_n_steps",
@@ -136,7 +147,7 @@ class TestDeepEnsemble:
         ]
     )
     def ensemble_members_dict(
-        self, request, tmp_path_factory: TempPathFactory
+        self, request, tmp_path_factory: TempPathFactory, accelerator_config: dict
     ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         # train networks for deep ensembles
@@ -150,7 +161,9 @@ class TestDeepEnsemble:
                 "--config",
                 data_config_path,
                 "--trainer.accelerator",
-                "cpu",
+                accelerator_config["accelerator"],
+                "--trainer.devices",
+                str(accelerator_config["devices"]),
                 "--trainer.max_epochs",
                 "1",
                 "--trainer.log_every_n_steps",
@@ -177,14 +190,21 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
+        self,
+        ensemble_members_dict: list[dict[str, Any]],
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(ensemble_members_dict)
 
         datamodule = ToyHeteroscedasticDatamodule()
 
-        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
+        trainer = Trainer(
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
+            default_root_dir=str(tmp_path),
+        )
 
         trainer.test(ensemble_model, datamodule=datamodule)
 
@@ -192,7 +212,9 @@ class TestDeepEnsemble:
             os.path.join(trainer.default_root_dir, ensemble_model.pred_file_name)
         )
 
-    def test_mve_gmm_single_model(self, tmp_path: Path) -> None:
+    def test_mve_gmm_single_model(
+        self, tmp_path: Path, accelerator_config: dict
+    ) -> None:
         """Test whether DeepEnsembleRegression reduces to a single MVE model for
         one ensemble member.
         """
@@ -206,7 +228,9 @@ class TestDeepEnsemble:
             "--config",
             data_config_path,
             "--trainer.accelerator",
-            "cpu",
+            accelerator_config["accelerator"],
+            "--trainer.devices",
+            str(accelerator_config["devices"]),
             "--trainer.max_epochs",
             "1",
             "--trainer.log_every_n_steps",

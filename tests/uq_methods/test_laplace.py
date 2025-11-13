@@ -18,7 +18,7 @@ model_config_path = "tests/configs/image_regression/laplace_nn.yaml"
 
 
 @pytest.fixture
-def common_setup(tmp_path: Path):
+def common_setup(tmp_path: Path, accelerator_config):
     model_conf = OmegaConf.load(model_config_path)  # type: ignore[index]
     data_conf = OmegaConf.load(data_config_path)  # type: ignore[index]
 
@@ -28,7 +28,8 @@ def common_setup(tmp_path: Path):
     model_conf["uq_method"]["laplace_model"]["prior_precision"] = precision_val
 
     trainer = Trainer(
-        accelerator="cpu",
+        accelerator=accelerator_config["accelerator"],
+        devices=accelerator_config["devices"],
         max_epochs=2,
         log_every_n_steps=1,
         default_root_dir=tmp_path,

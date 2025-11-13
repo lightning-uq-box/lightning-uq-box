@@ -12,11 +12,11 @@ from torch.utils.data import Dataset
 class ToyImageRegressionDataset(Dataset):
     """Toy Image Regression Dataset."""
 
-    def __init__(self) -> None:
+    def __init__(self, num_samples: int = 10) -> None:
         """Initialize a new instance of Toy Image Regression Dataset."""
         super().__init__()
 
-        self.num_samples = 10
+        self.num_samples = num_samples
         self.images = [torch.randn(3, 64, 64) for val in range(self.num_samples)]
         self.targets = torch.arange(0, self.num_samples).to(torch.float32)
 

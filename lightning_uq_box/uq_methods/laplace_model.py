@@ -211,7 +211,7 @@ class LaplaceBase(BaseModule):
     ) -> None:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
 
         self.log(
             "test_loss",
@@ -221,7 +221,7 @@ class LaplaceBase(BaseModule):
         if batch[self.input_key].shape[0] > 1:
             self.test_metrics(out_dict["pred"], batch[self.target_key].squeeze(-1))
 
-        out_dict["pred"] = out_dict["pred"].detach().cpu().squeeze(-1)
+        out_dict["pred"] = out_dict["pred"].detach().squeeze(-1)
 
         # save metadata
         out_dict = self.add_aux_data_to_dict(out_dict, batch)
@@ -322,7 +322,7 @@ class LaplaceRegression(LaplaceBase):
             laplace_epistemic = fsamples.std(0).squeeze()
             laplace_aleatoric = (
                 torch.ones_like(laplace_epistemic)
-                * self.laplace_model.sigma_noise.item()
+                * self.laplace_model.sigma_noise.detach().item()
             )
             pred_std = torch.sqrt(laplace_epistemic + laplace_aleatoric**2)
         else:
@@ -334,7 +334,7 @@ class LaplaceRegression(LaplaceBase):
 
             laplace_aleatoric = (
                 torch.ones_like(laplace_epistemic)
-                * self.laplace_model.sigma_noise.item()
+                * self.laplace_model.sigma_noise.detach().item()
             )
             pred_std = torch.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
 
