@@ -14,7 +14,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--devices",
         action="store",
-        default="0",
+        default="auto",
         help="Number of devices to use (e.g., '0')",
     )
 
@@ -24,5 +24,6 @@ def accelerator_config(request):
     """Fixture to get accelerator configuration from command line."""
     accelerator = request.config.getoption("--accelerator")
     devices = request.config.getoption("--devices")
-    devices = [int(devices)]
+    if devices != "none" and devices != "auto":
+        devices = [int(devices)]
     return {"accelerator": accelerator, "devices": devices}
