@@ -121,9 +121,9 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             lr_scheduler,
         )
 
-        assert (
-            latent_variable_intro in self.lv_intro_options
-        ), f"Only one of {self.lv_intro_options} is possible, but found {latent_variable_intro}."  # noqa: E501
+        assert latent_variable_intro in self.lv_intro_options, (
+            f"Only one of {self.lv_intro_options} is possible, but found {latent_variable_intro}."
+        )  # noqa: E501
 
         self.save_hyperparameters(
             ignore=[

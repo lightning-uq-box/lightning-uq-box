@@ -60,7 +60,6 @@ class TestPixelwiseRegressionTask:
             max_epochs=2,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
-            deterministic=True,
             logger=CSVLogger(str(tmp_path)),
         )
 

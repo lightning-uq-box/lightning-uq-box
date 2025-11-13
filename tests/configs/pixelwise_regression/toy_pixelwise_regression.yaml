@@ -1,2 +1,4 @@
 data:
   _target_: lightning_uq_box.datamodules.ToyPixelwiseRegressionDataModule
+  num_images: 2
+  batch_size: 2

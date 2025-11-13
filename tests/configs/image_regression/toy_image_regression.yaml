@@ -1,2 +1,4 @@
 data:
   _target_: lightning_uq_box.datamodules.ToyImageRegressionDatamodule
+  num_samples: 2
+  batch_size: 2

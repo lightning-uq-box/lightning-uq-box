@@ -11,3 +11,8 @@ uq_method:
   lr_scheduler:
     _target_: torch.optim.lr_scheduler.ConstantLR
     _partial_: true
+
+data:
+  _target_: lightning_uq_box.datamodules.ToyImageRegressionDatamodule
+  num_samples: 16
+  batch_size: 4

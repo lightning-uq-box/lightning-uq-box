@@ -83,9 +83,9 @@ class DKLBase(gpytorch.Module, BaseModule):
             ]
         )
 
-        assert (
-            gp_kernel in self.kernel_choices
-        ), "Please choose one of the supported kernel choices ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']"  # noqa: E501
+        assert gp_kernel in self.kernel_choices, (
+            "Please choose one of the supported kernel choices ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']"
+        )  # noqa: E501
         self.gp_kernel = gp_kernel
         self.optimizer = optimizer
         self.feature_extractor = feature_extractor
@@ -551,7 +551,6 @@ class DKLClassification(DKLBase):
             validation loss
         """
         X, y = batch[self.input_key], batch[self.target_key]
-
         # in sanity checking GPPYtorch is not in eval
         # and we get a device error
         if self.trainer.sanity_checking:
@@ -743,7 +742,6 @@ def compute_initial_values(
         feature_extractor = feature_extractor.to(device)
         for i in range(steps):
             random_indices = idx[i].tolist()
-
             if isinstance(train_dataset[0], dict):
                 X_sample = torch.stack(
                     [train_dataset[j][input_key] for j in random_indices]

@@ -10,3 +10,8 @@ uq_method:
       in_channels: 3
       encoder_depth: 2
       decoder_channels: [16, 8]
+
+data:
+  _target_: lightning_uq_box.datamodules.ToyPixelwiseRegressionDataModule
+  num_images: 12
+  batch_size: 4

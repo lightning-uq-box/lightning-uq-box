@@ -263,9 +263,9 @@ class TestDeepEnsemble:
             # NOTE: max(abs(aa-bb)) ~ 1.2e-07, that's quite high, even for float32.
             # Either one of the hard-cocded eps values, or too much of
             # sqrt(exp(log(...))**2).
-            assert torch.allclose(
-                aa, bb, rtol=0, atol=1e-6
-            ), f"{torch.max(torch.abs(aa-bb))=}"
+            assert torch.allclose(aa, bb, rtol=0, atol=1e-6), (
+                f"{torch.max(torch.abs(aa-bb))=}"
+            )
 
 
 frozen_config_paths = [

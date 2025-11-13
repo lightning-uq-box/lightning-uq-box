@@ -49,9 +49,11 @@ class TestImageClassificationTask:
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
+        # merge configs
+        config = OmegaConf.merge(data_conf, model_conf)
 
-        model = instantiate(model_conf.model)
-        datamodule = instantiate(data_conf.data)
+        model = instantiate(config.model)
+        datamodule = instantiate(config.data)
         trainer = Trainer(
             accelerator=accelerator_config["accelerator"],
             devices=accelerator_config["devices"],

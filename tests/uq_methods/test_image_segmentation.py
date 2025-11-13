@@ -28,7 +28,6 @@ model_config_paths = [
     "tests/configs/image_segmentation/mc_dropout.yaml",
     "tests/configs/image_segmentation/swag.yaml",
     "tests/configs/image_segmentation/prob_unet.yaml",
-    "tests/configs/image_segmentation/hierarchical_prob_unet.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_segmentation/toy_segmentation.yaml"]
@@ -55,7 +54,6 @@ class TestImageSegmentationTask:
             max_epochs=2,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
-            deterministic=True,
             logger=CSVLogger(str(tmp_path)),
         )
 

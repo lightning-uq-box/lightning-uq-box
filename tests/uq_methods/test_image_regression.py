@@ -59,9 +59,11 @@ class TestImageRegressionTask:
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
+        # merge configs
+        config = OmegaConf.merge(data_conf, model_conf)
 
-        model = instantiate(model_conf.uq_method)
-        datamodule = instantiate(data_conf.data)
+        model = instantiate(config.uq_method)
+        datamodule = instantiate(config.data)
         trainer = Trainer(
             accelerator=accelerator_config["accelerator"],
             devices=accelerator_config["devices"],

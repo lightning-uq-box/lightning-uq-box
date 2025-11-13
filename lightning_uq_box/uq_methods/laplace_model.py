@@ -322,7 +322,7 @@ class LaplaceRegression(LaplaceBase):
             laplace_epistemic = fsamples.std(0).squeeze()
             laplace_aleatoric = (
                 torch.ones_like(laplace_epistemic)
-                * self.laplace_model.sigma_noise.item()
+                * self.laplace_model.sigma_noise.detach().item()
             )
             pred_std = torch.sqrt(laplace_epistemic + laplace_aleatoric**2)
         else:
@@ -334,7 +334,7 @@ class LaplaceRegression(LaplaceBase):
 
             laplace_aleatoric = (
                 torch.ones_like(laplace_epistemic)
-                * self.laplace_model.sigma_noise.item()
+                * self.laplace_model.sigma_noise.detach().item()
             )
             pred_std = torch.sqrt(laplace_epistemic**2 + laplace_aleatoric**2)
 

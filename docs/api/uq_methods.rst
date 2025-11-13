@@ -417,12 +417,6 @@ Probabilistic UNet
 .. autoclass:: ProbUNet
 
 
-Hierachical Probabilistic UNet
-------------------------------
-
-.. currentmodule:: lightning_uq_box.uq_methods.hierarchical_prob_unet
-
-.. autoclass:: HierarchicalProbUNet
 
 UQ Calibration Methods
 ======================
