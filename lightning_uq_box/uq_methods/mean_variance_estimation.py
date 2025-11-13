@@ -137,7 +137,7 @@ class MVERegression(MVEBase):
 
         mean, log_sigma_2 = preds[:, 0:1], preds[:, 1:2]
         eps = torch.ones_like(log_sigma_2) * 1e-6
-        std = torch.sqrt(eps + np.exp(log_sigma_2))
+        std = torch.sqrt(eps + torch.exp(log_sigma_2))
 
         return {"pred": mean, "pred_uct": std, "aleatoric_uct": std, "out": preds}
 

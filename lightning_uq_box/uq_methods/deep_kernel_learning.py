@@ -686,6 +686,8 @@ class DKLGPLayer(ApproximateGP):
                 "Specified kernel not known, supported kernel "
                 f"choices are {self.kernel_choices}."
             )
+        # move kernel to device of initial_lengthscale
+        kernel = kernel.to(initial_lengthscale.device)
 
         kernel.lengthscale = initial_lengthscale * torch.ones_like(
             kernel.lengthscale
@@ -764,7 +766,7 @@ def compute_initial_values(
     f_X_samples = torch.cat(f_X_samples)
 
     initial_inducing_points = _get_initial_inducing_points(
-        f_X_samples.numpy(), n_inducing_points
+        f_X_samples.cpu().numpy(), n_inducing_points
     )
     initial_lengthscale = _get_initial_lengthscale(f_X_samples)
     return initial_inducing_points.to(torch.float), initial_lengthscale.to(torch.float)
