@@ -223,3 +223,22 @@ class MVEPxRegression(DeterministicPixelRegression):
         """
         if self.save_preds:
             save_image_predictions(outputs, batch_idx, self.pred_dir)
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Prediction step.
+
+        Args:
+            X: prediction batch of shape [batch_size x input_dims]
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        with torch.no_grad():
+            preds = self.model(X)
+
+        mean, log_sigma_2 = preds[:, 0:1], preds[:, 1:2].cpu()
+        eps = torch.ones_like(log_sigma_2) * 1e-6
+        std = torch.sqrt(eps + np.exp(log_sigma_2))
+
+        return {"pred": mean, "pred_uct": std}
