@@ -1,0 +1,16 @@
+model:
+  class_path: lightning_uq_box.uq_methods.IterativeUncertaintyClassification
+  init_args:
+    model:
+      class_path: lightning_uq_box.models.IterMLP
+      init_args:
+        n_inputs: 2 # num_inputs + 1 for target labels dim
+        n_outputs: 2
+    optimizer:
+      class_path: torch.optim.Adam
+      init_args:
+        lr: 0.003
+    loss_fn:
+      class_path: torch.nn.CrossEntropyLoss
+    num_iter: 3
+    

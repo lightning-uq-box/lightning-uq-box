@@ -34,6 +34,7 @@ def common_setup(tmp_path: Path, accelerator_config):
         log_every_n_steps=1,
         default_root_dir=tmp_path,
         logger=CSVLogger(save_dir=tmp_path),
+        enable_progress_bar=False,
     )
 
     return trainer, model_conf, data_conf, sigma_val, precision_val
