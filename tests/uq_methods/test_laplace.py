@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import torch
 from hydra.utils import instantiate
 from lightning import Trainer
 from lightning.pytorch.loggers import CSVLogger
@@ -59,3 +60,7 @@ def test_tuning(common_setup, tune_sigma_noise, tune_prior_precision):
     assert np.isclose(
         model.laplace_model.prior_precision.item(), precision_val, atol=1e-8
     ) == (not tune_prior_precision)
+
+    x = torch.randn(4, 3, 32, 32).to(model.device)
+    pred_dict = model.predict_step(x)
+    assert "pred_uct" in pred_dict
