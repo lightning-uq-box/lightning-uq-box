@@ -17,6 +17,8 @@ class ToyImageRegressionDatamodule(LightningDataModule):
 
         Args:
             batch_size: batch size
+            num_samples: number of samples in each split
+            batch_size: int = 10
         """
         super().__init__()
         self.batch_size = batch_size
