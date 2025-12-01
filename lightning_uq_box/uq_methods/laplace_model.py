@@ -360,13 +360,12 @@ class LaplaceRegression(LaplaceBase):
         """
         if not self.laplace_fitted:
             self.on_test_start()
-
         # also lightning automatically disables gradient computation during test
         # but need it for laplace so set inference mode to false with context manager
         with torch.inference_mode(False):
             # inference tensors are not saved for backward so need to create
             # a clone with autograd enables
-            input = X.clone().requires_grad_()
+            input = X.clone().requires_grad_().to(self.device)
 
         return self.forward(input)
 
@@ -481,7 +480,7 @@ class LaplaceClassification(LaplaceBase):
         with torch.inference_mode(False):
             # inference tensors are not saved for backward so need to create
             # a clone with autograd enables
-            input = X.clone().requires_grad_()
+            input = X.clone().requires_grad_().to(self.device)
 
             pred_dict = self.forward(input)
             pred_dict["pred_uct"] = -torch.sum(

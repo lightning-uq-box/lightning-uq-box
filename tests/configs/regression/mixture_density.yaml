@@ -8,10 +8,6 @@ model:
         n_hidden: [50]
         activation_fn:
           class_path: torch.nn.ReLU
-    optimizer:
-      class_path: torch.optim.SGD
-      init_args:
-        lr: 0.003
     lr_scheduler:
       class_path: torch.optim.lr_scheduler.ConstantLR
     n_components: 3

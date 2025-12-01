@@ -12,10 +12,6 @@ model:
         n_outputs: 2
         n_inputs: 51
         n_hidden: [10,10]
-    optimizer:
-      class_path: torch.optim.Adam
-      init_args:
-        lr: 0.003
     lr_scheduler:
       class_path: torch.optim.lr_scheduler.ConstantLR
     latent_variable_intro: last

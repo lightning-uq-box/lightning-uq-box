@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import torch
 from hydra.utils import instantiate
 from lightning import Trainer
 from lightning.pytorch.loggers import CSVLogger
@@ -34,6 +35,7 @@ def common_setup(tmp_path: Path, accelerator_config):
         log_every_n_steps=1,
         default_root_dir=tmp_path,
         logger=CSVLogger(save_dir=tmp_path),
+        enable_progress_bar=False,
     )
 
     return trainer, model_conf, data_conf, sigma_val, precision_val
@@ -58,3 +60,7 @@ def test_tuning(common_setup, tune_sigma_noise, tune_prior_precision):
     assert np.isclose(
         model.laplace_model.prior_precision.item(), precision_val, atol=1e-8
     ) == (not tune_prior_precision)
+
+    x = torch.randn(4, 3, 32, 32).to(model.device)
+    pred_dict = model.predict_step(x)
+    assert "pred_uct" in pred_dict

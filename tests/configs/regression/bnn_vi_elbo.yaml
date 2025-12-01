@@ -6,10 +6,6 @@ model:
       init_args:
         n_outputs: 1
         n_hidden: [50]
-    optimizer:
-      class_path: torch.optim.SGD
-      init_args:
-        lr: 0.003
     lr_scheduler:
       class_path: torch.optim.lr_scheduler.ConstantLR
     criterion:
