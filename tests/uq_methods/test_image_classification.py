@@ -41,15 +41,22 @@ class TestImageClassificationTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
+        # merge configs
+        config = OmegaConf.merge(data_conf, model_conf)
 
-        model = instantiate(model_conf.model)
-        datamodule = instantiate(data_conf.data)
+        model = instantiate(config.model)
+        datamodule = instantiate(config.data)
         trainer = Trainer(
-            accelerator="cpu",
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
             max_epochs=2,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
@@ -70,7 +77,11 @@ class TestMCDropout:
     @pytest.mark.parametrize("model_config_path", mc_dropout_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -78,7 +89,8 @@ class TestMCDropout:
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            accelerator="cpu",
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
             max_epochs=2,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
@@ -100,7 +112,11 @@ class TestPosthoc:
     @pytest.mark.parametrize("model_config_path", posthoc_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -108,7 +124,8 @@ class TestPosthoc:
         model = instantiate(model_conf.model)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            accelerator="cpu",
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
             default_root_dir=str(tmp_path),
             inference_mode=False,
             max_epochs=1,
@@ -167,7 +184,7 @@ class TestDeepEnsemble:
         ]
     )
     def ensemble_members_dict(
-        self, request, tmp_path_factory: TempPathFactory
+        self, request, tmp_path_factory: TempPathFactory, accelerator_config: dict
     ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         model_conf = OmegaConf.load(model_config_path)
@@ -180,7 +197,8 @@ class TestDeepEnsemble:
             model = instantiate(model_conf.model)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                accelerator="cpu",
+                accelerator=accelerator_config["accelerator"],
+                devices=accelerator_config["devices"],
                 max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
@@ -197,7 +215,10 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
+        self,
+        ensemble_members_dict: list[dict[str, Any]],
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(
@@ -206,7 +227,11 @@ class TestDeepEnsemble:
 
         datamodule = ToyImageClassificationDatamodule()
 
-        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
+        trainer = Trainer(
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
+            default_root_dir=str(tmp_path),
+        )
 
         trainer.test(ensemble_model, datamodule=datamodule)
 
@@ -225,13 +250,18 @@ class TestTTAModel:
         model_config_path: str,
         merge_strategy: Literal["mean", "median", "sum", "max", "min"],
         tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         base_model = instantiate(model_conf.model)
         tta_model = TTAClassification(base_model, merge_strategy=merge_strategy)
         datamodule = ToyImageClassificationDatamodule()
 
-        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
+        trainer = Trainer(
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
+            default_root_dir=str(tmp_path),
+        )
 
         if "mc_dropout" in model_config_path:
             with pytest.raises(UserWarning, match="No dropout layers found in model"):

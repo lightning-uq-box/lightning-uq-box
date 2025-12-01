@@ -35,7 +35,7 @@ class TestDeepEnsemble:
         ]
     )
     def ensemble_members_dict(
-        self, request, tmp_path_factory: TempPathFactory
+        self, request, tmp_path_factory: TempPathFactory, accelerator_config
     ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         model_conf = OmegaConf.load(model_config_path)
@@ -48,7 +48,8 @@ class TestDeepEnsemble:
             model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                accelerator="cpu",
+                accelerator=accelerator_config["accelerator"],
+                devices=accelerator_config["devices"],
                 max_epochs=2,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),

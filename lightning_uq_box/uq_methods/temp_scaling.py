@@ -52,7 +52,7 @@ class TempScaling(PosthocBase):
 
         assert task in self.valid_tasks, (
             f"Task {task} not supported, please choose from {self.valid_tasks}"
-        )  # noqa: E501"
+        )  # noqa: E501
         self.task = task
 
         self.setup_task()

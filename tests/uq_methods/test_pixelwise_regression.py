@@ -41,7 +41,11 @@ class TestPixelwiseRegressionTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -51,11 +55,11 @@ class TestPixelwiseRegressionTask:
         model = instantiate(full_conf.uq_method, save_preds=True)
         datamodule = instantiate(full_conf.data)
         trainer = Trainer(
-            accelerator="cpu",
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
             max_epochs=2,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
-            deterministic=True,
             logger=CSVLogger(str(tmp_path)),
         )
 
@@ -74,18 +78,17 @@ class TestPixelwiseRegressionTask:
             assert "aux" in f.attrs
             assert "index" in f.attrs
 
-    @pytest.mark.parametrize("model_config_path", 
-          [
+    @pytest.mark.parametrize(
+        "model_config_path",
+        [
             "tests/configs/pixelwise_regression/base.yaml",
             "tests/configs/pixelwise_regression/mve.yaml",
             "tests/configs/pixelwise_regression/der.yaml",
             "tests/configs/pixelwise_regression/quantile_regression.yaml",
-          ]                   
+        ],
     )
     @pytest.mark.parametrize("data_config_path", data_config_paths)
-    def test_predict_step(
-        self,  model_config_path: str, data_config_path: str,
-    ) -> None:
+    def test_predict_step(self, model_config_path: str, data_config_path: str) -> None:
         """Test predict step output shapes."""
         model_path_basename = os.path.basename(model_config_path)
 
@@ -113,16 +116,27 @@ class TestPixelwiseRegressionTask:
 
         if model_path_basename in ["mve.yaml", "der.yaml"]:
             assert "pred_uct" in pred_dict
-            assert pred_dict["pred"].shape == (batch_size, 1, 64, 64), f"Failed for {model_config_path}"
-            assert pred_dict["pred_uct"].shape == expected_shapes[os.path.basename(model_config_path)], f"Failed for {model_config_path}"
+            assert pred_dict["pred"].shape == (batch_size, 1, 64, 64), (
+                f"Failed for {model_config_path}"
+            )
+            assert (
+                pred_dict["pred_uct"].shape
+                == expected_shapes[os.path.basename(model_config_path)]
+            ), f"Failed for {model_config_path}"
         elif model_path_basename in ["quantile_regression.yaml"]:
             assert "lower" in pred_dict
             assert "upper" in pred_dict
-            assert pred_dict["pred"].shape == (batch_size, 64, 64), f"Failed for {model_config_path}"
-            assert pred_dict["lower"].shape == expected_shapes[os.path.basename(model_config_path)], f"Failed for {model_config_path}"
-            assert pred_dict["upper"].shape == expected_shapes[os.path.basename(model_config_path)], f"Failed for {model_config_path}"
-
-        
+            assert pred_dict["pred"].shape == (batch_size, 64, 64), (
+                f"Failed for {model_config_path}"
+            )
+            assert (
+                pred_dict["lower"].shape
+                == expected_shapes[os.path.basename(model_config_path)]
+            ), f"Failed for {model_config_path}"
+            assert (
+                pred_dict["upper"].shape
+                == expected_shapes[os.path.basename(model_config_path)]
+            ), f"Failed for {model_config_path}"
 
 
 mc_dropout_config_paths = ["tests/configs/pixelwise_regression/mc_dropout.yaml"]
@@ -132,7 +146,11 @@ class TestMCDropout:
     @pytest.mark.parametrize("model_config_path", mc_dropout_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -140,7 +158,8 @@ class TestMCDropout:
         model = instantiate(model_conf.uq_method)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            accelerator="cpu",
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
             max_epochs=1,
             log_every_n_steps=1,
             default_root_dir=str(tmp_path),
@@ -163,7 +182,7 @@ class TestDeepEnsemble:
         ]
     )
     def ensemble_members_dict(
-        self, request, tmp_path_factory: TempPathFactory
+        self, request, tmp_path_factory: TempPathFactory, accelerator_config: dict
     ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         model_conf = OmegaConf.load(model_config_path)
@@ -176,7 +195,8 @@ class TestDeepEnsemble:
             model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                accelerator="cpu",
+                accelerator=accelerator_config["accelerator"],
+                devices=accelerator_config["devices"],
                 max_epochs=1,
                 log_every_n_steps=1,
                 default_root_dir=str(tmp_path),
@@ -193,14 +213,21 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
+        self,
+        ensemble_members_dict: list[dict[str, Any]],
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsemblePxRegression(
             ensemble_members_dict, save_preds=True
         )
         datamodule = ToyPixelwiseRegressionDataModule()
-        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
+        trainer = Trainer(
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
+            default_root_dir=str(tmp_path),
+        )
         trainer.test(ensemble_model, datamodule=datamodule)
 
         # check that predictions are saved
@@ -223,6 +250,7 @@ class TestPosthoc:
         data_config_path: str,
         calibration: bool,
         tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
         data_conf = OmegaConf.load(data_config_path)
@@ -231,7 +259,8 @@ class TestPosthoc:
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
             default_root_dir=str(tmp_path),
-            accelerator="cpu",
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
             max_epochs=1,
             log_every_n_steps=1,
         )

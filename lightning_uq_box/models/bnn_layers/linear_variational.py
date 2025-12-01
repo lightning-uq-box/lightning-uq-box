@@ -218,24 +218,26 @@ class LinearVariational(BaseVariationalLayer_):
         Returns:
             delta_weight and delta_bias
         """
+        # Get device from parameters (not buffers, as they might be on CPU)
+        device = self.rho_weight.device
+
         if self.is_frozen:
-            eps_weight = self.eps_weight
-            bias_eps = self.eps_bias
-        else:
-            eps_weight = self.eps_weight.data.normal_()
+            eps_weight = self.eps_weight.to(device)
             if self.mu_bias is not None:
-                bias_eps = self.eps_bias.data.normal_()
+                bias_eps = self.eps_bias.to(device)
+        else:
+            eps_weight = self.eps_weight.data.normal_().to(device)
+            if self.mu_bias is not None:
+                bias_eps = self.eps_bias.data.normal_().to(device)
 
         # select from max_samples
         eps_weight = eps_weight[:n_samples]
-
-        # select first sample if not batched to keep consistent shape
 
         # sample weight with reparameterization trick
         sigma_weight = F.softplus(self.rho_weight)
         delta_weight = eps_weight * sigma_weight
 
-        delta_bias = torch.zeros(1).to(self.rho_weight.device)
+        delta_bias = torch.zeros(1, device=device, dtype=self.rho_weight.dtype)
 
         if self.mu_bias is not None:
             bias_eps = bias_eps[:n_samples]

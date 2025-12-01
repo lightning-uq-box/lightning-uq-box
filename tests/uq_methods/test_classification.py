@@ -37,7 +37,11 @@ class TestClassificationTask:
     @pytest.mark.parametrize("model_config_path", model_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         args = [
             "--config",
@@ -45,7 +49,9 @@ class TestClassificationTask:
             "--config",
             data_config_path,
             "--trainer.accelerator",
-            "cpu",
+            accelerator_config["accelerator"],
+            "--trainer.devices",
+            str(accelerator_config["devices"]),
             "--trainer.max_epochs",
             "1",
             "--trainer.log_every_n_steps",
@@ -79,7 +85,11 @@ class TestPosthoc:
     @pytest.mark.parametrize("model_config_path", posthoc_config_paths)
     @pytest.mark.parametrize("data_config_path", data_config_paths)
     def test_trainer(
-        self, model_config_path: str, data_config_path: str, tmp_path: Path
+        self,
+        model_config_path: str,
+        data_config_path: str,
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         args = [
             "--config",
@@ -87,7 +97,9 @@ class TestPosthoc:
             "--config",
             data_config_path,
             "--trainer.accelerator",
-            "cpu",
+            accelerator_config["accelerator"],
+            "--trainer.devices",
+            str(accelerator_config["devices"]),
             "--trainer.max_epochs",
             "1",
             "--trainer.log_every_n_steps",
@@ -117,7 +129,7 @@ class TestDeepEnsemble:
         ]
     )
     def ensemble_members_dict(
-        self, request, tmp_path_factory: TempPathFactory
+        self, request, tmp_path_factory: TempPathFactory, accelerator_config: dict
     ) -> list[dict[str, Any]]:
         model_config_path, data_config_path = request.param
         # train networks for deep ensembles
@@ -131,7 +143,9 @@ class TestDeepEnsemble:
                 "--config",
                 data_config_path,
                 "--trainer.accelerator",
-                "cpu",
+                accelerator_config["accelerator"],
+                "--trainer.devices",
+                str(accelerator_config["devices"]),
                 "--trainer.max_epochs",
                 "1",
                 "--trainer.log_every_n_steps",
@@ -152,14 +166,21 @@ class TestDeepEnsemble:
         return ckpt_paths
 
     def test_deep_ensemble(
-        self, ensemble_members_dict: list[dict[str, Any]], tmp_path: Path
+        self,
+        ensemble_members_dict: list[dict[str, Any]],
+        tmp_path: Path,
+        accelerator_config: dict,
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleClassification(ensemble_members_dict, 2)
 
         datamodule = TwoMoonsDataModule()
 
-        trainer = Trainer(accelerator="cpu", default_root_dir=str(tmp_path))
+        trainer = Trainer(
+            accelerator=accelerator_config["accelerator"],
+            devices=accelerator_config["devices"],
+            default_root_dir=str(tmp_path),
+        )
 
         trainer.test(ensemble_model, datamodule=datamodule)
 

@@ -230,7 +230,7 @@ class DKLBase(gpytorch.Module, BaseModule):
     ) -> dict[str, Tensor]:
         """Test step."""
         out_dict = self.predict_step(batch[self.input_key])
-        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1).cpu()
+        out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
 
         self.log(
             "test_loss",
@@ -242,7 +242,7 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         del out_dict["out"]
 
-        out_dict["pred"] = out_dict["pred"].detach().cpu()
+        out_dict["pred"] = out_dict["pred"].detach()
 
         # save metadata
         out_dict = self.add_aux_data_to_dict(out_dict, batch)
@@ -404,7 +404,7 @@ class DKLRegression(DKLBase):
         ):
             output = self.likelihood(self.forward(X))
             mean = output.mean
-            std = output.stddev.cpu()
+            std = output.stddev
 
         return {"pred": mean, "pred_uct": std, "epistemic_uct": std, "out": output}
 
@@ -551,7 +551,6 @@ class DKLClassification(DKLBase):
             validation loss
         """
         X, y = batch[self.input_key], batch[self.target_key]
-
         # in sanity checking GPPYtorch is not in eval
         # and we get a device error
         if self.trainer.sanity_checking:
@@ -600,7 +599,7 @@ class DKLClassification(DKLBase):
             gp_dist = self.forward(X)
             output = self.likelihood(gp_dist)
             mean = output.probs.mean(0)  # take mean over sampling dimension
-            entropy = output.entropy().mean(0).cpu()
+            entropy = output.entropy().mean(0)
         return {"pred": mean, "pred_uct": entropy, "out": gp_dist, "logits": mean}
 
     def on_test_batch_end(
@@ -686,10 +685,10 @@ class DKLGPLayer(ApproximateGP):
                 "Specified kernel not known, supported kernel "
                 f"choices are {self.kernel_choices}."
             )
+        # move kernel to device of initial_lengthscale
+        kernel = kernel.to(initial_lengthscale.device)
 
-        kernel.lengthscale = initial_lengthscale.cpu() * torch.ones_like(
-            kernel.lengthscale
-        )
+        kernel.lengthscale = initial_lengthscale * torch.ones_like(kernel.lengthscale)
 
         self.mean_module = ConstantMean(batch_shape=batch_shape)
 
@@ -743,7 +742,6 @@ def compute_initial_values(
         feature_extractor = feature_extractor.to(device)
         for i in range(steps):
             random_indices = idx[i].tolist()
-
             if isinstance(train_dataset[0], dict):
                 X_sample = torch.stack(
                     [train_dataset[j][input_key] for j in random_indices]
@@ -759,12 +757,12 @@ def compute_initial_values(
             y_sample = y_sample.to(device)
 
             X_sample = augmentation({input_key: X_sample, target_key: y_sample})
-            f_X_samples.append(feature_extractor(X_sample).cpu())
+            f_X_samples.append(feature_extractor(X_sample))
 
     f_X_samples = torch.cat(f_X_samples)
 
     initial_inducing_points = _get_initial_inducing_points(
-        f_X_samples.numpy(), n_inducing_points
+        f_X_samples.cpu().numpy(), n_inducing_points
     )
     initial_lengthscale = _get_initial_lengthscale(f_X_samples)
     return initial_inducing_points.to(torch.float), initial_lengthscale.to(torch.float)
@@ -805,4 +803,4 @@ def _get_initial_lengthscale(f_X_samples: Tensor) -> Tensor:
 
     initial_lengthscale = torch.pdist(f_X_samples).mean()
 
-    return initial_lengthscale.cpu()
+    return initial_lengthscale
