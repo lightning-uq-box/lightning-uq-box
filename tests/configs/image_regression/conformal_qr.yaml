@@ -4,3 +4,8 @@ uq_method:
     _target_: timm.create_model
     model_name: resnet18
     num_classes: 3
+
+data:
+  _target_: lightning_uq_box.datamodules.ToyImageRegressionDatamodule
+  num_samples: 16
+  batch_size: 4
