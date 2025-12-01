@@ -1,0 +1,17 @@
+model:
+  _target_: lightning_uq_box.uq_methods.BNN_VI_ELBO_Classification
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    num_classes: 10
+  num_mc_samples_train: 3
+  num_mc_samples_test: 25
+  stochastic_module_names: ['layer4.1.conv1', 'layer4.1.conv2', 'fc']
+
+datamodule:
+  _target_: torchgeo.EuroSAT100DataModule
+  batch_size: 128
+
+trainer:
+  _target_: lightning.Trainer
+  max_epochs: 40
