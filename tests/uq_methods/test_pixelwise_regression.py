@@ -78,18 +78,17 @@ class TestPixelwiseRegressionTask:
             assert "aux" in f.attrs
             assert "index" in f.attrs
 
-    @pytest.mark.parametrize("model_config_path", 
-          [
+    @pytest.mark.parametrize(
+        "model_config_path",
+        [
             "tests/configs/pixelwise_regression/base.yaml",
             "tests/configs/pixelwise_regression/mve.yaml",
             "tests/configs/pixelwise_regression/der.yaml",
             "tests/configs/pixelwise_regression/quantile_regression.yaml",
-          ]                   
+        ],
     )
     @pytest.mark.parametrize("data_config_path", data_config_paths)
-    def test_predict_step(
-        self,  model_config_path: str, data_config_path: str,
-    ) -> None:
+    def test_predict_step(self, model_config_path: str, data_config_path: str) -> None:
         """Test predict step output shapes."""
         model_path_basename = os.path.basename(model_config_path)
 
@@ -117,16 +116,27 @@ class TestPixelwiseRegressionTask:
 
         if model_path_basename in ["mve.yaml", "der.yaml"]:
             assert "pred_uct" in pred_dict
-            assert pred_dict["pred"].shape == (batch_size, 1, 64, 64), f"Failed for {model_config_path}"
-            assert pred_dict["pred_uct"].shape == expected_shapes[os.path.basename(model_config_path)], f"Failed for {model_config_path}"
+            assert pred_dict["pred"].shape == (batch_size, 1, 64, 64), (
+                f"Failed for {model_config_path}"
+            )
+            assert (
+                pred_dict["pred_uct"].shape
+                == expected_shapes[os.path.basename(model_config_path)]
+            ), f"Failed for {model_config_path}"
         elif model_path_basename in ["quantile_regression.yaml"]:
             assert "lower" in pred_dict
             assert "upper" in pred_dict
-            assert pred_dict["pred"].shape == (batch_size, 64, 64), f"Failed for {model_config_path}"
-            assert pred_dict["lower"].shape == expected_shapes[os.path.basename(model_config_path)], f"Failed for {model_config_path}"
-            assert pred_dict["upper"].shape == expected_shapes[os.path.basename(model_config_path)], f"Failed for {model_config_path}"
-
-        
+            assert pred_dict["pred"].shape == (batch_size, 64, 64), (
+                f"Failed for {model_config_path}"
+            )
+            assert (
+                pred_dict["lower"].shape
+                == expected_shapes[os.path.basename(model_config_path)]
+            ), f"Failed for {model_config_path}"
+            assert (
+                pred_dict["upper"].shape
+                == expected_shapes[os.path.basename(model_config_path)]
+            ), f"Failed for {model_config_path}"
 
 
 mc_dropout_config_paths = ["tests/configs/pixelwise_regression/mc_dropout.yaml"]
