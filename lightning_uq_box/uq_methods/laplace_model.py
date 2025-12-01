@@ -366,7 +366,7 @@ class LaplaceRegression(LaplaceBase):
         with torch.inference_mode(False):
             # inference tensors are not saved for backward so need to create
             # a clone with autograd enables
-            input = X.clone().requires_grad_()
+            input = X.clone().requires_grad_().to(self.laplace_model.model.device)
 
         return self.forward(input)
 
@@ -481,7 +481,7 @@ class LaplaceClassification(LaplaceBase):
         with torch.inference_mode(False):
             # inference tensors are not saved for backward so need to create
             # a clone with autograd enables
-            input = X.clone().requires_grad_()
+            input = X.clone().requires_grad_().to(self.laplace_model.model.device)
 
             pred_dict = self.forward(input)
             pred_dict["pred_uct"] = -torch.sum(
