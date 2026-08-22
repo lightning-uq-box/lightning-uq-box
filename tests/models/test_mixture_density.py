@@ -85,11 +85,11 @@ class TestMixtureDensityLayer:
 
 def test_invalid_noise_type():
     with pytest.raises(AssertionError):
-        MixtureDensityLayer(5, 3, 4, 10, "invalid_noise_type")
+        MixtureDensityLayer(5, 3, 4, [10], "invalid_noise_type")
 
 
 def test_fixed_noise_level_mismatch():
     with pytest.raises(AssertionError):
-        MixtureDensityLayer(5, 3, 4, 10, "fixed", None)
+        MixtureDensityLayer(5, 3, 4, [10], "fixed", None)
     with pytest.raises(AssertionError):
-        MixtureDensityLayer(5, 3, 4, 10, "diagonal", 0.1)
+        MixtureDensityLayer(5, 3, 4, [10], "diagonal", 0.1)

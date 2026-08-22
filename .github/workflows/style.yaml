@@ -37,8 +37,8 @@ jobs:
       run: |
         ruff check --output-format=github --no-fix .
         ruff format --diff
-  mypy:
-    name: mypy
+  ty:
+    name: ty
     runs-on: ubuntu-latest
     steps:
     - name: Clone repo
@@ -57,8 +57,8 @@ jobs:
       run: uv sync --locked --extra style --extra tests
     - name: List dependencies
       run: uv tree
-    - name: Run mypy checks
-      run: mypy --follow-imports=skip .
+    - name: Run ty checks
+      run: ty check --output-format=github
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

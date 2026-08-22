@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import uncertainty_toolbox as uct
+from torch import Tensor
 
 
 def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.Figure:
@@ -147,16 +148,16 @@ def plot_predictions_classification(
 
 
 def plot_predictions_regression(
-    X_train: np.ndarray,
-    Y_train: np.ndarray,
-    X_test: np.ndarray,
-    Y_test: np.ndarray,
-    y_pred: np.ndarray,
-    pred_std: np.ndarray | None = None,
-    pred_quantiles: np.ndarray | None = None,
-    epistemic: np.ndarray | None = None,
-    aleatoric: np.ndarray | None = None,
-    samples: np.ndarray | None = None,
+    X_train: np.ndarray | Tensor,
+    Y_train: np.ndarray | Tensor,
+    X_test: np.ndarray | Tensor,
+    Y_test: np.ndarray | Tensor,
+    y_pred: np.ndarray | Tensor,
+    pred_std: np.ndarray | Tensor | None = None,
+    pred_quantiles: np.ndarray | Tensor | None = None,
+    epistemic: np.ndarray | Tensor | None = None,
+    aleatoric: np.ndarray | Tensor | None = None,
+    samples: np.ndarray | Tensor | None = None,
     title: str | None = None,
     show_bands: bool = False,
 ) -> plt.Figure:
@@ -298,7 +299,7 @@ def plot_predictions_regression(
     return fig
 
 
-def sort_by(X: np.ndarray, *args: np.ndarray | None) -> tuple:
+def sort_by(X: np.ndarray | Tensor, *args: np.ndarray | Tensor | None) -> tuple:
     """Sort arrays based on X."""
     sort_idx = np.argsort(X.squeeze())
     return tuple(

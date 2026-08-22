@@ -64,7 +64,8 @@ def test_spectral_norm_conv(module, input_tensor, output_shape):
 def test_spectral_norm_conv_unsupported_type():
     linear = nn.Linear(10, 10)
     with pytest.raises(TypeError):
-        spectral_norm_conv(linear, coeff=0.5, input_dim=1)
+        # input_dim is deliberately not a torch.Size
+        spectral_norm_conv(linear, coeff=0.5, input_dim=1)  # ty: ignore[invalid-argument-type]
 
 
 def test_spectral_norm_conv_stride_larger():

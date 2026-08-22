@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from conftest import minimal_cli_overrides, minimal_trainer_kwargs
 from lightning import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint
 from pytest import TempPathFactory
 
 from lightning_uq_box.datamodules import TwoMoonsDataModule
@@ -130,7 +131,9 @@ class TestDeepEnsemble:
             cli = get_uq_box_cli(args)
             cli.trainer.fit(cli.model, cli.datamodule)
 
-            ckpt_file = cli.trainer.checkpoint_callback.best_model_path
+            ckpt_cb = cli.trainer.checkpoint_callback
+            assert isinstance(ckpt_cb, ModelCheckpoint)
+            ckpt_file = ckpt_cb.best_model_path
             assert ckpt_file
             ckpt_paths.append({"base_model": cli.model, "ckpt_path": ckpt_file})
 

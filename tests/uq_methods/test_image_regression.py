@@ -14,6 +14,7 @@ import torch
 from conftest import minimal_trainer_kwargs
 from hydra.utils import instantiate
 from lightning import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint
 from omegaconf import OmegaConf
 from pytest import TempPathFactory
 
@@ -194,7 +195,9 @@ class TestDeepEnsemble:
                 )
             )
             trainer.fit(model, datamodule)
-            ckpt_file = trainer.checkpoint_callback.best_model_path
+            ckpt_cb = trainer.checkpoint_callback
+            assert isinstance(ckpt_cb, ModelCheckpoint)
+            ckpt_file = ckpt_cb.best_model_path
             assert ckpt_file
             ckpt_paths.append({"base_model": model, "ckpt_path": ckpt_file})
 

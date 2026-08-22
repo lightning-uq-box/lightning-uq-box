@@ -9,7 +9,7 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 
-class ToyDonut(Dataset):
+class ToyDonut(Dataset[dict[str, Tensor]]):
     """Toy Donut for Regression."""
 
     def __init__(
@@ -54,13 +54,13 @@ class ToyDonut(Dataset):
         """Return the length of the dataset."""
         return self.n_samples
 
-    def __getitem__(self, idx) -> dict[str, Tensor]:
+    def __getitem__(self, index: int) -> dict[str, Tensor]:
         """Return a sample from the dataset.
 
         Args:
-            idx: The index of the sample to return.
+            index: The index of the sample to return.
 
         Returns:
             A dictionary containing the input and target values.
         """
-        return {"input": self.X[idx], "target": self.y[idx]}
+        return {"input": self.X[index], "target": self.y[index]}

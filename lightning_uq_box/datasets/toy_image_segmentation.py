@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-class ToySegmentationDataset(Dataset):
+class ToySegmentationDataset(Dataset[dict[str, Any]]):
     """Toy image segmentation dataset."""
 
     def __init__(
@@ -29,7 +29,7 @@ class ToySegmentationDataset(Dataset):
         """Return the number of images in the dataset."""
         return self.num_images
 
-    def __getitem__(self, idx: int) -> dict[str, Any]:
+    def __getitem__(self, index: int) -> dict[str, Any]:
         """Generate a random grayscale image and corresponding mask."""
         # Generate a random grayscale image and corresponding mask
         image = torch.randint(
@@ -38,4 +38,9 @@ class ToySegmentationDataset(Dataset):
         mask = torch.randint(
             0, self.num_classes, (self.image_size, self.image_size), dtype=torch.long
         )
-        return {"input": image, "target": mask, "index": idx, "aux": "random_aux_data"}
+        return {
+            "input": image,
+            "target": mask,
+            "index": index,
+            "aux": "random_aux_data",
+        }
