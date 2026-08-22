@@ -9,6 +9,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pytest
 import torch
+from conftest import minimal_cli_overrides
 
 from lightning_uq_box.eval_utils import compute_quantiles_from_std
 from lightning_uq_box.main import get_uq_box_cli
@@ -38,19 +39,13 @@ class TestRegressionVisualization:
             model_config_path,
             "--config",
             data_config_path,
-            "--trainer.accelerator",
-            "cpu",
-            "--trainer.max_epochs",
-            "2",
-            "--trainer.log_every_n_steps",
-            "1",
-            "--trainer.default_root_dir",
-            str(tmp_path),
-            "--trainer.logger",
-            "CSVLogger",
-            "--trainer.logger.save_dir",
-            str(tmp_path),
-        ]
+        ] + minimal_cli_overrides(
+            {"accelerator": "cpu", "devices": "auto"},
+            tmp_path,
+            max_epochs=2,
+            checkpoints=True,
+            logging=True,
+        )
 
         cli = get_uq_box_cli(args)
         cli.trainer.fit(cli.model, cli.datamodule)
@@ -180,19 +175,12 @@ class TestClassificationVisualization:
             model_config_path,
             "--config",
             data_config_path,
-            "--trainer.accelerator",
-            "cpu",
-            "--trainer.max_epochs",
-            "2",
-            "--trainer.log_every_n_steps",
-            "1",
-            "--trainer.default_root_dir",
-            str(tmp_path),
-            "--trainer.logger",
-            "CSVLogger",
-            "--trainer.logger.save_dir",
-            str(tmp_path),
-        ]
+        ] + minimal_cli_overrides(
+            {"accelerator": "cpu", "devices": "auto"},
+            tmp_path,
+            checkpoints=True,
+            logging=True,
+        )
 
         cli = get_uq_box_cli(args)
         cli.trainer.fit(cli.model, cli.datamodule)

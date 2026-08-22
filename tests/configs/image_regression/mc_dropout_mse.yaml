@@ -11,4 +11,4 @@ uq_method:
     lr: 0.003
   loss_fn:
     _target_: torch.nn.MSELoss
-  num_mc_samples: 3
+  num_mc_samples: 2

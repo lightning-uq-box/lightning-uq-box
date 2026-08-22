@@ -8,9 +8,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 import torch
+from conftest import minimal_trainer_kwargs
 from hydra.utils import instantiate
 from lightning import Trainer
-from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
 
 data_config_path = "tests/configs/image_regression/toy_image_regression.yaml"
@@ -28,15 +28,7 @@ def common_setup(tmp_path: Path, accelerator_config):
     model_conf["uq_method"]["laplace_model"]["sigma_noise"] = sigma_val
     model_conf["uq_method"]["laplace_model"]["prior_precision"] = precision_val
 
-    trainer = Trainer(
-        accelerator=accelerator_config["accelerator"],
-        devices=accelerator_config["devices"],
-        max_epochs=2,
-        log_every_n_steps=1,
-        default_root_dir=tmp_path,
-        logger=CSVLogger(save_dir=tmp_path),
-        enable_progress_bar=False,
-    )
+    trainer = Trainer(**minimal_trainer_kwargs(accelerator_config, tmp_path))
 
     return trainer, model_conf, data_conf, sigma_val, precision_val
 

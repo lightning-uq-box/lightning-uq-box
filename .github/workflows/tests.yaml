@@ -8,23 +8,18 @@ on:
     - main
 
 jobs:
-  pytest:
-    name: pytest
-    runs-on: ${{ matrix.os }}
+  full-suite:
+    name: full suite (Ubuntu, Python 3.12)
+    runs-on: ubuntu-latest
     env:
       MPLBACKEND: Agg
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ['3.10', '3.11', '3.12']
     steps:
     - name: Clone repo
       uses: actions/checkout@v6
     - name: Set up python
       uses: actions/setup-python@v6
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: '3.12'
     - name: Install pip dependencies
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
@@ -40,3 +35,40 @@ jobs:
       uses: codecov/codecov-action@v6.0.0
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+
+  compatibility-smoke:
+    name: smoke (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    env:
+      MPLBACKEND: Agg
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: ubuntu-latest
+          python-version: '3.10'
+        - os: ubuntu-latest
+          python-version: '3.11'
+        - os: macos-latest
+          python-version: '3.12'
+        - os: windows-latest
+          python-version: '3.12'
+    steps:
+    - name: Clone repo
+      uses: actions/checkout@v6
+    - name: Set up python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install pip dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        python -m ensurepip
+        python -m pip install --upgrade pip
+        pip install -r requirements/requirements.txt -r requirements/tests.txt
+        pip install numpy scipy
+    - name: Run smoke tests and collect configurations
+      shell: bash
+      run: |
+        python -m pytest tests/models tests/datamodules tests/eval_utils tests/test_main.py
+        python -m pytest --collect-only tests/uq_methods

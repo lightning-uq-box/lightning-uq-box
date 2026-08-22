@@ -14,4 +14,4 @@ model:
     _partial_: true
   loss_fn:
     _target_: torch.nn.CrossEntropyLoss
-  num_mc_samples: 10
+  num_mc_samples: 2

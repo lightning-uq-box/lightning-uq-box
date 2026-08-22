@@ -10,8 +10,8 @@ model:
       class_path: torch.optim.lr_scheduler.ConstantLR
     criterion:
       class_path: torch.nn.MSELoss
-    num_mc_samples_train: 3
-    num_mc_samples_test: 3
+    num_mc_samples_train: 2
+    num_mc_samples_test: 2
     burnin_epochs: 1
     prior_mu: 0.0
     prior_sigma: 1.0

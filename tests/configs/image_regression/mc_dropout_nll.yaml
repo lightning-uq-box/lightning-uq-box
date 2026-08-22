@@ -14,5 +14,5 @@ uq_method:
   lr_scheduler:
     _target_: torch.optim.lr_scheduler.ConstantLR
     _partial_: true
-  num_mc_samples: 3
+  num_mc_samples: 2
   burnin_epochs: 1

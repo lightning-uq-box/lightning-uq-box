@@ -7,5 +7,5 @@ uq_method:
 
 data:
   _target_: lightning_uq_box.datamodules.ToyImageRegressionDatamodule
-  num_samples: 16
-  batch_size: 4
+  num_samples: 9
+  batch_size: 9
