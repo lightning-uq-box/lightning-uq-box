@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 name = "lightning-uq-box"
 description = "Lightning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = {file = "LICENSE"}
 authors = [
     {name = "Nils Lehmann", email = "n.lehmann@tum.de"},
@@ -26,9 +26,9 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
@@ -38,14 +38,14 @@ dependencies = [
     "jsonargparse[signatures]>=4.28.0",
     # lightning 2+ required for LightningCLI args + sys.argv support
     "lightning>=2.4.0",
-    # matplotlib 3.5 required for Python 3.10 wheels
-    "matplotlib>=3.5",
-    # numpy 1.21.1+ required by Python 3.10 wheels
-    "numpy>=1.21.1",
+    # matplotlib 3.7.3 required for Python 3.12 wheels
+    "matplotlib>=3.7.3",
+    # numpy 1.26+ required by Python 3.12 wheels
+    "numpy>=1.26",
     # omegaconf
     "omegaconf>=2.3.0",
-    # pandas 1.1.3+ required for Python 3.10 wheels
-    "pandas>=1.1.3",
+    # pandas 2.1.1+ required for Python 3.12 wheels
+    "pandas>=2.1.1",
     # torch 1.12+ required by torchvision
     "torch>=2.0",
     # torchmetrics 0.10+ required for binary/multiclass/multilabel classification metrics
@@ -58,8 +58,12 @@ dependencies = [
     "gpytorch>=1.11",
     # Laplace Approximation
     "laplace-torch>=0.2.1",
-    # curvlinops need to be fixed: https://github.com/aleximmer/Laplace/issues/285
-    "curvlinops-for-pytorch==2.0.1",
+    # curvlinops 2.0.1 caps numpy<2, which has no Python 3.12+ wheels, and
+    # curvlinops 3 dropped APIs laplace-torch still uses (KFACLinearOperator
+    # ._compute_kfac, curvlinops._base._LinearOperator). laplace-torch is
+    # unmaintained, so 2.0.0 is the only version that satisfies both.
+    # https://github.com/aleximmer/Laplace/issues/285
+    "curvlinops-for-pytorch==2.0.0",
     # Uncertainty toolbox metrics
     "uncertainty-toolbox>=0.1.1",
     # Kornia for Test Time Augmentations and other image processing

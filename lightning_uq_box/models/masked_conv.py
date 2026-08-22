@@ -24,6 +24,8 @@ def causal_mask(
     Returns:
         A tensor representing the causal mask.
     """
+    row_grid: np.ndarray
+    col_grid: np.ndarray
     row_grid, col_grid = np.meshgrid(np.arange(width), np.arange(height), indexing="ij")
     mask = np.logical_or(
         row_grid < starting_point[0],
