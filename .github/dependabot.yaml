@@ -21,3 +21,6 @@ updates:
         update-types: ['version-update:semver-patch']
       # segmentation-models-pytorch pins timm, must update in unison
       - dependency-name: 'timm'
+      # curvlinops 3 broke laplace-torch, which is unmaintained
+      # https://github.com/aleximmer/Laplace/issues/285
+      - dependency-name: 'curvlinops-for-pytorch'
