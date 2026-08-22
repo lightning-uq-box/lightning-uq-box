@@ -69,9 +69,9 @@ dependencies = [
     # Kornia for Test Time Augmentations and other image processing
     "kornia>=0.6.9",
     # timm models for image classification and regression
-    "timm>=0.9.2",
-    # torchseg for segmentation, pixelwise regression
-    "torchseg>=0.0.1a1",
+    "timm>=1.0",
+    # smp for segmentation, pixelwise regression
+    "segmentation-models-pytorch>=0.5.0",
     # saving pixelwise and segmentation predictions
     "h5py>=3.12.1",
     # exponential moving average for pytorch models

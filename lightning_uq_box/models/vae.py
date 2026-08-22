@@ -1,15 +1,15 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the MIT License.
 
-"""Adapted from torchseg: https://github.com/isaaccorley/torchseg/blob/main/torchseg/decoders/unet/decoder.py."""
+"""Adapted from SMP: https://github.com/qubvel-org/segmentation_models.pytorch/blob/main/segmentation_models_pytorch/decoders/unet/decoder.py."""
 
 from collections.abc import Sequence
 
 import torch.nn as nn
 import torch.nn.functional as F
+from segmentation_models_pytorch.base import SegmentationHead
+from segmentation_models_pytorch.base.modules import Attention, Conv2dReLU
 from torch import Tensor
-from torchseg.base import SegmentationHead
-from torchseg.base.modules import Attention, Conv2dReLU
 
 
 class DecoderBlock(nn.Module):
@@ -31,19 +31,12 @@ class DecoderBlock(nn.Module):
             attention_type: The type of attention module to use.
         """
         super().__init__()
+        use_norm = "batchnorm" if use_batchnorm else "identity"
         self.conv1 = Conv2dReLU(
-            in_channels,
-            out_channels,
-            kernel_size=3,
-            padding=1,
-            use_batchnorm=use_batchnorm,
+            in_channels, out_channels, kernel_size=3, padding=1, use_norm=use_norm
         )
         self.conv2 = Conv2dReLU(
-            out_channels,
-            out_channels,
-            kernel_size=3,
-            padding=1,
-            use_batchnorm=use_batchnorm,
+            out_channels, out_channels, kernel_size=3, padding=1, use_norm=use_norm
         )
         self.attention2 = Attention(attention_type, in_channels=out_channels)
 

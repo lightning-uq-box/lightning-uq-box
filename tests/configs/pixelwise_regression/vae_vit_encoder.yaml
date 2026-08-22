@@ -1,10 +1,13 @@
 uq_method:
   _target_: lightning_uq_box.uq_methods.VAE
   encoder:
-    _target_: torchseg.encoders.TimmViTEncoder
-    name: vit_tiny_patch16_224
-    in_chans: 3
+    _target_: segmentation_models_pytorch.encoders.TimmUniversalEncoder
+    name: swin_tiny_patch4_window7_224
+    in_channels: 3
     depth: 4
+  # transformer encoders report a dummy 0 channel stage in `out_channels`,
+  # so the decoder channels cannot be inferred from the encoder
+  decoder_channels: [384, 192, 96, 48, 1]
   latent_size: 10
   img_size: 224
   out_channels: 1
