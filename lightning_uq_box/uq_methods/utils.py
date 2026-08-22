@@ -302,7 +302,7 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     pred_class = torch.argmax(class_probs, dim=1).cpu().numpy()
 
     for i in range(class_probs.shape[1]):
-        outputs[f"class_prob_{i}"] = class_probs[:, 1]
+        outputs[f"class_prob_{i}"] = class_probs[:, i]
 
     cpu_outputs = {}
     for key, val in outputs.items():
