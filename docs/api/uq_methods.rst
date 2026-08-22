@@ -77,7 +77,7 @@ Zig Zag Classification
 Mixture Density Networks
 ------------------------
 
-.. currentmodules:: lightning_uq_box.uq_methods.mixture_density
+.. currentmodule:: lightning_uq_box.uq_methods.mixture_density
 
 Mixture Density Regression
 ``````````````````````````
