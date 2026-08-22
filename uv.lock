@@ -830,19 +830,22 @@ nvtx = [
 
 [[package]]
 name = "curvlinops-for-pytorch"
-version = "2.0.0"
+version = "3.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "backpack-for-pytorch" },
     { name = "einconv" },
     { name = "einops" },
+    { name = "linear-operator" },
+    { name = "numpy" },
+    { name = "opt-einsum" },
     { name = "scipy" },
     { name = "torch" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c2/67/c46349c9de75dd3bbdabcd7fb16b890e4f7efa01d4b534e6742d2ec1bfde/curvlinops_for_pytorch-2.0.0.tar.gz", hash = "sha256:01f9925db9454fc9b0a31c7b83fc8ec2534c2eb12b7de7825a5298fc14e460e7", size = 141515, upload-time = "2024-08-15T18:52:00.432Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/bf/d6af0f519f0918c3b8b3558a1987bc401a02fcfc2599a1b2b602f89c8b90/curvlinops_for_pytorch-3.0.1.tar.gz", hash = "sha256:916dd1f1a145d2fed062fcbbcc860561164bbe28b3e02174f8c7d78a006f54a7", size = 1960924, upload-time = "2026-01-14T18:39:09.167Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/41/6b1b26a54aca296e01903fcd5f3a6bd9487ea9dff5a2a019d8672c6243a0/curvlinops_for_pytorch-2.0.0-py3-none-any.whl", hash = "sha256:ba2b0516642b4403e70350a4b94009a5ec4ee4377e0d345d30ae03bee86c462b", size = 67169, upload-time = "2024-08-15T18:51:58.851Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/6a/53874c03fd9a5aa2aa2b73d9f67aaa17e3571f62bddc26565d8b6c89d2ce/curvlinops_for_pytorch-3.0.1-py3-none-any.whl", hash = "sha256:4b9adcc31fb65614bf3ba95afdf353a18fa14e150927721b9526a4f626d87d8e", size = 89585, upload-time = "2026-01-14T18:39:07.931Z" },
 ]
 
 [[package]]
@@ -1843,7 +1846,7 @@ tests = [
 
 [package.metadata]
 requires-dist = [
-    { name = "curvlinops-for-pytorch", specifier = "==2.0.0" },
+    { name = "curvlinops-for-pytorch", specifier = "==3.0.1" },
     { name = "einops", specifier = ">=0.3" },
     { name = "ema-pytorch", specifier = ">=0.7.0" },
     { name = "gpytorch", specifier = ">=1.11" },

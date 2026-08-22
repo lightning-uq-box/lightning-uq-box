@@ -66,7 +66,7 @@ dependencies = [
     # ._compute_kfac, curvlinops._base._LinearOperator). laplace-torch is
     # unmaintained, so 2.0.0 is the only version that satisfies both.
     # https://github.com/aleximmer/Laplace/issues/285
-    "curvlinops-for-pytorch==2.0.0",
+    "curvlinops-for-pytorch==3.0.1",
     # Uncertainty toolbox metrics
     "uncertainty-toolbox>=0.1.1",
     # Kornia for Test Time Augmentations and other image processing
