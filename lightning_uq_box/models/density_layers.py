@@ -22,6 +22,18 @@ class DensityLayerBase_(nn.Module):
     implement specific density layers.
     """
 
+    # Registered in the subclasses' __init__. Declared here so they read as tensors
+    # rather than through nn.Module.__getattr__, which returns `Tensor | Module`.
+    s_prior_mu: Tensor
+    s_prior_logvar: Tensor
+    s_logvar: nn.Parameter
+    b_prior_mu: Tensor
+    b_prior_logvar: Tensor
+    b_logvar: nn.Parameter
+    logvar: nn.Parameter
+    L: nn.Parameter
+    I: Tensor  # noqa: E741 — buffer name, renaming would break checkpoints
+
     def kl_div(
         self, mu1: Tensor, logvar1: Tensor, mu2: Tensor, logvar2: Tensor
     ) -> Tensor:

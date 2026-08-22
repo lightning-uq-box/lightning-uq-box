@@ -47,7 +47,8 @@ class ConditionalLinear(nn.Module):
 class DiffusionSequential(nn.Sequential):
     """My Sequential to accept multiple inputs."""
 
-    def forward(self, input: Tensor, t: Tensor) -> Tensor:  # type: ignore[override]
+    # a Sequential that threads the diffusion time step through every block
+    def forward(self, input: Tensor, t: Tensor) -> Tensor:  # ty: ignore[invalid-method-override]
         """Forward pass.
 
         Args:
@@ -174,6 +175,7 @@ class ConditionalGuidedConvModel(nn.Module):
         self.n_steps = cond_guide_model.n_steps
 
         _, module = _get_output_layer_name_and_module(self.encoder)
+        assert isinstance(module, nn.Linear)
         encoder_out_features = module.out_features
 
         assert encoder_out_features == cond_guide_model.x_dim, (

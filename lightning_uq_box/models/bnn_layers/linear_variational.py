@@ -187,7 +187,7 @@ class LinearVariational(BaseVariationalLayer_):
         if self.layer_type == "reparameterization":
             # sample weight via reparameterization trick
             output = x.matmul((self.mu_weight + delta_weight).transpose(-1, -2))
-            if self.bias:
+            if self.mu_bias is not None:
                 output = output + (self.mu_bias + delta_bias).unsqueeze(1)
         else:
             # linear outputs
@@ -221,14 +221,15 @@ class LinearVariational(BaseVariationalLayer_):
         # Get device from parameters (not buffers, as they might be on CPU)
         device = self.rho_weight.device
 
+        eps_bias = self.eps_bias
         if self.is_frozen:
             eps_weight = self.eps_weight.to(device)
-            if self.mu_bias is not None:
-                bias_eps = self.eps_bias.to(device)
+            if eps_bias is not None:
+                bias_eps = eps_bias.to(device)
         else:
             eps_weight = self.eps_weight.data.normal_().to(device)
-            if self.mu_bias is not None:
-                bias_eps = self.eps_bias.data.normal_().to(device)
+            if eps_bias is not None:
+                bias_eps = eps_bias.data.normal_().to(device)
 
         # select from max_samples
         eps_weight = eps_weight[:n_samples]
@@ -239,11 +240,12 @@ class LinearVariational(BaseVariationalLayer_):
 
         delta_bias = torch.zeros(1, device=device, dtype=self.rho_weight.dtype)
 
-        if self.mu_bias is not None:
+        rho_bias = self.rho_bias
+        if rho_bias is not None:
             bias_eps = bias_eps[:n_samples]
 
             # sample bias with reparameterization trick
-            sigma_bias = F.softplus(self.rho_bias)
+            sigma_bias = F.softplus(rho_bias)
             delta_bias = bias_eps * sigma_bias
         return delta_weight, delta_bias
 

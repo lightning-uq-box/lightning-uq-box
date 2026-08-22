@@ -80,7 +80,7 @@ class VAEDecoder(nn.Module):
         dec_out_channels = list(decoder_channels[1:])
 
         # combine decoder keyword arguments
-        blocks = [
+        blocks: list[nn.Module] = [
             DecoderBlock(in_ch, out_ch, use_batchnorm, attention_type)
             for in_ch, out_ch in zip(dec_in_channels, dec_out_channels)
         ]

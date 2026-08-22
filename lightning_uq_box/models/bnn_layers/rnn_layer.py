@@ -122,7 +122,7 @@ class LSTMVariational(BaseVariationalLayer_):
         Returns:
             tensor of shape 0
         """
-        if self.bias:
+        if self.hh.mu_bias is not None and self.ih.mu_bias is not None:
             n_params = (
                 self.hh.mu_weight.numel()
                 + self.hh.mu_bias.numel()

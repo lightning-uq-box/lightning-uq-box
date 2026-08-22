@@ -73,6 +73,9 @@ def weight_mask(in_channels: int, kernel_size: tuple[int, int]) -> torch.Tensor:
 class MaskedConv2d(nn.Module):
     """Masked 2D Convolutional Layer."""
 
+    # registered as a buffer in __init__
+    mask: Tensor
+
     def __init__(
         self,
         in_channels: int,

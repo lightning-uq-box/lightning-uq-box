@@ -25,11 +25,12 @@ def get_log_normalizer(models: list[nn.Module]):
     log_normalizer = None
     for m in models:
         for layer in m.modules():
-            if hasattr(layer, "log_normalizer"):
+            layer_log_normalizer = getattr(layer, "log_normalizer", None)
+            if callable(layer_log_normalizer):
                 if log_normalizer is None:
-                    log_normalizer = layer.log_normalizer()
+                    log_normalizer = layer_log_normalizer()
                 else:
-                    log_normalizer += layer.log_normalizer()
+                    log_normalizer += layer_log_normalizer()
     return log_normalizer
 
 
@@ -49,11 +50,12 @@ def get_log_f_hat(models: list[nn.Module]):
     log_f_hat = None
     for m in models:
         for layer in m.modules():
-            if hasattr(layer, "log_f_hat"):
+            layer_log_f_hat = getattr(layer, "log_f_hat", None)
+            if callable(layer_log_f_hat):
                 if log_f_hat is None:
-                    log_f_hat = layer.log_f_hat()
+                    log_f_hat = layer_log_f_hat()
                 else:
-                    log_f_hat += layer.log_f_hat()
+                    log_f_hat += layer_log_f_hat()
     return log_f_hat
 
 
@@ -70,11 +72,12 @@ def get_log_Z_prior(models: list[nn.Module]):
     log_Z_prior = None
     for m in models:
         for layer in m.modules():
-            if hasattr(layer, "calc_log_Z_prior"):
+            layer_log_Z_prior = getattr(layer, "calc_log_Z_prior", None)
+            if callable(layer_log_Z_prior):
                 if log_Z_prior is None:
-                    log_Z_prior = layer.calc_log_Z_prior()
+                    log_Z_prior = layer_log_Z_prior()
                 else:
-                    log_Z_prior += layer.calc_log_Z_prior()
+                    log_Z_prior += layer_log_Z_prior()
     return log_Z_prior
 
 
