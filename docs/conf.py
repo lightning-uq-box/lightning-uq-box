@@ -31,9 +31,9 @@ extensions = [
 
 myst_enable_extensions = ["dollarmath", "colon_fence"]
 master_doc = "index"
-# list of source suffix to include .py for jupytext
-source_suffix = [".rst", ".md", ".py"]
-# source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
+# Explicitly map source file types.  Treating Python files as reStructuredText makes
+# Sphinx try to parse this configuration file (and any helper scripts) as docs.
+source_suffix = {".rst": "restructuredtext", ".md": "markdown"}
 templates_path = ["_templates"]
 
 # this is needed for jupytext
@@ -86,7 +86,7 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "lightning": ("https://lightning.ai/docs/pytorch/stable/", None),
     "sklearn": ("https://scikit-learn.org/stable/", None),
-    "torch": ("https://pytorch.org/docs/stable", None),
+    "torch": ("https://docs.pytorch.org/docs/stable", None),
 }
 
 # some notebooks require GPU

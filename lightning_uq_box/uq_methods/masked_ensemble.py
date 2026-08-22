@@ -106,13 +106,13 @@ class MasksemblesBase(BaseModule):
         )
 
     def forward(self, x: Tensor):
-        """Forward pass.
+        r"""Forward pass.
 
         Args:
-            x: Input tensor of shape [batch_size, *input_shape]
+            x: Input tensor of shape [batch_size, \*input_shape]
 
         Returns:
-            Output tensor of shape [batch_size * num_estimators, *output_shape]
+            Output tensor of shape [batch_size \* num_estimators, \*output_shape]
         """
         # repeat the input tensor for each estimator
         x = repeat(x, "b ... -> (n b) ...", n=self.num_estimators)
@@ -277,13 +277,13 @@ class MasksemblesRegression(MasksemblesBase):
         self.test_metrics = default_regression_metrics("test")
 
     def predict_step(self, x: Tensor) -> Tensor:
-        """Predict the output of the model.
+        r"""Predict the output of the model.
 
         Args:
-            x: Input tensor of shape [batch_size, *input_shape]
+            x: Input tensor of shape [batch_size, \*input_shape]
 
         Returns:
-            Output tensor of shape [batch_size, *output_shape]
+            Output tensor of shape [batch_size, \*output_shape]
         """
         with torch.no_grad():
             ensemble_pred = self.forward(x)
@@ -384,13 +384,13 @@ class MasksemblesClassification(MasksemblesBase):
         return out
 
     def predict_step(self, x: Tensor) -> Tensor:
-        """Predict the output of the model.
+        r"""Predict the output of the model.
 
         Args:
-            x: Input tensor of shape [batch_size, *input_shape]
+            x: Input tensor of shape [batch_size, \*input_shape]
 
         Returns:
-            Output tensor of shape [batch_size, *output_shape]
+            Output tensor of shape [batch_size, \*output_shape]
         """
         with torch.no_grad():
             ensemble_pred = self.forward(x)
