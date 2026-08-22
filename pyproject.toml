@@ -87,7 +87,7 @@ tests = [
     # pytest lazy fixture
     "pytest-lazy-fixture>=0.6",
     # hydra-core
-    "hydra-core>=1.3.2",
+    "hydra-core>=1.3.4",
     ## Style
     # Mypy
     "mypy>=0.900",
