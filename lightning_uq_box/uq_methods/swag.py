@@ -428,7 +428,7 @@ class SWAGClassification(SWAGBase):
     """  # noqa: E501
 
     pred_file_name = "preds.csv"
-    valid_tasks = ["binary", "multiclass", "multilable"]
+    valid_tasks = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,
@@ -506,7 +506,7 @@ class SWAGClassification(SWAGBase):
 
         preds = self.sample_predictions(X)
 
-        return process_classification_prediction(preds)
+        return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -519,7 +519,9 @@ class SWAGClassification(SWAGBase):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )
 
 
@@ -590,7 +592,7 @@ class SWAGSegmentation(SWAGClassification):
                 "SWAG is not fitted yet, please call trainer.fit() first."
             )
         preds = self.sample_predictions(X)
-        return process_segmentation_prediction(preds)
+        return process_segmentation_prediction(preds, task=self.task)
 
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""

@@ -327,7 +327,7 @@ class DeterministicClassification(DeterministicModel):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks = ["binary", "multiclass", "multilable"]
+    valid_tasks = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,
@@ -393,7 +393,9 @@ class DeterministicClassification(DeterministicModel):
         def identity(x, dim=None):
             return x
 
-        return process_classification_prediction(out, aggregate_fn=identity)
+        return process_classification_prediction(
+            out, aggregate_fn=identity, task=self.task
+        )
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -406,7 +408,9 @@ class DeterministicClassification(DeterministicModel):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )
 
 
@@ -483,7 +487,9 @@ class DeterministicSegmentation(DeterministicClassification):
         def identity(x, dim=None):
             return x
 
-        return process_segmentation_prediction(out, aggregate_fn=identity)
+        return process_segmentation_prediction(
+            out, aggregate_fn=identity, task=self.task
+        )
 
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""

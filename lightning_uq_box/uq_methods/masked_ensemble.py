@@ -323,7 +323,7 @@ class MasksemblesClassification(MasksemblesBase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks = ["binary", "multiclass", "multilable"]
+    valid_tasks = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,
@@ -398,7 +398,7 @@ class MasksemblesClassification(MasksemblesBase):
         # rearange to put the estimators (samples) in the last dimension
         preds = rearrange(ensemble_pred, "(n b) ... -> b ... n", n=self.num_estimators)
 
-        return process_classification_prediction(preds)
+        return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -411,5 +411,7 @@ class MasksemblesClassification(MasksemblesBase):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )

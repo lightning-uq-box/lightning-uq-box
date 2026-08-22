@@ -410,7 +410,7 @@ class ProbUNet(BaseModule):
             [self.sample(testing=True) for _ in range(self.num_samples)], dim=-1
         )  # shape: (batch_size, num_classes, height, width, num_samples)
 
-        return process_segmentation_prediction(samples)
+        return process_segmentation_prediction(samples, task=self.task)
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.

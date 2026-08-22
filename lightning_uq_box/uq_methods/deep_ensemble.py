@@ -213,7 +213,7 @@ class DeepEnsembleClassification(DeepEnsemble):
         with torch.no_grad():
             preds = self.generate_ensemble_predictions(X)
 
-        return process_classification_prediction(preds)
+        return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -226,7 +226,9 @@ class DeepEnsembleClassification(DeepEnsemble):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )
 
 
@@ -281,7 +283,7 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
         with torch.no_grad():
             preds = self.generate_ensemble_predictions(X)
 
-        return process_segmentation_prediction(preds)
+        return process_segmentation_prediction(preds, task=self.task)
 
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""

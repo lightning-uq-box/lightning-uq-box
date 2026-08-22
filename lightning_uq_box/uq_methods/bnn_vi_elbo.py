@@ -438,7 +438,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
     """
 
     pred_file_name = "preds.csv"
-    valid_tasks = ["binary", "multiclass", "multilable"]
+    valid_tasks = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,
@@ -558,7 +558,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
                 [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
             )  # shape [batch_size, num_classes, num_samples]
 
-        return process_classification_prediction(preds)
+        return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
         self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -571,7 +571,9 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )
 
 
@@ -692,7 +694,7 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
                 [self.model(X) for _ in range(self.hparams.num_mc_samples_test)], dim=-1
             )  # shape [batch_size, num_classes, height, width, num_samples]
 
-        return process_segmentation_prediction(preds)
+        return process_segmentation_prediction(preds, task=self.task)
 
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""
