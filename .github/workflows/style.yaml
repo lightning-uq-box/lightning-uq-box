@@ -8,6 +8,9 @@ on:
     branches:
     - main
     - release**
+defaults:
+  run:
+    shell: bash
 
 jobs:
   ruff:
@@ -16,17 +19,20 @@ jobs:
     steps:
     - name: Clone repo
       uses: actions/checkout@v7
-    - name: Set up python
-      uses: actions/setup-python@v7
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v9.0.0
       with:
         python-version: '3.12'
-    - name: Install pip dependencies
-      if: steps.cache.outputs.cache-hit != 'true'
-      run: |
-        pip install -r requirements/style.txt
-        pip cache purge
-    - name: List pip dependencies
-      run: pip list
+        enable-cache: true
+        prune-cache: true
+        activate-environment: true
+        cache-dependency-glob: |
+          pyproject.toml
+          uv.lock
+    - name: Install dependencies
+      run: uv sync --locked --extra style
+    - name: List dependencies
+      run: uv tree
     - name: Run ruff checks
       run: |
         ruff check --output-format=github --no-fix .
@@ -35,23 +41,25 @@ jobs:
     name: mypy
     runs-on: ubuntu-latest
     steps:
-      - name: Clone repo
-        uses: actions/checkout@v7
-      - name: Set up python
-        id: setup-python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - name: Install pip dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: |
-          pip install -r requirements/requirements.txt -r requirements/style.txt -r requirements/tests.txt
-          pip cache purge
-      - name: List pip dependencies
-        run: pip list
-      - name: Run mypy checks
-        run: mypy --follow-imports=skip --exclude lightning_uq_box/uq_methods .
+    - name: Clone repo
+      uses: actions/checkout@v7
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v9.0.0
+      with:
+        python-version: '3.12'
+        enable-cache: true
+        prune-cache: true
+        activate-environment: true
+        cache-dependency-glob: |
+          pyproject.toml
+          uv.lock
+    - name: Install dependencies
+      run: uv sync --locked --extra style --extra tests
+    - name: List dependencies
+      run: uv tree
+    - name: Run mypy checks
+      run: mypy --follow-imports=skip .
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}

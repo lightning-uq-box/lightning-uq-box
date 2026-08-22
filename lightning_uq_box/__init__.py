@@ -9,5 +9,7 @@ The :mod:`lightning_uq_box` package consists of various uncertainty quantificati
 methods for deep learning models implemented in PyTorch and Lightning.
 """
 
+from importlib.metadata import version
+
 __author__ = "Nils Lehmann"
-__version__ = "0.3.0dev"
+__version__ = version(__name__)

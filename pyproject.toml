@@ -1,17 +1,21 @@
 [build-system]
 requires = [
-    # setuptools 61+ required for pyproject.toml support
-    "setuptools>=61",
+    # uv_build 0.7+ required for bdist reorganization
+    "uv_build>=0.7,<0.13",
 ]
-build-backend = "setuptools.build_meta"
+build-backend = "uv_build"
 
 # https://packaging.python.org/en/latest/specifications/declaring-project-metadata/
 [project]
 name = "lightning-uq-box"
+# uv_build does not support dynamic versions. lightning_uq_box.__version__ reads
+# this value back at runtime via importlib.metadata.
+version = "0.3.0.dev0"
 description = "Lightning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
 readme = "README.md"
 requires-python = ">=3.12"
-license = {file = "LICENSE"}
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [
     {name = "Nils Lehmann", email = "n.lehmann@tum.de"},
 ]
@@ -23,7 +27,6 @@ keywords = ["pytorch", "lightning", "uncertainty quantification", "conformal pre
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
@@ -79,44 +82,52 @@ dependencies = [
     # vbll
     "vbll>=0.4.9"
 ]
-dynamic = ["version"]
 
 [project.optional-dependencies]
+style = [
+    ### Style ###
+    # ruff 0.14+ required for the renamed ruff-check pre-commit hook id.
+    # ruff 0.15 expands the default rule set (245 new findings); bumping it is
+    # deliberate follow-up work, so let dependabot propose it on its own.
+    "ruff>=0.14,<0.15",
+    # mypy 2+ required for Python 3.14 support
+    "mypy>=2",
+]
+
 tests = [
     ### Tests ###
     # pytest 7.3+ required for tmp_path_retention_policy
     "pytest>=7.3",
     # pytest-cov 4+ required for pytest 7.2+ compatibility
     "pytest-cov>=4",
-    # pytest lazy fixture
-    "pytest-lazy-fixture>=0.6",
+    # nbmake to execute the tutorial notebooks as tests
+    "nbmake>=1.5.5",
     # hydra-core
     "hydra-core>=1.3.4",
-    ## Style
-    # Mypy
-    "mypy>=0.900",
-    # ruff 0.9+ required for 2025 style guide
-    "ruff>=0.9",
 ]
 
 docs = [
     ### Docs ###
-    # sphinx
-    "sphinx>=4,<7",
+    # sphinx 7+ required by myst-parser 5+
+    "sphinx>=7",
     # ipywidgets 7+ required by nbsphinx
     "ipywidgets>=7",
     # notebooks with sphinx
     "nbsphinx>=0.8.5",
-    # reat the docs theme
-    "sphinx-book-theme>=1.0.1",
+    # read the docs theme
+    "sphinx-book-theme>=1.1.4",
     # Extension for markdown
-    "myst-parser>=2.0",
+    "myst-parser>=5.1",
     # toggle dropdowns
     "sphinx-togglebutton>=0.3.2",
     # jupytext notebook creation from .py files
     "jupytext>=1.15.2",
     # ipykernel to run notebooks
     "ipykernel>=6.29.3",
+]
+
+all = [
+    "lightning-uq-box[docs,style,tests]",
 ]
 
 [project.scripts]
@@ -179,9 +190,9 @@ USE_IOMP = "0"
 # Import discovery
 ignore_missing_imports = true
 exclude = [
-    "(dist|docs|requirements|.*egg-info)/",
+    "(dist|docs|.*egg-info)/",
     "lightning_uq_box/uq_methods"
-]  
+]
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
@@ -203,11 +214,6 @@ split-on-trailing-comma = false
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.setuptools.dynamic]
-version = {attr = "lightning_uq_box.__version__"}
-
-[tool.setuptools.package-data]
-lightning_uq_box = ["py.typed"]
-
-[tool.setuptools.packages.find]
-include = ["lightning_uq_box*"]
+# flat layout: lightning_uq_box/ sits at the repository root, not under src/
+[tool.uv.build-backend]
+module-root = ""
