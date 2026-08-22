@@ -217,7 +217,7 @@ class TestDeepEnsemble:
 
 posthoc_config_paths = [
     "tests/configs/pixelwise_regression/img2img_conformal.yaml",
-    "tests/configs/pixelwise_regression/img2img_conformal_torchseg.yaml",
+    "tests/configs/pixelwise_regression/img2img_conformal_smp.yaml",
 ]
 
 
@@ -265,13 +265,17 @@ frozen_config_paths = [
 
 class TestFrozenPxRegression:
     @pytest.mark.parametrize("model_name", ["Unet", "DeepLabV3Plus"])
-    @pytest.mark.parametrize("backbone", ["resnet18", "vit_tiny_patch16_224"])
+    @pytest.mark.parametrize(
+        "backbone", ["resnet18", "tu-swin_tiny_patch4_window7_224"]
+    )
     @pytest.mark.parametrize("model_config_path", frozen_config_paths)
     def test_freeze_backbone(
         self, model_config_path: str, model_name: str, backbone: str
     ) -> None:
         model_conf = OmegaConf.load(model_config_path)
-        model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
+        model_conf.uq_method.model["_target_"] = (
+            f"segmentation_models_pytorch.{model_name}"
+        )
         model_conf.uq_method.model["encoder_name"] = backbone
 
         if model_name == "DeepLabV3Plus":
@@ -294,7 +298,9 @@ class TestFrozenPxRegression:
     @pytest.mark.parametrize("model_config_path", frozen_config_paths)
     def test_freeze_decoder(self, model_config_path: str, model_name: str) -> None:
         model_conf = OmegaConf.load(model_config_path)
-        model_conf.uq_method.model["_target_"] = f"torchseg.{model_name}"
+        model_conf.uq_method.model["_target_"] = (
+            f"segmentation_models_pytorch.{model_name}"
+        )
 
         if model_name == "DeepLabV3Plus":
             # drop depth and decoder_channels

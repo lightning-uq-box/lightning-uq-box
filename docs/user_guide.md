@@ -61,7 +61,7 @@ The following aims to explain the design choices behind the implementations foun
 - use [PyTorch](https://pytorch.org/docs/stable/index.html), because:
   - wide adaptation in research community
   - ready to use architectures and pretrained models for example through [timm library](https://github.com/huggingface/pytorch-image-models)
-    or [torchseg](https://github.com/isaaccorley/torchseg)
+    or [SMP](https://github.com/qubvel-org/segmentation_models.pytorch)
 - use [Lightning](https://lightning.ai/docs/pytorch/stable/), because:
   - reduces boiler plate code
   - enforces code organization structure
