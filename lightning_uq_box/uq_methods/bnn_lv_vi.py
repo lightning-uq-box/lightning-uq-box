@@ -12,6 +12,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from torch import Tensor
 
 from lightning_uq_box.models.bnnlv.latent_variable_network import LatentVariableNetwork
@@ -458,7 +459,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                 module.unfreeze_layer()
 
     # TODO optimize both bnn and lv model parameters
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -502,11 +503,7 @@ class BNN_LV_VI_Regression(BNN_LV_VI_Base):
         self.test_metrics = default_regression_metrics("test")
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -516,6 +513,7 @@ class BNN_LV_VI_Regression(BNN_LV_VI_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
+        assert isinstance(outputs, dict)
         del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
@@ -635,17 +633,17 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         self,
         X: Tensor,
         y: Tensor | None = None,
-        n_samples: int = 5,
         training: bool = True,
+        n_samples: int = 5,
     ) -> Tensor:
         """Forward pass BNN+LI.
 
         Args:
             X: input data
             y: target
-            n_samples: number of samples to compute
             training: if yes, sample from lv posterior,
                 else use sample from prior or provide z
+            n_samples: number of samples to compute
 
         Returns:
             bnn output [batch_size, output_dim, num_samples]
@@ -808,7 +806,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             "samples": model_preds_hy,
         }
 
-    def freeze_layers(self, n_samples: int) -> None:
+    def freeze_layers(self, n_samples: int | None = None) -> None:
         """Freeze BNN Layers to fix the stochasticity over forward passes.
 
         Args:
@@ -838,11 +836,7 @@ class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
         self.test_metrics = default_regression_metrics("test")
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -852,6 +846,7 @@ class BNN_LV_VI_Batched_Regression(BNN_LV_VI_Batched_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
+        assert isinstance(outputs, dict)
         del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)

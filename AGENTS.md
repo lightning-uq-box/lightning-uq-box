@@ -83,6 +83,9 @@ Configured in `pyproject.toml`; `ruff format` decides layout, so do not hand-for
 - Attributes registered in `__init__` via `register_buffer` / `register_parameter`, or assigned in
   a subclass and read from a base class, need a class-level declaration (`mu_weight: Parameter`).
   Without one, `nn.Module.__getattr__` types them as `Tensor | Module` and every use is an error.
+- Lightning hooks must keep the base signature, parameter names included: `on_test_batch_end`
+  takes `(outputs, batch, batch_idx, dataloader_idx)`, and `outputs` is `STEP_OUTPUT`, not
+  `dict[str, Tensor]`. The `save_*_predictions` helpers narrow it, so hooks pass it straight on.
 - Union: `X | Y`, not `Union[X, Y]`; prefer built-in `list`/`dict`/`tuple` over `typing.List` etc.
 - `# ty: ignore[<rule>]` only for external library issues, with a comment saying which one.
 

@@ -23,6 +23,7 @@ from gpytorch.variational import (
     VariationalStrategy,
 )
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from sklearn import cluster
 from torch import Tensor
 from torch.utils.data import Dataset
@@ -267,7 +268,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -376,11 +377,7 @@ class DKLRegression(DKLBase):
             self.likelihood = self.likelihood.cuda()
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -622,11 +619,7 @@ class DKLClassification(DKLBase):
         return {"pred": mean, "pred_uct": entropy, "out": gp_dist, "logits": mean}
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -720,14 +713,14 @@ class DKLGPLayer(ApproximateGP):
 
         self.covar_module = ScaleKernel(kernel, batch_shape=batch_shape)
 
-    def forward(self, X: Tensor) -> MultivariateNormal:
+    def forward(self, x: Tensor) -> MultivariateNormal:
         """Forward pass of GP.
 
         Args:
-            X: input to GP of shape [batch_size, num_input_features]
+            x: input to GP of shape [batch_size, num_input_features]
         """
-        mean = self.mean_module(X)
-        covar = self.covar_module(X)
+        mean = self.mean_module(x)
+        covar = self.covar_module(x)
         return MultivariateNormal(mean, covar)
 
     @property

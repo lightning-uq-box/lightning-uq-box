@@ -10,6 +10,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from torch import Tensor
 
 from lightning_uq_box.models.bnn_layers.bnn_utils import (
@@ -228,11 +229,11 @@ class BNN_VI_ELBO_Base(DeterministicModel):
 
         return negative_beta_elbo, mean_pred
 
-    def compute_task_loss(self, X: Tensor, y: Tensor) -> Tensor:
+    def compute_task_loss(self, pred: Tensor, y: Tensor) -> Tensor:
         """Compute the loss for the respective task for a single sampling iteration.
 
         Args:
-            X: input data
+            pred: model prediction
             y: target
 
         Returns:
@@ -274,7 +275,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
             {"params": excluded_params, "weight_decay": 0.0},
         ]
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -419,11 +420,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         return process_regression_prediction(preds)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -570,11 +567,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -717,11 +710,7 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 

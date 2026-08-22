@@ -13,6 +13,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
 from torchmetrics import (
     Accuracy,
@@ -287,9 +288,7 @@ def change_inplace_activation(module):
         module.inplace = False
 
 
-def save_image_predictions(
-    outputs: dict[str, Tensor], batch_idx: int, save_dir: str
-) -> None:
+def save_image_predictions(outputs: STEP_OUTPUT, batch_idx: int, save_dir: str) -> None:
     """Save segmentation predictions to separate hdf5 files.
 
     Args:
@@ -301,6 +300,9 @@ def save_image_predictions(
         batch_idx: index of the current batch
         save_dir: directory where hdf5 files should be saved
     """
+    # Lightning types the hook argument as STEP_OUTPUT; the UQ methods always
+    # return a dict from test_step, so narrow once here rather than at every hook.
+    assert isinstance(outputs, dict)
     for sample_idx in range(outputs["pred"].shape[0]):
         with h5py.File(
             f"{save_dir}/batch_{batch_idx}_sample_{sample_idx}.hdf5", "w"
@@ -316,7 +318,7 @@ def save_image_predictions(
                     f.create_dataset(key, data=data, compression="gzip")
 
 
-def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
+def save_regression_predictions(outputs: STEP_OUTPUT, path: str) -> None:
     """Save regression predictions to csv file.
 
     Args:
@@ -329,6 +331,9 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
             - upper_quant: upper quantile of shape [batch_size]
         path: path where csv should be saved
     """
+    # Lightning types the hook argument as STEP_OUTPUT; the UQ methods always
+    # return a dict from test_step, so narrow once here rather than at every hook.
+    assert isinstance(outputs, dict)
     cpu_outputs = {}
     if "samples" in outputs:
         samples = outputs.pop("samples")
@@ -354,9 +359,7 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
         df.to_csv(path, index=False)
 
 
-def save_classification_predictions(
-    outputs: dict[str, Tensor], path: str, task: str = "multiclass"
-) -> None:
+def save_classification_predictions(outputs: STEP_OUTPUT, path: str) -> None:
     """Save classification predictions to csv file.
 
     For the "multilabel" task the labels are not mutually exclusive, so instead
@@ -373,6 +376,9 @@ def save_classification_predictions(
         path: path where csv should be saved
         task: one of "binary", "multiclass" or "multilabel"
     """
+    # Lightning types the hook argument as STEP_OUTPUT; the UQ methods always
+    # return a dict from test_step, so narrow once here rather than at every hook.
+    assert isinstance(outputs, dict)
     if "samples" in outputs:
         _ = outputs.pop("samples")
     if "logits" in outputs:

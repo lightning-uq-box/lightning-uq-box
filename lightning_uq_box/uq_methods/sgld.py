@@ -6,11 +6,12 @@
 # SGLD with ensembles
 
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import torch
 import torch.nn as nn
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from torch import Tensor
 from torch.optim.optimizer import Optimizer
 
@@ -55,7 +56,10 @@ class SGLD(Optimizer):
         super().__init__(params, defaults)
         self.lr = lr
 
-    def step(self, closure: callable):
+    # torch overloads Optimizer.step on whether a closure is given; SGLD always needs one.
+    def step(  # ty: ignore[invalid-method-override]
+        self, closure: Callable[[], float] | None = None
+    ) -> float | None:
         """Perform a single optimization step.
 
         Args:
@@ -64,8 +68,7 @@ class SGLD(Optimizer):
         Returns:
             updated loss
         """
-        loss = None
-        # if closure is not None:
+        assert closure is not None, "SGLD needs a closure to reevaluate the model."
         loss = closure()
 
         for group in self.param_groups:
@@ -127,7 +130,7 @@ class SGLDBase(DeterministicModel):
         # manual optimization with SGLD optimizer
         self.automatic_optimization = False
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -278,11 +281,7 @@ class SGLDRegression(SGLDBase):
         return process_regression_prediction(preds)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -414,11 +413,7 @@ class SGLDClassification(SGLDBase):
         return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 

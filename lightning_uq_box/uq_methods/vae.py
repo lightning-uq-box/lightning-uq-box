@@ -214,17 +214,19 @@ class VAE(DeterministicPixelRegression):
         """
         return self.decoder(self.latent_init_decoder(z))
 
-    def forward(self, x: Tensor, cond: Tensor | None = None) -> Tensor:
+    def forward(
+        self, X: Tensor, cond: Tensor | None = None
+    ) -> tuple[Tensor, Tensor, Tensor]:
         """Forward pass for the VAE.
 
         Args:
-            x: The input tensor
+            X: The input tensor
             cond: The cond tensor.
 
         Returns:
-            The output tensor.
+            the reconstruction, the latent mean and the latent log variance.
         """
-        x_encoded = self.encoder_forward(x, cond)
+        x_encoded = self.encoder_forward(X, cond)
 
         # encode the latent space
         mu = self.latent_mu(x_encoded)
@@ -236,15 +238,18 @@ class VAE(DeterministicPixelRegression):
 
         return x_recon, mu, log_var
 
-    def training_step(self, batch: Any, batch_idx: int) -> dict[str, Tensor]:
+    def training_step(
+        self, batch: Any, batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Training step for the VAE.
 
         Args:
             batch: The input batch.
             batch_idx: The index of the batch.
+            dataloader_idx: The index of the dataloader.
 
         Returns:
-            The loss and the log dictionary.
+            the training loss.
         """
         X, y = batch[self.input_key], batch[self.target_key]
         batch_size = X.shape[0]
@@ -263,12 +268,18 @@ class VAE(DeterministicPixelRegression):
 
         return scaled_kl_loss + rec_loss
 
-    def validation_step(self, batch: Any, batch_idx: int) -> dict[str, Tensor]:
+    def validation_step(
+        self, batch: Any, batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
         """Validation step for the VAE.
 
         Args:
             batch: The input batch.
             batch_idx: The index of the batch.
+            dataloader_idx: The index of the dataloader.
+
+        Returns:
+            the validation loss.
         """
         X, y = batch[self.input_key], batch[self.target_key]
         batch_size = X.shape[0]
@@ -434,16 +445,17 @@ class ConditionalVAE(VAE):
             nn.Conv2d(self.latent_size, self.latent_channels, 1, 1),
         )
 
-    def encoder_forward(self, x: Tensor, cond: Tensor) -> Tensor:
+    def encoder_forward(self, x: Tensor, cond: Tensor | None = None) -> Tensor:
         """Encode forward pass.
 
         Args:
             x: input tensor
-            cond: cond tensor
+            cond: cond tensor, required by the conditional VAE
 
-        Returns:c
+        Returns:
             encoded tensor
         """
+        assert cond is not None, "ConditionalVAE needs a condition."
         batch_size = x.shape[0]
 
         embed_condition = self.cond_embed(cond)
@@ -456,17 +468,20 @@ class ConditionalVAE(VAE):
 
         return self.encoder.forward(x)[-1]
 
-    def forward(self, x: Tensor, cond: Tensor | None = None) -> Tensor:
+    def forward(
+        self, X: Tensor, cond: Tensor | None = None
+    ) -> tuple[Tensor, Tensor, Tensor]:
         """Forward pass for the VAE.
 
         Args:
-            x: The input tensor
-            cond: The cond tensor.
+            X: The input tensor
+            cond: The cond tensor, required by the conditional VAE.
 
         Returns:
-            The output tensor.
+            the reconstruction, the latent mean and the latent log variance.
         """
-        x_encoded = self.encoder_forward(x, cond)
+        assert cond is not None, "ConditionalVAE needs a condition."
+        x_encoded = self.encoder_forward(X, cond)
 
         # encode the latent space
         mu = self.latent_mu(x_encoded)
@@ -515,19 +530,24 @@ class ConditionalVAE(VAE):
         return out_dict
 
     def predict_step(
-        self, X: Tensor, cond: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+        self,
+        X: Tensor,
+        batch_idx: int = 0,
+        dataloader_idx: int = 0,
+        cond: Tensor | None = None,
     ) -> dict[str, Tensor]:
         """Prediction Step with Conditional VAE.
 
         Args:
             X: The input tensor.
-            cond: The condition tensor.
             batch_idx: The index of the batch.
             dataloader_idx: The index of the dataloader.
+            cond: The condition tensor, required by the conditional VAE.
 
         Returns:
             Prediction dictionary
         """
+        assert cond is not None, "ConditionalVAE needs a condition."
         x_encoded = self.encoder_forward(X, cond)
 
         # encode the latent space once

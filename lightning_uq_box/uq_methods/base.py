@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from omegaconf import OmegaConf
 from torch import Tensor
 from torchmetrics import MetricCollection
@@ -181,7 +182,7 @@ class DeterministicModel(BaseModule):
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> Tensor:
+    ) -> STEP_OUTPUT:
         """Compute and return the training loss.
 
         Args:
@@ -288,7 +289,7 @@ class DeterministicModel(BaseModule):
             out = self.forward(X)
         return {"pred": self.adapt_output_for_metrics(out)}
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -317,11 +318,7 @@ class DeterministicRegression(DeterministicModel):
         self.test_metrics = default_regression_metrics("test")
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -409,11 +406,7 @@ class DeterministicClassification(DeterministicModel):
         )
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -511,11 +504,7 @@ class DeterministicSegmentation(DeterministicClassification):
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -580,11 +569,7 @@ class DeterministicPixelRegression(DeterministicRegression):
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -673,25 +658,25 @@ class PosthocBase(BaseModule):
         self.log_dict(self.test_metrics.compute())
         self.test_metrics.reset()
 
-    def adjust_model_logits(self, model_output: Tensor) -> Tensor:
+    def adjust_model_logits(self, model_output: Any) -> Any:
         """Adjust model output according to post-hoc fitting procedure.
 
         Args:
-            model_output: model output tensor of shape [batch_size x num_outputs]
+            model_output: output of the underlying model
 
         Returns:
-            adjusted model output tensor of shape [batch_size x num_outputs]
+            the adjusted output, in whatever form the method produces
         """
         raise NotImplementedError
 
-    def forward(self, X: Tensor) -> Tensor:
+    def forward(self, X: Tensor) -> Any:
         """Forward pass of Posthoc model that adjusts model logits.
 
         Args:
             X: input tensor of shape [batch_size x input_dims]
 
         Returns:
-            adjusted model output tensor of shape [batch_size x num_outputs]
+            the adjusted output, in whatever form the method produces
         """
         if not self.post_hoc_fitted:
             raise RuntimeError(

@@ -15,6 +15,7 @@ import torch
 import torch.nn as nn
 from einops import repeat
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
 from torch.optim.adam import Adam as Adam
 
@@ -77,12 +78,12 @@ class ZigZagBase(DeterministicModel):
             self.input_linear = False
 
     def forward(
-        self, x: Tensor, y: Tensor | None = None, training: bool = False
+        self, X: Tensor, y: Tensor | None = None, training: bool = False
     ) -> Tensor:
         """Forward pass of Zig Zag method.
 
         Args:
-            x: Input tensor.
+            X: Input tensor.
             y: Target tensor.
             training: Whether or not the model is in training mode,
                 which affects the Zig Zag operation for conv input layers
@@ -95,47 +96,47 @@ class ZigZagBase(DeterministicModel):
             if self.input_linear:
                 x_in = torch.concat(
                     [
-                        x,
+                        X,
                         self.blank_const
-                        * torch.ones([x.shape[0], 1], device=x.device, dtype=x.dtype),
+                        * torch.ones([X.shape[0], 1], device=X.device, dtype=X.dtype),
                     ],
                     dim=1,
                 )
             else:
-                batch_size, _, height, width = x.shape
+                batch_size, _, height, width = X.shape
                 ones_tensor = torch.ones(
-                    [batch_size, 1, height, width], device=x.device, dtype=x.dtype
+                    [batch_size, 1, height, width], device=X.device, dtype=X.dtype
                 )
-                x_in = torch.cat([x, self.blank_const * ones_tensor], dim=1)
+                x_in = torch.cat([X, self.blank_const * ones_tensor], dim=1)
         else:
             if y.dim() == 1:
                 y = y.unsqueeze(-1)
             if self.input_linear:
                 # classification labels are just 1D
-                x_in = torch.concat([x, torch.atleast_2d(y)], dim=1)
+                x_in = torch.concat([X, torch.atleast_2d(y)], dim=1)
             else:
-                batch_size, _, height, width = x.shape
+                batch_size, _, height, width = X.shape
                 channel_y = torch.atleast_2d(y).shape[-1]
                 ones_tensor = torch.ones(
                     [batch_size, channel_y, height, width],
-                    device=x.device,
-                    dtype=x.dtype,
+                    device=X.device,
+                    dtype=X.dtype,
                 )
                 if training:
-                    inputs_1 = torch.cat([x, self.blank_const * ones_tensor], dim=1)
+                    inputs_1 = torch.cat([X, self.blank_const * ones_tensor], dim=1)
                     # The second input with actual targets, the second term in Eq. 1
                     t_inputs = y.reshape(-1, 1, 1, 1) * ones_tensor
-                    inputs_2 = torch.cat([x, t_inputs], dim=1)
+                    inputs_2 = torch.cat([X, t_inputs], dim=1)
 
                     p = 0.5
                     mask = (
                         (torch.empty(inputs_1.shape[0], 1, 1, 1).uniform_(0, 1) > p)
                         .float()
-                        .to(x.device)
+                        .to(X.device)
                     )
                     x_in = inputs_1 * mask + inputs_2 * (1 - mask)
                 else:
-                    x_in = torch.cat([x, y.reshape(-1, 1, 1, 1) * ones_tensor], dim=1)
+                    x_in = torch.cat([X, y.reshape(-1, 1, 1, 1) * ones_tensor], dim=1)
 
         return self.model(x_in)
 
@@ -269,11 +270,7 @@ class ZigZagRegression(ZigZagBase):
         return {"pred": Y_1, "pred_uct": torch.linalg.norm(Y_1 - Y_2, dim=1)}
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -371,11 +368,7 @@ class ZigZagClassification(ZigZagBase):
         }
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 

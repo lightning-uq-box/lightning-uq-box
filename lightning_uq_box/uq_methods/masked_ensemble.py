@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from einops import rearrange, repeat
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from torch import Tensor
 
 from lightning_uq_box.models.masked_ensemble.utils import (
@@ -209,7 +210,7 @@ class MasksemblesBase(BaseModule):
         self.log_dict(self.test_metrics.compute())
         self.test_metrics.reset()
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -294,11 +295,7 @@ class MasksemblesRegression(MasksemblesBase):
         return process_regression_prediction(preds)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -406,11 +403,7 @@ class MasksemblesClassification(MasksemblesBase):
         return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 

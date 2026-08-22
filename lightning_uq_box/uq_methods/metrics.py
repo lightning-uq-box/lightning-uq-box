@@ -5,6 +5,8 @@
 
 # TODO eventually these can hopefully be moved to torchmetrics
 
+from typing import Any
+
 import torch
 from torch import Tensor
 from torchmetrics import Metric
@@ -71,7 +73,7 @@ class EmpiricalCoverageBase(Metric):
         self.set_size += set_size
         self.total += targets.shape[0]
 
-    def compute(self) -> dict[str, float]:
+    def compute(self) -> Any:
         """Compute the coverage of the prediction sets.
 
         Returns:

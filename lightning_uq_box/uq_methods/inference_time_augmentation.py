@@ -11,6 +11,7 @@ import kornia.augmentation as K
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
 
 from .base import PosthocBase
@@ -277,11 +278,7 @@ class TTARegression(TTABase):
         return pred_dict
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -379,11 +376,7 @@ class TTAClassification(TTABase):
         return pred_dict
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
