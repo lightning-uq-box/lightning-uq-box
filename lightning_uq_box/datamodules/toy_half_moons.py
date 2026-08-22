@@ -54,6 +54,8 @@ class TwoMoonsDataModule(LightningDataModule):
         # Create a grid of test points
         x_min, x_max = min_x0 - 1, max_x0 + 1
         y_min, y_max = min_x1 - 1, max_x1 + 1
+        xx: np.ndarray
+        yy: np.ndarray
         xx, yy = np.meshgrid(
             np.linspace(x_min, x_max, 100), np.linspace(y_min, y_max, 100)
         )

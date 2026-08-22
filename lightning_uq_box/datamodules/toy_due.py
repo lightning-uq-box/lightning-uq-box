@@ -73,10 +73,9 @@ class ToyDUE(LightningDataModule):
             random_state=split_seed,
         )
 
-        self.X_gtext = np.linspace(-10, 10, 500)
-        self.Y_gtext = np.cos(W * self.X_gtext + b).sum(0)
-        self.X_gtext = self.X_gtext.reshape(-1, 1)
-        self.Y_gtext = self.Y_gtext.reshape(-1, 1)
+        x_gtext = np.linspace(-10, 10, 500)
+        self.X_gtext = x_gtext.reshape(-1, 1)
+        self.Y_gtext = np.cos(W * x_gtext + b).sum(0).reshape(-1, 1)
 
         scalers = dict(
             X=StandardScaler().fit(self.X_train), Y=StandardScaler().fit(self.Y_train)

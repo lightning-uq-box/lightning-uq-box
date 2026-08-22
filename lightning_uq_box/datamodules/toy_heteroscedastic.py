@@ -144,7 +144,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         )
 
         # Ground truth for plotting (x,y) and prediction (x)
-        xmin, xmax = self.X_all.min(), self.X_all.max()
+        xmin, xmax = float(self.X_all.min()), float(self.X_all.max())
         span = xmax - xmin
         self.X_gtext = np.linspace(
             xmin - span * 0.1, xmax + span * 0.1, int(n_points * 1.5)
