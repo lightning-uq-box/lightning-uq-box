@@ -39,7 +39,7 @@ class QuantileRegressionBase(DeterministicModel):
         quantiles: list[float] = [0.1, 0.5, 0.9],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 
@@ -86,7 +86,7 @@ class QuantileRegression(QuantileRegressionBase):
         quantiles: list[float] = [0.1, 0.5, 0.9],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.
 
@@ -191,7 +191,7 @@ class QuantilePxRegression(QuantileRegressionBase):
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of Quantile Regression Model.

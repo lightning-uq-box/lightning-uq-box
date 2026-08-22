@@ -57,7 +57,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         n_inducing_points: int,
         gp_kernel: str = "RBF",
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model.
 
@@ -299,7 +299,7 @@ class DKLRegression(DKLBase):
         gp_kernel: str = "RBF",
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Regression.
 
@@ -434,7 +434,7 @@ class DKLClassification(DKLBase):
         gp_kernel: str = "RBF",
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Classification.
 

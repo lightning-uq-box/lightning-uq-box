@@ -33,7 +33,7 @@ class DUERegression(DKLRegression):
         n_power_iterations: int = 1,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 
@@ -92,7 +92,7 @@ class DUEClassification(DKLClassification):
         n_power_iterations: int = 1,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Deterministic Uncertainty Estimation Model.
 

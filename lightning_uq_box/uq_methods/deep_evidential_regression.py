@@ -72,7 +72,7 @@ class DER(DeterministicModel):
         coeff: float = 0.01,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Base Model.
 
@@ -210,7 +210,7 @@ class DERPxRegression(DER):
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of the DER for Pixelwise Regression.

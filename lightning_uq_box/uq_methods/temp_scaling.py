@@ -4,6 +4,7 @@ Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperat
 """
 
 import os
+from collections.abc import Callable
 from functools import partial
 
 import torch
@@ -167,7 +168,9 @@ def run_temperature_optimization(
     labels: torch.Tensor,
     criterion: nn.Module,
     temperature: nn.Parameter,
-    optimizer: type[torch.optim.Optimizer] = partial(LBFGS, lr=0.01, max_iter=50),
+    optimizer: Callable[..., torch.optim.Optimizer] = partial(
+        LBFGS, lr=0.01, max_iter=50
+    ),
     max_iter: int | None = 50,
 ) -> Tensor:
     """Run temperature optimization.
@@ -183,26 +186,26 @@ def run_temperature_optimization(
     Returns:
         optimized temperature parameter
     """
-    optimizer = optimizer([temperature])
+    opt = optimizer([temperature])
 
     with torch.inference_mode(False):
         logits = logits.clone().requires_grad_(True)
-        if isinstance(optimizer, torch.optim.LBFGS):
+        if isinstance(opt, torch.optim.LBFGS):
 
             def closure():
-                optimizer.zero_grad()
+                opt.zero_grad()
                 loss = criterion(temp_scale_logits(logits, temperature), labels)
                 loss.backward()
                 return loss
 
-            optimizer.step(closure)
+            opt.step(closure)
         else:
             for _ in range(
                 max_iter
             ):  # You might need to adjust the number of iterations
-                optimizer.zero_grad()
+                opt.zero_grad()
                 loss = criterion(temp_scale_logits(logits, temperature), labels)
                 loss.backward()
-                optimizer.step()
+                opt.step()
 
     return temperature

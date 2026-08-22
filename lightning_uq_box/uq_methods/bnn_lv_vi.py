@@ -67,7 +67,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         stochastic_module_names: list[str | int] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of BNN+LV.
 
@@ -544,7 +544,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         stochastic_module_names: list[str | int] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of BNN+LV Batched.
 

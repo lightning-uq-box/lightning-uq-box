@@ -592,7 +592,7 @@ def spectral_norm_fc(
     n_power_iterations: int = 1,
     name: str = "weight",
     eps: float = 1e-12,
-    dim: int = None,
+    dim: int | None = None,
 ):
     """Apply spectral normalization.
 

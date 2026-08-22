@@ -45,7 +45,7 @@ class VAE(DeterministicPixelRegression):
         freeze_decoder: bool = False,
         log_samples_every_n_steps: int = 500,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize the VAE.
@@ -367,7 +367,7 @@ class ConditionalVAE(VAE):
         freeze_decoder: bool = False,
         log_samples_every_n_steps: int = 500,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize the Conditional VAE.

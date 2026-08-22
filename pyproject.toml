@@ -189,9 +189,32 @@ USE_IOMP = "0"
 # https://docs.astral.sh/ty/reference/configuration/
 [tool.ty.src]
 include = ["lightning_uq_box", "tests"]
-# TODO: annotate uq_methods and drop the exclusion. It reports 619 diagnostics, almost
-# all from parameters assigned dynamically onto nn.Module.
-exclude = ["lightning_uq_box/uq_methods"]
+
+# uq_methods is checked, but the rules it currently trips are muted so they can be fixed
+# a family at a time. Every other rule is enforced there from now on, so new code cannot
+# introduce a fresh class of problem. Each follow-up deletes one line from this block.
+[[tool.ty.overrides]]
+include = ["lightning_uq_box/uq_methods"]
+
+[tool.ty.overrides.rules]
+# Permanent. Lightning types LightningModule.hparams as a MutableMapping, so every
+# `self.hparams.<name>` read is unresolved. torchgeo mutes this rule globally.
+unresolved-attribute = "ignore"
+# TODO: fix and delete, one family per PR.
+call-non-callable = "ignore"
+empty-body = "ignore"
+index-out-of-bounds = "ignore"
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+invalid-method-override = "ignore"
+invalid-return-type = "ignore"
+invalid-type-arguments = "ignore"
+invalid-type-form = "ignore"
+missing-argument = "ignore"
+no-matching-overload = "ignore"
+not-subscriptable = "ignore"
+unknown-argument = "ignore"
+unsupported-operator = "ignore"
 
 [tool.ruff]
 extend-include = ["*.ipynb"]

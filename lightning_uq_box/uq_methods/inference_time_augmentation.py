@@ -121,7 +121,7 @@ class TTABase(PosthocBase):
     def predict_step(
         self,
         X: Tensor,
-        aug: list[Callable] = None,
+        aug: list[Callable] | None = None,
         batch_idx: int = 0,
         dataloader_idx: int = 0,
     ) -> dict[str, Tensor]:
@@ -149,7 +149,9 @@ class TTABase(PosthocBase):
 
         aug_predictions: list[Tensor] | list[dict[str, Tensor]] = []
         if aug is None:
-            aug = self.tt_augmentation
+            # the concrete subclasses fill tt_augmentation in setup_task(); the base
+            # class with none configured just makes the un-augmented prediction
+            aug = self.tt_augmentation or []
         # first prediction with no augmentation
         aug_predictions.append(yield_prediction(X))
 
