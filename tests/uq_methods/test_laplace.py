@@ -4,6 +4,7 @@
 """Test Laplace Tuning procedure."""
 
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pytest
@@ -11,7 +12,7 @@ import torch
 from conftest import minimal_trainer_kwargs
 from hydra.utils import instantiate
 from lightning import Trainer
-from omegaconf import OmegaConf
+from omegaconf import DictConfig, OmegaConf
 
 data_config_path = "tests/configs/image_regression/toy_image_regression.yaml"
 
@@ -20,8 +21,8 @@ model_config_path = "tests/configs/image_regression/laplace_nn.yaml"
 
 @pytest.fixture
 def common_setup(tmp_path: Path, accelerator_config):
-    model_conf = OmegaConf.load(model_config_path)  # type: ignore[index]
-    data_conf = OmegaConf.load(data_config_path)  # type: ignore[index]
+    model_conf = cast(DictConfig, OmegaConf.load(model_config_path))
+    data_conf = cast(DictConfig, OmegaConf.load(data_config_path))
 
     sigma_val = 1.234
     precision_val = 1.789

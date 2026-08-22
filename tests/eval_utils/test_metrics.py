@@ -45,7 +45,8 @@ def test_empirical_coverage_base(pred_set, expected_coverage, expected_set_size)
     targets = torch.tensor([[2], [1], [0], [2]])
 
     metric.update(pred_set, targets)
-    result = metric.compute()
+    # torchmetrics wraps Metric.compute, so ty sees the unbound function
+    result = metric.compute()  # ty: ignore[missing-argument]
 
     assert result["coverage"] == expected_coverage
     assert result["set_size"] == expected_set_size
@@ -83,7 +84,8 @@ def test_set_size_no_topk(pred_set, expected_set_size, expected_coverage):
     targets = torch.tensor([[2], [1], [0], [2]])
 
     metric.update(pred_set, targets)
-    result = metric.compute()
+    # torchmetrics wraps Metric.compute, so ty sees the unbound function
+    result = metric.compute()  # ty: ignore[missing-argument]
 
     assert result["coverage"] == expected_coverage
     assert result["set_size"] == expected_set_size
@@ -119,7 +121,8 @@ def test_empirical_coverage(pred_set, expected):
     targets = torch.tensor([[2], [1], [0], [2]])
 
     metric.update(pred_set, targets)
-    result = metric.compute()
+    # torchmetrics wraps Metric.compute, so ty sees the unbound function
+    result = metric.compute()  # ty: ignore[missing-argument]
 
     assert result.item() == expected
 
@@ -154,6 +157,7 @@ def test_set_size(pred_set, expected):
     targets = torch.tensor([[2], [1], [0], [2]])
 
     metric.update(pred_set, targets)
-    result = metric.compute()
+    # torchmetrics wraps Metric.compute, so ty sees the unbound function
+    result = metric.compute()  # ty: ignore[missing-argument]
 
     assert result.item() == expected

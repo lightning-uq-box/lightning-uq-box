@@ -90,8 +90,9 @@ style = [
     # ruff 0.15 expands the default rule set (245 new findings); bumping it is
     # deliberate follow-up work, so let dependabot propose it on its own.
     "ruff>=0.14,<0.15",
-    # mypy 2+ required for Python 3.14 support
-    "mypy>=2",
+    # ty replaces mypy. ty is pre-1.0 and every release can add new diagnostics, so a
+    # version bump may require code changes rather than a rubber stamp.
+    "ty>=0.0.73",
 ]
 
 tests = [
@@ -185,14 +186,12 @@ filterwarnings = [
 [tool.env]
 USE_IOMP = "0"
 
-# https://mypy.readthedocs.io/en/stable/config_file.html
-[tool.mypy]
-# Import discovery
-ignore_missing_imports = true
-exclude = [
-    "(dist|docs|.*egg-info)/",
-    "lightning_uq_box/uq_methods"
-]
+# https://docs.astral.sh/ty/reference/configuration/
+[tool.ty.src]
+include = ["lightning_uq_box", "tests"]
+# TODO: annotate these and drop the exclusions. uq_methods reports 619 diagnostics and
+# models 67, almost all from parameters assigned dynamically onto nn.Module.
+exclude = ["lightning_uq_box/uq_methods", "lightning_uq_box/models"]
 
 [tool.ruff]
 extend-include = ["*.ipynb"]

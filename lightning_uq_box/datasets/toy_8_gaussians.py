@@ -10,7 +10,7 @@ from torch import Tensor
 from torch.utils.data import Dataset
 
 
-class Toy8GaussiansDataset(Dataset):
+class Toy8GaussiansDataset(Dataset[dict[str, Tensor]]):
     """8 Gaussians Toy Dataset."""
 
     def __init__(
@@ -39,9 +39,9 @@ class Toy8GaussiansDataset(Dataset):
         """Get the length of the dataset."""
         return self.X.shape[0]
 
-    def __getitem__(self, idx) -> dict[str, Tensor]:
+    def __getitem__(self, index: int) -> dict[str, Tensor]:
         """Get a single sample from the dataset."""
-        return {"input": self.X[idx], "target": self.y[idx]}
+        return {"input": self.X[index], "target": self.y[index]}
 
     def _generate_data(self) -> list[Tensor]:
         """Generate the dataset.

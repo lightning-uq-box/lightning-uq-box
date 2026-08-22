@@ -10,6 +10,7 @@ import torch
 from lightning import LightningDataModule
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from torch import Tensor
 from torch.utils.data import DataLoader, TensorDataset
 
 from .utils import collate_fn_tensordataset
@@ -146,10 +147,10 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         # Ground truth for plotting (x,y) and prediction (x)
         xmin, xmax = float(self.X_all.min()), float(self.X_all.max())
         span = xmax - xmin
-        self.X_gtext = np.linspace(
+        X_gtext = np.linspace(
             xmin - span * 0.1, xmax + span * 0.1, int(n_points * 1.5)
         )[:, None]
-        self.Y_gtext = generate_y(self.X_gtext, noise=False)
+        Y_gtext = generate_y(X_gtext, noise=False)
 
         # Fit scalers on train data
         scalers = dict(
@@ -158,13 +159,15 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
         # Apply scaling to all splits, convert to torch tensors
         for xy in ["X", "Y"]:
-            for arr_type in ["train", "test", "val", "gtext", "calib", "all"]:
+            for arr_type in ["train", "test", "val", "calib", "all"]:
                 arr_name = f"{xy}_{arr_type}"
                 setattr(
                     self,
                     arr_name,
                     self._n2t(scalers[xy].transform(getattr(self, arr_name))),
                 )
+        self.X_gtext = self._n2t(scalers["X"].transform(X_gtext))
+        self.Y_gtext = self._n2t(scalers["Y"].transform(Y_gtext))
 
         if self.invert:
             for arr_type in ["train", "test", "val", "calib", "all"]:
@@ -185,7 +188,7 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
             )
 
     @staticmethod
-    def _n2t(x):
+    def _n2t(x: np.ndarray) -> Tensor:
         return torch.from_numpy(x).type(torch.float32)
 
     def train_dataloader(self) -> DataLoader:

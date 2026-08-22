@@ -9,7 +9,7 @@ import torch
 from torch.utils.data import Dataset
 
 
-class ToyPixelWiseRegressionDataset(Dataset):
+class ToyPixelWiseRegressionDataset(Dataset[dict[str, Any]]):
     """Toy pixel-wise regression dataset."""
 
     def __init__(self, num_images: int = 10, image_size: int = 64):
@@ -26,11 +26,11 @@ class ToyPixelWiseRegressionDataset(Dataset):
         """Return the number of images in the dataset."""
         return self.num_images
 
-    def __getitem__(self, idx: int) -> dict[str, Any]:
+    def __getitem__(self, index: int) -> dict[str, Any]:
         """Generate a random grayscale image and corresponding target.
 
         Args:
-            idx: index of the sample
+            index: index of the sample
         """
         image = torch.randint(
             0, 1, (3, self.image_size, self.image_size), dtype=torch.float32
@@ -40,7 +40,7 @@ class ToyPixelWiseRegressionDataset(Dataset):
         return {
             "input": image,
             "target": target,
-            "index": idx,
+            "index": index,
             "aux": "random_aux_data",
             "condition": torch.randint(low=0, high=10, size=(1,), dtype=torch.float32),
         }

@@ -55,14 +55,14 @@ $ uv run pytest --cov=lightning_uq_box/uq_methods --cov-report=term-missing test
 We use a linter to ensure a codebase that follows [PEP-8](https://peps.python.org/pep-0008/) standards.
 
 * [ruff](https://docs.astral.sh/ruff/) for linting and code formatting
-* [mypy](https://mypy.readthedocs.io/) for static type checking
+* [ty](https://docs.astral.sh/ty/) for static type checking
 
 Both come from the `style` extra, and both read their configuration from `pyproject.toml`, so run them from the project root:
 
 ```console
 $ uv run ruff check
 $ uv run ruff format
-$ uv run mypy --follow-imports=skip .
+$ uv run ty check
 ```
 
 Ruff is relatively easy to use, and will automatically fix most issues it encounters.

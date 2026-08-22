@@ -132,10 +132,8 @@ venv.bak/
 # mkdocs documentation
 /site
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# ty
+.ty_cache/
 
 # Pyre type checker
 .pyre/

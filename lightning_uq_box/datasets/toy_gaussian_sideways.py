@@ -6,10 +6,11 @@
 import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
+from torch import Tensor
 from torch.utils.data import Dataset
 
 
-class ToyGaussianSideWays(Dataset):
+class ToyGaussianSideWays(Dataset[dict[str, Tensor]]):
     """Gaussian Sideways for Regression."""
 
     def __init__(
@@ -39,9 +40,9 @@ class ToyGaussianSideWays(Dataset):
         """Get the length of the dataset."""
         return self.n_samples
 
-    def __getitem__(self, idx):
+    def __getitem__(self, index: int) -> dict[str, Tensor]:
         """Get a single sample from the dataset."""
-        return {"input": self.X[idx], "target": self.y[idx]}
+        return {"input": self.X[index], "target": self.y[index]}
 
     def _generate_data(self):
         """Generate the dataset.

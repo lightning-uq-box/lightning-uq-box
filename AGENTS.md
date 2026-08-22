@@ -15,7 +15,7 @@ uv sync --all-extras
 UV_PROJECT_ENVIRONMENT="$CONDA_PREFIX" uv sync --all-extras
 
 # Lint and type check (run from repo root)
-uv run ruff format && uv run ruff check && uv run mypy --follow-imports=skip .
+uv run ruff format && uv run ruff check && uv run ty check
 
 # Test
 uv run pytest tests --cov=lightning_uq_box                                  # all (skips slow)
@@ -36,6 +36,8 @@ cd docs && uv run make clean && uv run make html
   with `uv sync --locked` and fails if the lockfile is stale.
 - Give version floors a comment saying why that minimum is needed, matching the surrounding entries.
 - `ruff` is capped below 0.15 because 0.15 expands the default rule set; bumping it is its own change.
+- `ty` is pre-1.0. Every release can add new diagnostics, so a dependabot `ty` bump may need code
+  fixes rather than a rubber stamp.
 
 ## Project Structure
 
@@ -69,12 +71,13 @@ Configured in `pyproject.toml`; `ruff format` decides layout, so do not hand-for
 - Notebooks are linted too (`extend-include = ["*.ipynb"]`)
 - `D` rules are off for `docs/**` and `tests/**`
 
-### Type Hints (mypy)
+### Type Hints (ty)
 
-- mypy runs with `--follow-imports=skip`, and `lightning_uq_box/uq_methods` is excluded in
-  `[tool.mypy]`. New code elsewhere should still be annotated.
+- [ty](https://docs.astral.sh/ty/) replaces mypy. `[tool.ty.src]` checks `lightning_uq_box` and
+  `tests`; `lightning_uq_box/uq_methods` and `lightning_uq_box/models` are excluded until they are
+  annotated. New code elsewhere must be annotated and must pass `uv run ty check`.
 - Union: `X | Y`, not `Union[X, Y]`; prefer built-in `list`/`dict`/`tuple` over `typing.List` etc.
-- `type: ignore` only for external library issues.
+- `# ty: ignore[<rule>]` only for external library issues, with a comment saying which one.
 
 ### Docstrings (Google style)
 
