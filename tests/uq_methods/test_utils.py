@@ -5,12 +5,16 @@
 
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import torch
 from conftest import minimal_cli_overrides
 
 from lightning_uq_box.main import get_uq_box_cli
-from lightning_uq_box.uq_methods.utils import checkpoint_loader
+from lightning_uq_box.uq_methods.utils import (
+    checkpoint_loader,
+    save_classification_predictions,
+)
 
 
 class TestUQMethods:
@@ -69,3 +73,20 @@ class TestUQMethods:
                     "model." + param_tensor
                 ],
             )
+
+
+def test_save_classification_predictions(tmp_path: Path) -> None:
+    """Each class_prob_i column should hold the probability of class i."""
+    class_probs = torch.tensor([[0.1, 0.2, 0.7], [0.6, 0.3, 0.1]])
+    path = str(tmp_path / "preds.csv")
+
+    save_classification_predictions(
+        {"pred": class_probs.clone(), "target": torch.tensor([2, 0])}, path
+    )
+
+    df = pd.read_csv(path)
+    assert df["pred"].tolist() == [2, 0]
+    for i in range(class_probs.shape[1]):
+        assert df[f"class_prob_{i}"].tolist() == pytest.approx(
+            class_probs[:, i].tolist()
+        )
