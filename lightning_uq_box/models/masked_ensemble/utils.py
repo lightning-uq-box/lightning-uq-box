@@ -38,10 +38,11 @@ def convert_deterministic_to_masked_ensemble(
                         scale=scale,
                         in_channels=value.in_channels,
                         out_channels=value.out_channels,
-                        kernel_size=value.kernel_size,  # type: ignore[arg-type]
-                        stride=value.stride,  # type: ignore[arg-type]
-                        padding=value.padding,  # type: ignore[arg-type]
-                        dilation=value.dilation,  # type: ignore[arg-type]
+                        # torch types these as tuple[int, ...], _size_2_t is tuple[int, int]
+                        kernel_size=value.kernel_size,  # ty: ignore[invalid-argument-type]
+                        stride=value.stride,  # ty: ignore[invalid-argument-type]
+                        padding=value.padding,  # ty: ignore[invalid-argument-type]
+                        dilation=value.dilation,  # ty: ignore[invalid-argument-type]
                         groups=value.groups,
                         bias=value.bias is not None,
                     ),

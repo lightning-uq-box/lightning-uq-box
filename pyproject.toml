@@ -189,9 +189,9 @@ USE_IOMP = "0"
 # https://docs.astral.sh/ty/reference/configuration/
 [tool.ty.src]
 include = ["lightning_uq_box", "tests"]
-# TODO: annotate these and drop the exclusions. uq_methods reports 619 diagnostics and
-# models 67, almost all from parameters assigned dynamically onto nn.Module.
-exclude = ["lightning_uq_box/uq_methods", "lightning_uq_box/models"]
+# TODO: annotate uq_methods and drop the exclusion. It reports 619 diagnostics, almost
+# all from parameters assigned dynamically onto nn.Module.
+exclude = ["lightning_uq_box/uq_methods"]
 
 [tool.ruff]
 extend-include = ["*.ipynb"]

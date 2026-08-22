@@ -148,11 +148,13 @@ def get_kl_loss(model: nn.Module) -> Tensor:
     """
     kl_loss = None
     for layer in model.modules():
-        if hasattr(layer, "kl_loss"):
+        # importing BaseVariationalLayer_ here would be circular, so duck-type instead
+        layer_kl_loss = getattr(layer, "kl_loss", None)
+        if callable(layer_kl_loss):
             if kl_loss is None:
-                kl_loss = layer.kl_loss()
+                kl_loss = layer_kl_loss()
             else:
-                kl_loss += layer.kl_loss()
+                kl_loss += layer_kl_loss()
     assert kl_loss is not None
     return kl_loss
 

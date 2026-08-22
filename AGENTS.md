@@ -74,8 +74,11 @@ Configured in `pyproject.toml`; `ruff format` decides layout, so do not hand-for
 ### Type Hints (ty)
 
 - [ty](https://docs.astral.sh/ty/) replaces mypy. `[tool.ty.src]` checks `lightning_uq_box` and
-  `tests`; `lightning_uq_box/uq_methods` and `lightning_uq_box/models` are excluded until they are
-  annotated. New code elsewhere must be annotated and must pass `uv run ty check`.
+  `tests`; only `lightning_uq_box/uq_methods` is still excluded, until it is annotated. New code
+  elsewhere must be annotated and must pass `uv run ty check`.
+- Attributes registered in `__init__` via `register_buffer` / `register_parameter`, or assigned in
+  a subclass and read from a base class, need a class-level declaration (`mu_weight: Parameter`).
+  Without one, `nn.Module.__getattr__` types them as `Tensor | Module` and every use is an error.
 - Union: `X | Y`, not `Union[X, Y]`; prefer built-in `list`/`dict`/`tuple` over `typing.List` etc.
 - `# ty: ignore[<rule>]` only for external library issues, with a comment saying which one.
 

@@ -39,6 +39,7 @@ adjusted to be trained with the Energy Loss and support batched inputs.
 """
 
 import math
+from collections.abc import Callable
 
 import torch
 import torch.nn as nn
@@ -55,6 +56,22 @@ class BaseVariationalLayer_(nn.Module):
     """Base Variational Layer for BNN Layers."""
 
     valid_layer_types = ["reparameterization", "flipout"]
+
+    # Registered by define_bayesian_weight_params() in the subclasses. Declared here so
+    # they read as tensors rather than through nn.Module.__getattr__, which returns
+    # `Tensor | Module`. The bias variants are registered as None when bias=False.
+    mu_weight: Parameter
+    rho_weight: Parameter
+    eps_weight: Tensor
+    prior_weight_mu: Tensor
+    prior_weight_sigma: Tensor
+    mu_bias: Parameter | None
+    rho_bias: Parameter | None
+    eps_bias: Tensor | None
+    prior_bias_mu: Tensor | None
+    prior_bias_sigma: Tensor | None
+    # set by the ConvNd subclasses in conv_variational.py
+    conv_function: Callable[..., Tensor]
 
     def __init__(
         self,
@@ -106,11 +123,18 @@ class BaseVariationalLayer_(nn.Module):
 
         self.mu_weight.data.normal_(mean=self.posterior_mu_init, std=0.1)
         self.rho_weight.data.normal_(mean=self.posterior_rho_init, std=0.0)
-        if self.bias:
-            self.prior_bias_mu.data.fill_(self.prior_mu)
-            self.prior_bias_sigma.fill_(self.prior_sigma)
-            self.mu_bias.data.normal_(mean=self.posterior_mu_init, std=0.1)
-            self.rho_bias.data.normal_(mean=self.posterior_rho_init, std=0.0)
+        prior_bias_mu, prior_bias_sigma = self.prior_bias_mu, self.prior_bias_sigma
+        mu_bias, rho_bias = self.mu_bias, self.rho_bias
+        if (
+            prior_bias_mu is not None
+            and prior_bias_sigma is not None
+            and mu_bias is not None
+            and rho_bias is not None
+        ):
+            prior_bias_mu.data.fill_(self.prior_mu)
+            prior_bias_sigma.fill_(self.prior_sigma)
+            mu_bias.data.normal_(mean=self.posterior_mu_init, std=0.1)
+            rho_bias.data.normal_(mean=self.posterior_rho_init, std=0.0)
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
@@ -119,7 +143,7 @@ class BaseVariationalLayer_(nn.Module):
             tensor of shape 0
         """
         n_params = self.mu_weight.numel()
-        if self.bias:
+        if self.mu_bias is not None:
             n_params += self.mu_bias.numel()
         return torch.tensor(
             0.5 * n_params * math.log(self.prior_sigma**2 * 2 * math.pi)
@@ -138,10 +162,11 @@ class BaseVariationalLayer_(nn.Module):
         log_normalizer = calc_log_normalizer(m_W=self.mu_weight, std_W=sigma_weight)
 
         # get log_normalizer for biases
-        if self.mu_bias is not None:
-            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+        mu_bias, rho_bias = self.mu_bias, self.rho_bias
+        if mu_bias is not None and rho_bias is not None:
+            sigma_bias = torch.log1p(torch.exp(rho_bias))
             log_normalizer = log_normalizer + calc_log_normalizer(
-                m_W=self.mu_bias, std_W=sigma_bias
+                m_W=mu_bias, std_W=sigma_bias
             )
 
         return log_normalizer
@@ -170,13 +195,14 @@ class BaseVariationalLayer_(nn.Module):
         bias = None
         # get log_f_hat for biases
         # first sample bias
-        if self.mu_bias is not None:
-            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            delta_bias = sigma_bias * self.eps_bias
-            bias = self.mu_bias + delta_bias
+        mu_bias, rho_bias, eps_bias = self.mu_bias, self.rho_bias, self.eps_bias
+        if mu_bias is not None and rho_bias is not None and eps_bias is not None:
+            sigma_bias = torch.log1p(torch.exp(rho_bias))
+            delta_bias = sigma_bias * eps_bias
+            bias = mu_bias + delta_bias
             # compute log_f_hat for weights and biases
             log_f_hat = log_f_hat + calc_log_f_hat(
-                w=bias, m_W=self.mu_bias, std_W=sigma_bias, prior_sigma=self.prior_sigma
+                w=bias, m_W=mu_bias, std_W=sigma_bias, prior_sigma=self.prior_sigma
             )
 
         return log_f_hat
@@ -221,11 +247,16 @@ class BaseVariationalLayer_(nn.Module):
         kl = self.kl_div(
             self.mu_weight, sigma_weight, self.prior_weight_mu, self.prior_weight_sigma
         )
-        if self.bias:
-            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
-            kl += self.kl_div(
-                self.mu_bias, sigma_bias, self.prior_bias_mu, self.prior_bias_sigma
-            )
+        mu_bias, rho_bias = self.mu_bias, self.rho_bias
+        prior_bias_mu, prior_bias_sigma = self.prior_bias_mu, self.prior_bias_sigma
+        if (
+            mu_bias is not None
+            and rho_bias is not None
+            and prior_bias_mu is not None
+            and prior_bias_sigma is not None
+        ):
+            sigma_bias = torch.log1p(torch.exp(rho_bias))
+            kl += self.kl_div(mu_bias, sigma_bias, prior_bias_mu, prior_bias_sigma)
         return kl
 
 
@@ -376,16 +407,17 @@ class BaseConvLayer_(BaseVariationalLayer_):
 
         bias = None
         delta_bias = None
-        if self.bias:
+        mu_bias, rho_bias = self.mu_bias, self.rho_bias
+        if mu_bias is not None and rho_bias is not None and self.eps_bias is not None:
             if self.is_frozen:
                 eps_bias = self.eps_bias
             else:
                 eps_bias = self.eps_bias.data.normal_()
             # compute variance of bias from unconstrained variable rho_bias
-            sigma_bias = torch.log1p(torch.exp(self.rho_bias))
+            sigma_bias = torch.log1p(torch.exp(rho_bias))
             # compute delta_bias
             delta_bias = sigma_bias * eps_bias
-            bias = self.mu_bias + delta_bias
+            bias = mu_bias + delta_bias
 
         if self.layer_type == "reparameterization":
             weight = self.mu_weight + delta_weight
