@@ -28,7 +28,11 @@ from torchmetrics import Accuracy, CalibrationError, MetricCollection
 from .base import PosthocBase
 from .metrics import EmpiricalCoverage, SetSize
 from .temp_scaling import run_temperature_optimization, temp_scale_logits
-from .utils import process_classification_prediction, save_classification_predictions
+from .utils import (
+    identity,
+    process_classification_prediction,
+    save_classification_predictions,
+)
 
 
 class RAPS(PosthocBase):
@@ -165,10 +169,6 @@ class RAPS(PosthocBase):
         if logits.ndim == 3:
             agg_func = torch.mean
         else:
-
-            def identity(x, dim=None):
-                return x
-
             agg_func = identity
 
         pred_dict = process_classification_prediction(

@@ -59,6 +59,22 @@ def checkpoint_loader(
         return model_class
 
 
+def identity(x: Tensor, dim: int | None = None) -> Tensor:
+    """Return the input unchanged.
+
+    Used as the aggregation function when there is no sample dimension to
+    aggregate over.
+
+    Args:
+        x: input tensor
+        dim: unused, accepted to match the aggregation function signature
+
+    Returns:
+        the input tensor
+    """
+    return x
+
+
 def default_regression_metrics(prefix: str):
     """Return a set of default regression metrics."""
     return MetricCollection(

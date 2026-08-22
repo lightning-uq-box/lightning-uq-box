@@ -492,10 +492,6 @@ class DKLClassification(DKLBase):
             "test", self.task, self.num_classes
         )
 
-    def _adapt_output_for_metrics(self, output: MultivariateNormal) -> Tensor:
-        """Adapt model output to be compatible for metric computation.."""
-        return output.mean
-
     def _build_model(self) -> None:
         """Build the model ready for training."""
         self.gp_layer = DKLGPLayer(
