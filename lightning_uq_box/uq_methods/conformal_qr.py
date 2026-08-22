@@ -107,8 +107,8 @@ class ConformalQR(PosthocBase):
             )
 
         with torch.no_grad():
-            if hasattr(self.model, "predict_step"):
-                pred = self.model.predict_step(X)
+            if callable(predict_step := getattr(self.model, "predict_step", None)):
+                pred = predict_step(X)
             else:
                 pred = self.model(X)
 

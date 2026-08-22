@@ -204,6 +204,10 @@ class BNN_VI_Base(DeterministicModel):
             if "Variational" in module.__class__.__name__:
                 module.unfreeze_layer()
 
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor, Tensor]:
+        """Compute the energy loss and mean output for a batch."""
+        raise NotImplementedError
+
     def exclude_from_wt_decay(
         self,
         named_params,
@@ -361,7 +365,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         self.val_metrics = default_regression_metrics("val")
         self.test_metrics = default_regression_metrics("test")
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> None:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor, Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -553,7 +557,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         batched_sample_X = einops.repeat(X, "b f -> s b f", s=n_samples)
         return self.model(batched_sample_X)
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor, Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:

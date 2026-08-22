@@ -105,8 +105,8 @@ class Img2ImgConformal(PosthocBase):
             model output tensor of shape [batch_size x num_outputs]
         """
         with torch.no_grad():
-            if hasattr(self.model, "predict_step"):
-                pred = self.model.predict_step(X)
+            if callable(predict_step := getattr(self.model, "predict_step", None)):
+                pred = predict_step(X)
                 pred = torch.stack([pred["lower"], pred["pred"], pred["upper"]], dim=1)
             else:
                 pred = self.model(X).squeeze(2)

@@ -142,7 +142,9 @@ class CARDBase(BaseModule):
         )
 
         if self.use_ema_model:
-            guidance_output = self.ema.ema_model(x, y_t_sample, y_0_hat, ant_samples_t)
+            ema_model = self.ema.ema_model
+            assert ema_model is not None
+            guidance_output = ema_model(x, y_t_sample, y_0_hat, ant_samples_t)
         else:
             guidance_output = self.guidance_model(x, y_t_sample, y_0_hat, ant_samples_t)
 
@@ -334,7 +336,9 @@ class CARDBase(BaseModule):
             alpha_t.sqrt() + sqrt_alpha_bar_t_m_1
         ) / (sqrt_one_minus_alpha_bar_t.square())
         if self.use_ema_model:
-            eps_theta = self.ema.ema_model(x, y, y_0_hat, t).detach()
+            ema_model = self.ema.ema_model
+            assert ema_model is not None
+            eps_theta = ema_model(x, y, y_0_hat, t).detach()
         else:
             eps_theta = self.guidance_model(x, y, y_0_hat, t).detach()
         # y_0 reparameterization
@@ -387,7 +391,9 @@ class CARDBase(BaseModule):
         sqrt_one_minus_alpha_bar_t = self.extract(one_minus_alphas_bar_sqrt, t, y)
         sqrt_alpha_bar_t = (1 - sqrt_one_minus_alpha_bar_t.square()).sqrt()
         if self.use_ema_model:
-            eps_theta = self.ema.ema_model(x, y, y_0_hat, t).detach()
+            ema_model = self.ema.ema_model
+            assert ema_model is not None
+            eps_theta = ema_model(x, y, y_0_hat, t).detach()
         else:
             eps_theta = self.guidance_model(x, y, y_0_hat, t).detach()
         # y_0 reparameterization

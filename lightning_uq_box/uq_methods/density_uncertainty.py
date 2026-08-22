@@ -175,8 +175,9 @@ class DensityLayerModelBase(DeterministicModel):
         """Compute the KL divergence of the model."""
         kl_loss = []
         for layer in self.modules():
-            if hasattr(layer, "compute_kl_div"):
-                kl_loss.append(layer.compute_kl_div())
+            layer_kl_div = getattr(layer, "compute_kl_div", None)
+            if callable(layer_kl_div):
+                kl_loss.append(layer_kl_div())
         return sum(kl_loss)
 
     def gather_loglikelihood(self) -> Tensor:

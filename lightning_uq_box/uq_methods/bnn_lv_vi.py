@@ -41,6 +41,9 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
     """
 
+    # set as a class attribute by the concrete subclasses
+    nll_loss: nn.GaussianNLLLoss
+
     lv_intro_options = ["first", "last"]
 
     def __init__(
@@ -284,6 +287,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
                 [X, z], -1
             )  # [batch_size, num_dataset_features+lv_latent_dim]
             X = self.model(X)
+            assert self.prediction_head is not None
             X = self.prediction_head(X)
         else:
             X = self.model(X)
@@ -299,6 +303,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
             X = torch.cat(
                 [X, z], -1
             )  # [batch_size, model output_features+lv_latent_dim]
+            assert self.prediction_head is not None
             X = self.prediction_head(X)
 
         return X
@@ -315,7 +320,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         batch_size = X.shape[0]
         return torch.randn(batch_size, self.hparams.lv_latent_dim, device=X.device)
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor, Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:
@@ -662,7 +667,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             num_samples, batch_size, self.hparams.lv_latent_dim, device=X.device
         ).to(self.device)
 
-    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor]:
+    def compute_energy_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor, Tensor]:
         """Compute the loss for BNN with alpha divergence.
 
         Args:

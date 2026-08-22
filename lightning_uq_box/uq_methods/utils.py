@@ -467,8 +467,9 @@ def freeze_model_backbone(model: nn.Module) -> None:
         param.requires_grad = False
 
     # for timm model
-    if hasattr(model, "get_classifier"):
-        for param in model.get_classifier().parameters():
+    get_classifier = getattr(model, "get_classifier", None)
+    if callable(get_classifier):
+        for param in get_classifier().parameters():
             param.requires_grad = True
     else:
         # find last layer

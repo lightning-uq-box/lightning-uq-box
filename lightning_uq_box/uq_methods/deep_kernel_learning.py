@@ -46,6 +46,12 @@ class DKLBase(gpytorch.Module, BaseModule):
     * https://proceedings.mlr.press/v51/wilson16.html
     """
 
+    # Assigned by _build_model() in the subclasses. Declared here so they do not read
+    # through nn.Module.__getattr__, which returns `Tensor | Module`.
+    gp_layer: "DKLGPLayer"
+    scale_to_bounds: ScaleToBounds
+    elbo_fn: VariationalELBO
+
     # TODO make elbo_fn an argument that can be instatiated with
     # different elbo functions and Lightning CLI
     kernel_choices = ["RBF", "Matern12", "Matern32", "Matern52", "RQ"]
@@ -114,6 +120,10 @@ class DKLBase(gpytorch.Module, BaseModule):
         """
         return self.gp_layer.n_outputs
 
+    def _build_model(self) -> None:
+        """Build the feature extractor and GP layer."""
+        raise NotImplementedError
+
     def setup_task(self) -> None:
         """Set up task specific attributes."""
         raise NotImplementedError
@@ -177,7 +187,9 @@ class DKLBase(gpytorch.Module, BaseModule):
         X, y = batch[self.input_key], batch[self.target_key]
 
         y_pred = self.forward(X)
-        loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
+        elbo = self.elbo_fn(y_pred, y.squeeze(-1))
+        assert isinstance(elbo, Tensor)
+        loss = -elbo.mean()
 
         self.log(
             "train_loss", loss, batch_size=batch[self.input_key].shape[0]
@@ -215,7 +227,9 @@ class DKLBase(gpytorch.Module, BaseModule):
         else:
             y_pred = self.forward(X)
 
-        loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
+        elbo = self.elbo_fn(y_pred, y.squeeze(-1))
+        assert isinstance(elbo, Tensor)
+        loss = -elbo.mean()
 
         self.log(
             "val_loss", loss, batch_size=batch[self.input_key].shape[0]
@@ -528,7 +542,9 @@ class DKLClassification(DKLBase):
         X, y = batch[self.input_key], batch[self.target_key]
 
         y_pred = self.forward(X)
-        loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
+        elbo = self.elbo_fn(y_pred, y.squeeze(-1))
+        assert isinstance(elbo, Tensor)
+        loss = -elbo.mean()
 
         self.log(
             "train_loss", loss, batch_size=batch[self.input_key].shape[0]
@@ -560,7 +576,9 @@ class DKLClassification(DKLBase):
         else:
             y_pred = self.forward(X)
 
-        loss = -self.elbo_fn(y_pred, y.squeeze(-1)).mean()
+        elbo = self.elbo_fn(y_pred, y.squeeze(-1))
+        assert isinstance(elbo, Tensor)
+        loss = -elbo.mean()
 
         self.log(
             "val_loss", loss, batch_size=batch[self.input_key].shape[0]
