@@ -115,7 +115,7 @@ class DensityLayerModelBase(DeterministicModel):
         stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a Density Layer Model.
 
@@ -290,7 +290,7 @@ class DensityLayerModelRegression(DensityLayerModelBase):
         stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a Density Layer Model for Regression Tasks.
 
@@ -397,7 +397,7 @@ class DensityLayerModelClassification(DensityLayerModelBase):
         stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a Density Layer Model for Classification Tasks.
 

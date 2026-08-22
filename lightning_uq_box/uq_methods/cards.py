@@ -53,7 +53,7 @@ class CARDBase(BaseModule):
         ema_update_every: float = 10,
         ema_update_after_step: int = 0,
         guidance_optim: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of the CARD Model.
 
@@ -644,7 +644,7 @@ class CARDClassification(CARDBase):
         ema_update_every: float = 10,
         ema_update_after_step: int = 0,
         guidance_optim: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of the CARD Classification.
 

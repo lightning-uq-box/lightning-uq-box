@@ -4,6 +4,7 @@
 """Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
 
 import os
+from collections.abc import Sequence
 from typing import Any
 
 import einops
@@ -55,7 +56,7 @@ class BNN_VI_Base(DeterministicModel):
         stochastic_module_names: list[str | int] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of BNN VI.
 
@@ -204,7 +205,10 @@ class BNN_VI_Base(DeterministicModel):
                 module.unfreeze_layer()
 
     def exclude_from_wt_decay(
-        self, named_params, weight_decay: float, skip_list: list[str] = ("mu", "rho")
+        self,
+        named_params,
+        weight_decay: float,
+        skip_list: Sequence[str] = ("mu", "rho"),
     ):
         """Exclude non VI parameters from weight_decay optimization.
 
@@ -298,7 +302,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         stochastic_module_names: list[int] | list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of BNN VI Regression.
 
@@ -475,7 +479,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
         stochastic_module_names: list[str | int] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of BNN VI Batched.
 

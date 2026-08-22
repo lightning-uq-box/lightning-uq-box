@@ -336,7 +336,7 @@ class DeterministicClassification(DeterministicModel):
         task: str = "multiclass",
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Deterministic Classification Model.
 
@@ -423,7 +423,7 @@ class DeterministicSegmentation(DeterministicClassification):
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize a new Deterministic Segmentation Model.
@@ -522,7 +522,7 @@ class DeterministicPixelRegression(DeterministicRegression):
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of Deterministic Pixel Regression.

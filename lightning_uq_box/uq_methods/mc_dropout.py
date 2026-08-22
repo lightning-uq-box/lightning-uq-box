@@ -62,7 +62,7 @@ class MCDropoutBase(DeterministicModel):
         dropout_layer_names: list[str] = [],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of MCDropoutModel.
 
@@ -157,7 +157,7 @@ class MCDropoutRegression(MCDropoutBase):
         dropout_layer_names: list[str] = [],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Regression.
 
@@ -290,7 +290,7 @@ class MCDropoutClassification(MCDropoutBase):
         dropout_layer_names: list[str] = [],
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Classification.
 
@@ -390,7 +390,7 @@ class MCDropoutSegmentation(MCDropoutClassification):
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Segmentation.
@@ -508,7 +508,7 @@ class MCDropoutPxRegression(MCDropoutRegression):
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of MC-Dropout Model for Pixel-wise Regression.

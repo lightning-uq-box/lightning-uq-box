@@ -59,7 +59,7 @@ class SNGPBase(BaseModule):
         input_size: int | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new SNGP model.
 
@@ -369,7 +369,7 @@ class SNGPClassification(SNGPBase):
         task: str = "multiclass",
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new SNGP model for classification.
 

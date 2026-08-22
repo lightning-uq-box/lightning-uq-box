@@ -73,9 +73,13 @@ Configured in `pyproject.toml`; `ruff format` decides layout, so do not hand-for
 
 ### Type Hints (ty)
 
-- [ty](https://docs.astral.sh/ty/) replaces mypy. `[tool.ty.src]` checks `lightning_uq_box` and
-  `tests`; only `lightning_uq_box/uq_methods` is still excluded, until it is annotated. New code
-  elsewhere must be annotated and must pass `uv run ty check`.
+- [ty](https://docs.astral.sh/ty/) replaces mypy. `[tool.ty.src]` checks all of `lightning_uq_box`
+  and `tests`; nothing is excluded. New code must be annotated and must pass `uv run ty check`.
+- `lightning_uq_box/uq_methods` is checked with some rules muted in `[[tool.ty.overrides]]`, so
+  its remaining diagnostics can be fixed a family at a time. Do not add a rule to that block to
+  get a change to pass — fix the code, or suppress the one line with `# ty: ignore[<rule>]`.
+  `unresolved-attribute` is muted there permanently: Lightning types `hparams` as a
+  `MutableMapping`, so every `self.hparams.<name>` read is unresolved.
 - Attributes registered in `__init__` via `register_buffer` / `register_parameter`, or assigned in
   a subclass and read from a base class, need a class-level declaration (`mu_weight: Parameter`).
   Without one, `nn.Module.__getattr__` types them as `Tensor | Module` and every use is an error.

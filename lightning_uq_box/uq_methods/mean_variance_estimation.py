@@ -35,7 +35,7 @@ class MVEBase(DeterministicModel):
         burnin_epochs: int,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instace of Deterministic Gaussian Model.
 
@@ -100,7 +100,7 @@ class MVERegression(MVEBase):
         burnin_epochs: int,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new instance of Mean Variance Estimation Model for Regression.
 
@@ -170,7 +170,7 @@ class MVEPxRegression(DeterministicPixelRegression):
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize a new instance of MVE for Pixelwise Regression.

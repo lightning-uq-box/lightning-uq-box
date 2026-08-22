@@ -4,6 +4,7 @@
 """Bayesian Neural Networks with Variational Inference."""
 
 import os
+from collections.abc import Sequence
 from typing import Any
 
 import torch
@@ -57,7 +58,7 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         stochastic_module_names: list[int | str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -240,7 +241,10 @@ class BNN_VI_ELBO_Base(DeterministicModel):
         raise NotImplementedError
 
     def exclude_from_wt_decay(
-        self, named_params, weight_decay: float, skip_list: list[str] = ("mu", "rho")
+        self,
+        named_params,
+        weight_decay: float,
+        skip_list: Sequence[str] = ("mu", "rho"),
     ):
         """Exclude non VI parameters from weight_decay optimization.
 
@@ -318,7 +322,7 @@ class BNN_VI_ELBO_Regression(BNN_VI_ELBO_Base):
         stochastic_module_names: list[int] | list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -457,7 +461,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
         stochastic_module_names: list[int] | list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initialize a new Model instance.
 
@@ -603,7 +607,7 @@ class BNN_VI_ELBO_Segmentation(BNN_VI_ELBO_Classification):
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: LRSchedulerCallable = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
     ) -> None:
         """Initialize a new BNN VI ELBO Segmentation instance.
