@@ -6,6 +6,9 @@ on:
   pull_request:
     branches:
     - main
+defaults:
+  run:
+    shell: bash
 
 jobs:
   full-suite:
@@ -16,21 +19,22 @@ jobs:
     steps:
     - name: Clone repo
       uses: actions/checkout@v7
-    - name: Set up python
-      uses: actions/setup-python@v7
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v9.0.0
       with:
         python-version: '3.12'
-    - name: Install pip dependencies
-      if: steps.cache.outputs.cache-hit != 'true'
-      run: |
-        python -m ensurepip
-        python -m pip install --upgrade pip
-        pip install -r requirements/requirements.txt -r requirements/tests.txt
-        pip install numpy scipy
+        enable-cache: true
+        prune-cache: true
+        activate-environment: true
+        cache-dependency-glob: |
+          pyproject.toml
+          uv.lock
+    - name: Install dependencies
+      run: uv sync --locked --extra tests
+    - name: List dependencies
+      run: uv tree
     - name: Run pytest checks
-      shell: bash
-      run: |
-        python -m pytest tests --cov=lightning_uq_box --cov-report=xml
+      run: pytest tests --cov=lightning_uq_box --cov-report=xml
     - name: Report coverage
       uses: codecov/codecov-action@v7.0.0
       with:
@@ -56,19 +60,21 @@ jobs:
     steps:
     - name: Clone repo
       uses: actions/checkout@v7
-    - name: Set up python
-      uses: actions/setup-python@v7
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v9.0.0
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install pip dependencies
-      if: steps.cache.outputs.cache-hit != 'true'
-      run: |
-        python -m ensurepip
-        python -m pip install --upgrade pip
-        pip install -r requirements/requirements.txt -r requirements/tests.txt
-        pip install numpy scipy
+        enable-cache: true
+        prune-cache: true
+        activate-environment: true
+        cache-dependency-glob: |
+          pyproject.toml
+          uv.lock
+    - name: Install dependencies
+      run: uv sync --locked --extra tests
+    - name: List dependencies
+      run: uv tree
     - name: Run smoke tests and collect configurations
-      shell: bash
       run: |
-        python -m pytest tests/models tests/datamodules tests/eval_utils tests/test_main.py
-        python -m pytest --collect-only tests/uq_methods
+        pytest tests/models tests/datamodules tests/eval_utils tests/test_main.py
+        pytest --collect-only tests/uq_methods

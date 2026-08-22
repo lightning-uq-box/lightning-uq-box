@@ -42,3 +42,15 @@ To install the development version from the latest commit:
 spack install py-lightning-uq-box@main
 spack load py-lightning-uq-box
 ```
+
+## from source
+
+To work on the library itself, or to run against the unreleased main branch, clone the repository and let [uv](https://docs.astral.sh/uv/) build the environment from the checked-in lockfile:
+
+```console
+git clone https://github.com/lightning-uq-box/lightning-uq-box.git
+cd lightning-uq-box
+uv sync --all-extras
+```
+
+This installs the project in editable mode together with the test, style, and documentation dependencies, pinned to the same versions CI uses. See the {doc}`contribution guide <contribute>` for how to run the tests and linters against it.

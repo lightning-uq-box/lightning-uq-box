@@ -1,8 +1,0 @@
-# docs
-ipywidgets==8.1.8
-nbsphinx==0.9.8
-sphinx_book_theme==1.1.4
-myst-parser==5.1.0
-sphinx-togglebutton==0.3.2
-ipykernel==7.1.0
-setuptools==83.0.0
