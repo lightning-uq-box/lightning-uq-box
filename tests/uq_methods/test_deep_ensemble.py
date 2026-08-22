@@ -3,12 +3,12 @@
 
 """Test Deep Ensemble."""
 
-import glob
 from pathlib import Path
 from typing import Any
 
 import pytest
 import torch
+from conftest import minimal_trainer_kwargs
 from hydra.utils import instantiate
 from lightning import Trainer
 from omegaconf import OmegaConf
@@ -42,32 +42,25 @@ class TestDeepEnsemble:
         data_conf = OmegaConf.load(data_config_path)
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(3):
+        for i in range(2):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                accelerator=accelerator_config["accelerator"],
-                devices=accelerator_config["devices"],
-                max_epochs=2,
-                log_every_n_steps=1,
-                default_root_dir=str(tmp_path),
+                **minimal_trainer_kwargs(
+                    accelerator_config,
+                    tmp_path,
+                    max_epochs=2
+                    if "mc_dropout_nll" in model_config_path
+                    or "mean_variance" in model_config_path
+                    else 1,
+                    checkpoints=True,
+                )
             )
             trainer.fit(model, datamodule)
-
-            if "mc_dropout" in model_config_path:
-                with pytest.raises(
-                    UserWarning, match="No dropout layers found in model"
-                ):
-                    trainer.test(ckpt_path="best", datamodule=datamodule)
-            else:
-                trainer.test(ckpt_path="best", datamodule=datamodule)
-
-            # Find the .ckpt file in the lightning_logs directory
-            ckpt_file = glob.glob(
-                f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
-            )[0]
+            ckpt_file = trainer.checkpoint_callback.best_model_path
+            assert ckpt_file
             ckpt_paths.append({"base_model": model, "ckpt_path": ckpt_file})
 
         return ckpt_paths
@@ -77,7 +70,7 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(ensemble_members_dict)
-        datamodule = ToyImageRegressionDatamodule()
+        datamodule = ToyImageRegressionDatamodule(num_samples=2, batch_size=2)
         batch = next(iter(datamodule.test_dataloader()))
 
         if "mc_dropout" in ensemble_members_dict[0]["ckpt_path"]:

@@ -3,12 +3,11 @@
 
 """Test Utilities for UQ-Methods."""
 
-import os
-from glob import glob
 from pathlib import Path
 
 import pytest
 import torch
+from conftest import minimal_cli_overrides
 
 from lightning_uq_box.main import get_uq_box_cli
 from lightning_uq_box.uq_methods.utils import checkpoint_loader
@@ -30,23 +29,12 @@ class TestUQMethods:
             model_config_path,
             "--config",
             data_config_path,
-            "--trainer.accelerator",
-            "cpu",
-            "--trainer.max_epochs",
-            "2",
-            "--trainer.log_every_n_steps",
-            "1",
-            "--trainer.default_root_dir",
-            str(tmp_path),
-            "--trainer.logger",
-            "CSVLogger",
-            "--trainer.logger.save_dir",
-            str(tmp_path),
-            "--trainer.callbacks",
-            "ModelCheckpoint",
-            "--trainer.callbacks.dirpath",
-            str(tmp_path),
-        ]
+        ] + minimal_cli_overrides(
+            {"accelerator": "cpu", "devices": "auto"},
+            tmp_path,
+            max_epochs=2,
+            checkpoints=True,
+        )
 
         cli = get_uq_box_cli(args)
         cli.trainer.fit(cli.model, cli.datamodule)
@@ -55,7 +43,8 @@ class TestUQMethods:
 
     def test_checkpoint_load_lightning_module(self, exp_run):
         # Get the path of the saved checkpoint
-        ckpt_path = glob(os.path.join(exp_run.trainer.default_root_dir, "*ckpt"))[0]
+        ckpt_path = exp_run.trainer.checkpoint_callback.best_model_path
+        assert ckpt_path
 
         model = checkpoint_loader(exp_run.model, ckpt_path=ckpt_path)
 
@@ -67,7 +56,8 @@ class TestUQMethods:
 
     def test_checkpoint_load_model(self, exp_run):
         # Get the path of the saved checkpoint
-        ckpt_path = glob(os.path.join(exp_run.trainer.default_root_dir, "*ckpt"))[0]
+        ckpt_path = exp_run.trainer.checkpoint_callback.best_model_path
+        assert ckpt_path
 
         model = checkpoint_loader(exp_run.model, ckpt_path=ckpt_path, return_model=True)
 

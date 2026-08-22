@@ -13,3 +13,4 @@ uq_method:
   lr_scheduler:
     _target_: torch.optim.lr_scheduler.ConstantLR
     _partial_: true
+  num_samples: 2

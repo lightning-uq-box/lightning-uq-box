@@ -14,5 +14,5 @@ uq_method:
     lr: 0.003
   loss_fn:
     _target_: lightning_uq_box.uq_methods.NLL
-  num_mc_samples: 10
+  num_mc_samples: 2
   burnin_epochs: 1

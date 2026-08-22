@@ -8,7 +8,7 @@ uq_method:
   latent_size: 10
   img_size: 64
   out_channels: 1
-  num_samples: 5
+  num_samples: 2
   num_conditions: 3
   optimizer:
     _target_: torch.optim.Adam

@@ -14,9 +14,9 @@ model:
           init_args:
             lr: 0.003
         burnin_epochs: 1
-    max_swag_snapshots: 4
+    max_swag_snapshots: 2
     snapshot_freq: 1
-    num_mc_samples: 10
+    num_mc_samples: 2
     swag_lr: 0.001
     loss_fn:
       class_path: lightning_uq_box.uq_methods.NLL

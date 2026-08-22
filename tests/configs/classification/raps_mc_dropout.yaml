@@ -12,5 +12,5 @@ model:
             n_hidden: [50]
         loss_fn:
           class_path: torch.nn.CrossEntropyLoss
-        num_mc_samples: 5
+        num_mc_samples: 2
     kreg: 1

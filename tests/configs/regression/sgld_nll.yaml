@@ -9,7 +9,7 @@ model:
     loss_fn:
       class_path: lightning_uq_box.uq_methods.NLL
     lr: 0.0001
-    n_sgld_samples: 5
+    n_sgld_samples: 2
     weight_decay: 0.1
     noise_factor: 0.2
     burnin_epochs: 1

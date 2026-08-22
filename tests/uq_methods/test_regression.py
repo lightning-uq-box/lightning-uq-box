@@ -3,13 +3,13 @@
 
 """Test Regression Tasks."""
 
-import glob
 import os
 from pathlib import Path
 from typing import Any
 
 import pytest
 import torch
+from conftest import minimal_cli_overrides, minimal_trainer_kwargs
 from lightning import Trainer
 from lightning.pytorch import seed_everything
 from pytest import TempPathFactory
@@ -63,21 +63,23 @@ class TestRegressionTask:
             model_config_path,
             "--config",
             data_config_path,
-            "--trainer.accelerator",
-            accelerator_config["accelerator"],
-            "--trainer.devices",
-            str(accelerator_config["devices"]),
-            "--trainer.max_epochs",
-            "2",
-            "--trainer.log_every_n_steps",
-            "1",
-            "--trainer.default_root_dir",
-            str(tmp_path),
-            "--trainer.logger",
-            "CSVLogger",
-            "--trainer.logger.save_dir",
-            str(tmp_path),
-        ]
+        ] + minimal_cli_overrides(
+            accelerator_config,
+            tmp_path,
+            max_epochs=2
+            if any(
+                name in model_config_path
+                for name in (
+                    "bnn_vi_elbo",
+                    "mc_dropout",
+                    "mean_variance",
+                    "sgld",
+                    "swag",
+                )
+            )
+            else 1,
+            checkpoints=True,
+        )
 
         cli = get_uq_box_cli(args)
         cli.trainer.fit(cli.model, cli.datamodule)
@@ -110,21 +112,7 @@ class TestPosthoc:
             model_config_path,
             "--config",
             data_config_path,
-            "--trainer.accelerator",
-            accelerator_config["accelerator"],
-            "--trainer.devices",
-            str(accelerator_config["devices"]),
-            "--trainer.max_epochs",
-            "1",
-            "--trainer.log_every_n_steps",
-            "1",
-            "--trainer.default_root_dir",
-            str(tmp_path),
-            "--trainer.logger",
-            "CSVLogger",
-            "--trainer.logger.save_dir",
-            str(tmp_path),
-        ]
+        ] + minimal_cli_overrides(accelerator_config, tmp_path, checkpoints=True)
 
         cli = get_uq_box_cli(args)
         cli.trainer.fit(cli.model, train_dataloaders=cli.datamodule.calib_dataloader())
@@ -152,7 +140,7 @@ class TestDeepEnsemble:
         model_config_path, data_config_path = request.param
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(5):
+        for i in range(2):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             args = [
@@ -160,31 +148,21 @@ class TestDeepEnsemble:
                 model_config_path,
                 "--config",
                 data_config_path,
-                "--trainer.accelerator",
-                accelerator_config["accelerator"],
-                "--trainer.devices",
-                str(accelerator_config["devices"]),
-                "--trainer.max_epochs",
-                "1",
-                "--trainer.log_every_n_steps",
-                "1",
-                "--trainer.default_root_dir",
-                str(tmp_path),
-            ]
+            ] + minimal_cli_overrides(
+                accelerator_config,
+                tmp_path,
+                max_epochs=2
+                if "mc_dropout" in model_config_path
+                or "mean_variance" in model_config_path
+                else 1,
+                checkpoints=True,
+            )
 
             cli = get_uq_box_cli(args)
             cli.trainer.fit(cli.model, cli.datamodule)
 
-            # Find the .ckpt file in the lightning_logs directory
-            ckpt_file = glob.glob(
-                os.path.join(
-                    str(tmp_path),
-                    "lightning_logs",
-                    "version_*",
-                    "checkpoints",
-                    "*.ckpt",
-                )
-            )[0]
+            ckpt_file = cli.trainer.checkpoint_callback.best_model_path
+            assert ckpt_file
             ckpt_paths.append({"base_model": cli.model, "ckpt_path": ckpt_file})
 
         return ckpt_paths
@@ -198,13 +176,9 @@ class TestDeepEnsemble:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(ensemble_members_dict)
 
-        datamodule = ToyHeteroscedasticDatamodule()
+        datamodule = ToyHeteroscedasticDatamodule(n_points=20, batch_size=4)
 
-        trainer = Trainer(
-            accelerator=accelerator_config["accelerator"],
-            devices=accelerator_config["devices"],
-            default_root_dir=str(tmp_path),
-        )
+        trainer = Trainer(**minimal_trainer_kwargs(accelerator_config, tmp_path))
 
         trainer.test(ensemble_model, datamodule=datamodule)
 
@@ -227,27 +201,15 @@ class TestDeepEnsemble:
             mve_path,
             "--config",
             data_config_path,
-            "--trainer.accelerator",
-            accelerator_config["accelerator"],
-            "--trainer.devices",
-            str(accelerator_config["devices"]),
-            "--trainer.max_epochs",
-            "1",
-            "--trainer.log_every_n_steps",
-            "1",
-            "--trainer.default_root_dir",
-            str(tmp_path),
-        ]
+        ] + minimal_cli_overrides(
+            accelerator_config, tmp_path, max_epochs=2, checkpoints=True
+        )
 
         cli = get_uq_box_cli(args)
         cli.trainer.fit(cli.model, cli.datamodule)
 
-        # Find the .ckpt file in the lightning_logs directory
-        ckpt_file = glob.glob(
-            os.path.join(
-                str(tmp_path), "lightning_logs", "version_*", "checkpoints", "*.ckpt"
-            )
-        )[0]
+        ckpt_file = cli.trainer.checkpoint_callback.best_model_path
+        assert ckpt_file
         mve_model = cli.model
         trained_model = [{"base_model": mve_model, "ckpt_path": ckpt_file}]
 

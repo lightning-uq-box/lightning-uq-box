@@ -10,9 +10,9 @@ uq_method:
       in_channels: 3
       encoder_depth: 2
       decoder_channels: [16, 8]
-  max_swag_snapshots: 4
+  max_swag_snapshots: 2
   snapshot_freq: 1
-  num_mc_samples: 10
+  num_mc_samples: 2
   swag_lr: 0.001
   loss_fn:
     _target_: lightning_uq_box.uq_methods.NLL

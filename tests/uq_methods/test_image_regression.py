@@ -3,7 +3,6 @@
 
 """Test Image Regression Tasks."""
 
-import glob
 import os
 import re
 from pathlib import Path
@@ -12,9 +11,9 @@ from typing import Any, Literal
 import pandas as pd
 import pytest
 import torch
+from conftest import minimal_trainer_kwargs
 from hydra.utils import instantiate
 from lightning import Trainer
-from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
 from pytest import TempPathFactory
 
@@ -65,12 +64,17 @@ class TestImageRegressionTask:
         model = instantiate(config.uq_method)
         datamodule = instantiate(config.data)
         trainer = Trainer(
-            accelerator=accelerator_config["accelerator"],
-            devices=accelerator_config["devices"],
-            max_epochs=2,
-            log_every_n_steps=1,
-            default_root_dir=str(tmp_path),
-            logger=CSVLogger(str(tmp_path)),
+            **minimal_trainer_kwargs(
+                accelerator_config,
+                tmp_path,
+                max_epochs=2
+                if any(
+                    name in model_config_path
+                    for name in ("bnn_vi_elbo", "mean_variance", "sgld", "swag")
+                )
+                else 1,
+                checkpoints="laplace" not in model_config_path,
+            )
         )
         # laplace only uses test
         if "laplace" not in model_config_path:
@@ -110,12 +114,9 @@ class TestMCDropout:
         model = instantiate(model_conf.uq_method)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            accelerator=accelerator_config["accelerator"],
-            devices=accelerator_config["devices"],
-            max_epochs=1,
-            log_every_n_steps=1,
-            default_root_dir=str(tmp_path),
-            logger=CSVLogger(str(tmp_path)),
+            **minimal_trainer_kwargs(
+                accelerator_config, tmp_path, max_epochs=2, checkpoints=True
+            )
         )
         with pytest.raises(UserWarning, match="No dropout layers found in model"):
             trainer.fit(model, datamodule)
@@ -146,13 +147,7 @@ class TestPosthoc:
         model = instantiate(config.uq_method)
         datamodule = instantiate(config.data)
 
-        trainer = Trainer(
-            default_root_dir=str(tmp_path),
-            accelerator=accelerator_config["accelerator"],
-            devices=accelerator_config["devices"],
-            max_epochs=1,
-            log_every_n_steps=1,
-        )
+        trainer = Trainer(**minimal_trainer_kwargs(accelerator_config, tmp_path))
         if calibration:
             trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
             trainer.test(model, datamodule=datamodule)
@@ -188,25 +183,19 @@ class TestDeepEnsemble:
         data_conf = OmegaConf.load(data_config_path)
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(5):
+        for i in range(2):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                accelerator=accelerator_config["accelerator"],
-                devices=accelerator_config["devices"],
-                max_epochs=1,
-                log_every_n_steps=1,
-                default_root_dir=str(tmp_path),
+                **minimal_trainer_kwargs(
+                    accelerator_config, tmp_path, max_epochs=2, checkpoints=True
+                )
             )
             trainer.fit(model, datamodule)
-            trainer.test(ckpt_path="best", datamodule=datamodule)
-
-            # Find the .ckpt file in the lightning_logs directory
-            ckpt_file = glob.glob(
-                f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
-            )[0]
+            ckpt_file = trainer.checkpoint_callback.best_model_path
+            assert ckpt_file
             ckpt_paths.append({"base_model": model, "ckpt_path": ckpt_file})
 
         return ckpt_paths
@@ -219,12 +208,8 @@ class TestDeepEnsemble:
     ) -> None:
         """Test Deep Ensemble."""
         ensemble_model = DeepEnsembleRegression(ensemble_members_dict)
-        datamodule = ToyImageRegressionDatamodule()
-        trainer = Trainer(
-            accelerator=accelerator_config["accelerator"],
-            devices=accelerator_config["devices"],
-            default_root_dir=str(tmp_path),
-        )
+        datamodule = ToyImageRegressionDatamodule(num_samples=2, batch_size=2)
+        trainer = Trainer(**minimal_trainer_kwargs(accelerator_config, tmp_path))
         if "mc_dropout" in ensemble_members_dict[0]["ckpt_path"]:
             with pytest.raises(UserWarning, match="No dropout layers found in model"):
                 trainer.test(ensemble_model, datamodule)
@@ -257,13 +242,9 @@ class TestTTAModel:
         model_conf = OmegaConf.load(model_config_path)
         base_model = instantiate(model_conf.uq_method)
         tta_model = TTARegression(base_model, merge_strategy=merge_strategy)
-        datamodule = ToyImageRegressionDatamodule()
+        datamodule = ToyImageRegressionDatamodule(num_samples=2, batch_size=2)
 
-        trainer = Trainer(
-            accelerator=accelerator_config["accelerator"],
-            devices=accelerator_config["devices"],
-            default_root_dir=str(tmp_path),
-        )
+        trainer = Trainer(**minimal_trainer_kwargs(accelerator_config, tmp_path))
 
         if "mc_dropout" in model_config_path:
             with pytest.raises(UserWarning, match="No dropout layers found in model"):

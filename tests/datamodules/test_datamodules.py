@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 import torch.nn as nn
+from conftest import minimal_trainer_kwargs
 from lightning import Trainer
 
 from lightning_uq_box.datamodules import (
@@ -39,7 +40,7 @@ def test_deterministic_regression_on_toy_datasets(datamodule, tmp_path: Path):
 
     # Initialize the trainer
     trainer = Trainer(
-        accelerator="cpu", max_epochs=1, fast_dev_run=True, default_root_dir=tmp_path
+        **minimal_trainer_kwargs({"accelerator": "cpu", "devices": "auto"}, tmp_path)
     )
 
     # Fit and test

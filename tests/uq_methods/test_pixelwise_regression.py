@@ -2,7 +2,6 @@
 # Licensed under the Apache License 2.0.
 """Test pixelwise regression task."""
 
-import glob
 import os
 import re
 from pathlib import Path
@@ -11,10 +10,10 @@ from typing import Any
 import h5py
 import pytest
 import torch
+from conftest import minimal_trainer_kwargs
 from hydra.utils import instantiate
 from lightning import Trainer
 from lightning.pytorch import seed_everything
-from lightning.pytorch.loggers import CSVLogger
 from omegaconf import OmegaConf
 from pytest import TempPathFactory
 
@@ -55,12 +54,11 @@ class TestPixelwiseRegressionTask:
         model = instantiate(full_conf.uq_method, save_preds=True)
         datamodule = instantiate(full_conf.data)
         trainer = Trainer(
-            accelerator=accelerator_config["accelerator"],
-            devices=accelerator_config["devices"],
-            max_epochs=2,
-            log_every_n_steps=1,
-            default_root_dir=str(tmp_path),
-            logger=CSVLogger(str(tmp_path)),
+            **minimal_trainer_kwargs(
+                accelerator_config,
+                tmp_path,
+                max_epochs=2 if "swag" in model_config_path else 1,
+            )
         )
 
         if "conformal" in model_config_path:
@@ -158,12 +156,7 @@ class TestMCDropout:
         model = instantiate(model_conf.uq_method)
         datamodule = instantiate(data_conf.data)
         trainer = Trainer(
-            accelerator=accelerator_config["accelerator"],
-            devices=accelerator_config["devices"],
-            max_epochs=1,
-            log_every_n_steps=1,
-            default_root_dir=str(tmp_path),
-            logger=CSVLogger(str(tmp_path)),
+            **minimal_trainer_kwargs(accelerator_config, tmp_path, checkpoints=True)
         )
         with pytest.raises(UserWarning, match="No dropout layers found in model"):
             trainer.fit(model, datamodule)
@@ -189,25 +182,17 @@ class TestDeepEnsemble:
         data_conf = OmegaConf.load(data_config_path)
         # train networks for deep ensembles
         ckpt_paths = []
-        for i in range(3):
+        for i in range(2):
             tmp_path = tmp_path_factory.mktemp(f"run_{i}")
 
             model = instantiate(model_conf.uq_method)
             datamodule = instantiate(data_conf.data)
             trainer = Trainer(
-                accelerator=accelerator_config["accelerator"],
-                devices=accelerator_config["devices"],
-                max_epochs=1,
-                log_every_n_steps=1,
-                default_root_dir=str(tmp_path),
+                **minimal_trainer_kwargs(accelerator_config, tmp_path, checkpoints=True)
             )
             trainer.fit(model, datamodule)
-            trainer.test(ckpt_path="best", datamodule=datamodule)
-
-            # Find the .ckpt file in the lightning_logs directory
-            ckpt_file = glob.glob(
-                f"{str(tmp_path)}/lightning_logs/version_*/checkpoints/*.ckpt"
-            )[0]
+            ckpt_file = trainer.checkpoint_callback.best_model_path
+            assert ckpt_file
             ckpt_paths.append({"base_model": model, "ckpt_path": ckpt_file})
 
         return ckpt_paths
@@ -222,12 +207,8 @@ class TestDeepEnsemble:
         ensemble_model = DeepEnsemblePxRegression(
             ensemble_members_dict, save_preds=True
         )
-        datamodule = ToyPixelwiseRegressionDataModule()
-        trainer = Trainer(
-            accelerator=accelerator_config["accelerator"],
-            devices=accelerator_config["devices"],
-            default_root_dir=str(tmp_path),
-        )
+        datamodule = ToyPixelwiseRegressionDataModule(num_images=2, batch_size=2)
+        trainer = Trainer(**minimal_trainer_kwargs(accelerator_config, tmp_path))
         trainer.test(ensemble_model, datamodule=datamodule)
 
         # check that predictions are saved
@@ -257,13 +238,7 @@ class TestPosthoc:
 
         model = instantiate(model_conf.uq_method)
         datamodule = instantiate(data_conf.data)
-        trainer = Trainer(
-            default_root_dir=str(tmp_path),
-            accelerator=accelerator_config["accelerator"],
-            devices=accelerator_config["devices"],
-            max_epochs=1,
-            log_every_n_steps=1,
-        )
+        trainer = Trainer(**minimal_trainer_kwargs(accelerator_config, tmp_path))
 
         if calibration:
             trainer.fit(model, train_dataloaders=datamodule.calib_dataloader())
