@@ -411,7 +411,7 @@ class SGLDClassification(SGLDBase):
         preds = torch.stack(preds, dim=-1).detach()
         # shape [batch_size, num_outputs, n_sgld_samples]
 
-        return process_classification_prediction(preds)
+        return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
         self,
@@ -429,5 +429,7 @@ class SGLDClassification(SGLDBase):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )

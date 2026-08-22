@@ -423,7 +423,7 @@ class DKLClassification(DKLBase):
     * https://arxiv.org/abs/2102.11409
     """
 
-    valid_tasks = ["binary", "multiclass", "multilable"]
+    valid_tasks = ["binary", "multiclass", "multilabel"]
 
     # TODO
     # gp_layer: Callable[[only. the two args that are needed from computation],
@@ -623,7 +623,9 @@ class DKLClassification(DKLBase):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )
 
 

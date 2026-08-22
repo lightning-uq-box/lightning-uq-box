@@ -510,5 +510,7 @@ class LaplaceClassification(LaplaceBase):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )

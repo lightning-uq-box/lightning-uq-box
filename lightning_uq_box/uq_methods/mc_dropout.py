@@ -284,7 +284,7 @@ class MCDropoutClassification(MCDropoutBase):
     """
 
     pred_file_name = "preds.csv"
-    valid_tasks = ["binary", "multiclass", "multilable"]
+    valid_tasks = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,
@@ -363,7 +363,7 @@ class MCDropoutClassification(MCDropoutBase):
                 [self.model(X) for _ in range(self.num_mc_samples)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
-        return process_classification_prediction(preds)
+        return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
         self,
@@ -381,7 +381,9 @@ class MCDropoutClassification(MCDropoutBase):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )
 
 
@@ -473,7 +475,7 @@ class MCDropoutSegmentation(MCDropoutClassification):
                 [self.model(X) for _ in range(self.hparams.num_mc_samples)], dim=-1
             )  # shape [batch_size, num_outputs, num_samples]
 
-        return process_segmentation_prediction(preds)
+        return process_segmentation_prediction(preds, task=self.task)
 
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""

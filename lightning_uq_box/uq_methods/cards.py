@@ -726,7 +726,7 @@ class CARDClassification(CARDBase):
         final_recoverd = final_recoverd.permute(1, 2, 0).cpu()
 
         # momenet matching
-        pred_dict = process_classification_prediction(final_recoverd)
+        pred_dict = process_classification_prediction(final_recoverd, task=self.task)
         pred_dict["samples"] = y_tile_seq
 
         return pred_dict
@@ -748,7 +748,9 @@ class CARDClassification(CARDBase):
         """
         del outputs["samples"]
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )
 
 

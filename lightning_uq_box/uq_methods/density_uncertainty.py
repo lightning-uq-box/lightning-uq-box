@@ -386,7 +386,7 @@ class DensityLayerModelRegression(DensityLayerModelBase):
 class DensityLayerModelClassification(DensityLayerModelBase):
     """Density Layer Model for Classification Tasks."""
 
-    valid_tasks = ["binary", "multiclass", "multilable"]
+    valid_tasks = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,
@@ -484,7 +484,7 @@ class DensityLayerModelClassification(DensityLayerModelBase):
             y_hat = torch.stack(
                 [self.model(X) for _ in range(self.num_samples_test)], dim=-1
             )
-        return process_classification_prediction(y_hat)
+        return process_classification_prediction(y_hat, task=self.task)
 
     def on_test_batch_end(
         self,
@@ -502,5 +502,7 @@ class DensityLayerModelClassification(DensityLayerModelBase):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )

@@ -42,7 +42,7 @@ class RAPS(PosthocBase):
     * https://arxiv.org/abs/2009.14193
     """
 
-    valid_tasks = ["binary", "multiclass", "multilable"]
+    valid_tasks = ["binary", "multiclass", "multilabel"]
     valid_lambda_criterion = ["size", "adaptiveness"]
     pred_file_name = "preds.csv"
 
@@ -171,7 +171,9 @@ class RAPS(PosthocBase):
 
             agg_func = identity
 
-        pred_dict = process_classification_prediction(scores, aggregate_fn=agg_func)
+        pred_dict = process_classification_prediction(
+            scores, aggregate_fn=agg_func, task=self.task
+        )
         pred_dict["pred_set"] = S
         pred_dict["size"] = torch.tensor([len(x) for x in S])
 
@@ -274,7 +276,9 @@ class RAPS(PosthocBase):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )
 
 

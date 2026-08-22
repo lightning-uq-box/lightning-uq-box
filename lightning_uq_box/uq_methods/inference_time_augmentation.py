@@ -301,14 +301,14 @@ class TTAClassification(TTABase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks: list[str] = ["binary", "multiclass", "multilable"]
+    valid_tasks: list[str] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,
         model: LightningModule | nn.Module,
         tt_augmentation: list[Callable[..., Any]] | None = None,
         merge_strategy: Literal["mean", "median", "sum", "max", "min"] = "mean",
-        task: Literal["binary", "multiclass", "multilable"] = "multiclass",
+        task: Literal["binary", "multiclass", "multilabel"] = "multiclass",
     ) -> None:
         """Initialize a new instance of TTA Classification module.
 
@@ -357,23 +357,23 @@ class TTAClassification(TTABase):
         """
         if self.merge_strategy == "mean":
             pred_dict = process_classification_prediction(
-                aug_tensor, aggregate_fn=torch.mean
+                aug_tensor, aggregate_fn=torch.mean, task=self.task
             )
         elif self.merge_strategy == "median":
             pred_dict = process_classification_prediction(
-                aug_tensor, aggregate_fn=torch_median_val_only
+                aug_tensor, aggregate_fn=torch_median_val_only, task=self.task
             )
         elif self.merge_strategy == "sum":
             pred_dict = process_classification_prediction(
-                aug_tensor, aggregate_fn=torch.sum
+                aug_tensor, aggregate_fn=torch.sum, task=self.task
             )
         elif self.merge_strategy == "max":
             pred_dict = process_classification_prediction(
-                aug_tensor, aggregate_fn=torch_max_val_only
+                aug_tensor, aggregate_fn=torch_max_val_only, task=self.task
             )
         elif self.merge_strategy == "min":
             pred_dict = process_classification_prediction(
-                aug_tensor, aggregate_fn=torch_min_val_only
+                aug_tensor, aggregate_fn=torch_min_val_only, task=self.task
             )
 
         return pred_dict
@@ -394,5 +394,7 @@ class TTAClassification(TTABase):
             dataloader_idx: dataloader index
         """
         save_classification_predictions(
-            outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
+            outputs,
+            os.path.join(self.trainer.default_root_dir, self.pred_file_name),
+            task=self.task,
         )

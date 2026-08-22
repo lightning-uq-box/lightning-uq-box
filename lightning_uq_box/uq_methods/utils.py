@@ -80,7 +80,28 @@ def default_px_regression_metrics(prefix: str):
 
 
 def default_classification_metrics(prefix: str, task: str, num_classes: int):
-    """Return a set of default classification metrics."""
+    """Return a set of default classification metrics.
+
+    Args:
+        prefix: prefix for the metric names
+        task: one of "binary", "multiclass" or "multilabel"
+        num_classes: number of classes, or number of labels for the
+            "multilabel" task
+
+    Returns:
+        metric collection for the task
+    """
+    if task == "multilabel":
+        # CalibrationError has no multilabel variant, and EmpiricalCoverage is
+        # defined in terms of a single true label per sample, so neither is
+        # part of the multilabel metric set.
+        return MetricCollection(
+            {
+                "Acc": Accuracy(task=task, num_labels=num_classes),
+                "F1Score": F1Score(task=task, num_labels=num_classes),
+            },
+            prefix=prefix,
+        )
     return MetricCollection(
         {
             "Acc": Accuracy(task=task, num_classes=num_classes),
@@ -92,7 +113,25 @@ def default_classification_metrics(prefix: str, task: str, num_classes: int):
 
 
 def default_segmentation_metrics(prefix: str, task: str, num_classes: int):
-    """Return a set of default segmentation metrics."""
+    """Return a set of default segmentation metrics.
+
+    Args:
+        prefix: prefix for the metric names
+        task: one of "binary", "multiclass" or "multilabel"
+        num_classes: number of classes, or number of labels for the
+            "multilabel" task
+
+    Returns:
+        metric collection for the task
+    """
+    if task == "multilabel":
+        return MetricCollection(
+            {
+                "Jaccard": JaccardIndex(task=task, num_labels=num_classes),
+                "F1Score": F1Score(task=task, num_labels=num_classes),
+            },
+            prefix=prefix,
+        )
     return MetricCollection(
         {
             "Jaccard": JaccardIndex(task=task, num_classes=num_classes),
@@ -151,23 +190,35 @@ def process_regression_prediction(
 
 
 def process_classification_prediction(
-    logits: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
+    logits: Tensor,
+    aggregate_fn: Callable = torch.mean,
+    eps: float = 1e-7,
+    task: str = "multiclass",
 ) -> dict[str, Tensor]:
     """Process classification predictions.
 
     Applies softmax to logit and computes mean over the samples and entropy.
 
+    For the "multilabel" task the labels are not mutually exclusive, so a
+    sigmoid is applied per label and the uncertainty is the sum of the
+    per-label binary entropies.
+
     Args:
         logits: prediction logits tensor of shape [batch_size, num_classes, num_samples]
         aggregate_fn: function to aggregate over the samples
         eps: small value to prevent log of 0
-        agg_logits_first: whether to aggregate the logits first or take the softmax
-            first and then aggregate
+        task: one of "binary", "multiclass" or "multilabel"
 
     Returns:
         dictionary with aggregated class probabilities [batch_size, num_classes]
             and predictive uncertainty [batch_size]
     """
+    if task == "multilabel":
+        mean = aggregate_fn(torch.sigmoid(logits), dim=-1)
+        mean = mean.clamp(eps, 1 - eps)
+        entropy = -(mean * mean.log() + (1 - mean) * (1 - mean).log()).sum(dim=-1)
+        return {"pred": mean, "pred_uct": entropy, "logits": logits}
+
     mean = aggregate_fn(nn.functional.softmax(logits, dim=1), dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
@@ -176,23 +227,37 @@ def process_classification_prediction(
 
 
 def process_segmentation_prediction(
-    logits: Tensor, aggregate_fn: Callable = torch.mean, eps: float = 1e-7
+    logits: Tensor,
+    aggregate_fn: Callable = torch.mean,
+    eps: float = 1e-7,
+    task: str = "multiclass",
 ) -> dict[str, Tensor]:
     """Process segmentation predictions.
 
     Applies softmax to logit and computes mean over the samples and entropy.
+
+    For the "multilabel" task the labels are not mutually exclusive, so a
+    sigmoid is applied per label and the uncertainty is the sum of the
+    per-label binary entropies.
 
     Args:
         logits: prediction logits tensor of shape
             [batch_size, num_classes, height, width, num_samples]
         aggregate_fn: function to aggregate over the samples
         eps: small value to prevent log of 0
+        task: one of "binary", "multiclass" or "multilabel"
 
     Returns:
         dictionary with pixel class probabilities
             [batch_size, num_classes, height, width]
         and predictive uncertainty [batch_size, height, width]
     """
+    if task == "multilabel":
+        mean = aggregate_fn(torch.sigmoid(logits), dim=-1)
+        mean = mean.clamp(eps, 1 - eps)
+        entropy = -(mean * mean.log() + (1 - mean) * (1 - mean).log()).sum(dim=1)
+        return {"pred": mean, "pred_uct": entropy, "logits": logits}
+
     mean = aggregate_fn(nn.functional.softmax(logits, dim=1), dim=-1)
     # prevent log of 0 -> nan
     mean.clamp_min_(eps)
@@ -273,16 +338,24 @@ def save_regression_predictions(outputs: dict[str, Tensor], path: str) -> None:
         df.to_csv(path, index=False)
 
 
-def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> None:
+def save_classification_predictions(
+    outputs: dict[str, Tensor], path: str, task: str = "multiclass"
+) -> None:
     """Save classification predictions to csv file.
+
+    For the "multilabel" task the labels are not mutually exclusive, so instead
+    of a single ``pred`` column there is one ``pred_i`` column per label,
+    holding the thresholded prediction for that label.
 
     Args:
         outputs: metrics and values to be saved
             - logits: logits of shape [batch_size, num_classes]
             - pred: predictions of shape [batch_size, num_classes]
-            - target: targets of shape [batch_size]
+            - target: targets of shape [batch_size], or [batch_size, num_labels]
+              for the "multilabel" task
             - pred_uct: predictive uncertainty of shape [batch_size]
         path: path where csv should be saved
+        task: one of "binary", "multiclass" or "multilabel"
     """
     if "samples" in outputs:
         _ = outputs.pop("samples")
@@ -299,7 +372,6 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
 
     # save inidividual predictions as class probs
     class_probs = outputs.pop("pred")
-    pred_class = torch.argmax(class_probs, dim=1).cpu().numpy()
 
     for i in range(class_probs.shape[1]):
         outputs[f"class_prob_{i}"] = class_probs[:, i]
@@ -307,11 +379,24 @@ def save_classification_predictions(outputs: dict[str, Tensor], path: str) -> No
     cpu_outputs = {}
     for key, val in outputs.items():
         if isinstance(val, Tensor):
-            cpu_outputs[key] = val.squeeze(-1).cpu().numpy()
+            val = val.squeeze(-1).cpu().numpy()
         else:
-            cpu_outputs[key] = np.array(val)
+            val = np.array(val)
+        # per-label targets and the like need one column each
+        if val.ndim == 2:
+            for i in range(val.shape[1]):
+                cpu_outputs[f"{key}_{i}"] = val[:, i]
+        else:
+            cpu_outputs[key] = val
 
-    df_pred = pd.DataFrame(pred_class, columns=["pred"])
+    if task == "multilabel":
+        preds = (class_probs > 0.5).int().cpu().numpy()
+        df_pred = pd.DataFrame(
+            preds, columns=[f"pred_{i}" for i in range(preds.shape[1])]
+        )
+    else:
+        pred_class = torch.argmax(class_probs, dim=1).cpu().numpy()
+        df_pred = pd.DataFrame(pred_class, columns=["pred"])
 
     # Create DataFrame for the rest of the outputs
     df_outputs = pd.DataFrame.from_dict(cpu_outputs)
