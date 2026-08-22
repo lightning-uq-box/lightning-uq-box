@@ -103,7 +103,7 @@ def plot_predictions_classification(
     num_cols = 3 if pred_uct is not None else 2
 
     fig, axs = plt.subplots(1, num_cols, figsize=(num_cols * 6, 6))
-    cm = plt.cm.get_cmap("plasma")
+    cm = plt.get_cmap("plasma")
 
     grid_size = int(np.sqrt(test_grid_points.shape[0]))
     xx = test_grid_points[:, 0].reshape(grid_size, grid_size)

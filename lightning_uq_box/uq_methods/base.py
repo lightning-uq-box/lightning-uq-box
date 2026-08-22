@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from omegaconf import OmegaConf
 from torch import Tensor
 
 from .utils import (
@@ -44,6 +45,24 @@ class BaseModule(LightningModule):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize a new instance of the Base Module."""
         super().__init__(*args, **kwargs)
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Convert OmegaConf hyperparameters to plain Python containers.
+
+        Since lightning 2.6, checkpoints are loaded with ``weights_only=True``,
+        which cannot unpickle OmegaConf containers. Configs instantiated from
+        yaml files pass arguments like list of module names as ``ListConfig``,
+        so convert them before they are written to the checkpoint.
+
+        Args:
+            checkpoint: the checkpoint dictionary that will be saved
+        """
+        hparams = checkpoint.get("hyper_parameters")
+        if hparams:
+            checkpoint["hyper_parameters"] = {
+                key: OmegaConf.to_object(value) if OmegaConf.is_config(value) else value
+                for key, value in hparams.items()
+            }
 
     @property
     def num_input_features(self) -> int:
