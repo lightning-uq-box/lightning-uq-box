@@ -4,14 +4,13 @@
 """Masked Ensemble Model."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 from einops import rearrange, repeat
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 
 from lightning_uq_box.models.masked_ensemble.utils import (
     convert_deterministic_to_masked_ensemble,
@@ -325,7 +324,7 @@ class MasksemblesClassification(MasksemblesBase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

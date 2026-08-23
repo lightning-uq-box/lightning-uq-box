@@ -4,9 +4,9 @@
 from pathlib import Path
 
 import pytest
-import torch.nn as nn
 from conftest import minimal_trainer_kwargs
 from lightning import Trainer
+from torch import nn
 
 from lightning_uq_box.datamodules import (
     Toy8GaussiansDataModule,

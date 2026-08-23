@@ -5,7 +5,7 @@
 
 import inspect
 
-import torch.nn as nn
+from torch import nn
 
 
 # get loss terms for energy functional

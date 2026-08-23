@@ -67,9 +67,13 @@ docs/            # Sphinx + MyST, tutorials as notebooks
 Configured in `pyproject.toml`; `ruff format` decides layout, so do not hand-format.
 
 - Double quotes, no magic trailing commas
-- `extend-select = ["D", "I", "UP"]`: pydocstyle, isort, and pyupgrade on top of the defaults
+- `extend-select = ["D", "E4", "E7", "F", "I", "UP"]`: pydocstyle, isort, and pyupgrade on top
+  of the defaults. `E4`, `E7` and `F` are selected explicitly because they are default only
+  under ruff < 0.15, so an upgrade would otherwise silently shrink what is linted.
 - Notebooks are linted too (`extend-include = ["*.ipynb"]`)
 - `D` rules are off for `docs/**` and `tests/**`
+- `RUF022` is off for `**/__init__.py`: `__all__` is grouped by UQ method family with section
+  comments that mirror the docs, not sorted alphabetically
 
 ### Type Hints (ty)
 

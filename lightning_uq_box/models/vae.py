@@ -5,11 +5,10 @@
 
 from collections.abc import Sequence
 
-import torch.nn as nn
 import torch.nn.functional as F
 from segmentation_models_pytorch.base import SegmentationHead
 from segmentation_models_pytorch.base.modules import Attention, Conv2dReLU
-from torch import Tensor
+from torch import Tensor, nn
 
 
 class DecoderBlock(nn.Module):

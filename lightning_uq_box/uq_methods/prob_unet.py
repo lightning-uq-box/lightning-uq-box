@@ -15,21 +15,20 @@
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the Apache License 2.0.
-# Changes from https://github.com/stefanknegt/Probabilistic-Unet-Pytorch/blob/master/probabilistic_unet.py: # noqa: E501
+# Changes from https://github.com/stefanknegt/Probabilistic-Unet-Pytorch/blob/master/probabilistic_unet.py:
 # - adapt ProbUnet implementation to lightning training framework
 # - make Unet flexible to be any segmentation model
 
 """Probabilistic U-Net."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 from torch.distributions import kl
 
 from lightning_uq_box.uq_methods import BaseModule
@@ -50,7 +49,7 @@ class ProbUNet(BaseModule):
     * https://arxiv.org/abs/1806.05034
     """
 
-    valid_tasks = ["multiclass", "binary"]
+    valid_tasks: ClassVar[list[str]] = ["multiclass", "binary"]
 
     pred_dir_name = "preds"
 
@@ -58,7 +57,7 @@ class ProbUNet(BaseModule):
         self,
         model: nn.Module,
         latent_dim: int = 6,
-        num_filters: list[int] = [32, 64, 128, 192],
+        num_filters: list[int] | None = None,
         num_convs_per_block: int = 3,
         num_convs_fcomb: int = 4,
         fcomb_filter_size: int = 32,
@@ -87,6 +86,8 @@ class ProbUNet(BaseModule):
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
         """
+        if num_filters is None:
+            num_filters = [32, 64, 128, 192]
         super().__init__()
         self.latent_dim = latent_dim
         self.num_convs_fcomb = num_convs_fcomb

@@ -6,18 +6,19 @@ Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperat
 import os
 from collections.abc import Callable
 from functools import partial
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 from torch.optim import LBFGS
 
 from .base import PosthocBase
 from .utils import default_classification_metrics, save_classification_predictions
+
+DEFAULT_LBFGS = partial(LBFGS, lr=0.01, max_iter=50)
 
 
 class TempScaling(PosthocBase):
@@ -30,7 +31,7 @@ class TempScaling(PosthocBase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks = ["binary", "multiclass"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass"]
 
     def __init__(
         self,
@@ -55,7 +56,7 @@ class TempScaling(PosthocBase):
 
         assert task in self.valid_tasks, (
             f"Task {task} not supported, please choose from {self.valid_tasks}"
-        )  # noqa: E501
+        )
         self.task = task
 
         self.setup_task()
@@ -173,9 +174,7 @@ def run_temperature_optimization(
     labels: torch.Tensor,
     criterion: nn.Module,
     temperature: nn.Parameter,
-    optimizer: Callable[..., torch.optim.Optimizer] = partial(
-        LBFGS, lr=0.01, max_iter=50
-    ),
+    optimizer: Callable[..., torch.optim.Optimizer] = DEFAULT_LBFGS,
     max_iter: int | None = 50,
 ) -> Tensor:
     """Run temperature optimization.

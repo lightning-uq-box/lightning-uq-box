@@ -277,12 +277,10 @@ class TestFrozenBackbone:
         try:
             model_conf.uq_method.model.model_name = model_name
             model = instantiate(model_conf.uq_method, freeze_backbone=True)
-            assert not all([param.requires_grad for param in model.model.parameters()])
+            assert not all(param.requires_grad for param in model.model.parameters())
             assert all(
-                [
-                    param.requires_grad
-                    for param in model.model.get_classifier().parameters()
-                ]
+                param.requires_grad
+                for param in model.model.get_classifier().parameters()
             )
         except AttributeError:
             model_conf.uq_method.feature_extractor.model_name = model_name
@@ -290,5 +288,5 @@ class TestFrozenBackbone:
             model = instantiate(model_conf.uq_method, freeze_backbone=True)
             # check that entire feature extractor is frozen
             assert not all(
-                [param.requires_grad for param in model.feature_extractor.parameters()]
+                param.requires_grad for param in model.feature_extractor.parameters()
             )

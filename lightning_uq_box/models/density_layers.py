@@ -9,8 +9,7 @@ import math
 
 import numpy as np
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 
 from .masked_conv import MaskedConv2d
 

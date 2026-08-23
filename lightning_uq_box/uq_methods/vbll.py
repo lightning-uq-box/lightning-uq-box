@@ -5,13 +5,12 @@
 
 """Variational Bayesian Last Layer (VBLL)."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 from torch.nn.modules import Module
 
 from .base import DeterministicClassification, DeterministicRegression
@@ -260,7 +259,7 @@ class VBLLClassification(DeterministicClassification):
     .. versionadded:: 0.2
     """
 
-    valid_layer_types = ["disc", "gen"]
+    valid_layer_types: ClassVar[list[str]] = ["disc", "gen"]
 
     def __init__(
         self,

@@ -5,7 +5,7 @@
 
 import pytest
 import torch
-import torch.nn as nn
+from torch import nn
 
 from lightning_uq_box.uq_methods.spectral_normalized_layers import (
     SpectralBatchNorm1d,

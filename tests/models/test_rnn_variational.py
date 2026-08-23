@@ -7,8 +7,8 @@ import itertools
 
 import pytest
 import torch
-import torch.nn as nn
 from _pytest.fixtures import SubRequest
+from torch import nn
 
 from lightning_uq_box.models.bnn_layers import LSTMVariational
 from lightning_uq_box.models.bnn_layers.bnn_utils import convert_deterministic_to_bnn
@@ -39,7 +39,7 @@ class TestLSTMVariational:
         """Test compute loss of LSTMVariational."""
         # batch_size, sequence length, input size
         x = torch.randn(3, 5, 2)
-        hidden, _ = lstm_variational_layer(x)
+        _hidden, _ = lstm_variational_layer(x)
         log_Z_prior = lstm_variational_layer.calc_log_Z_prior()
         assert isinstance(log_Z_prior, torch.Tensor)
         log_f_hat = lstm_variational_layer.log_f_hat()
@@ -56,8 +56,8 @@ class TestLSTMVariational:
             h0 = torch.randn(1, 3, 10)  # num_layers, batch_size, hidden_size
             c0 = torch.randn(1, 3, 10)  # num_layers, batch_size, hidden_size
             prev_hidden_state = (h0, c0)
-        output1, (hn1, cn1) = lstm_variational_layer(x, prev_hidden_state)
-        output2, (hn2, cn2) = lstm_variational_layer(x, prev_hidden_state)
+        output1, (_hn1, _cn1) = lstm_variational_layer(x, prev_hidden_state)
+        output2, (_hn2, _cn2) = lstm_variational_layer(x, prev_hidden_state)
         assert not torch.equal(output1, output2)
 
 

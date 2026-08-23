@@ -13,9 +13,8 @@ to be integrated with Lightning and ported to PyTorch.
 """
 
 import torch
-import torch.nn as nn
 from einops import rearrange
-from torch import Tensor
+from torch import Tensor, nn
 from torch.nn.common_types import _size_2_t
 
 

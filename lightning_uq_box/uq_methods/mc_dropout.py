@@ -4,13 +4,12 @@
 """Mc-Dropout module."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 
 from .base import DeterministicModel
 from .utils import (
@@ -53,7 +52,7 @@ class MCDropoutBase(DeterministicModel):
         model: nn.Module,
         num_mc_samples: int,
         loss_fn: nn.Module,
-        dropout_layer_names: list[str] = [],
+        dropout_layer_names: list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
@@ -69,6 +68,8 @@ class MCDropoutBase(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        if dropout_layer_names is None:
+            dropout_layer_names = []
         super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
 
         if not dropout_layer_names:
@@ -77,7 +78,6 @@ class MCDropoutBase(DeterministicModel):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
-        pass
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -148,7 +148,7 @@ class MCDropoutRegression(MCDropoutBase):
         num_mc_samples: int,
         loss_fn: nn.Module,
         burnin_epochs: int = 0,
-        dropout_layer_names: list[str] = [],
+        dropout_layer_names: list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
@@ -166,6 +166,8 @@ class MCDropoutRegression(MCDropoutBase):
             lr_scheduler: learning rate scheduler
                 from the predictive distribution
         """
+        if dropout_layer_names is None:
+            dropout_layer_names = []
         super().__init__(
             model,
             num_mc_samples,
@@ -274,7 +276,7 @@ class MCDropoutClassification(MCDropoutBase):
     """
 
     pred_file_name = "preds.csv"
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,
@@ -282,7 +284,7 @@ class MCDropoutClassification(MCDropoutBase):
         num_mc_samples: int,
         loss_fn: nn.Module,
         task: str = "multiclass",
-        dropout_layer_names: list[str] = [],
+        dropout_layer_names: list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
@@ -299,6 +301,8 @@ class MCDropoutClassification(MCDropoutBase):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        if dropout_layer_names is None:
+            dropout_layer_names = []
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = _get_num_outputs(model)
@@ -384,7 +388,7 @@ class MCDropoutSegmentation(MCDropoutClassification):
         num_mc_samples: int,
         loss_fn: nn.Module,
         task: str = "multiclass",
-        dropout_layer_names: list[str] = [],
+        dropout_layer_names: list[str] | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -407,6 +411,8 @@ class MCDropoutSegmentation(MCDropoutClassification):
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
         """
+        if dropout_layer_names is None:
+            dropout_layer_names = []
         self.freeze_backbone = freeze_backbone
         self.freeze_decoder = freeze_decoder
         super().__init__(
@@ -498,7 +504,7 @@ class MCDropoutPxRegression(MCDropoutRegression):
         num_mc_samples: int,
         loss_fn: nn.Module,
         burnin_epochs: int = 0,
-        dropout_layer_names: list[str] = [],
+        dropout_layer_names: list[str] | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -519,6 +525,8 @@ class MCDropoutPxRegression(MCDropoutRegression):
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
         """
+        if dropout_layer_names is None:
+            dropout_layer_names = []
         self.freeze_decoder = freeze_decoder
         super().__init__(
             model,

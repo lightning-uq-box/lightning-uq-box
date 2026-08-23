@@ -222,11 +222,17 @@ fix = true
 skip-magic-trailing-comma = true
 
 [tool.ruff.lint]
-extend-select = ["D", "I", "UP"]
+# E4, E7 and F are enabled by default under ruff < 0.15 but not by the wider
+# default rule set ruff 0.15 introduced. Select them explicitly so the linted
+# surface does not silently shrink across a ruff upgrade.
+extend-select = ["D", "E4", "E7", "F", "I", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 "docs/**" = ["D"]
 "tests/**" = ["D"]
+# __all__ is grouped by UQ method family with section comments that mirror the
+# docs, so it is deliberately not in alphabetical order.
+"**/__init__.py" = ["RUF022"]
 
 [tool.ruff.lint.isort]
 split-on-trailing-comma = false

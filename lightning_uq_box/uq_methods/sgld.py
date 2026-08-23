@@ -7,12 +7,11 @@
 
 import os
 from collections.abc import Callable, Iterator
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 from torch.optim.optimizer import Optimizer
 
 from lightning_uq_box.uq_methods import DeterministicModel
@@ -52,7 +51,11 @@ class SGLD(Optimizer):
             noise_factor: parameter denoting how much noise to inject in the SGD update
             weight_decay: weight decay parameter for SGLD optimizer
         """
-        defaults = dict(lr=lr, noise_factor=noise_factor, weight_decay=weight_decay)
+        defaults = {
+            "lr": lr,
+            "noise_factor": noise_factor,
+            "weight_decay": weight_decay,
+        }
         super().__init__(params, defaults)
         self.lr = lr
 
@@ -299,7 +302,7 @@ class SGLDRegression(SGLDBase):
 class SGLDClassification(SGLDBase):
     """Stochastic Gradient Langevin Dynamics method for classification."""
 
-    valid_tasks = ["multiclass", "binary", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["multiclass", "binary", "multilabel"]
     pred_file_name = "preds.csv"
 
     def __init__(

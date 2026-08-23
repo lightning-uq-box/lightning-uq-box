@@ -5,14 +5,13 @@
 
 import os
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 import kornia.augmentation as K
 import torch
-import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 
 from .base import PosthocBase
 from .utils import (
@@ -59,7 +58,13 @@ class TTABase(PosthocBase):
     an additional prediction will be made for each element in `tt_augmentation`.
     """
 
-    valid_merge_strategies: list[str] = ["mean", "median", "sum", "max", "min"]
+    valid_merge_strategies: ClassVar[list[str]] = [
+        "mean",
+        "median",
+        "sum",
+        "max",
+        "min",
+    ]
 
     def __init__(
         self,
@@ -173,7 +178,7 @@ class TTABase(PosthocBase):
         #  with the augmentations and compute uncertainty on those?
         aug_preds: dict[str, Tensor] = {}
         if isinstance(aug_predictions[0], dict):
-            for key in aug_predictions[0].keys():
+            for key in aug_predictions[0]:
                 aug_preds[key] = torch.stack(
                     [pred[key] for pred in aug_predictions], dim=-1
                 )
@@ -198,11 +203,9 @@ class TTABase(PosthocBase):
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """No validation step in TTA."""
-        pass
 
     def on_validation_start(self) -> None:
         """No validation step in TTA."""
-        pass
 
 
 class TTARegression(TTABase):
@@ -298,7 +301,7 @@ class TTAClassification(TTABase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks: list[str] = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

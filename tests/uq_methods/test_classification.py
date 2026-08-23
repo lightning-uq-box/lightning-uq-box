@@ -10,12 +10,11 @@ from typing import Any
 import pandas as pd
 import pytest
 import torch
-import torch.nn as nn
 from conftest import minimal_cli_overrides, minimal_trainer_kwargs
 from lightning import LightningDataModule, Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from pytest import TempPathFactory
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import DataLoader, Dataset
 
 from lightning_uq_box.datamodules import TwoMoonsDataModule
@@ -182,15 +181,15 @@ class TestFrozenBackbone:
         model = cli.model
         try:
             assert not all(
-                [param.requires_grad for param in model.model.model[0].parameters()]
+                param.requires_grad for param in model.model.model[0].parameters()
             )
             assert all(
-                [param.requires_grad for param in model.model.model[-1].parameters()]
+                param.requires_grad for param in model.model.model[-1].parameters()
             )
         except AttributeError:
             # check that entire feature extractor is frozen
             assert not all(
-                [param.requires_grad for param in model.feature_extractor.parameters()]
+                param.requires_grad for param in model.feature_extractor.parameters()
             )
 
 

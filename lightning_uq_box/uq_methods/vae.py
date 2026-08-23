@@ -6,11 +6,9 @@
 from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities import rank_zero_only
-from torch import Tensor
-from torch.optim.adam import Adam as Adam
+from torch import Tensor, nn
 from torchvision.utils import make_grid, save_image
 
 from lightning_uq_box.models.vae import VAEDecoder
@@ -254,9 +252,7 @@ class VAE(DeterministicPixelRegression):
         X, y = batch[self.input_key], batch[self.target_key]
         batch_size = X.shape[0]
 
-        x_recon, mu, log_var = self.forward(
-            X, cond=batch["condition"] if "condition" in batch else None
-        )
+        x_recon, mu, log_var = self.forward(X, cond=batch.get("condition", None))
 
         scaled_kl_loss, rec_loss = self.loss_fn(x_recon, y, mu, log_var)
 
@@ -284,9 +280,7 @@ class VAE(DeterministicPixelRegression):
         X, y = batch[self.input_key], batch[self.target_key]
         batch_size = X.shape[0]
 
-        x_recon, mu, log_var = self.forward(
-            X, cond=batch["condition"] if "condition" in batch else None
-        )
+        x_recon, mu, log_var = self.forward(X, cond=batch.get("condition", None))
 
         scaled_kl_loss, rec_loss = self.loss_fn(x_recon, y, mu, log_var)
 
@@ -510,8 +504,7 @@ class ConditionalVAE(VAE):
             prediction dictionary
         """
         out_dict = self.predict_step(
-            batch[self.input_key],
-            cond=batch["condition"] if "condition" in batch else None,
+            batch[self.input_key], cond=batch.get("condition", None)
         )
         out_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
 

@@ -5,13 +5,12 @@
 
 import copy
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 from laplace import Laplace
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 from tqdm import trange
 
 from lightning_uq_box.uq_methods import BaseModule
@@ -144,7 +143,6 @@ class LaplaceBase(BaseModule):
 
     def setup_task(self) -> None:
         """Set up task."""
-        pass
 
     @property
     def num_input_features(self) -> int:
@@ -401,7 +399,7 @@ class LaplaceClassification(LaplaceBase):
     * https://arxiv.org/abs/2106.14806
     """
 
-    valid_tasks = ["binary", "multiclass"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass"]
 
     def __init__(
         self,

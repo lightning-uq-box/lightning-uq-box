@@ -9,15 +9,13 @@
 """ZigZag Universal Sampling-free Uncertainty Estimation."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 from einops import repeat
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
-from torch.optim.adam import Adam as Adam
+from torch import Tensor, nn
 
 from .base import DeterministicModel
 from .utils import (
@@ -297,7 +295,7 @@ class ZigZagClassification(ZigZagBase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

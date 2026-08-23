@@ -169,14 +169,17 @@ class _SpectralBatchNorm(_NormBase):
         else:
             exponential_average_factor = self.momentum
 
-        if self.training and self.track_running_stats:
-            # TODO: if statement here to tell the jit to skip emitting when it is None
-            if self.num_batches_tracked is not None:
-                self.num_batches_tracked = self.num_batches_tracked + 1
-                if self.momentum is None:  # use cumulative moving average
-                    exponential_average_factor = 1.0 / float(self.num_batches_tracked)
-                else:  # use exponential moving average
-                    exponential_average_factor = self.momentum
+        # TODO: if statement here to tell the jit to skip emitting when it is None
+        if (
+            self.training
+            and self.track_running_stats
+            and self.num_batches_tracked is not None
+        ):
+            self.num_batches_tracked = self.num_batches_tracked + 1
+            if self.momentum is None:  # use cumulative moving average
+                exponential_average_factor = 1.0 / float(self.num_batches_tracked)
+            else:  # use exponential moving average
+                exponential_average_factor = self.momentum
 
         """ Decide whether the mini-batch stats should be used for normalization
         rather than the buffers. Mini-batch stats are used in training mode, and
@@ -228,19 +231,13 @@ class _SpectralBatchNorm(_NormBase):
 class SpectralBatchNorm1d(_SpectralBatchNorm, nn.BatchNorm1d):
     """Spectral Normalized Batch Norm 1D."""
 
-    pass
-
 
 class SpectralBatchNorm2d(_SpectralBatchNorm, nn.BatchNorm2d):
     """Spectral Normalized Batch Norm 2D."""
 
-    pass
-
 
 class SpectralBatchNorm3d(_SpectralBatchNorm, nn.BatchNorm3d):
     """Spectral Normalized Batch Norm 3D."""
-
-    pass
 
 
 def spectral_norm_batch_norm(
@@ -279,7 +276,11 @@ def spectral_norm_batch_norm(
             module.num_features, coeff, eps=eps, momentum=momentum, affine=affine
         )
     else:
-        raise ValueError(f"BatchNorm type {module.__class__.__name__} not supported")
+        # ValueError is this package's convention for an unsupported argument
+        # value, and it is part of this helper's tested behaviour
+        raise ValueError(  # noqa: TRY004
+            f"BatchNorm type {module.__class__.__name__} not supported"
+        )
 
 
 """
@@ -401,7 +402,7 @@ class SpectralNormConv(SpectralNorm):
             eps: epsilon
 
         """
-        for k, hook in module._forward_pre_hooks.items():
+        for hook in module._forward_pre_hooks.values():
             if isinstance(hook, SpectralNormConv) and hook.name == name:
                 raise RuntimeError(
                     "Cannot register two spectral_norm hooks on "
@@ -555,7 +556,7 @@ class SpectralNormFC(SpectralNorm):
         Returns:
             spectral normalized layer
         """
-        for k, hook in module._forward_pre_hooks.items():
+        for hook in module._forward_pre_hooks.values():
             if isinstance(hook, SpectralNorm) and hook.name == name:
                 raise RuntimeError(
                     "Cannot register two spectral_norm hooks on "

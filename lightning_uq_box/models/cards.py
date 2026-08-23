@@ -4,8 +4,7 @@
 """CARDS Model Utilities."""
 
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 
 from lightning_uq_box.uq_methods.utils import _get_output_layer_name_and_module
 
@@ -74,7 +73,7 @@ class ConditionalGuidedLinearModel(nn.Module):
         n_steps: int,
         x_dim: int,
         y_dim: int,
-        n_hidden: list[int] = [64, 64],
+        n_hidden: list[int] | None = None,
         cat_x: bool = False,
         cat_y_pred: bool = False,
         activation_fn: nn.Module | None = None,
@@ -93,6 +92,8 @@ class ConditionalGuidedLinearModel(nn.Module):
                 of the conditional mean model by concatenation
             activation_fn: activation function between conditional linear layers
         """
+        if n_hidden is None:
+            n_hidden = [64, 64]
         super().__init__()
 
         if activation_fn is None:

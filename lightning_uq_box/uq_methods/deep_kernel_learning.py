@@ -4,12 +4,11 @@
 """Deep Kernel Learning."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import gpytorch
 import numpy as np
 import torch
-import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import MaternKernel, RBFKernel, RQKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood, SoftmaxLikelihood
@@ -25,7 +24,7 @@ from gpytorch.variational import (
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from sklearn import cluster
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import Dataset
 
 from .base import BaseModule
@@ -55,7 +54,13 @@ class DKLBase(gpytorch.Module, BaseModule):
 
     # TODO make elbo_fn an argument that can be instatiated with
     # different elbo functions and Lightning CLI
-    kernel_choices = ["RBF", "Matern12", "Matern32", "Matern52", "RQ"]
+    kernel_choices: ClassVar[list[str]] = [
+        "RBF",
+        "Matern12",
+        "Matern32",
+        "Matern52",
+        "RQ",
+    ]
     pred_file_name = "preds.csv"
 
     def __init__(
@@ -92,7 +97,7 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         assert gp_kernel in self.kernel_choices, (
             "Please choose one of the supported kernel choices ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']"
-        )  # noqa: E501
+        )
         self.gp_kernel = gp_kernel
         self.optimizer = optimizer
         self.feature_extractor = feature_extractor
@@ -434,7 +439,7 @@ class DKLClassification(DKLBase):
     * https://arxiv.org/abs/2102.11409
     """
 
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     # TODO
     # gp_layer: Callable[[only. the two args that are needed from computation],
@@ -642,7 +647,13 @@ class DKLGPLayer(ApproximateGP):
     Taken from https://github.com/y0ast/DUE/blob/f29c990811fd6a8e76215f17049e6952ef5ea0c9/due/dkl.py#L62 # noqa: E501
     """
 
-    kernel_choices = ["RBF", "Matern12", "Matern32", "Matern52", "RQ"]
+    kernel_choices: ClassVar[list[str]] = [
+        "RBF",
+        "Matern12",
+        "Matern32",
+        "Matern52",
+        "RQ",
+    ]
 
     def __init__(
         self,

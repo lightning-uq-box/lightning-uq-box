@@ -114,7 +114,6 @@ class LSTMVariational(BaseVariationalLayer_):
 
     def define_bayesian_weight_params(self):
         """Define Bayesian parameters."""
-        pass
 
     def calc_log_Z_prior(self) -> Tensor:
         """Compute log Z prior.
@@ -188,10 +187,10 @@ class LSTMVariational(BaseVariationalLayer_):
             gates = ff_i + ff_h
 
             i_t, f_t, g_t, o_t = (
-                torch.sigmoid(gates[:, :HS]),  # input # noqa: E203
-                torch.sigmoid(gates[:, HS : HS * 2]),  # forget # noqa: E203
-                torch.tanh(gates[:, HS * 2 : HS * 3]),  # noqa: E203
-                torch.sigmoid(gates[:, HS * 3 :]),  # output # noqa: E203
+                torch.sigmoid(gates[:, :HS]),  # input
+                torch.sigmoid(gates[:, HS : HS * 2]),  # forget
+                torch.tanh(gates[:, HS * 2 : HS * 3]),
+                torch.sigmoid(gates[:, HS * 3 :]),  # output
             )
 
             c_t = f_t * c_t + i_t * g_t

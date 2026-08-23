@@ -15,7 +15,7 @@
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the Apache License 2.0.
-# Changes from https://github.com/stefanknegt/Probabilistic-Unet-Pytorch/blob/master/probabilistic_unet.py: # noqa: E501
+# Changes from https://github.com/stefanknegt/Probabilistic-Unet-Pytorch/blob/master/probabilistic_unet.py:
 # - add doc strings and type hints
 # - remove unused intializer args for Encoder and AxisAlignedConvGaussian
 # - change fcomb arguments to accomodate lightning module
@@ -24,8 +24,7 @@
 
 import numpy as np
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 from torch.distributions import Independent, Normal
 
 
@@ -51,7 +50,7 @@ def init_weights_orthogonal_normal(m: nn.Module) -> None:
     Args:
         m: Model whose weights need to be initialized
     """
-    if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+    if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
         nn.init.orthogonal_(m.weight)
         assert m.bias is not None
         truncated_normal_(m.bias, mean=0, std=0.001)
@@ -219,7 +218,7 @@ class AxisAlignedConvGaussian(nn.Module):
         mu_log_sigma = torch.squeeze(mu_log_sigma, dim=2)
 
         mu = mu_log_sigma[:, : self.latent_dim]
-        log_sigma = mu_log_sigma[:, self.latent_dim :]  # noqa: E203
+        log_sigma = mu_log_sigma[:, self.latent_dim :]
 
         # This is a multivariate normal with diagonal covariance matrix sigma
         # https://github.com/pytorch/pytorch/pull/11178

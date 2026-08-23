@@ -4,15 +4,14 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from omegaconf import OmegaConf
-from torch import Tensor
+from torch import Tensor, nn
 from torchmetrics import MetricCollection
 
 from .utils import (
@@ -338,7 +337,7 @@ class DeterministicClassification(DeterministicModel):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,
@@ -693,4 +692,3 @@ class PosthocBase(BaseModule):
 
     def configure_optimizers(self) -> Any:
         """Configure optimizers for posthoc fitting."""
-        pass

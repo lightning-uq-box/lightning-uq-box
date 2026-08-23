@@ -4,14 +4,12 @@
 """Density Uncertainty Layer Model."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
-from torch.optim.adam import Adam as Adam
+from torch import Tensor, nn
 
 from lightning_uq_box.models.density_layers import DensityConv2d, DensityLinear
 
@@ -160,7 +158,6 @@ class DensityLayerModelBase(DeterministicModel):
 
     def setup_task(self) -> None:
         """Set up task."""
-        pass
 
     def _setup_model(self, model: nn.Module) -> None:
         """Setup the model by converting layers to Density Layers.
@@ -210,7 +207,7 @@ class DensityLayerModelBase(DeterministicModel):
 
         loglikelihood = self.gather_loglikelihood()
 
-        loss = loss = criterion_loss - self.ll_scale * loglikelihood
+        loss = criterion_loss - self.ll_scale * loglikelihood
 
         if self.current_epoch >= self.pretrain_epochs:
             kl_div = self.compute_kl_divergence()
@@ -384,7 +381,7 @@ class DensityLayerModelRegression(DensityLayerModelBase):
 class DensityLayerModelClassification(DensityLayerModelBase):
     """Density Layer Model for Classification Tasks."""
 
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

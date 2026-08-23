@@ -50,8 +50,8 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
     def __init__(
         self,
-        x_min: int | float = -4,
-        x_max: int | float = 4,
+        x_min: float = -4,
+        x_max: float = 4,
         n_points: int = 250,
         batch_size: int = 100,
         test_fraction: float = 0.2,
@@ -153,9 +153,10 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         Y_gtext = generate_y(X_gtext, noise=False)
 
         # Fit scalers on train data
-        scalers = dict(
-            X=StandardScaler().fit(self.X_train), Y=StandardScaler().fit(self.Y_train)
-        )
+        scalers = {
+            "X": StandardScaler().fit(self.X_train),
+            "Y": StandardScaler().fit(self.Y_train),
+        }
 
         # Apply scaling to all splits, convert to torch tensors
         for xy in ["X", "Y"]:

@@ -1,7 +1,7 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the Apache License 2.0.
 
-"""Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
+"""Bayesian Neural Networks with Variational Inference and Latent Variables."""
 
 import os
 from collections.abc import Sequence
@@ -9,10 +9,9 @@ from typing import Any
 
 import einops
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 
 from lightning_uq_box.models.bnn_layers.bnn_utils import convert_deterministic_to_bnn
 from lightning_uq_box.models.bnnlv.utils import (
@@ -103,7 +102,6 @@ class BNN_VI_Base(DeterministicModel):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
-        pass
 
     def _define_bnn_args(self):
         """Define BNN Args."""
@@ -398,7 +396,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         # model_preds [batch_size, output_dim, n_mc_samples_train, ]
         mean_out = torch.stack(model_preds, dim=-1).mean(dim=-1)
 
-        # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z # noqa: E501
+        # TODO once we introduce the latent variable network, compute log_normalizer_z and log_f_hat_z
         energy_loss = self.energy_loss_module(
             torch.stack(pred_losses, dim=0),
             torch.concat(log_f_hat, dim=0),

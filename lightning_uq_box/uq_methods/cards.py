@@ -8,14 +8,13 @@ Based on official PyTorch implementation from https://github.com/XzwHan/CARD # n
 
 import math
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
-import torch.nn as nn
 from ema_pytorch import EMA
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 
 from .base import BaseModule
 from .utils import (
@@ -105,7 +104,6 @@ class CARDBase(BaseModule):
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
-        pass
 
     def diffusion_process(self, batch: dict[str, Tensor]) -> Tensor:
         """Diffusion process during training.
@@ -176,7 +174,7 @@ class CARDBase(BaseModule):
             training loss
         """
         self.use_ema_model = False
-        loss, y_t_sample = self.diffusion_process(batch)
+        loss, _y_t_sample = self.diffusion_process(batch)
 
         self.log("train_loss", loss, batch_size=batch[self.input_key].shape[0])
         return loss
@@ -201,7 +199,7 @@ class CARDBase(BaseModule):
             validation loss
         """
         self.use_ema_model = True
-        loss, y_t_sample = self.diffusion_process(batch)
+        loss, _y_t_sample = self.diffusion_process(batch)
         self.log("val_loss", loss, batch_size=batch[self.input_key].shape[0])
         self.use_ema_model = False
         return loss
@@ -638,7 +636,7 @@ class CARDClassification(CARDBase):
     * https://arxiv.org/abs/2206.07275
     """
 
-    valid_tasks = ["binary", "multiclass"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass"]
 
     def __init__(
         self,
@@ -764,7 +762,7 @@ class CARDClassification(CARDBase):
 class NoiseScheduler:
     """Noise Scheduler for Diffusion Training."""
 
-    valid_schedules = [
+    valid_schedules: ClassVar[list[str]] = [
         "linear",
         "const",
         "quad",
