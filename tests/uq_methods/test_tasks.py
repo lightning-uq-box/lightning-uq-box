@@ -4,7 +4,7 @@
 """Tests for immutable task values and their strict serialization boundary."""
 
 import json
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from torch import nn
@@ -15,6 +15,7 @@ from lightning_uq_box.uq_methods import (
     PixelRegressionTask,
     RegressionTask,
     SegmentationTask,
+    normalize_task,
     task_from_mapping,
 )
 
@@ -81,3 +82,67 @@ def test_task_saved_as_mapping_not_object() -> None:
     saved_task = dict(module.hparams)["task"]
     assert saved_task == RegressionTask().to_mapping()
     assert not isinstance(saved_task, RegressionTask)
+
+
+def test_task_classmethod_and_normalization_cover_public_entry_points() -> None:
+    """Task values, supported mappings, and explicit defaults normalize safely."""
+    mapping = RegressionTask().to_mapping()
+    assert RegressionTask.from_mapping(mapping) == RegressionTask()
+    assert normalize_task(RegressionTask()) == RegressionTask()
+    assert normalize_task(mapping) == RegressionTask()
+    assert normalize_task(None, default=PixelRegressionTask()) == PixelRegressionTask()
+
+
+@pytest.mark.parametrize(
+    "mode, binary_encoding",
+    [("not-a-mode", "one_logit"), ("binary", "not-an-encoding")],
+)
+def test_classification_task_rejects_invalid_semantics(
+    mode: Any, binary_encoding: Any
+) -> None:
+    """Invalid modes and probability encodings fail before model construction."""
+    with pytest.raises(ValueError):
+        ClassificationTask(mode=mode, binary_encoding=binary_encoding)
+
+
+@pytest.mark.parametrize(
+    "mapping, exception",
+    [
+        (
+            {
+                "_target_": "lightning_uq_box.uq_methods.tasks.RegressionTask",
+                "unexpected": True,
+            },
+            ValueError,
+        ),
+        (
+            {
+                "class_path": "lightning_uq_box.uq_methods.tasks.RegressionTask",
+                "init_args": {},
+                "unexpected": True,
+            },
+            ValueError,
+        ),
+        ({"not_a_task": True}, TypeError),
+        (
+            {
+                "class_path": "lightning_uq_box.uq_methods.tasks.RegressionTask",
+                "init_args": [],
+            },
+            TypeError,
+        ),
+        ({"_target_": "builtins.object"}, ValueError),
+    ],
+)
+def test_task_mapping_rejects_every_untrusted_shape(
+    mapping: dict[str, Any], exception
+) -> None:
+    """The task deserializer has no dynamic import or ignored-field fallback."""
+    with pytest.raises(exception):
+        task_from_mapping(mapping)
+
+
+def test_normalize_task_rejects_non_task_values() -> None:
+    """Only task values, allow-listed mappings, and ``None`` are accepted."""
+    with pytest.raises(TypeError):
+        normalize_task(cast(Any, "regression"))
