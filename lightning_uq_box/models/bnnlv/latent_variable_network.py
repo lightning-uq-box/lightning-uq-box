@@ -25,7 +25,6 @@ def calc_log_f_hat_z(
         log f hat summed over the latent dimension
     """
     v_z = std_z**2
-    m_z = m_z
     # natural parameters: -1/(2 sigma^2), mu/(sigma^2)
     # \lambda is (\lambda_q - \lambda_prior) / N
     # assuming prior mean is 0 and moving N calculation outside

@@ -207,7 +207,7 @@ class DensityLayerModelBase(DeterministicModel):
 
         loglikelihood = self.gather_loglikelihood()
 
-        loss = loss = criterion_loss - self.ll_scale * loglikelihood
+        loss = criterion_loss - self.ll_scale * loglikelihood
 
         if self.current_epoch >= self.pretrain_epochs:
             kl_div = self.compute_kl_divergence()

@@ -18,6 +18,8 @@ from torch.optim import LBFGS
 from .base import PosthocBase
 from .utils import default_classification_metrics, save_classification_predictions
 
+DEFAULT_LBFGS = partial(LBFGS, lr=0.01, max_iter=50)
+
 
 class TempScaling(PosthocBase):
     """Temperature Scaling.
@@ -172,9 +174,7 @@ def run_temperature_optimization(
     labels: torch.Tensor,
     criterion: nn.Module,
     temperature: nn.Parameter,
-    optimizer: Callable[..., torch.optim.Optimizer] = partial(
-        LBFGS, lr=0.01, max_iter=50
-    ),
+    optimizer: Callable[..., torch.optim.Optimizer] = DEFAULT_LBFGS,
     max_iter: int | None = 50,
 ) -> Tensor:
     """Run temperature optimization.
