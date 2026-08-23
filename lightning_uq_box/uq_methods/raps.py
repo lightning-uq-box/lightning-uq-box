@@ -21,6 +21,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from lightning import LightningModule
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
 from torch.utils.data import DataLoader, Subset, TensorDataset, random_split
 from torchmetrics import Accuracy, CalibrationError, MetricCollection
@@ -179,16 +180,16 @@ class RAPS(PosthocBase):
 
         return pred_dict
 
-    def adjust_model_logits(self, model_logits: Tensor) -> Tensor:
+    def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model output according to RAPS with fitted Qhat.
 
         Args:
-            model_logits: model output tensor of shape [batch_size x num_outputs]
+            model_output: model output tensor of shape [batch_size x num_outputs]
 
         Returns:
             adjusted model logits tensor of shape [batch_size x num_outputs]
         """
-        scores = temp_scale_logits(model_logits, self.temperature)
+        scores = temp_scale_logits(model_output, self.temperature)
         softmax_scores = F.softmax(scores, dim=1)
         if softmax_scores.ndim == 3:  # predictions from MC-type model
             softmax_scores = softmax_scores.mean(-1)
@@ -261,11 +262,7 @@ class RAPS(PosthocBase):
         self.post_hoc_fitted = True
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 

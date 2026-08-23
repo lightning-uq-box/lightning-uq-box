@@ -10,6 +10,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor
 from torch.nn.modules import Module
 
@@ -186,7 +187,7 @@ class VBLLRegression(DeterministicRegression):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> torch.Tensor:
+    ) -> dict[str, Tensor]:
         """Test step.
 
         Args:
@@ -195,7 +196,7 @@ class VBLLRegression(DeterministicRegression):
             dataloader_idx: The index of the dataloader
 
         Returns:
-            test loss
+            prediction dictionary
         """
         pred_dict = self.predict_step(batch[self.input_key])
         pred_dict[self.target_key] = batch[self.target_key]
@@ -229,7 +230,7 @@ class VBLLRegression(DeterministicRegression):
             "out": pred,
         }
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Configure Optimizers."""
         # exclude vbll parameters from weight decay
         backbone_params = []
@@ -448,7 +449,7 @@ class VBLLClassification(DeterministicClassification):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> torch.Tensor:
+    ) -> dict[str, Tensor]:
         """Test step.
 
         Args:
@@ -457,7 +458,7 @@ class VBLLClassification(DeterministicClassification):
             dataloader_idx: The index of the dataloader
 
         Returns:
-            test loss
+            prediction dictionary
         """
         pred_dict = self.predict_step(batch[self.input_key])
         pred_dict[self.target_key] = batch[self.target_key]
@@ -502,7 +503,7 @@ class VBLLClassification(DeterministicClassification):
             "ood_score": pred.ood_scores,
         }
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Configure Optimizers."""
         # exclude vbll parameters from weight decay
         backbone_params = []

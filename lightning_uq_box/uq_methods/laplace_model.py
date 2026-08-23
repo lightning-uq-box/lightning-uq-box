@@ -10,6 +10,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 from laplace import Laplace
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
 from tqdm import trange
 
@@ -374,11 +375,7 @@ class LaplaceRegression(LaplaceBase):
         return self.forward(input)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -499,11 +496,7 @@ class LaplaceClassification(LaplaceBase):
         return pred_dict
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 

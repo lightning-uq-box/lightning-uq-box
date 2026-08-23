@@ -11,7 +11,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 from lightning import LightningModule
-from lightning.pytorch.utilities.types import OptimizerLRScheduler
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from torch import Tensor
 
 from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
@@ -222,11 +222,7 @@ class ConformalQR(PosthocBase):
         pass
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 

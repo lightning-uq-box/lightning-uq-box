@@ -10,11 +10,11 @@ import math
 import os
 from typing import Any
 
-import numpy as np
 import torch
 import torch.nn as nn
 from ema_pytorch import EMA
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
 
 from .base import BaseModule
@@ -218,7 +218,7 @@ class CARDBase(BaseModule):
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
-    ) -> dict[str, np.ndarray]:
+    ) -> Any:
         """Prediction step.
 
         Args:
@@ -613,13 +613,17 @@ class CARDRegression(CARDBase):
         }
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, np.ndarray],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx=0,
-    ):
-        """Test batch end save predictions."""
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Test batch end save predictions.
+
+        Args:
+            outputs: dictionary of model outputs and aux variables
+            batch: batch from dataloader
+            batch_idx: batch index
+            dataloader_idx: dataloader index
+        """
+        assert isinstance(outputs, dict)
         del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
@@ -738,11 +742,7 @@ class CARDClassification(CARDBase):
         return pred_dict
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -752,6 +752,7 @@ class CARDClassification(CARDBase):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
+        assert isinstance(outputs, dict)
         del outputs["samples"]
         save_classification_predictions(
             outputs,

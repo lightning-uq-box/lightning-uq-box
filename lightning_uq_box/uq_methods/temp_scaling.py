@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from lightning import LightningModule
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
 from torch.optim import LBFGS
 
@@ -65,16 +66,16 @@ class TempScaling(PosthocBase):
             prefix="test", task=self.task, num_classes=self.num_outputs
         )
 
-    def adjust_model_logits(self, model_logits: Tensor) -> Tensor:
+    def adjust_model_logits(self, model_output: Tensor) -> Tensor:
         """Adjust model logits by applying temperature scaling.
 
         Args:
-            model_logits: model output logits of shape [batch_size x num_outputs]
+            model_output: model output logits of shape [batch_size x num_outputs]
 
         Returns:
             adjusted model logits of shape [batch_size x num_outputs]
         """
-        return temp_scale_logits(model_logits, self.temperature)
+        return temp_scale_logits(model_output, self.temperature)
 
     def on_train_epoch_end(self) -> None:
         """Perform CQR computation to obtain q_hat for predictions.
@@ -137,11 +138,7 @@ class TempScaling(PosthocBase):
         return out_dict
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 

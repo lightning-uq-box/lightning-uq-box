@@ -379,8 +379,10 @@ class SpectralNormConv(SpectralNorm):
             self.compute_weight(module, do_power_iteration=module.training),
         )
 
+    # torch's private SpectralNorm.apply is a differently shaped factory; these classes
+    # only reuse the name.
     @staticmethod
-    def apply(
+    def apply(  # ty: ignore[invalid-method-override]
         module: nn.Module,
         coeff: float,
         input_dim: tuple[int],
@@ -529,8 +531,10 @@ class SpectralNormFC(SpectralNorm):
 
         return weight
 
+    # torch's private SpectralNorm.apply is a differently shaped factory; these classes
+    # only reuse the name.
     @staticmethod
-    def apply(
+    def apply(  # ty: ignore[invalid-method-override]
         module: nn.Module,
         coeff: float,
         name: str,

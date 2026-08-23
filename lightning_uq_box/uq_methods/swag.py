@@ -33,6 +33,7 @@ from typing import Any
 
 import torch
 import torch.nn as nn
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from torch import Tensor
 from torch.distributions import Normal
 
@@ -324,7 +325,7 @@ class SWAGBase(DeterministicModel):
 
         return preds
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Manually implemented SWAG optimization."""
         swag_params: list[nn.Parameter] = [
             param
@@ -383,11 +384,7 @@ class SWAGRegression(SWAGBase):
         self.test_metrics = default_regression_metrics("test")
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -514,11 +511,7 @@ class SWAGClassification(SWAGBase):
         return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -611,11 +604,7 @@ class SWAGSegmentation(SWAGClassification):
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -683,11 +672,7 @@ class SWAGPxRegression(SWAGRegression):
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 

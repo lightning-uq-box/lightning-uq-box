@@ -7,6 +7,7 @@ import os
 from typing import Any
 
 import torch
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
 
 from .base import BaseModule
@@ -144,11 +145,7 @@ class DeepEnsembleRegression(DeepEnsemble):
         return pred_dict
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -218,11 +215,7 @@ class DeepEnsembleClassification(DeepEnsemble):
         return process_classification_prediction(preds, task=self.task)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -299,11 +292,7 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -353,11 +342,7 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
             os.makedirs(self.pred_dir)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 

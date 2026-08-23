@@ -112,17 +112,20 @@ class MDNRegression(DeterministicRegression):
                     for param in module.parameters():
                         param.requires_grad = True
 
-    def adapt_output_for_metrics(self, mu: Tensor, indices: Tensor) -> Tensor:
+    def adapt_output_for_metrics(
+        self, out: Tensor, indices: Tensor | None = None
+    ) -> Tensor:
         """Adapt the output for metrics.
 
         Args:
-            mu: the mu output from the MDN module
-            indices: the indices to select
+            out: the mu output from the MDN module
+            indices: the mixture components to select, required here
 
         Returns:
             the mean prediction
         """
-        return torch.take_along_dim(mu, indices=indices, dim=1).squeeze(dim=1)
+        assert indices is not None, "The MDN needs mixture component indices."
+        return torch.take_along_dim(out, indices=indices, dim=1).squeeze(dim=1)
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -183,7 +186,7 @@ class MDNRegression(DeterministicRegression):
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> torch.Tensor:
+    ) -> dict[str, Tensor]:
         """Test step.
 
         Args:
@@ -192,7 +195,7 @@ class MDNRegression(DeterministicRegression):
             dataloader_idx: The index of the dataloader
 
         Returns:
-            test loss
+            prediction dictionary
         """
         pred_dict = self.predict_step(batch[self.input_key])
         pred_dict[self.target_key] = batch[self.target_key]

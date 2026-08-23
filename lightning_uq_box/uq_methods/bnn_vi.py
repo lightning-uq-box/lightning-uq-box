@@ -11,6 +11,7 @@ import einops
 import torch
 import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from torch import Tensor
 
 from lightning_uq_box.models.bnn_layers.bnn_utils import convert_deterministic_to_bnn
@@ -242,7 +243,7 @@ class BNN_VI_Base(DeterministicModel):
             {"params": excluded_params, "weight_decay": 0.0},
         ]
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
@@ -410,11 +411,7 @@ class BNN_VI_Regression(BNN_VI_Base):
         return energy_loss, mean_out.detach()
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
@@ -424,6 +421,7 @@ class BNN_VI_Regression(BNN_VI_Base):
             batch_idx: batch index
             dataloader_idx: dataloader index
         """
+        assert isinstance(outputs, dict)
         del outputs["samples"]
         save_regression_predictions(
             outputs, os.path.join(self.trainer.default_root_dir, self.pred_file_name)
@@ -549,7 +547,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             ),
         }
 
-    def forward(self, X: Tensor, n_samples: int) -> Tensor:
+    def forward(self, X: Tensor, n_samples: int = 1) -> Tensor:
         """Forward pass BNN+LI.
 
         Args:
@@ -622,7 +620,7 @@ class BNN_VI_BatchedRegression(BNN_VI_Regression):
             "samples": model_preds,
         }
 
-    def freeze_layers(self, n_samples: int) -> None:
+    def freeze_layers(self, n_samples: int | None = None) -> None:
         """Freeze BNN Layers to fix the stochasticity over forward passes.
 
         Args:

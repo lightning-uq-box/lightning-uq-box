@@ -16,6 +16,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from lightning import LightningModule
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from scipy.optimize import brentq
 from scipy.stats import binom, spearmanr
 from torch import Tensor
@@ -94,7 +95,7 @@ class Img2ImgConformal(PosthocBase):
         """Set up task specific attributes."""
         self.test_metrics = default_px_regression_metrics("test")
 
-    def forward(self, X: Tensor, lam: float | None) -> dict[str, Tensor]:
+    def forward(self, X: Tensor, lam: float | None = None) -> dict[str, Tensor]:
         """Forward pass of model.
 
         Args:
@@ -119,31 +120,39 @@ class Img2ImgConformal(PosthocBase):
 
         return pred
 
-    def adjust_model_logits(self, output: Tensor, lam: float | None = None) -> tuple:
+    def adjust_model_logits(
+        self, model_output: Tensor, lam: float | None = None
+    ) -> dict[str, Tensor]:
         """Compute the nested sets from the output of the model.
 
         Args:
-            output: The output tensor.
+            model_output: The output tensor.
             lam: The lambda parameter. Default is None.
 
         Returns:
-            The lower edge, the output, and the upper edge.
+            the lower edge, the prediction, and the upper edge, keyed
+            "lower", "pred" and "upper"
         """
         if lam is None:
             lam = self.lam
-        output[:, 0, :, :] = torch.minimum(
-            output[:, 0, :, :], output[:, 1, :, :] - 1e-6
+        model_output[:, 0, :, :] = torch.minimum(
+            model_output[:, 0, :, :], model_output[:, 1, :, :] - 1e-6
         )
-        output[:, 2, :, :] = torch.maximum(
-            output[:, 2, :, :], output[:, 1, :, :] + 1e-6
+        model_output[:, 2, :, :] = torch.maximum(
+            model_output[:, 2, :, :], model_output[:, 1, :, :] + 1e-6
         )
         upper_edge = (
-            lam * (output[:, 2, :, :] - output[:, 1, :, :]) + output[:, 1, :, :]
+            lam * (model_output[:, 2, :, :] - model_output[:, 1, :, :])
+            + model_output[:, 1, :, :]
         )
-        lower_edge = output[:, 1, :, :] - lam * (
-            output[:, 1, :, :] - output[:, 0, :, :]
+        lower_edge = model_output[:, 1, :, :] - lam * (
+            model_output[:, 1, :, :] - model_output[:, 0, :, :]
         )
-        return {"lower": lower_edge, "pred": output[:, 1, :, :], "upper": upper_edge}
+        return {
+            "lower": lower_edge,
+            "pred": model_output[:, 1, :, :],
+            "upper": upper_edge,
+        }
 
     def rcps_loss_fn(self, pset: dict[str, Tensor], label: Tensor):
         """RCPS Loss function, fraction_missed_loss by default.
@@ -366,11 +375,7 @@ class Img2ImgConformal(PosthocBase):
         return self.forward(X, lam)
 
     def on_test_batch_end(
-        self,
-        outputs: dict[str, Tensor],
-        batch: Any,
-        batch_idx: int,
-        dataloader_idx: int = 0,
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """Test batch end save predictions.
 
