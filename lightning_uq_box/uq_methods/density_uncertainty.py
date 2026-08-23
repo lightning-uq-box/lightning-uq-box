@@ -10,7 +10,6 @@ import torch
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor, nn
-from torch.optim.adam import Adam as Adam
 
 from lightning_uq_box.models.density_layers import DensityConv2d, DensityLinear
 

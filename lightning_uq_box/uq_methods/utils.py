@@ -385,7 +385,7 @@ def save_classification_predictions(
     if "logits" in outputs:
         _ = outputs.pop("logits")
 
-    pred_set_true = True if "pred_set" in outputs else False
+    pred_set_true = "pred_set" in outputs
 
     if pred_set_true:
         pred_set = [

@@ -174,7 +174,7 @@ class CARDBase(BaseModule):
             training loss
         """
         self.use_ema_model = False
-        loss, y_t_sample = self.diffusion_process(batch)
+        loss, _y_t_sample = self.diffusion_process(batch)
 
         self.log("train_loss", loss, batch_size=batch[self.input_key].shape[0])
         return loss
@@ -199,7 +199,7 @@ class CARDBase(BaseModule):
             validation loss
         """
         self.use_ema_model = True
-        loss, y_t_sample = self.diffusion_process(batch)
+        loss, _y_t_sample = self.diffusion_process(batch)
         self.log("val_loss", loss, batch_size=batch[self.input_key].shape[0])
         self.use_ema_model = False
         return loss

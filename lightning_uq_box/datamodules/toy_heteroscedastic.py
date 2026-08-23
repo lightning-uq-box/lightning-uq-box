@@ -153,9 +153,10 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
         Y_gtext = generate_y(X_gtext, noise=False)
 
         # Fit scalers on train data
-        scalers = dict(
-            X=StandardScaler().fit(self.X_train), Y=StandardScaler().fit(self.Y_train)
-        )
+        scalers = {
+            "X": StandardScaler().fit(self.X_train),
+            "Y": StandardScaler().fit(self.Y_train),
+        }
 
         # Apply scaling to all splits, convert to torch tensors
         for xy in ["X", "Y"]:

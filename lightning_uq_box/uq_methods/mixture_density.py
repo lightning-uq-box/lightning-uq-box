@@ -9,7 +9,6 @@
 import torch
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from torch import Tensor, nn
-from torch.optim.adam import Adam as Adam
 
 from ..models.mixture_density import MixtureDensityLayer
 from .base import DeterministicRegression

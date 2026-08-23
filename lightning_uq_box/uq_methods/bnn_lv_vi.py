@@ -383,7 +383,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
         if self.hparams.latent_variable_intro == "first":
             output_dim = self.prediction_head.out_features
         else:
-            key, module = _get_output_layer_name_and_module(self.prediction_head)
+            _key, module = _get_output_layer_name_and_module(self.prediction_head)
             output_dim = module.out_features
 
         in_noise = torch.randn(n_aleatoric, device=X.device)
@@ -725,7 +725,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
         if self.hparams.latent_variable_intro == "first":
             output_dim = self.prediction_head.out_features
         else:
-            key, module = _get_output_layer_name_and_module(self.prediction_head)
+            _key, module = _get_output_layer_name_and_module(self.prediction_head)
             output_dim = module.out_features
 
         in_noise = torch.randn(n_aleatoric)

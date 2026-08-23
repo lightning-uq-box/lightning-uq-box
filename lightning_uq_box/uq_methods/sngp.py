@@ -14,7 +14,7 @@ from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor, nn
 from torch.nn.modules import Module
-from torch.optim.adam import Adam as Adam
+from torch.optim.adam import Adam
 
 from .base import BaseModule
 from .spectral_normalized_layers import (

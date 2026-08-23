@@ -19,7 +19,7 @@ def plot_training_metrics(save_dir: str, metrics: list[str]) -> plt.Figure:
         save_dir: path to save directory of CSVLogger
         metrics: list of metrics to plot
     """
-    latest_version = sorted(os.listdir(save_dir))[-1]
+    latest_version = max(os.listdir(save_dir))
     metrics_path = os.path.join(save_dir, latest_version, "metrics.csv")
 
     df = pd.read_csv(metrics_path)

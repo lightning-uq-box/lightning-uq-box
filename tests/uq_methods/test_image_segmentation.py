@@ -180,11 +180,11 @@ class TestFrozenSegmentation:
         seg_model = module.model
 
         assert all(
-            [param.requires_grad is False for param in seg_model.encoder.parameters()]
+            param.requires_grad is False for param in seg_model.encoder.parameters()
         )
-        assert all([param.requires_grad for param in seg_model.decoder.parameters()])
+        assert all(param.requires_grad for param in seg_model.decoder.parameters())
         assert all(
-            [param.requires_grad for param in seg_model.segmentation_head.parameters()]
+            param.requires_grad for param in seg_model.segmentation_head.parameters()
         )
 
     @pytest.mark.parametrize("model_name", ["Unet", "DeepLabV3Plus"])
@@ -204,9 +204,9 @@ class TestFrozenSegmentation:
         seg_model = module.model
 
         assert all(
-            [param.requires_grad is False for param in seg_model.decoder.parameters()]
+            param.requires_grad is False for param in seg_model.decoder.parameters()
         )
-        assert all([param.requires_grad for param in seg_model.encoder.parameters()])
+        assert all(param.requires_grad for param in seg_model.encoder.parameters())
         assert all(
-            [param.requires_grad for param in seg_model.segmentation_head.parameters()]
+            param.requires_grad for param in seg_model.segmentation_head.parameters()
         )

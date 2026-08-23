@@ -51,7 +51,11 @@ class SGLD(Optimizer):
             noise_factor: parameter denoting how much noise to inject in the SGD update
             weight_decay: weight decay parameter for SGLD optimizer
         """
-        defaults = dict(lr=lr, noise_factor=noise_factor, weight_decay=weight_decay)
+        defaults = {
+            "lr": lr,
+            "noise_factor": noise_factor,
+            "weight_decay": weight_decay,
+        }
         super().__init__(params, defaults)
         self.lr = lr
 

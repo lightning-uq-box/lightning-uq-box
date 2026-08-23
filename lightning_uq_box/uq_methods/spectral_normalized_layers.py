@@ -395,7 +395,7 @@ class SpectralNormConv(SpectralNorm):
             eps: epsilon
 
         """
-        for k, hook in module._forward_pre_hooks.items():
+        for hook in module._forward_pre_hooks.values():
             if isinstance(hook, SpectralNormConv) and hook.name == name:
                 raise RuntimeError(
                     "Cannot register two spectral_norm hooks on "
@@ -549,7 +549,7 @@ class SpectralNormFC(SpectralNorm):
         Returns:
             spectral normalized layer
         """
-        for k, hook in module._forward_pre_hooks.items():
+        for hook in module._forward_pre_hooks.values():
             if isinstance(hook, SpectralNorm) and hook.name == name:
                 raise RuntimeError(
                     "Cannot register two spectral_norm hooks on "

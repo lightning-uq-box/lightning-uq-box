@@ -230,6 +230,9 @@ extend-select = ["D", "E4", "E7", "F", "I", "UP"]
 [tool.ruff.lint.per-file-ignores]
 "docs/**" = ["D"]
 "tests/**" = ["D"]
+# __all__ is grouped by UQ method family with section comments that mirror the
+# docs, so it is deliberately not in alphabetical order.
+"**/__init__.py" = ["RUF022"]
 
 [tool.ruff.lint.isort]
 split-on-trailing-comma = false

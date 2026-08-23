@@ -172,7 +172,7 @@ class TTABase(PosthocBase):
         #  with the augmentations and compute uncertainty on those?
         aug_preds: dict[str, Tensor] = {}
         if isinstance(aug_predictions[0], dict):
-            for key in aug_predictions[0].keys():
+            for key in aug_predictions[0]:
                 aug_preds[key] = torch.stack(
                     [pred[key] for pred in aug_predictions], dim=-1
                 )

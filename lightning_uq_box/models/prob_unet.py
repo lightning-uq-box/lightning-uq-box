@@ -50,7 +50,7 @@ def init_weights_orthogonal_normal(m: nn.Module) -> None:
     Args:
         m: Model whose weights need to be initialized
     """
-    if isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
+    if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
         nn.init.orthogonal_(m.weight)
         assert m.bias is not None
         truncated_normal_(m.bias, mean=0, std=0.001)

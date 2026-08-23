@@ -181,15 +181,15 @@ class TestFrozenBackbone:
         model = cli.model
         try:
             assert not all(
-                [param.requires_grad for param in model.model.model[0].parameters()]
+                param.requires_grad for param in model.model.model[0].parameters()
             )
             assert all(
-                [param.requires_grad for param in model.model.model[-1].parameters()]
+                param.requires_grad for param in model.model.model[-1].parameters()
             )
         except AttributeError:
             # check that entire feature extractor is frozen
             assert not all(
-                [param.requires_grad for param in model.feature_extractor.parameters()]
+                param.requires_grad for param in model.feature_extractor.parameters()
             )
 
 
