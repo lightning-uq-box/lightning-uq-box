@@ -86,5 +86,6 @@ tutorial_overview
 running_experiments
 api/index
 contribute
+method_task_transition
 GitHub Repository <https://github.com/lightning-uq-box/lightning-uq-box>
 ```

@@ -1,0 +1,23 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.MCDropout
+  model:
+    _target_: segmentation_models_pytorch.Unet
+    encoder_name: resnet18
+    encoder_weights: null
+    classes: 4
+    in_channels: 3
+    encoder_depth: 2
+    decoder_channels: [16, 8]
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ConstantLR
+    _partial_: true
+  num_mc_samples: 2
+  loss_fn:
+    _target_: torch.nn.CrossEntropyLoss
+  task:
+    _target_: lightning_uq_box.uq_methods.SegmentationTask
+    mode: multiclass

@@ -3,19 +3,24 @@
 
 """Test Utilities for UQ-Methods."""
 
+import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
 import torch
 from conftest import minimal_cli_overrides
 
+import lightning_uq_box.uq_methods.utils as uq_utils
 from lightning_uq_box.main import get_uq_box_cli
 from lightning_uq_box.uq_methods.utils import (
     checkpoint_loader,
     default_classification_metrics,
+    default_regression_metrics,
     default_segmentation_metrics,
     process_classification_prediction,
+    process_segmentation_prediction,
     save_classification_predictions,
 )
 
@@ -162,3 +167,78 @@ def test_save_classification_predictions_multilabel(tmp_path: Path) -> None:
         assert df[f"class_prob_{i}"].tolist() == pytest.approx(
             class_probs[:, i].tolist()
         )
+
+
+def test_binary_prediction_helpers_preserve_single_item_batches() -> None:
+    """One-logit vector and dense conversions never squeeze the batch axis."""
+    classification_logits = torch.tensor([[[1.0, -1.0]]])
+    classification = process_classification_prediction(
+        classification_logits, task="binary", binary_encoding="one_logit"
+    )
+    assert classification["pred"].shape == (1, 1)
+    assert classification["pred_uct"].shape == (1,)
+
+    segmentation_logits = torch.zeros(1, 1, 2, 2, 2)
+    segmentation = process_segmentation_prediction(
+        segmentation_logits, task="binary", binary_encoding="one_logit"
+    )
+    assert segmentation["pred"].shape == (1, 1, 2, 2)
+    assert segmentation["pred_uct"].shape == (1, 2, 2)
+
+
+def test_canonical_metric_and_writer_helpers_cover_edge_shapes(tmp_path: Path) -> None:
+    """Canonical helpers support B=1 without restoring legacy squeeze behavior."""
+    assert "R2" in default_regression_metrics("test")
+    assert "R2" not in default_regression_metrics("test", include_r2=False)
+    binary = default_classification_metrics("test", "binary", 1)
+    assert binary(torch.tensor([0.8]), torch.tensor([1]))
+    assert uq_utils._writer_array(torch.ones(1, 1)).shape == (1,)
+    assert uq_utils._writer_array(torch.tensor(1.0)).shape == (1,)
+    assert np.array_equal(uq_utils._writer_array([1, 2]), np.array([1, 2]))
+
+    outputs = {
+        "pred": torch.tensor([0.8]),
+        "target": torch.tensor([1]),
+        "samples": torch.tensor([[0.8, 0.7]]),
+        "logits": torch.tensor([[1.0]]),
+        "pred_set": [torch.tensor([True, False])],
+    }
+    path = tmp_path / "nested" / "preds.csv"
+    save_classification_predictions(
+        outputs, str(path), task="binary", binary_encoding="one_logit"
+    )
+    assert set(outputs) == {"pred", "target", "samples", "logits", "pred_set"}
+    assert pd.read_csv(path)["pred"].tolist() == [1]
+
+
+def test_distributed_paths_are_rank_sharded_with_a_manifest(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Distributed writers never share a filename and rank zero publishes discovery."""
+    monkeypatch.setattr(uq_utils.torch.distributed, "is_available", lambda: True)
+    monkeypatch.setattr(uq_utils.torch.distributed, "is_initialized", lambda: True)
+    monkeypatch.setattr(uq_utils.torch.distributed, "get_world_size", lambda: 2)
+    monkeypatch.setattr(uq_utils.torch.distributed, "get_rank", lambda: 0)
+    path = tmp_path / "preds.csv"
+    assert uq_utils._distributed_path(str(path)) == str(tmp_path / "preds.rank-0.csv")
+    manifest = json.loads((tmp_path / "preds.manifest.json").read_text())
+    assert manifest == {
+        "version": 1,
+        "world_size": 2,
+        "shards": ["preds.rank-0.csv", "preds.rank-1.csv"],
+    }
+    monkeypatch.setattr(uq_utils.torch.distributed, "get_rank", lambda: 1)
+    assert uq_utils._distributed_path(str(path)) == str(tmp_path / "preds.rank-1.csv")
+
+
+def test_distributed_path_keeps_single_process_filename(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Unavailable and single-rank distributed backends preserve legacy paths."""
+    path = str(tmp_path / "preds.csv")
+    monkeypatch.setattr(uq_utils.torch.distributed, "is_available", lambda: False)
+    assert uq_utils._distributed_path(path) == path
+    monkeypatch.setattr(uq_utils.torch.distributed, "is_available", lambda: True)
+    monkeypatch.setattr(uq_utils.torch.distributed, "is_initialized", lambda: True)
+    monkeypatch.setattr(uq_utils.torch.distributed, "get_world_size", lambda: 1)
+    assert uq_utils._distributed_path(path) == path
