@@ -9,7 +9,7 @@
 """ZigZag Universal Sampling-free Uncertainty Estimation."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from einops import repeat
@@ -295,7 +295,7 @@ class ZigZagClassification(ZigZagBase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

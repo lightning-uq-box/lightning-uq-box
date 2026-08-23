@@ -7,7 +7,7 @@
 
 import math
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -356,7 +356,7 @@ class SNGPClassification(SNGPBase):
     * https://arxiv.org/abs/2006.10108
     """
 
-    valid_tasks = ["binary", "multiclass"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass"]
 
     def __init__(
         self,

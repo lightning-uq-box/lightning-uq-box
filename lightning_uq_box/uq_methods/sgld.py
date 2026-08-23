@@ -7,7 +7,7 @@
 
 import os
 from collections.abc import Callable, Iterator
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
@@ -302,7 +302,7 @@ class SGLDRegression(SGLDBase):
 class SGLDClassification(SGLDBase):
     """Stochastic Gradient Langevin Dynamics method for classification."""
 
-    valid_tasks = ["multiclass", "binary", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["multiclass", "binary", "multilabel"]
     pred_file_name = "preds.csv"
 
     def __init__(

@@ -5,7 +5,7 @@
 
 import copy
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from laplace import Laplace
@@ -399,7 +399,7 @@ class LaplaceClassification(LaplaceBase):
     * https://arxiv.org/abs/2106.14806
     """
 
-    valid_tasks = ["binary", "multiclass"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass"]
 
     def __init__(
         self,

@@ -38,6 +38,8 @@ https://github.com/IntelLabs/bayesian-torch (BSD-3 clause) but
 adjusted to be trained with the Energy Loss and have batched samples.
 """
 
+from typing import ClassVar
+
 import torch
 import torch.nn.functional as F
 from torch import Tensor
@@ -49,7 +51,7 @@ from .base_variational import BaseVariationalLayer_
 class LinearVariational(BaseVariationalLayer_):
     """Linear Variational Layer adapted for Alpha Divergence."""
 
-    valid_layer_types = ["reparameterization", "flipout"]
+    valid_layer_types: ClassVar[list[str]] = ["reparameterization", "flipout"]
 
     def __init__(
         self,

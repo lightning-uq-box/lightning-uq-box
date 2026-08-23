@@ -13,7 +13,7 @@ to be integrated with Lightning and port several functions to pytorch.
 
 import os
 from functools import partial
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import pandas as pd
@@ -46,8 +46,8 @@ class RAPS(PosthocBase):
     * https://arxiv.org/abs/2009.14193
     """
 
-    valid_tasks = ["binary", "multiclass", "multilabel"]
-    valid_lambda_criterion = ["size", "adaptiveness"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
+    valid_lambda_criterion: ClassVar[list[str]] = ["size", "adaptiveness"]
     pred_file_name = "preds.csv"
 
     def __init__(

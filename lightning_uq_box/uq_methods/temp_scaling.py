@@ -6,7 +6,7 @@ Adapted from https://github.com/gpleiss/temperature_scaling/blob/master/temperat
 import os
 from collections.abc import Callable
 from functools import partial
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 import torch.nn.functional as F
@@ -29,7 +29,7 @@ class TempScaling(PosthocBase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks = ["binary", "multiclass"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass"]
 
     def __init__(
         self,

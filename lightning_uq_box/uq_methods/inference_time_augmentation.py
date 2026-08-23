@@ -5,7 +5,7 @@
 
 import os
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 import kornia.augmentation as K
 import torch
@@ -58,7 +58,13 @@ class TTABase(PosthocBase):
     an additional prediction will be made for each element in `tt_augmentation`.
     """
 
-    valid_merge_strategies: list[str] = ["mean", "median", "sum", "max", "min"]
+    valid_merge_strategies: ClassVar[list[str]] = [
+        "mean",
+        "median",
+        "sum",
+        "max",
+        "min",
+    ]
 
     def __init__(
         self,
@@ -295,7 +301,7 @@ class TTAClassification(TTABase):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks: list[str] = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

@@ -5,7 +5,7 @@
 
 import math
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import einops
 import numpy as np
@@ -44,7 +44,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
     # set as a class attribute by the concrete subclasses
     nll_loss: nn.GaussianNLLLoss
 
-    lv_intro_options = ["first", "last"]
+    lv_intro_options: ClassVar[list[str]] = ["first", "last"]
 
     def __init__(
         self,

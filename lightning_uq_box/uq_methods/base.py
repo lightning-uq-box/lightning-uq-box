@@ -4,7 +4,7 @@
 """Base Model for UQ methods."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from lightning import LightningModule
@@ -337,7 +337,7 @@ class DeterministicClassification(DeterministicModel):
 
     pred_file_name = "preds.csv"
 
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

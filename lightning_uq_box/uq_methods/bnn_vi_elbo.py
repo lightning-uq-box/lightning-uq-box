@@ -5,7 +5,7 @@
 
 import os
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -442,7 +442,7 @@ class BNN_VI_ELBO_Classification(BNN_VI_ELBO_Base):
     """
 
     pred_file_name = "preds.csv"
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

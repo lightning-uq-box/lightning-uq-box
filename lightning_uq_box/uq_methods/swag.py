@@ -29,7 +29,7 @@ import math
 import os
 from collections import OrderedDict
 from copy import deepcopy
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
@@ -425,7 +425,7 @@ class SWAGClassification(SWAGBase):
     """
 
     pred_file_name = "preds.csv"
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

@@ -8,7 +8,7 @@ Based on official PyTorch implementation from https://github.com/XzwHan/CARD # n
 
 import math
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from ema_pytorch import EMA
@@ -636,7 +636,7 @@ class CARDClassification(CARDBase):
     * https://arxiv.org/abs/2206.07275
     """
 
-    valid_tasks = ["binary", "multiclass"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass"]
 
     def __init__(
         self,
@@ -762,7 +762,7 @@ class CARDClassification(CARDBase):
 class NoiseScheduler:
     """Noise Scheduler for Diffusion Training."""
 
-    valid_schedules = [
+    valid_schedules: ClassVar[list[str]] = [
         "linear",
         "const",
         "quad",

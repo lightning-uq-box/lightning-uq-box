@@ -4,7 +4,7 @@
 """Density Uncertainty Layer Model."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -381,7 +381,7 @@ class DensityLayerModelRegression(DensityLayerModelBase):
 class DensityLayerModelClassification(DensityLayerModelBase):
     """Density Layer Model for Classification Tasks."""
 
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

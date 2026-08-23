@@ -40,6 +40,7 @@ adjusted to be trained with the Energy Loss and support batched inputs.
 
 import math
 from collections.abc import Callable
+from typing import ClassVar
 
 import torch
 from torch import Tensor, nn
@@ -54,7 +55,7 @@ from lightning_uq_box.models.bnn_layers.bnn_utils import (
 class BaseVariationalLayer_(nn.Module):
     """Base Variational Layer for BNN Layers."""
 
-    valid_layer_types = ["reparameterization", "flipout"]
+    valid_layer_types: ClassVar[list[str]] = ["reparameterization", "flipout"]
 
     # Registered by define_bayesian_weight_params() in the subclasses. Declared here so
     # they read as tensors rather than through nn.Module.__getattr__, which returns

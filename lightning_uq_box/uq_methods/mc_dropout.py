@@ -4,7 +4,7 @@
 """Mc-Dropout module."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
@@ -276,7 +276,7 @@ class MCDropoutClassification(MCDropoutBase):
     """
 
     pred_file_name = "preds.csv"
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     def __init__(
         self,

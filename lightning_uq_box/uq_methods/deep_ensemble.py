@@ -4,7 +4,7 @@
 """Implement a Deep Ensemble Model for prediction."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 from lightning.pytorch.utilities.types import STEP_OUTPUT
@@ -167,7 +167,7 @@ class DeepEnsembleClassification(DeepEnsemble):
     * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html
     """
 
-    valid_tasks = ["multiclass", "binary", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["multiclass", "binary", "multilabel"]
     pred_file_name = "preds.csv"
 
     def __init__(

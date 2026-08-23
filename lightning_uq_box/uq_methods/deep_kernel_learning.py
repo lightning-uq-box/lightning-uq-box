@@ -4,7 +4,7 @@
 """Deep Kernel Learning."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import gpytorch
 import numpy as np
@@ -54,7 +54,13 @@ class DKLBase(gpytorch.Module, BaseModule):
 
     # TODO make elbo_fn an argument that can be instatiated with
     # different elbo functions and Lightning CLI
-    kernel_choices = ["RBF", "Matern12", "Matern32", "Matern52", "RQ"]
+    kernel_choices: ClassVar[list[str]] = [
+        "RBF",
+        "Matern12",
+        "Matern32",
+        "Matern52",
+        "RQ",
+    ]
     pred_file_name = "preds.csv"
 
     def __init__(
@@ -433,7 +439,7 @@ class DKLClassification(DKLBase):
     * https://arxiv.org/abs/2102.11409
     """
 
-    valid_tasks = ["binary", "multiclass", "multilabel"]
+    valid_tasks: ClassVar[list[str]] = ["binary", "multiclass", "multilabel"]
 
     # TODO
     # gp_layer: Callable[[only. the two args that are needed from computation],
@@ -641,7 +647,13 @@ class DKLGPLayer(ApproximateGP):
     Taken from https://github.com/y0ast/DUE/blob/f29c990811fd6a8e76215f17049e6952ef5ea0c9/due/dkl.py#L62 # noqa: E501
     """
 
-    kernel_choices = ["RBF", "Matern12", "Matern32", "Matern52", "RQ"]
+    kernel_choices: ClassVar[list[str]] = [
+        "RBF",
+        "Matern12",
+        "Matern32",
+        "Matern52",
+        "RQ",
+    ]
 
     def __init__(
         self,

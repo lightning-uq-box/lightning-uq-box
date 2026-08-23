@@ -22,7 +22,7 @@
 """Probabilistic U-Net."""
 
 import os
-from typing import Any
+from typing import Any, ClassVar
 
 import torch
 import torch.nn.functional as F
@@ -49,7 +49,7 @@ class ProbUNet(BaseModule):
     * https://arxiv.org/abs/1806.05034
     """
 
-    valid_tasks = ["multiclass", "binary"]
+    valid_tasks: ClassVar[list[str]] = ["multiclass", "binary"]
 
     pred_dir_name = "preds"
 
