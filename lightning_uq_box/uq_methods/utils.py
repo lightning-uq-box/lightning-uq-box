@@ -359,7 +359,9 @@ def save_regression_predictions(outputs: STEP_OUTPUT, path: str) -> None:
         df.to_csv(path, index=False)
 
 
-def save_classification_predictions(outputs: STEP_OUTPUT, path: str) -> None:
+def save_classification_predictions(
+    outputs: STEP_OUTPUT, path: str, task: str = "multiclass"
+) -> None:
     """Save classification predictions to csv file.
 
     For the "multilabel" task the labels are not mutually exclusive, so instead
