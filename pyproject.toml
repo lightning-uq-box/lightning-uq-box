@@ -10,7 +10,7 @@ build-backend = "uv_build"
 name = "lightning-uq-box"
 # uv_build does not support dynamic versions. lightning_uq_box.__version__ reads
 # this value back at runtime via importlib.metadata.
-version = "0.3.0"
+version = "0.4.0.dev0"
 description = "Lightning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
 readme = "README.md"
 requires-python = ">=3.12"
