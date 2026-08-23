@@ -89,7 +89,7 @@ style = [
     # ruff 0.14+ required for the renamed ruff-check pre-commit hook id.
     # ruff 0.15 expands the default rule set (245 new findings); bumping it is
     # deliberate follow-up work, so let dependabot propose it on its own.
-    "ruff>=0.14,<0.15",
+    "ruff>=0.14,<0.17",
     # ty replaces mypy. ty is pre-1.0 and every release can add new diagnostics, so a
     # version bump may require code changes rather than a rubber stamp.
     "ty>=0.0.73",
