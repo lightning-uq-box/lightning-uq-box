@@ -8,6 +8,7 @@ import os
 from typing import Any
 
 import torch
+import torch.nn as nn
 from laplace import Laplace
 from torch import Tensor
 from tqdm import trange
@@ -81,6 +82,9 @@ class LaplaceBase(BaseModule):
     """
 
     pred_file_name = "preds.csv"
+
+    # assigned by the concrete subclasses
+    loss_fn: nn.Module
 
     def __init__(
         self,

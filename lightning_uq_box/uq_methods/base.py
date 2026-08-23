@@ -12,6 +12,7 @@ from lightning import LightningModule
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from omegaconf import OmegaConf
 from torch import Tensor
+from torchmetrics import MetricCollection
 
 from .utils import (
     _get_num_inputs,
@@ -41,6 +42,13 @@ class BaseModule(LightningModule):
 
     input_key = "input"
     target_key = "target"
+
+    # Assigned by each subclass, usually in setup_task(). Declared here so they read as
+    # MetricCollections rather than through nn.Module.__getattr__, which returns
+    # `Tensor | Module`, and so the contract on subclasses is stated in one place.
+    train_metrics: MetricCollection
+    val_metrics: MetricCollection
+    test_metrics: MetricCollection
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         """Initialize a new instance of the Base Module."""

@@ -153,8 +153,8 @@ class RAPS(PosthocBase):
         # need to set manually because of inference mode
         self.eval()
         with torch.no_grad():
-            if hasattr(self.model, "predict_step"):
-                logits = self.model.predict_step(X)["logits"]
+            if callable(predict_step := getattr(self.model, "predict_step", None)):
+                logits = predict_step(X)["logits"]
             else:
                 logits = self.model(X)
             # temp scale logits just for prediction processing

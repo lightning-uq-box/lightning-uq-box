@@ -201,7 +201,6 @@ include = ["lightning_uq_box/uq_methods"]
 # `self.hparams.<name>` read is unresolved. torchgeo mutes this rule globally.
 unresolved-attribute = "ignore"
 # TODO: fix and delete, one family per PR.
-call-non-callable = "ignore"
 empty-body = "ignore"
 index-out-of-bounds = "ignore"
 invalid-argument-type = "ignore"

@@ -7,7 +7,6 @@ import os
 from typing import Any
 
 import torch
-from lightning import LightningModule
 from torch import Tensor
 
 from .base import BaseModule
@@ -33,9 +32,7 @@ class DeepEnsemble(BaseModule):
     * https://proceedings.neurips.cc/paper_files/paper/2017/hash/9ef2ed4b7fd2c810847ffa5fa85bce38-Abstract.html # noqa: E501
     """
 
-    def __init__(
-        self, ensemble_members: list[dict[str, type[LightningModule] | str]]
-    ) -> None:
+    def __init__(self, ensemble_members: list[dict[str, Any]]) -> None:
         """Initialize a new instance of DeepEnsembleModel Wrapper.
 
         Args:
@@ -179,7 +176,7 @@ class DeepEnsembleClassification(DeepEnsemble):
 
     def __init__(
         self,
-        ensemble_members: list[dict[str, type[LightningModule] | str]],
+        ensemble_members: list[dict[str, Any]],
         num_classes: int,
         task: str = "multiclass",
     ) -> None:
@@ -254,7 +251,7 @@ class DeepEnsembleSegmentation(DeepEnsembleClassification):
 
     def __init__(
         self,
-        ensemble_members: list[dict[str, type[LightningModule] | str]],
+        ensemble_members: list[dict[str, Any]],
         num_classes: int,
         task: str = "multiclass",
         save_preds: bool = False,
@@ -331,9 +328,7 @@ class DeepEnsemblePxRegression(DeepEnsembleRegression):
     """  # noqa: E501
 
     def __init__(
-        self,
-        ensemble_members: list[dict[str, type[LightningModule] | str]],
-        save_preds: bool = False,
+        self, ensemble_members: list[dict[str, Any]], save_preds: bool = False
     ) -> None:
         """Initialize a new instance of DeepEnsemble for Pixelwise Regression.
 

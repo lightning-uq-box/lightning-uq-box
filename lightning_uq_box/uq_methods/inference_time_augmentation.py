@@ -141,8 +141,8 @@ class TTABase(PosthocBase):
         def yield_prediction(X: Tensor) -> Tensor | dict[str, Tensor]:
             """Yield prediction depending on underlying model."""
             with torch.no_grad():
-                if hasattr(self.model, "predict_step"):
-                    pred = self.model.predict_step(X)
+                if callable(predict_step := getattr(self.model, "predict_step", None)):
+                    pred = predict_step(X)
                 else:
                     pred = self.model(X)
             return pred

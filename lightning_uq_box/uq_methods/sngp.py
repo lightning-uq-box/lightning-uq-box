@@ -110,6 +110,10 @@ class SNGPBase(BaseModule):
 
         self.setup_task()
 
+    def setup_task(self) -> None:
+        """Set up task specific attributes."""
+        raise NotImplementedError
+
     def _build_model(self) -> None:
         """Build SNGP model."""
         if self.num_gp_features > 0:
