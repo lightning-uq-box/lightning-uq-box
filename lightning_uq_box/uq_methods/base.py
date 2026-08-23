@@ -23,6 +23,7 @@ from .utils import (
     default_segmentation_metrics,
     freeze_model_backbone,
     freeze_segmentation_model,
+    identity,
     process_classification_prediction,
     process_segmentation_prediction,
     save_classification_predictions,
@@ -403,9 +404,6 @@ class DeterministicClassification(DeterministicModel):
         with torch.no_grad():
             out = self.forward(X)
 
-        def identity(x, dim=None):
-            return x
-
         return process_classification_prediction(
             out, aggregate_fn=identity, task=self.task
         )
@@ -501,9 +499,6 @@ class DeterministicSegmentation(DeterministicClassification):
         """
         with torch.no_grad():
             out = self.forward(X)
-
-        def identity(x, dim=None):
-            return x
 
         return process_segmentation_prediction(
             out, aggregate_fn=identity, task=self.task

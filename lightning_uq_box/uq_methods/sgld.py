@@ -251,7 +251,7 @@ class SGLDRegression(SGLDBase):
         )  # logging to Logger
         self.train_metrics(self.adapt_output_for_metrics(out), y)
 
-        # return loss
+        return loss
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
