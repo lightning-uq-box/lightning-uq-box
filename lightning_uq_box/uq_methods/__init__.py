@@ -5,12 +5,14 @@
 
 from .base import (
     BaseModule,
+    Deterministic,
     DeterministicClassification,
     DeterministicModel,
     DeterministicPixelRegression,
     DeterministicRegression,
     DeterministicSegmentation,
     PosthocBase,
+    TaskMethodBase,
 )
 from .bnn_lv_vi import (
     BNN_LV_VI_Base,
@@ -27,6 +29,7 @@ from .bnn_vi_elbo import (
 )
 from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
 from .conformal_qr import ConformalQR
+from .contracts import MethodSpec, OutputField, OutputSchema, TaskCapability
 from .deep_ensemble import (
     DeepEnsemble,
     DeepEnsembleClassification,
@@ -58,6 +61,7 @@ from .masked_ensemble import (
     MasksemblesRegression,
 )
 from .mc_dropout import (
+    MCDropout,
     MCDropoutBase,
     MCDropoutClassification,
     MCDropoutPxRegression,
@@ -65,6 +69,12 @@ from .mc_dropout import (
     MCDropoutSegmentation,
 )
 from .mean_variance_estimation import MVEBase, MVEPxRegression, MVERegression
+from .method_specs import (
+    DETERMINISTIC_SPEC,
+    MCDROPOUT_SPEC,
+    get_method_spec,
+    iter_method_specs,
+)
 from .mixture_density import MDNRegression
 from .prob_unet import ProbUNet
 from .quantile_regression import (
@@ -89,6 +99,15 @@ from .swag import (
     SWAGRegression,
     SWAGSegmentation,
 )
+from .tasks import (
+    ClassificationTask,
+    PixelRegressionTask,
+    RegressionTask,
+    SegmentationTask,
+    TaskSpec,
+    normalize_task,
+    task_from_mapping,
+)
 from .temp_scaling import TempScaling
 from .vae import VAE, ConditionalVAE
 from .vbll import VBLLClassification, VBLLRegression
@@ -98,7 +117,25 @@ __all__ = (
     # Base Module
     "BaseModule",
     "PosthocBase",
+    "TaskMethodBase",
+    # canonical task values and contracts
+    "TaskSpec",
+    "RegressionTask",
+    "ClassificationTask",
+    "SegmentationTask",
+    "PixelRegressionTask",
+    "normalize_task",
+    "task_from_mapping",
+    "OutputField",
+    "OutputSchema",
+    "TaskCapability",
+    "MethodSpec",
+    "DETERMINISTIC_SPEC",
+    "MCDROPOUT_SPEC",
+    "get_method_spec",
+    "iter_method_specs",
     # base model
+    "Deterministic",
     "DeterministicModel",
     "DeterministicClassification",
     "DeterministicRegression",
@@ -112,6 +149,7 @@ __all__ = (
     # conformalized Quantile Regression
     "ConformalQR",
     # MC-Dropout
+    "MCDropout",
     "MCDropoutBase",
     "MCDropoutRegression",
     "MCDropoutClassification",
