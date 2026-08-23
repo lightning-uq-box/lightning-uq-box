@@ -228,19 +228,13 @@ class _SpectralBatchNorm(_NormBase):
 class SpectralBatchNorm1d(_SpectralBatchNorm, nn.BatchNorm1d):
     """Spectral Normalized Batch Norm 1D."""
 
-    pass
-
 
 class SpectralBatchNorm2d(_SpectralBatchNorm, nn.BatchNorm2d):
     """Spectral Normalized Batch Norm 2D."""
 
-    pass
-
 
 class SpectralBatchNorm3d(_SpectralBatchNorm, nn.BatchNorm3d):
     """Spectral Normalized Batch Norm 3D."""
-
-    pass
 
 
 def spectral_norm_batch_norm(

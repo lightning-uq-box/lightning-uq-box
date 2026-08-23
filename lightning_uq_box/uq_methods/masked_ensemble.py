@@ -7,11 +7,10 @@ import os
 from typing import Any
 
 import torch
-import torch.nn as nn
 from einops import rearrange, repeat
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 
 from lightning_uq_box.models.masked_ensemble.utils import (
     convert_deterministic_to_masked_ensemble,

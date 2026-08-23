@@ -10,9 +10,8 @@ from collections.abc import Callable, Iterator
 from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 from torch.optim.optimizer import Optimizer
 
 from lightning_uq_box.uq_methods import DeterministicModel

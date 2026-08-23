@@ -9,7 +9,6 @@ from typing import Any
 import gpytorch
 import numpy as np
 import torch
-import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import MaternKernel, RBFKernel, RQKernel, ScaleKernel
 from gpytorch.likelihoods import GaussianLikelihood, SoftmaxLikelihood
@@ -25,7 +24,7 @@ from gpytorch.variational import (
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from sklearn import cluster
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import Dataset
 
 from .base import BaseModule
@@ -92,7 +91,7 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         assert gp_kernel in self.kernel_choices, (
             "Please choose one of the supported kernel choices ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']"
-        )  # noqa: E501
+        )
         self.gp_kernel = gp_kernel
         self.optimizer = optimizer
         self.feature_extractor = feature_extractor

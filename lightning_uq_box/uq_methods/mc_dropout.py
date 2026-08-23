@@ -7,10 +7,9 @@ import os
 from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 
 from .base import DeterministicModel
 from .utils import (
@@ -77,7 +76,6 @@ class MCDropoutBase(DeterministicModel):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
-        pass
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0

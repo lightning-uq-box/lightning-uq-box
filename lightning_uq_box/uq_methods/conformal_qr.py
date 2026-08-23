@@ -9,10 +9,9 @@ import os
 from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 
 from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 
@@ -57,7 +56,7 @@ class ConformalQR(PosthocBase):
     If you use this model, please cite the following paper:
 
     * https://papers.nips.cc/paper_files/paper/2019/hash/5103c3584b063c431bd1268e9b5e76fb-Abstract.html
-    """  # noqa: E501
+    """
 
     pred_file_name = "preds.csv"
 
@@ -219,7 +218,6 @@ class ConformalQR(PosthocBase):
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         """No optimizer needed for Conformal QR."""
-        pass
 
     def on_test_batch_end(
         self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0

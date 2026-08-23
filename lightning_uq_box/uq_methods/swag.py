@@ -32,9 +32,8 @@ from copy import deepcopy
 from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 from torch.distributions import Normal
 
 from .base import DeterministicModel
@@ -103,7 +102,6 @@ class SWAGBase(DeterministicModel):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
-        pass
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -128,7 +126,6 @@ class SWAGBase(DeterministicModel):
 
     def on_train_epoch_end(self):
         """Do not Log epoch-level training metrics."""
-        pass
 
     def on_train_end(self) -> None:
         """After training stage is completed, swag is fitted."""
@@ -136,11 +133,9 @@ class SWAGBase(DeterministicModel):
 
     def validation_step(self, *args: Any, **kwargs: Any) -> Tensor:
         """Not intended to be used."""
-        pass
 
     def on_validation_epoch_end(self) -> None:
         """Do not log any validation metrics."""
-        pass
 
     def _find_weights_and_bias_modules(self, instance: nn.Module) -> list[str]:
         """Find weights and bias modules corresponding to part stochastic modules."""
@@ -149,7 +144,7 @@ class SWAGBase(DeterministicModel):
             if (
                 name.removesuffix(".weight").removesuffix(".bias")
                 in self.stochastic_module_names
-            ):  # noqa: E501
+            ):
                 model_w_and_b_module_names.append(name)
         return model_w_and_b_module_names
 
@@ -342,7 +337,7 @@ class SWAGRegression(SWAGBase):
     If you use this model in your research, please cite the following paper:
 
     * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
-    """  # noqa: E501
+    """
 
     pred_file_name = "preds.csv"
 
@@ -427,7 +422,7 @@ class SWAGClassification(SWAGBase):
     If you use this model in your research, please cite the following paper:
 
     * https://proceedings.neurips.cc/paper_files/paper/2019/hash/118921efba23fc329e6560b27861f0c2-Abstract.html
-    """  # noqa: E501
+    """
 
     pred_file_name = "preds.csv"
     valid_tasks = ["binary", "multiclass", "multilabel"]

@@ -8,7 +8,7 @@ import inspect
 import pytest
 from lightning import LightningModule
 
-import lightning_uq_box.uq_methods as uq_methods
+from lightning_uq_box import uq_methods
 
 HOOKS = ["on_test_batch_end"]
 

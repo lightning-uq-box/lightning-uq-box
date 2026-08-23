@@ -1,7 +1,7 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the Apache License 2.0.
 
-"""Bayesian Neural Networks with Variational Inference and Latent Variables."""  # noqa: E501
+"""Bayesian Neural Networks with Variational Inference and Latent Variables."""
 
 import math
 import os
@@ -10,10 +10,9 @@ from typing import Any
 import einops
 import numpy as np
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 
 from lightning_uq_box.models.bnnlv.latent_variable_network import LatentVariableNetwork
 from lightning_uq_box.models.bnnlv.utils import (
@@ -127,7 +126,7 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
         assert latent_variable_intro in self.lv_intro_options, (
             f"Only one of {self.lv_intro_options} is possible, but found {latent_variable_intro}."
-        )  # noqa: E501
+        )
 
         self.save_hyperparameters(
             ignore=[
@@ -146,7 +145,6 @@ class BNN_LV_VI_Base(BNN_VI_Base):
 
     def setup_task(self) -> None:
         """Set up task."""
-        pass
 
     def _setup_bnn_with_vi_lv(self, latent_net: nn.Module) -> None:
         """Configure setup of BNN with VI model.
@@ -692,7 +690,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             self.nll_loss(out, y, output_var),
             get_log_f_hat([self.model, self.prediction_head])[
                 : self.hparams.n_mc_samples_train
-            ],  # noqa: E203
+            ],
             get_log_Z_prior([self.model, self.prediction_head]),
             get_log_normalizer([self.model, self.prediction_head]),
             log_normalizer_z=self.lv_net.log_normalizer_z,  # log_normalizer_z
@@ -746,9 +744,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
             for i in range(int(self.hparams.n_mc_samples_epistemic / n_samples)):
                 self.freeze_layers(n_samples)
                 z = torch.tile(
-                    in_noise[i * n_samples : (i + 1) * n_samples][  # noqa: E203
-                        :, None, None
-                    ],
+                    in_noise[i * n_samples : (i + 1) * n_samples][:, None, None],
                     (1, X.shape[0], 1),
                 )
                 pred = super().forward(
@@ -761,9 +757,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
                     )
                     * o_noise
                 )
-                model_preds_hy[
-                    i * n_samples : (i + 1) * n_samples, :, :  # noqa: E203
-                ] = pred
+                model_preds_hy[i * n_samples : (i + 1) * n_samples, :, :] = pred
 
             for i in range(int(self.hparams.n_mc_samples_epistemic / n_samples)):
                 # freeze will resample
@@ -780,9 +774,7 @@ class BNN_LV_VI_Batched_Base(BNN_LV_VI_Base):
                         )
                         * o_noise
                     )
-                    model_preds[
-                        i * n_samples : (i + 1) * n_samples, j, :, :  # noqa: E203
-                    ] = pred
+                    model_preds[i * n_samples : (i + 1) * n_samples, j, :, :] = pred
                 self.unfreeze_layers()
 
         mean_out = model_preds.mean(dim=(0, 1))

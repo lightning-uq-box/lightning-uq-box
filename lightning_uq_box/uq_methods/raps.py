@@ -18,11 +18,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import DataLoader, Subset, TensorDataset, random_split
 from torchmetrics import Accuracy, CalibrationError, MetricCollection
 
@@ -248,7 +247,7 @@ class RAPS(PosthocBase):
                     )
 
         self.penalties = torch.zeros((1, self.num_classes))
-        self.penalties[:, int(self.kreg) :] += self.lamda_param  # noqa: E203
+        self.penalties[:, int(self.kreg) :] += self.lamda_param
 
         optimizer = partial(torch.optim.SGD, lr=self.optim_lr)
         self.temperature = run_temperature_optimization(
@@ -592,10 +591,10 @@ def gen_inverse_quantile_function(
     for i in range(targets.shape[0]):
         E[i] = get_single_tau(
             targets[i].item(),
-            sorted_score_indices[i : i + 1, :],  # noqa: E203
-            ordered[i : i + 1, :],  # noqa: E203
-            cumsum[i : i + 1, :],  # noqa: E203
-            penalties[0, :],  # noqa: E203
+            sorted_score_indices[i : i + 1, :],
+            ordered[i : i + 1, :],
+            cumsum[i : i + 1, :],
+            penalties[0, :],
             randomized=randomized,
             allow_zero_sets=allow_zero_sets,
         )
@@ -665,7 +664,7 @@ def gen_cond_quantile_function(
     # Construct S from equation (5)
     pred_sets: list[Tensor] = []
     for i in range(sorted_score_indices.shape[0]):
-        pred_sets.append(sorted_score_indices[i, 0 : sizes[i]])  # noqa: E203
+        pred_sets.append(sorted_score_indices[i, 0 : sizes[i]])
 
     return pred_sets
 
@@ -710,7 +709,7 @@ def get_single_tau(
         return (
             U * ordered[idx]
             + cumsum[(idx[0], idx[1] - 1)]
-            + (penalty[0 : (idx[1][0] + 1)]).sum()  # noqa: E203
+            + (penalty[0 : (idx[1][0] + 1)]).sum()
         )
 
 

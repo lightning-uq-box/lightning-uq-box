@@ -9,10 +9,9 @@ from typing import Any, Literal
 
 import kornia.augmentation as K
 import torch
-import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 
 from .base import PosthocBase
 from .utils import (
@@ -198,11 +197,9 @@ class TTABase(PosthocBase):
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> None:
         """No validation step in TTA."""
-        pass
 
     def on_validation_start(self) -> None:
         """No validation step in TTA."""
-        pass
 
 
 class TTARegression(TTABase):

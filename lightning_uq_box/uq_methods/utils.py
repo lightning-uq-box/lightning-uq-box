@@ -11,10 +11,9 @@ import h5py
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 from torchmetrics import (
     Accuracy,
     CalibrationError,

@@ -4,8 +4,7 @@
 """Loss Functions specific to UQ-methods."""
 
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 
 
 class EnergyAlphaDivergence(nn.Module):

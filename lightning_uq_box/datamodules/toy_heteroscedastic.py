@@ -50,8 +50,8 @@ class ToyHeteroscedasticDatamodule(LightningDataModule):
 
     def __init__(
         self,
-        x_min: int | float = -4,
-        x_max: int | float = 4,
+        x_min: float = -4,
+        x_max: float = 4,
         n_points: int = 250,
         batch_size: int = 100,
         test_fraction: float = 0.2,

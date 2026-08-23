@@ -4,8 +4,8 @@
 """Deterministic Uncertainty Estimation (DUE)."""
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from torch import nn
 
 from .deep_kernel_learning import DKLClassification, DKLRegression
 from .spectral_normalized_layers import (

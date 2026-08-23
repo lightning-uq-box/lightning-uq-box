@@ -42,8 +42,7 @@ import math
 from typing import Any
 
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 
 import lightning_uq_box.models.bnn_layers as bayesian_layers
 

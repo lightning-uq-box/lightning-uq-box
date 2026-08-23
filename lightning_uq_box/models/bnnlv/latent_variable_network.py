@@ -4,9 +4,8 @@
 """Latent Variable Network."""
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torch import Tensor
+from torch import Tensor, nn
 
 from lightning_uq_box.models.bnn_layers.bnn_utils import calc_log_normalizer
 
@@ -138,7 +137,7 @@ class LatentVariableNetwork(nn.Module):
         # use z_std = torch.log1p(torch.exp(self.z_rho))?
         z_std = (
             self.lv_init_std
-            - F.softplus(x[:, self.lv_latent_dim :]) * self.init_scaling  # noqa: E203
+            - F.softplus(x[:, self.lv_latent_dim :]) * self.init_scaling
         )
         z_std = torch.clamp(z_std, min=1e-3)
 

@@ -6,10 +6,9 @@
 from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities import rank_zero_only
-from torch import Tensor
+from torch import Tensor, nn
 from torch.optim.adam import Adam as Adam
 from torchvision.utils import make_grid, save_image
 

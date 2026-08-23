@@ -42,8 +42,7 @@ import math
 from collections.abc import Callable
 
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 from torch.nn import Parameter
 
 from lightning_uq_box.models.bnn_layers.bnn_utils import (

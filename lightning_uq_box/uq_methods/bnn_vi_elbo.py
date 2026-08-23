@@ -8,10 +8,9 @@ from collections.abc import Sequence
 from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 
 from lightning_uq_box.models.bnn_layers.bnn_utils import (
     convert_deterministic_to_bnn,
@@ -122,7 +121,6 @@ class BNN_VI_ELBO_Base(DeterministicModel):
 
     def setup_task(self) -> None:
         """Set up task."""
-        pass
 
     def _setup_bnn_with_vi(self, model: nn.Module) -> None:
         """Configure setup of the BNN Model."""

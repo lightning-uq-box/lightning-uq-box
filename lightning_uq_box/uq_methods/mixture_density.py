@@ -7,9 +7,8 @@
 """Mixture Density Networks for Regression."""
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
-from torch import Tensor
+from torch import Tensor, nn
 from torch.optim.adam import Adam as Adam
 
 from ..models.mixture_density import MixtureDensityLayer

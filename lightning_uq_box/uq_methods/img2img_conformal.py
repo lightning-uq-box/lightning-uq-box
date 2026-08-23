@@ -14,12 +14,11 @@ from typing import Any
 
 import numpy as np
 import torch
-import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from scipy.optimize import brentq
 from scipy.stats import binom, spearmanr
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 
 from .base import PosthocBase

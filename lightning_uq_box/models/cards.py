@@ -4,8 +4,7 @@
 """CARDS Model Utilities."""
 
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 
 from lightning_uq_box.uq_methods.utils import _get_output_layer_name_and_module
 

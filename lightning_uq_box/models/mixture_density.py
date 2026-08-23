@@ -7,8 +7,7 @@
 """Mixture Density Layer for Regression."""
 
 import torch
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 
 from .mlp import MLP
 

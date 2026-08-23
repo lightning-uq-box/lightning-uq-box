@@ -9,11 +9,10 @@ from functools import partial
 from typing import Any
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 from torch.optim import LBFGS
 
 from .base import PosthocBase
@@ -55,7 +54,7 @@ class TempScaling(PosthocBase):
 
         assert task in self.valid_tasks, (
             f"Task {task} not supported, please choose from {self.valid_tasks}"
-        )  # noqa: E501
+        )
         self.task = task
 
         self.setup_task()

@@ -3,7 +3,7 @@
 
 """Masked Ensemble Model Utilities to convert model to Masked Ensemble."""
 
-import torch.nn as nn
+from torch import nn
 
 from .masked_layers import MaskedConv2d, MaskedLinear
 

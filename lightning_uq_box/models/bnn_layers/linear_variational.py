@@ -260,15 +260,12 @@ class LinearVariational(BaseVariationalLayer_):
         """
         self.is_frozen = True
         if n_samples is not None:
-            if self.max_n_samples < n_samples:
-                self.max_n_samples = n_samples
+            self.max_n_samples = max(self.max_n_samples, n_samples)
 
-        setattr(
-            self,
-            "eps_weight",
-            torch.randn(self.max_n_samples, self.out_features, self.in_features),
+        self.eps_weight = torch.randn(
+            self.max_n_samples, self.out_features, self.in_features
         )
-        setattr(self, "eps_bias", torch.randn(self.max_n_samples, self.out_features))
+        self.eps_bias = torch.randn(self.max_n_samples, self.out_features)
 
     def extra_repr(self) -> str:
         """Representation when printing out Layer."""

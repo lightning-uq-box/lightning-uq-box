@@ -7,8 +7,8 @@ import itertools
 
 import pytest
 import torch
-import torch.nn as nn
 from _pytest.fixtures import SubRequest
+from torch import nn
 
 from lightning_uq_box.models.bnn_layers import LSTMVariational
 from lightning_uq_box.models.bnn_layers.bnn_utils import convert_deterministic_to_bnn

@@ -18,8 +18,8 @@ class ToySineDatamodule(LightningDataModule):
         n_data: int = 500,
         sigma_noise_1: float = 0.1,
         sigma_noise_2: float = 0.4,
-        x_min: int | float = -2,
-        x_max: int | float = 15,
+        x_min: float = -2,
+        x_max: float = 15,
         batch_size: int = 500,
     ) -> None:
         """Define a sinosoidal toy regression dataset.

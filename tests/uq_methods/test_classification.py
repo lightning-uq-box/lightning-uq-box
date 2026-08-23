@@ -10,12 +10,11 @@ from typing import Any
 import pandas as pd
 import pytest
 import torch
-import torch.nn as nn
 from conftest import minimal_cli_overrides, minimal_trainer_kwargs
 from lightning import LightningDataModule, Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from pytest import TempPathFactory
-from torch import Tensor
+from torch import Tensor, nn
 from torch.utils.data import DataLoader, Dataset
 
 from lightning_uq_box.datamodules import TwoMoonsDataModule

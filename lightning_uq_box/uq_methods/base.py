@@ -7,12 +7,11 @@ import os
 from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning import LightningModule
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
 from omegaconf import OmegaConf
-from torch import Tensor
+from torch import Tensor, nn
 from torchmetrics import MetricCollection
 
 from .utils import (
@@ -693,4 +692,3 @@ class PosthocBase(BaseModule):
 
     def configure_optimizers(self) -> Any:
         """Configure optimizers for posthoc fitting."""
-        pass

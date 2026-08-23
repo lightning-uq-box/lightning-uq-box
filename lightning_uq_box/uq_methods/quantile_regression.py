@@ -7,10 +7,9 @@ import os
 from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 
 from lightning_uq_box.eval_utils import compute_sample_mean_std_from_quantile
 
@@ -116,7 +115,7 @@ class QuantileRegression(QuantileRegressionBase):
         Returns:
             extracted mean used for metric computation [batch_size x 1]
         """
-        return out[:, self.median_index : self.median_index + 1]  # noqa: E203
+        return out[:, self.median_index : self.median_index + 1]
 
     def test_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -242,9 +241,7 @@ class QuantilePxRegression(QuantileRegressionBase):
         Returns:
             extracted mean used for metric computation [batch_size x 1 x height x width]
         """
-        return out[
-            :, self.median_index : self.median_index + 1, ...  # noqa: E203
-        ].contiguous()
+        return out[:, self.median_index : self.median_index + 1, ...].contiguous()
 
     def on_test_start(self) -> None:
         """Create logging directory and initialize metrics."""

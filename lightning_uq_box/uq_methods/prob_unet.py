@@ -15,7 +15,7 @@
 
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the Apache License 2.0.
-# Changes from https://github.com/stefanknegt/Probabilistic-Unet-Pytorch/blob/master/probabilistic_unet.py: # noqa: E501
+# Changes from https://github.com/stefanknegt/Probabilistic-Unet-Pytorch/blob/master/probabilistic_unet.py:
 # - adapt ProbUnet implementation to lightning training framework
 # - make Unet flexible to be any segmentation model
 
@@ -25,11 +25,10 @@ import os
 from typing import Any
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT, OptimizerLRScheduler
-from torch import Tensor
+from torch import Tensor, nn
 from torch.distributions import kl
 
 from lightning_uq_box.uq_methods import BaseModule

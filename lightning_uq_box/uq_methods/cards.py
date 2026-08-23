@@ -11,11 +11,10 @@ import os
 from typing import Any
 
 import torch
-import torch.nn as nn
 from ema_pytorch import EMA
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 
 from .base import BaseModule
 from .utils import (
@@ -105,7 +104,6 @@ class CARDBase(BaseModule):
 
     def setup_task(self) -> None:
         """Setup task specific attributes."""
-        pass
 
     def diffusion_process(self, batch: dict[str, Tensor]) -> Tensor:
         """Diffusion process during training.

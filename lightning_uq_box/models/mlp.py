@@ -3,8 +3,7 @@
 
 """Simple MLP for Toy Problems."""
 
-import torch.nn as nn
-from torch import Tensor
+from torch import Tensor, nn
 
 
 class MLP(nn.Module):

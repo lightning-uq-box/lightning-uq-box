@@ -10,10 +10,9 @@ import os
 from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
 from lightning.pytorch.utilities.types import STEP_OUTPUT
-from torch import Tensor
+from torch import Tensor, nn
 from torch.nn.modules import Module
 from torch.optim.adam import Adam as Adam
 
