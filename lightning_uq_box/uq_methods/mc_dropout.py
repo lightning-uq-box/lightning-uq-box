@@ -52,7 +52,7 @@ class MCDropoutBase(DeterministicModel):
         model: nn.Module,
         num_mc_samples: int,
         loss_fn: nn.Module,
-        dropout_layer_names: list[str] = [],
+        dropout_layer_names: list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
@@ -68,6 +68,8 @@ class MCDropoutBase(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        if dropout_layer_names is None:
+            dropout_layer_names = []
         super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
 
         if not dropout_layer_names:
@@ -146,7 +148,7 @@ class MCDropoutRegression(MCDropoutBase):
         num_mc_samples: int,
         loss_fn: nn.Module,
         burnin_epochs: int = 0,
-        dropout_layer_names: list[str] = [],
+        dropout_layer_names: list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
@@ -164,6 +166,8 @@ class MCDropoutRegression(MCDropoutBase):
             lr_scheduler: learning rate scheduler
                 from the predictive distribution
         """
+        if dropout_layer_names is None:
+            dropout_layer_names = []
         super().__init__(
             model,
             num_mc_samples,
@@ -280,7 +284,7 @@ class MCDropoutClassification(MCDropoutBase):
         num_mc_samples: int,
         loss_fn: nn.Module,
         task: str = "multiclass",
-        dropout_layer_names: list[str] = [],
+        dropout_layer_names: list[str] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
@@ -297,6 +301,8 @@ class MCDropoutClassification(MCDropoutBase):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        if dropout_layer_names is None:
+            dropout_layer_names = []
         assert task in self.valid_tasks
         self.task = task
         self.num_classes = _get_num_outputs(model)
@@ -382,7 +388,7 @@ class MCDropoutSegmentation(MCDropoutClassification):
         num_mc_samples: int,
         loss_fn: nn.Module,
         task: str = "multiclass",
-        dropout_layer_names: list[str] = [],
+        dropout_layer_names: list[str] | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -405,6 +411,8 @@ class MCDropoutSegmentation(MCDropoutClassification):
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
         """
+        if dropout_layer_names is None:
+            dropout_layer_names = []
         self.freeze_backbone = freeze_backbone
         self.freeze_decoder = freeze_decoder
         super().__init__(
@@ -496,7 +504,7 @@ class MCDropoutPxRegression(MCDropoutRegression):
         num_mc_samples: int,
         loss_fn: nn.Module,
         burnin_epochs: int = 0,
-        dropout_layer_names: list[str] = [],
+        dropout_layer_names: list[str] | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -517,6 +525,8 @@ class MCDropoutPxRegression(MCDropoutRegression):
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
         """
+        if dropout_layer_names is None:
+            dropout_layer_names = []
         self.freeze_decoder = freeze_decoder
         super().__init__(
             model,

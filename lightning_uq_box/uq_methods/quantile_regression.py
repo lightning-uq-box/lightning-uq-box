@@ -36,7 +36,7 @@ class QuantileRegressionBase(DeterministicModel):
         self,
         model: nn.Module,
         loss_fn: nn.Module | None = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
@@ -51,6 +51,8 @@ class QuantileRegressionBase(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        if quantiles is None:
+            quantiles = [0.1, 0.5, 0.9]
         assert all(i < 1 for i in quantiles), "Quantiles should be less than 1."
         assert all(i > 0 for i in quantiles), "Quantiles should be greater than 0."
 
@@ -83,7 +85,7 @@ class QuantileRegression(QuantileRegressionBase):
         self,
         model: nn.Module,
         loss_fn: nn.Module | None = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] | None = None,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
@@ -99,6 +101,8 @@ class QuantileRegression(QuantileRegressionBase):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        if quantiles is None:
+            quantiles = [0.1, 0.5, 0.9]
         super().__init__(
             model, loss_fn, quantiles, freeze_backbone, optimizer, lr_scheduler
         )
@@ -188,7 +192,7 @@ class QuantilePxRegression(QuantileRegressionBase):
         self,
         model: nn.Module,
         loss_fn: nn.Module | None = None,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] | None = None,
         freeze_backbone: bool = False,
         freeze_decoder: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
@@ -208,6 +212,8 @@ class QuantilePxRegression(QuantileRegressionBase):
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
         """
+        if quantiles is None:
+            quantiles = [0.1, 0.5, 0.9]
         self.freeze_decoder = freeze_decoder
         super().__init__(
             model, loss_fn, quantiles, freeze_backbone, optimizer, lr_scheduler

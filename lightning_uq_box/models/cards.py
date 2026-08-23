@@ -73,7 +73,7 @@ class ConditionalGuidedLinearModel(nn.Module):
         n_steps: int,
         x_dim: int,
         y_dim: int,
-        n_hidden: list[int] = [64, 64],
+        n_hidden: list[int] | None = None,
         cat_x: bool = False,
         cat_y_pred: bool = False,
         activation_fn: nn.Module | None = None,
@@ -92,6 +92,8 @@ class ConditionalGuidedLinearModel(nn.Module):
                 of the conditional mean model by concatenation
             activation_fn: activation function between conditional linear layers
         """
+        if n_hidden is None:
+            n_hidden = [64, 64]
         super().__init__()
 
         if activation_fn is None:

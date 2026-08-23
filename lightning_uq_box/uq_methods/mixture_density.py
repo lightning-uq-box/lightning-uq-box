@@ -33,7 +33,7 @@ class MDNRegression(DeterministicRegression):
         self,
         model: nn.Module,
         n_components: int,
-        hidden_dims: list[int] = [50],
+        hidden_dims: list[int] | None = None,
         noise_type: str = "diagonal",
         fixed_noise_level: float | None = None,
         loss_fn: nn.Module | None = None,
@@ -59,6 +59,8 @@ class MDNRegression(DeterministicRegression):
             lr_scheduler: The learning rate scheduler to use for training
 
         """
+        if hidden_dims is None:
+            hidden_dims = [50]
         assert noise_type in self.valid_noise_types, (
             f"Please choose one of {self.valid_noise_types}, you specified {noise_type}."
         )

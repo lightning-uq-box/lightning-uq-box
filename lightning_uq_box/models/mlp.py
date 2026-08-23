@@ -13,7 +13,7 @@ class MLP(nn.Module):
         self,
         dropout_p: float = 0.0,
         n_inputs: int = 1,
-        n_hidden: list[int] = [100],
+        n_hidden: list[int] | None = None,
         n_outputs: int = 1,
         activation_fn: nn.Module | None = None,
     ) -> None:
@@ -28,6 +28,8 @@ class MLP(nn.Module):
             when minimizing NLL
           activation_fn: what nonlinearity to include in the network
         """
+        if n_hidden is None:
+            n_hidden = [100]
         super().__init__()
         if activation_fn is None:
             activation_fn = nn.ReLU()

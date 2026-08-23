@@ -57,7 +57,7 @@ class ProbUNet(BaseModule):
         self,
         model: nn.Module,
         latent_dim: int = 6,
-        num_filters: list[int] = [32, 64, 128, 192],
+        num_filters: list[int] | None = None,
         num_convs_per_block: int = 3,
         num_convs_fcomb: int = 4,
         fcomb_filter_size: int = 32,
@@ -86,6 +86,8 @@ class ProbUNet(BaseModule):
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
         """
+        if num_filters is None:
+            num_filters = [32, 64, 128, 192]
         super().__init__()
         self.latent_dim = latent_dim
         self.num_convs_fcomb = num_convs_fcomb

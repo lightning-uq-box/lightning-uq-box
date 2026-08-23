@@ -63,7 +63,7 @@ class ConformalQR(PosthocBase):
     def __init__(
         self,
         model: nn.Module | LightningModule,
-        quantiles: list[float] = [0.1, 0.5, 0.9],
+        quantiles: list[float] | None = None,
         alpha: float = 0.1,
     ) -> None:
         """Initialize a new CQR model.
@@ -73,6 +73,8 @@ class ConformalQR(PosthocBase):
             quantiles: quantiles to be used for CQR
             alpha: 1 - alpha is desired error rate for quantile
         """
+        if quantiles is None:
+            quantiles = [0.1, 0.5, 0.9]
         super().__init__(model)
 
         self.save_hyperparameters(ignore=["model"])
