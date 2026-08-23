@@ -1,0 +1,66 @@
+name: release
+on:
+  release:
+    types:
+    - published
+  workflow_dispatch:
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Clone repo
+      uses: actions/checkout@v7
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v10.0.1
+      with:
+        python-version: '3.12'
+        enable-cache: true
+        prune-cache: true
+        activate-environment: true
+        cache-dependency-glob: |
+          pyproject.toml
+          uv.lock
+    - name: Check that the tag matches the project version
+      if: github.event_name == 'release'
+      run: |
+        version=$(uv version --short)
+        tag=${GITHUB_REF_NAME#v}
+        if [ "$version" != "$tag" ]; then
+          echo "tag $GITHUB_REF_NAME does not match pyproject.toml version $version" >&2
+          exit 1
+        fi
+    - name: Build sdist and wheel
+      run: uv build
+    - name: Check the distributions
+      run: uvx twine check --strict dist/*
+    - name: Upload the distributions
+      uses: actions/upload-artifact@v7
+      with:
+        name: dist
+        path: dist/
+  publish:
+    name: publish
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      # Required for trusted publishing to PyPI
+      id-token: write
+    steps:
+    - name: Download the distributions
+      uses: actions/download-artifact@v8
+      with:
+        name: dist
+        path: dist/
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
