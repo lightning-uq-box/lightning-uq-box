@@ -154,7 +154,7 @@ class QuantileRegression(QuantileRegressionBase):
             out = self.model(X)  # [batch_size, len(self.quantiles)]
 
         median = self.adapt_output_for_metrics(out)
-        _, std = compute_sample_mean_std_from_quantile(out, self.hparams.quantiles)
+        _, std = compute_sample_mean_std_from_quantile(out, self.quantiles)
 
         return {
             "pred": median,
