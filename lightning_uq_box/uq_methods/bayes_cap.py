@@ -2,15 +2,43 @@
 
 # Adapted from https://github.com/ExplainableML/BayesCap
 
-from typing import Any, Optional
+from typing import Any
 
 import torch
-import torch.nn as nn
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
-from torch import Tensor
+from torch import Tensor, nn
 
-from .base import BaseModule, DeterministicRegression
-from .utils import default_regression_metrics
+from .base import DeterministicRegression
+from .loss_functions import TempCombLoss
+from .utils import _get_num_outputs
+
+
+class BayesCapLayer(nn.Module):
+    """BayesCap Layer.
+
+    Splits a raw 3-channel model output into the `(mu, one_over_alpha, beta)`
+    parameters of the generalized Gaussian predictive distribution.
+    """
+
+    def __init__(self):
+        """Initialize a new BayesCap Layer."""
+        super().__init__()
+
+    def forward(self, x: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+        """Compute the BayesCap parameters.
+
+        Args:
+            x: feature output from network [batch_size x 3]
+
+        Returns:
+            mu, one_over_alpha, and beta, each of shape [batch_size x 1]
+        """
+        assert x.shape[1] == 3, "BayesCap method expects 3 input features per sample."
+
+        mu = x[:, 0:1, ...]
+        one_over_alpha = nn.functional.softplus(x[:, 1:2, ...])
+        beta = nn.functional.softplus(x[:, 2:3, ...])
+        return mu, one_over_alpha, beta
 
 
 class BayesCap(DeterministicRegression):
@@ -25,9 +53,9 @@ class BayesCap(DeterministicRegression):
         self,
         model: nn.Module,
         bayes_cap_model: nn.Module,
-        loss_fn: nn.Module,
+        loss_fn: nn.Module | None = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
-        lr_scheduler: Optional[LRSchedulerCallable] = None,
+        lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
         """Initializes the BayesCap model.
 
@@ -35,38 +63,56 @@ class BayesCap(DeterministicRegression):
             model: the pretrained frozen model
             bayes_cap_model: the BayesCap model to be trained to
                 quantify the model's uncertainty
-            loss_fn: the loss function to use for training
+            loss_fn: the loss function to use for training, defaults to
+                :class:`~lightning_uq_box.uq_methods.loss_functions.TempCombLoss`
             optimizer: the optimizer to use for training
             lr_scheduler: the learning rate scheduler to use for training
         """
-        super().__init__(bayes_cap_model, loss_fn, optimizer, lr_scheduler)
+        assert _get_num_outputs(bayes_cap_model) == 3, (
+            "BayesCap model expects 3 outputs."
+        )
+        loss_fn = loss_fn or TempCombLoss()
+
+        super().__init__(
+            bayes_cap_model, loss_fn, optimizer=optimizer, lr_scheduler=lr_scheduler
+        )
 
         self.model = model
+        for param in self.model.parameters():
+            param.requires_grad_(False)
+
         self.bayes_cap_model = bayes_cap_model
-        self.optimizer = optimizer
-        self.lr_scheduler = lr_scheduler
+        self.bayes_cap_layer = BayesCapLayer()
 
-    def setup_task(self) -> None:
-        """Set up task specific attributes."""
-        self.train_metrics = default_regression_metrics("train")
-        self.val_metrics = default_regression_metrics("val")
-        self.test_metrics = default_regression_metrics("test")
-
-    @torch.no_grad()
-    def forward_base_model(self, batch: dict[str, Tensor]) -> Tensor:
-        """Forward pass of the base model.
-
-        This can be overwritten to adapt to various tasks like
-        inpainting, superrresolution, etc. where the forward pass
-        may require additional arguments.
+    def train(self, mode: bool = True) -> "BayesCap":
+        """Set the module in training mode, keeping the base model frozen.
 
         Args:
-            batch: the output of your DataLoader
+            mode: whether to set training mode (True) or evaluation mode (False)
 
         Returns:
-            the output of the base model
+            self
         """
-        return self.model(batch[self.input_key])
+        super().train(mode)
+        self.model.eval()
+        return self
+
+    def forward(self, X: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        """Forward pass of the model.
+
+        Args:
+            X: input data
+
+        Returns:
+            mu, one_over_alpha, beta, and the frozen base model's output
+        """
+        with torch.no_grad():
+            base_model_output = self.model(X)
+
+        mu, one_over_alpha, beta = self.bayes_cap_layer(
+            self.bayes_cap_model(base_model_output)
+        )
+        return mu, one_over_alpha, beta, base_model_output
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -75,19 +121,21 @@ class BayesCap(DeterministicRegression):
 
         Args:
             batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             training loss
         """
-        base_model_output = self.forward_base_model(batch)
-        bayes_cap_input = base_model_output.clone()
-
-        mu, alpha, beta = self.bayes_cap_model(bayes_cap_input)
-
-        loss = self.loss_fn(mu, alpha, beta, bayes_cap_input, batch[self.target_key])
+        mu, one_over_alpha, beta, base_model_output = self.forward(
+            batch[self.input_key]
+        )
+        loss = self.loss_fn(
+            mu, one_over_alpha, beta, base_model_output, batch[self.target_key]
+        )
 
         self.log("train_loss", loss, batch_size=batch[self.input_key].size(0))
-        if batch[self.input_key].size(0) == 1:
+        if batch[self.input_key].size(0) > 1:
             self.train_metrics(mu, batch[self.target_key])
 
         return loss
@@ -100,81 +148,41 @@ class BayesCap(DeterministicRegression):
         Args:
             batch: the output of your DataLoader
             batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
 
         Returns:
             validation loss
         """
-        base_model_output = self.forward_base_model(batch)
-        bayes_cap_input = base_model_output.clone()
-
-        mu, alpha, beta = self.bayes_cap_model(bayes_cap_input)
-
-        loss = self.loss_fn(mu, alpha, beta, bayes_cap_input, batch[self.target_key])
+        mu, one_over_alpha, beta, base_model_output = self.forward(
+            batch[self.input_key]
+        )
+        loss = self.loss_fn(
+            mu, one_over_alpha, beta, base_model_output, batch[self.target_key]
+        )
 
         self.log("val_loss", loss, batch_size=batch[self.input_key].size(0))
-        if batch[self.input_key].size(0) == 1:
+        if batch[self.input_key].size(0) > 1:
             self.val_metrics(mu, batch[self.target_key])
 
         return loss
 
-    def test_step(
-        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> dict[str, Tensor]:
-        """Test step.
-
-        Args:
-            batch: the output of your DataLoader
-            batch_idx: the index of this batch
-            dataloader_idx: the index of the dataloader
-        """
-        pred_dict = self.predict_step(batch[self.input_key])
-        pred_dict[self.target_key] = batch[self.target_key].detach().squeeze(-1)
-
-        if batch[self.input_key].shape[0] > 1:
-            self.test_metrics(
-                pred_dict["pred"].squeeze(-1), batch[self.target_key].squeeze(-1)
-            )
-
-        # turn mean to np array
-        pred_dict["pred"] = pred_dict["pred"].detach().cpu().squeeze(-1)
-
-        pred_dict = self.add_aux_data_to_dict(pred_dict, batch)
-
-        return pred_dict
-
-    def on_test_batch_end(
-        self, outputs: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
-        """Test batch end save predictions.
-
-        Args:
-            outputs: dictionary of model outputs and aux variables
-            batch_idx: batch index
-            dataloader_idx: dataloader index
-        """
-        # TODO need to come up with good solution for segmentation and image data
-        # maybe h5 that stores the predict output for each separate sample with idx
-        # by default turned off because probably storage intensive
-        pass
-
     def predict_step(
-        self, X: Tensor, batch_idx: int, dataloader_idx: int = 0
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
         """Predict the output of the model.
 
         Args:
             X: the input data
             batch_idx: the index of this batch
-            dataloder_idx: the index of the dataloader
+            dataloader_idx: the index of the dataloader
 
         Returns:
             the model's prediction
         """
         with torch.no_grad():
-            base_model_output = self.model(X)
-            mu, alpha, beta = self.bayes_cap_model(base_model_output)
+            mu, one_over_alpha, beta, _ = self.forward(X)
 
-        a_map = (1 / (alpha + 1e-5)).to("cpu").data
+        a_map = (1 / (one_over_alpha + 1e-5)).to("cpu").data
         b_map = beta.to("cpu").data
 
         pred_uct = (a_map**2) * (
@@ -182,7 +190,7 @@ class BayesCap(DeterministicRegression):
             / torch.exp(torch.lgamma(1 / (b_map + 1e-2)))
         )
 
-        return {"pred": mu, "alpha": alpha, "beta": beta, "pred_uct": pred_uct}
+        return {"pred": mu, "alpha": one_over_alpha, "beta": beta, "pred_uct": pred_uct}
 
     def configure_optimizers(self) -> dict[str, Any]:
         """Initialize the optimizer and learning rate scheduler.
@@ -190,7 +198,7 @@ class BayesCap(DeterministicRegression):
         Returns:
             a "lr dict" according to the pytorch lightning documentation
         """
-        optimizer = self.optimizer(self.bayes_cap_model())
+        optimizer = self.optimizer(self.bayes_cap_model.parameters())
         if self.lr_scheduler is not None:
             lr_scheduler = self.lr_scheduler(optimizer)
             return {

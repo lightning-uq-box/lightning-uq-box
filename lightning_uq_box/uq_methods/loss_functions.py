@@ -316,3 +316,120 @@ class MixtureDensityLoss(nn.Module):
         ) - torch.sum(torch.log(sigma), dim=-1)
         loglik = torch.logsumexp(log_pi + normal_loglik, dim=-1)
         return -loglik.mean()
+
+
+class GenGaussLoss(nn.Module):
+    """Generalized Gaussian Negative Log-Likelihood Loss.
+
+    Adapted from `BayesCap <https://github.com/ExplainableML/BayesCap>`_.
+    """
+
+    def __init__(
+        self,
+        alpha_eps: float = 1e-4,
+        beta_eps: float = 1e-4,
+        resi_min: float = 1e-4,
+        resi_max: float = 1e3,
+    ) -> None:
+        """Initialize a new instance of Generalized Gaussian Loss.
+
+        Args:
+            alpha_eps: epsilon added to one_over_alpha for numerical stability
+            beta_eps: epsilon added to beta for numerical stability
+            resi_min: minimum value to clamp the residual term to
+            resi_max: maximum value to clamp the residual term to
+        """
+        super().__init__()
+        self.alpha_eps = alpha_eps
+        self.beta_eps = beta_eps
+        self.resi_min = resi_min
+        self.resi_max = resi_max
+
+    def forward(
+        self, mean: Tensor, one_over_alpha: Tensor, beta: Tensor, target: Tensor
+    ) -> Tensor:
+        """Compute the generalized Gaussian negative log-likelihood.
+
+        Args:
+            mean: predicted mean
+            one_over_alpha: predicted inverse scale parameter
+            beta: predicted shape parameter
+            target: ground truth target
+
+        Returns:
+            the generalized Gaussian NLL, averaged over the batch
+        """
+        one_over_alpha1 = one_over_alpha + self.alpha_eps
+        beta1 = beta + self.beta_eps
+
+        resi = torch.abs(mean - target)
+        resi = (resi * one_over_alpha1 * beta1).clamp(
+            min=self.resi_min, max=self.resi_max
+        )
+
+        log_one_over_alpha = torch.log(one_over_alpha1)
+        log_beta = torch.log(beta1)
+        lgamma_beta = torch.lgamma(torch.pow(beta1, -1))
+
+        loss = resi - log_one_over_alpha + lgamma_beta - log_beta
+        return loss.mean()
+
+
+class TempCombLoss(nn.Module):
+    """Combined identity and generalized Gaussian loss.
+
+    Adapted from `BayesCap <https://github.com/ExplainableML/BayesCap>`_.
+    """
+
+    def __init__(
+        self,
+        alpha_eps: float = 1e-4,
+        beta_eps: float = 1e-4,
+        resi_min: float = 1e-4,
+        resi_max: float = 1e3,
+        T1: float = 1.0,
+        T2: float = 5e-2,
+    ) -> None:
+        """Initialize a new instance of Combined Temperature Loss.
+
+        Args:
+            alpha_eps: epsilon added to one_over_alpha for numerical stability
+            beta_eps: epsilon added to beta for numerical stability
+            resi_min: minimum value to clamp the residual term to
+            resi_max: maximum value to clamp the residual term to
+            T1: weight of the identity-mapping L1 loss term
+            T2: weight of the generalized Gaussian NLL term
+        """
+        super().__init__()
+        self.T1 = T1
+        self.T2 = T2
+
+        self.gen_gauss_loss = GenGaussLoss(
+            alpha_eps=alpha_eps, beta_eps=beta_eps, resi_min=resi_min, resi_max=resi_max
+        )
+        self.l1_loss = nn.L1Loss()
+
+    def forward(
+        self,
+        mean: Tensor,
+        one_over_alpha: Tensor,
+        beta: Tensor,
+        base_model_output: Tensor,
+        target: Tensor,
+    ) -> Tensor:
+        """Compute the combined loss.
+
+        Args:
+            mean: predicted mean
+            one_over_alpha: predicted inverse scale parameter
+            beta: predicted shape parameter
+            base_model_output: output of the frozen base model, used as the
+                identity-mapping target
+            target: ground truth target
+
+        Returns:
+            the combined loss
+        """
+        identity_loss = self.l1_loss(mean, base_model_output)
+        nll_loss = self.gen_gauss_loss(mean, one_over_alpha, beta, target)
+        return self.T1 * identity_loss + self.T2 * nll_loss
