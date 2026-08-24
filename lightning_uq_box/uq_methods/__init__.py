@@ -12,6 +12,7 @@ from .base import (
     DeterministicSegmentation,
     PosthocBase,
 )
+from .bayes_cap import BayesCap
 from .bnn_lv_vi import (
     BNN_LV_VI_Base,
     BNN_LV_VI_Batched_Base,
@@ -104,6 +105,8 @@ __all__ = (
     "DeterministicRegression",
     "DeterministicSegmentation",
     "DeterministicPixelRegression",
+    # Bayes Cap
+    "BayesCap",
     # CARDS
     "CARDBase",
     "CARDRegression",
