@@ -11,4 +11,3 @@ model:
     num_targets: 2
     loss_fn:
       class_path: torch.nn.CrossEntropyLoss
-    feature_scale: null

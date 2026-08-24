@@ -11,4 +11,3 @@ model:
     num_targets: 1
     loss_fn:
       class_path: torch.nn.MSELoss
-    feature_scale: null

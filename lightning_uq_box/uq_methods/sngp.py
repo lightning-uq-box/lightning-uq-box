@@ -53,7 +53,7 @@ class SNGPBase(BaseModule):
         num_gp_features: int = 128,
         num_random_features: int = 1024,
         normalize_gp_features: bool = True,
-        feature_scale: int = 2,
+        feature_scale: float | None = None,
         ridge_penalty: float = 1.0,
         coeff: float = 0.95,
         n_power_iterations: int = 1,
@@ -72,7 +72,8 @@ class SNGPBase(BaseModule):
             num_deep_features: Number of deep features
             num_random_features: Number of random features
             normalize_gp_features: Whether to normalize GP features
-            feature_scale: Feature scale
+            feature_scale: Feature scale. If None,
+                it is set to sqrt(num_random_features / 2)
             ridge_penalty: Ridge penalty
             coeff: soft normalization only when sigma larger than coeff,
                 should be (0, 1)
@@ -244,8 +245,7 @@ class SNGPBase(BaseModule):
 
     def on_validation_epoch_end(self):
         """Log epoch-level validation metrics."""
-        if self.trainer.current_epoch % 2 == 0:
-            self.recompute_covariance_matrix()
+        self.recompute_covariance_matrix()
         self.log_dict(self.val_metrics.compute())
         self.val_metrics.reset()
 
@@ -366,7 +366,7 @@ class SNGPClassification(SNGPBase):
         num_gp_features: int = 128,
         num_random_features: int = 1024,
         normalize_gp_features: bool = True,
-        feature_scale: int = 2,
+        feature_scale: float | None = None,
         ridge_penalty: float = 1,
         coeff: float = 0.95,
         n_power_iterations: int = 1,
@@ -387,7 +387,8 @@ class SNGPClassification(SNGPBase):
             num_deep_features: Number of deep features
             num_random_features: Number of random features
             normalize_gp_features: Whether to normalize GP features
-            feature_scale: Feature scale
+            feature_scale: Feature scale. If None,
+                it is set to sqrt(num_random_features / 2)
             ridge_penalty: Ridge penalty
             coeff: soft normalization only when sigma larger than coeff,
                 should be (0, 1)
