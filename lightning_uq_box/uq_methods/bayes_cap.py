@@ -2,10 +2,9 @@
 
 # Adapted from https://github.com/ExplainableML/BayesCap
 
-from typing import Any
-
 import torch
 from lightning.pytorch.cli import LRSchedulerCallable, OptimizerCallable
+from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torch import Tensor, nn
 
 from .base import DeterministicRegression
@@ -47,6 +46,8 @@ class BayesCap(DeterministicRegression):
     If you use this model, please cite the following paper:
 
     * https://arxiv.org/abs/2207.06873
+
+    .. versionadded:: 0.4.0
     """
 
     def __init__(
@@ -192,7 +193,7 @@ class BayesCap(DeterministicRegression):
 
         return {"pred": mu, "alpha": one_over_alpha, "beta": beta, "pred_uct": pred_uct}
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> OptimizerLRScheduler:
         """Initialize the optimizer and learning rate scheduler.
 
         Returns:
