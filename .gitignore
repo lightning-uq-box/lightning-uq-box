@@ -8,6 +8,8 @@
 /results/
 lightning_logs/
 checkpoints/
+/slurm_out/
+/slurm_err/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
