@@ -20,7 +20,7 @@ import torch
 from conftest import minimal_trainer_kwargs
 from lightning import LightningDataModule, Trainer
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from lightning_uq_box.uq_methods import DKLClassification, DKLRegression
 from lightning_uq_box.uq_methods.deep_kernel_learning import _stack_targets
@@ -46,6 +46,20 @@ class _TinyBackbone(nn.Module):
         return self.net(x)
 
 
+class _DictDataset(Dataset):
+    """Wraps tensors in the ``{"input": ..., "target": ...}`` format DKL expects."""
+
+    def __init__(self, x: torch.Tensor, y: torch.Tensor) -> None:
+        self.x = x
+        self.y = y
+
+    def __len__(self) -> int:
+        return len(self.y)
+
+    def __getitem__(self, index: int) -> dict[str, torch.Tensor]:
+        return {"input": self.x[index], "target": self.y[index]}
+
+
 class _ToyDataModule(LightningDataModule):
     """Deterministic in-memory dataset in the dict format DKL expects."""
 
@@ -60,9 +74,7 @@ class _ToyDataModule(LightningDataModule):
         )
 
     def _loader(self) -> DataLoader:
-        samples = [
-            {"input": self.x[i], "target": self.y[i]} for i in range(len(self.y))
-        ]
+        samples = _DictDataset(self.x, self.y)
 
         def collate(batch: list[dict]) -> dict[str, torch.Tensor]:
             return {
@@ -304,9 +316,9 @@ class TestStackTargets:
             def __len__(self) -> int:
                 return len(self.y)
 
-            def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
+            def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
                 # int, not a tensor -- exactly what torchvision returns.
-                return self.x[idx], self.y[idx]
+                return self.x[index], self.y[index]
 
         class _DM(LightningDataModule):
             def __init__(self) -> None:
