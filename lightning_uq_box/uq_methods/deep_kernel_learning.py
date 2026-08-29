@@ -113,9 +113,9 @@ class DKLBase(gpytorch.Module, BaseModule):
         feature_extractor: nn.Module,
         n_inducing_points: int,
         gp_kernel: str = "RBF",
-        scale_features: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
+        scale_features: bool = False,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model.
 
@@ -126,11 +126,6 @@ class DKLBase(gpytorch.Module, BaseModule):
             n_inducing_points: number of inducing points
             gp_kernel: kernel choice, supports one of
                 ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
-            scale_features: rescale the feature extractor's output into
-                [-2, 2] with ``ScaleToBounds`` before the GP. Defaults to
-                ``False``, which matches the reference DUE implementation
-                (https://github.com/y0ast/DUE), whose ``DKL.forward`` is just
-                ``gp(feature_extractor(x))``.
 
                 Enabling it usually **prevents the model from training**. The
                 initial lengthscale is fitted to *unscaled* features by
@@ -149,6 +144,11 @@ class DKLBase(gpytorch.Module, BaseModule):
             elbo_fn: gpytorch elbo function used for optimization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            scale_features: rescale the feature extractor's output into
+                [-2, 2] with ``ScaleToBounds`` before the GP. Defaults to
+                ``False``, which matches the reference DUE implementation
+                (https://github.com/y0ast/DUE), whose ``DKL.forward`` is just
+                ``gp(feature_extractor(x))``.
         """
         super().__init__()
         self.save_hyperparameters(
@@ -460,10 +460,10 @@ class DKLRegression(DKLBase):
         n_inducing_points: int,
         num_targets: int = 1,
         gp_kernel: str = "RBF",
-        scale_features: bool = False,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
+        scale_features: bool = False,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Regression.
 
@@ -473,13 +473,13 @@ class DKLRegression(DKLBase):
             num_targets: number of targets
             gp_kernel: kernel choice, supports one of
                 ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
-            scale_features: rescale features into [-2, 2] before the GP. See
-                :class:`DKLBase`; defaults to ``False``, matching DUE, and
-                enabling it usually prevents the model from training.
             elbo_fn: gpytorch elbo function used for optimization
             freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            scale_features: rescale features into [-2, 2] before the GP. See
+                :class:`DKLBase`; defaults to ``False``, matching DUE, and
+                enabling it usually prevents the model from training.
         """
         self.freeze_backbone = freeze_backbone
 
@@ -605,10 +605,10 @@ class DKLClassification(DKLBase):
         num_classes: int,
         task: str = "multiclass",
         gp_kernel: str = "RBF",
-        scale_features: bool = False,
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
+        scale_features: bool = False,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Classification.
 
@@ -617,14 +617,14 @@ class DKLClassification(DKLBase):
             n_inducing_points: number of inducing points
             gp_kernel: GP kernel choice, supports one of
                 'RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
-            scale_features: rescale features into [-2, 2] before the GP. See
-                :class:`DKLBase`; defaults to ``False``, matching DUE, and
-                enabling it usually prevents the model from training.
             num_classes: number of classes
             task: classification task, one of ['binary', 'multiclass', 'multilabel']
             freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            scale_features: rescale features into [-2, 2] before the GP. See
+                :class:`DKLBase`; defaults to ``False``, matching DUE, and
+                enabling it usually prevents the model from training.
         """
         assert task in self.valid_tasks
         self.task = task
