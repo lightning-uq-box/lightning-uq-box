@@ -62,13 +62,13 @@ class DUERegression(DKLRegression):
         )
 
         super().__init__(
-            feature_extractor,
-            n_inducing_points,
-            num_targets,
-            gp_kernel,
-            freeze_backbone,
-            optimizer,
-            lr_scheduler,
+            feature_extractor=feature_extractor,
+            n_inducing_points=n_inducing_points,
+            num_targets=num_targets,
+            gp_kernel=gp_kernel,
+            freeze_backbone=freeze_backbone,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
         )
 
 
@@ -119,12 +119,12 @@ class DUEClassification(DKLClassification):
         )
 
         super().__init__(
-            feature_extractor,
-            n_inducing_points,
-            num_classes,
-            task,
-            gp_kernel,
-            freeze_backbone,
-            optimizer,
-            lr_scheduler,
+            feature_extractor=feature_extractor,
+            n_inducing_points=n_inducing_points,
+            num_classes=num_classes,
+            task=task,
+            gp_kernel=gp_kernel,
+            freeze_backbone=freeze_backbone,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
         )

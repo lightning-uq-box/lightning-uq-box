@@ -70,6 +70,7 @@ class DKLBase(gpytorch.Module, BaseModule):
         gp_kernel: str = "RBF",
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
+        scale_features: bool = False,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model.
 
@@ -83,6 +84,8 @@ class DKLBase(gpytorch.Module, BaseModule):
             elbo_fn: gpytorch elbo function used for optimization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            scale_features: rescale the feature extractor's output into
+                [-2, 2] with ``ScaleToBounds`` before the GP
         """
         super().__init__()
         self.save_hyperparameters(
@@ -99,6 +102,7 @@ class DKLBase(gpytorch.Module, BaseModule):
             "Please choose one of the supported kernel choices ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']"
         )
         self.gp_kernel = gp_kernel
+        self.scale_features = scale_features
         self.optimizer = optimizer
         self.feature_extractor = feature_extractor
 
@@ -163,6 +167,81 @@ class DKLBase(gpytorch.Module, BaseModule):
 
         self.dkl_model_built = True
 
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Record the training-set size alongside the weights.
+
+        ``VariationalELBO``'s ``num_data`` scales the KL term, so it has to be
+        restored with the model for the reloaded ``test_loss`` to match the
+        value the training run would have reported.
+
+        Args:
+            checkpoint: the checkpoint dictionary that will be saved
+        """
+        super().on_save_checkpoint(checkpoint)
+        if hasattr(self, "n_train_points"):
+            checkpoint["n_train_points"] = self.n_train_points
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Build the GP layer before Lightning restores the state dict.
+
+        ``gp_layer``, ``likelihood``, ``scale_to_bounds`` and ``elbo_fn`` are
+        created lazily by ``_build_model()``, which normally runs from
+        ``configure_optimizers`` (i.e. only during ``fit``). Loading a
+        checkpoint does not go through that path, so without this hook the
+        module still has no GP when Lightning applies the state dict, and
+        every GP/likelihood/kernel tensor is rejected as an unexpected key --
+        ``load_from_checkpoint`` and ``Trainer.test(ckpt_path=...)`` both raise
+        ``RuntimeError`` for a model that trained perfectly well.
+
+        The GP's shapes are fully determined by the checkpoint itself, so they
+        are recovered from the saved tensors. Re-running
+        ``compute_initial_values`` instead would be wrong as well as expensive:
+        its k-means over the training set would pick *different* inducing
+        points than the run being restored, and it needs a datamodule that is
+        not attached when loading standalone.
+
+        Args:
+            checkpoint: the checkpoint about to be loaded
+        """
+        if self.dkl_model_built:
+            return
+
+        state = checkpoint.get("state_dict", {})
+        inducing_key = next((k for k in state if k.endswith("inducing_points")), None)
+        if inducing_key is None:
+            # Not a checkpoint from a built DKL model; leave the normal lazy
+            # path to handle it.
+            return
+
+        inducing_points = state[inducing_key]
+        # IndependentMultitaskVariationalStrategy stores inducing points with a
+        # leading task dimension; _build_model re-adds it via batch_shape.
+        if inducing_points.dim() == 3:
+            inducing_points = inducing_points[0]
+
+        lengthscale_key = next(
+            (k for k in state if k.endswith("base_kernel.raw_lengthscale")), None
+        )
+        if lengthscale_key is not None:
+            # _build_model only uses this to seed the kernel; the trained value
+            # is overwritten by the state dict immediately afterwards.
+            initial_lengthscale = nn.functional.softplus(
+                state[lengthscale_key]
+            ).flatten()[0]
+        else:
+            initial_lengthscale = torch.tensor(1.0)
+
+        self.initial_inducing_points = inducing_points.to(self.device)
+        self.initial_lengthscale = initial_lengthscale.to(self.device)
+        # num_data normalizes the ELBO's KL term, so a wrong value silently
+        # changes the reported test_loss. It is saved by on_save_checkpoint;
+        # fall back to 1 only for checkpoints written before that existed.
+        if not hasattr(self, "n_train_points"):
+            self.n_train_points = checkpoint.get("n_train_points", 1)
+
+        self._build_model()
+        self.dkl_model_built = True
+
     def forward(self, X: Tensor) -> MultivariateNormal:
         """Forward pass through model.
 
@@ -173,9 +252,9 @@ class DKLBase(gpytorch.Module, BaseModule):
             output from GP
         """
         features = self.feature_extractor(X)
-        scaled_features = self.scale_to_bounds(features)
-        output = self.gp_layer(scaled_features)
-        return output
+        if self.scale_features:
+            features = self.scale_to_bounds(features)
+        return self.gp_layer(features)
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -225,8 +304,9 @@ class DKLBase(gpytorch.Module, BaseModule):
         X, y = batch[self.input_key], batch[self.target_key]
 
         # in sanity checking GPPYtorch is not in eval
-        # and we get a device error
-        if self.trainer.sanity_checking:
+        # and we get a device error -- only reachable when scale_features is
+        # on, since ScaleToBounds is what holds the offending buffers.
+        if self.scale_features and self.trainer.sanity_checking:
             self.scale_to_bounds.train()
             y_pred = self.forward(X)
             self.scale_to_bounds.eval()
@@ -320,6 +400,7 @@ class DKLRegression(DKLBase):
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
+        scale_features: bool = False,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Regression.
 
@@ -333,11 +414,18 @@ class DKLRegression(DKLBase):
             freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            scale_features: rescale the feature extractor's output into
+                [-2, 2] with ``ScaleToBounds`` before the GP
         """
         self.freeze_backbone = freeze_backbone
 
         super().__init__(
-            feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
+            feature_extractor,
+            n_inducing_points,
+            gp_kernel,
+            scale_features=scale_features,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
         )
 
         self.save_hyperparameters(
@@ -456,6 +544,7 @@ class DKLClassification(DKLBase):
         freeze_backbone: bool = False,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
+        scale_features: bool = False,
     ) -> None:
         """Initialize a new Deep Kernel Learning Model for Classification.
 
@@ -469,6 +558,8 @@ class DKLClassification(DKLBase):
             freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            scale_features: rescale the feature extractor's output into
+                [-2, 2] with ``ScaleToBounds`` before the GP
         """
         assert task in self.valid_tasks
         self.task = task
@@ -479,7 +570,12 @@ class DKLClassification(DKLBase):
         self.freeze_backbone = freeze_backbone
 
         super().__init__(
-            feature_extractor, n_inducing_points, gp_kernel, optimizer, lr_scheduler
+            feature_extractor,
+            n_inducing_points,
+            gp_kernel,
+            scale_features=scale_features,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
         )
 
         self.save_hyperparameters(
@@ -571,8 +667,9 @@ class DKLClassification(DKLBase):
         """
         X, y = batch[self.input_key], batch[self.target_key]
         # in sanity checking GPPYtorch is not in eval
-        # and we get a device error
-        if self.trainer.sanity_checking:
+        # and we get a device error -- only reachable when scale_features is
+        # on, since ScaleToBounds is what holds the offending buffers.
+        if self.scale_features and self.trainer.sanity_checking:
             self.scale_to_bounds.train()
             y_pred = self.forward(X)
             self.scale_to_bounds.eval()
@@ -776,12 +873,12 @@ def compute_initial_values(
                 X_sample = torch.stack(
                     [train_dataset[j][input_key] for j in random_indices]
                 )
-                y_sample = torch.stack(
+                y_sample = _stack_targets(
                     [train_dataset[j][target_key] for j in random_indices]
                 )
             else:
                 X_sample = torch.stack([train_dataset[j][0] for j in random_indices])
-                y_sample = torch.stack([train_dataset[j][1] for j in random_indices])
+                y_sample = _stack_targets([train_dataset[j][1] for j in random_indices])
 
             X_sample = X_sample.to(device)
             y_sample = y_sample.to(device)
@@ -796,6 +893,24 @@ def compute_initial_values(
     )
     initial_lengthscale = _get_initial_lengthscale(f_X_samples)
     return initial_inducing_points.to(torch.float), initial_lengthscale.to(torch.float)
+
+
+def _stack_targets(targets: list) -> Tensor:
+    """Stack dataset targets that may not already be tensors.
+
+    Standard torchvision classification datasets return labels as plain Python
+    ``int``s (``CIFAR10[0]`` is ``(Tensor, int)``), which ``torch.stack``
+    rejects with "expected Tensor as element 0 in argument 0, but got int".
+    Converting each element first makes the common case work while leaving
+    tensor targets untouched.
+
+    Args:
+        targets: per-sample targets, each a tensor, number, or array
+
+    Returns:
+        the stacked targets as a single tensor
+    """
+    return torch.stack([torch.as_tensor(target) for target in targets])
 
 
 def _get_initial_inducing_points(
