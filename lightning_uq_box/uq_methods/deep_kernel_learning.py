@@ -44,51 +44,6 @@ class DKLBase(gpytorch.Module, BaseModule):
     If you use this model in your work, please cite:
 
     * https://proceedings.mlr.press/v51/wilson16.html
-
-    .. warning::
-        **Watch ``scale_features``.** It defaults to ``False``, matching the
-        reference implementation (https://github.com/y0ast/DUE), and should
-        normally stay there. Setting it to ``True`` inserts a
-        ``ScaleToBounds`` between the feature extractor and the GP, which can
-        stop the model learning **without raising anything**: the loss still
-        moves, training runs to completion, and the result is a
-        chance-accuracy model.
-
-        The cause is a mismatch between two places that never consult each
-        other. :func:`compute_initial_values` fits the kernel's initial
-        lengthscale to the mean pairwise distance of the **unscaled**
-        features; ``ScaleToBounds`` then rescales those features, so the GP
-        trains at a scale its kernel was never initialized for. On CIFAR-10
-        with a WRN-28-10 the features have mean pairwise distance 4.26 against
-        a fitted lengthscale of 4.62 (well matched), but scaling expands them
-        to 16.55 -- about 4x the lengthscale, where an RBF kernel is saturated
-        (``exp(-8) ~ 3e-4``), nearly flat, and so passes almost no gradient
-        back to the backbone. Measured effect on the gradient reaching the
-        feature extractor: ~81x weaker, and over 15 epochs accuracy stayed at
-        chance while the validation loss *rose*.
-
-        The direction of the distortion depends on the backbone's output
-        scale: a backbone whose features are much narrower than [-2, 2] gets
-        expanded *toward* a well-matched lengthscale instead, which is why
-        this is a parameter to watch rather than one that is always wrong.
-        If you enable it, check that the feature distances still match the
-        fitted lengthscale, and that the backbone is actually receiving
-        gradient.
-
-    .. note::
-        Two further things worth knowing when comparing against DUE:
-
-        * The GP is built with one output per **feature** dimension and a
-          learned mixing matrix in ``SoftmaxLikelihood``, whereas DUE uses one
-          output per **class** with ``mixing_weights=False``. With a 640-dim
-          backbone and 10 inducing points that is a 64x larger variational
-          distribution (70,400 vs 1,100 parameters). This also suppresses the
-          backbone gradient (~23x) and makes some GPyTorch operations far more
-          expensive -- notably ``to_data_independent_dist()``, which DUE uses
-          in its OOD evaluation and which becomes intractable at this width.
-        * Predictions are stochastic: ``predict_step`` averages 64 likelihood
-          samples, so repeated evaluation of one unchanged model gives
-          slightly different metrics.
     """
 
     # Assigned by _build_model() in the subclasses. Declared here so they do not read
@@ -126,29 +81,11 @@ class DKLBase(gpytorch.Module, BaseModule):
             n_inducing_points: number of inducing points
             gp_kernel: kernel choice, supports one of
                 ['RBF', 'Matern12', 'Matern32', 'Matern52', 'RQ']
-
-                Enabling it usually **prevents the model from training**. The
-                initial lengthscale is fitted to *unscaled* features by
-                ``compute_initial_values``, so rescaling afterwards
-                invalidates it: on CIFAR-10 the WRN's mean pairwise feature
-                distance is 4.26 against a fitted lengthscale of 4.62, but
-                scaling expands it to 16.55 -- roughly 4x the lengthscale,
-                where the RBF kernel is saturated and passes almost no
-                gradient back to the backbone. Measured effect on the
-                gradient reaching the feature extractor: ~81x weaker, and in a
-                controlled 200-step run the model stays at chance accuracy
-                (10.0%) instead of reaching 23.1%.
-
-                It is kept as an option only for backwards compatibility with
-                checkpoints trained before this default changed.
             elbo_fn: gpytorch elbo function used for optimization
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
             scale_features: rescale the feature extractor's output into
-                [-2, 2] with ``ScaleToBounds`` before the GP. Defaults to
-                ``False``, which matches the reference DUE implementation
-                (https://github.com/y0ast/DUE), whose ``DKL.forward`` is just
-                ``gp(feature_extractor(x))``.
+                [-2, 2] with ``ScaleToBounds`` before the GP
         """
         super().__init__()
         self.save_hyperparameters(
@@ -477,9 +414,8 @@ class DKLRegression(DKLBase):
             freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
-            scale_features: rescale features into [-2, 2] before the GP. See
-                :class:`DKLBase`; defaults to ``False``, matching DUE, and
-                enabling it usually prevents the model from training.
+            scale_features: rescale the feature extractor's output into
+                [-2, 2] with ``ScaleToBounds`` before the GP
         """
         self.freeze_backbone = freeze_backbone
 
@@ -622,9 +558,8 @@ class DKLClassification(DKLBase):
             freeze_backbone: whether to freeze the backbone
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
-            scale_features: rescale features into [-2, 2] before the GP. See
-                :class:`DKLBase`; defaults to ``False``, matching DUE, and
-                enabling it usually prevents the model from training.
+            scale_features: rescale the feature extractor's output into
+                [-2, 2] with ``ScaleToBounds`` before the GP
         """
         assert task in self.valid_tasks
         self.task = task
