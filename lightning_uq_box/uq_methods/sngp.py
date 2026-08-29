@@ -500,6 +500,10 @@ def random_ortho(n: int, m: int) -> Tensor:
 class RandomFourierFeatures(nn.Module):
     """Random Fourier Features for Gaussian Processes."""
 
+    feature_scale: Tensor
+    W: Tensor
+    b: Tensor
+
     def __init__(
         self, in_dim: int, num_random_features: int, feature_scale: float | None = None
     ):
