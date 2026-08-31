@@ -407,12 +407,16 @@ class VQVAE(VAE):
             batch: The batch to reconstruct.
         """
         with torch.no_grad():
-            X = batch[self.input_key]
-            x_recon, _, _ = self.forward(X)
+            x_recon, _, _ = self.forward(batch[self.input_key])
 
-        # inputs on the top rows, their reconstructions below
-        num_show = min(8, X.shape[0])
-        paired = torch.cat([X[:num_show], x_recon[:num_show]], dim=0).detach()
+        # Pair against the target rather than the input: the decoder emits
+        # ``out_channels``, which need not match the input channels, and
+        # ``make_grid`` cannot stack tensors of differing channel counts.
+        target = batch[self.target_key]
+
+        # targets on the top rows, their reconstructions below
+        num_show = min(8, target.shape[0])
+        paired = torch.cat([target[:num_show], x_recon[:num_show]], dim=0).detach()
         grid = make_grid(paired, nrow=num_show, normalize=True)
         save_image(
             grid,
