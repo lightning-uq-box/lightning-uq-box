@@ -1,0 +1,15 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.VQVAE
+  encoder:
+    _target_: segmentation_models_pytorch.encoders.TimmUniversalEncoder
+    name: resnet18
+    depth: 2
+  img_size: 64
+  out_channels: 1
+  num_samples: 2
+  codebook_size: 32
+  sample_codebook_temp: 1.0
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003

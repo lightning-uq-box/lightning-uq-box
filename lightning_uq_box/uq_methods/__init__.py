@@ -51,7 +51,7 @@ from .deterministic_uncertainty_estimation import DUEClassification, DUERegressi
 from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
-from .loss_functions import NLL, DERLoss, PinballLoss, VAELoss
+from .loss_functions import NLL, DERLoss, PinballLoss, VAELoss, VQVAELoss
 from .masked_ensemble import (
     MasksemblesBase,
     MasksemblesClassification,
@@ -92,6 +92,7 @@ from .swag import (
 from .temp_scaling import TempScaling
 from .vae import VAE, ConditionalVAE
 from .vbll import VBLLClassification, VBLLRegression
+from .vq_vae import VQVAE, VQVAEPrior
 from .zigzag import ZigZagBase, ZigZagClassification, ZigZagRegression
 
 __all__ = (
@@ -208,6 +209,7 @@ __all__ = (
     "DERLoss",
     "PinballLoss",
     "VAELoss",
+    "VQVAELoss",
     # Test time augmentation
     "TTABase",
     "TTARegression",
@@ -215,6 +217,8 @@ __all__ = (
     # VAE
     "VAE",
     "ConditionalVAE",
+    "VQVAE",
+    "VQVAEPrior",
     # Zig Zag
     "ZigZagBase",
     "ZigZagRegression",

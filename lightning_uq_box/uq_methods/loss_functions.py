@@ -291,6 +291,45 @@ class VAELoss(nn.Module):
         return self.kl_scale * KLD, recon_loss
 
 
+class VQVAELoss(nn.Module):
+    """VQ-VAE Loss Function.
+
+    Consists of the commitment loss and the reconstruction loss (MSE). Unlike
+    :class:`VAELoss` there is no KL term: the prior over the discrete latent is a
+    separate model, see
+    :class:`~lightning_uq_box.uq_methods.vq_vae.VQVAEPrior`.
+    """
+
+    def __init__(self, commit_scale: float = 0.25) -> None:
+        """Initialize a new instance of the VQ-VAE Loss Function.
+
+        Args:
+            commit_scale: The scale of the commitment loss, called beta in
+                `van den Oord et al. 2017 <https://arxiv.org/abs/1711.00937>`__,
+                whose section 3.2 reports results to be robust for beta in
+                0.1 to 2.0 and uses 0.25 throughout.
+        """
+        super().__init__()
+        self.commit_scale = commit_scale
+
+    def forward(
+        self, x_recon: Tensor, target: Tensor, commit_loss: Tensor
+    ) -> tuple[Tensor, Tensor]:
+        """Compute the VQ-VAE Loss.
+
+        Args:
+            x_recon: The reconstructed input tensor of shape [B, C, H, W].
+            target: The target tensor of shape [B, C, H, W].
+            commit_loss: The scalar commitment loss returned by the vector
+                quantization module.
+
+        Returns:
+            The scaled commitment loss and the reconstruction loss.
+        """
+        recon_loss = nn.functional.mse_loss(x_recon, target, reduction="mean")
+        return self.commit_scale * commit_loss, recon_loss
+
+
 class MixtureDensityLoss(nn.Module):
     """Mixture Density Network Regression Loss Function."""
 

@@ -861,6 +861,20 @@ wheels = [
 ]
 
 [[package]]
+name = "einx"
+version = "0.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "frozendict" },
+    { name = "numpy" },
+    { name = "sympy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/84/96/df2cfa7418b175dddcf30a88711d01b79a32c3ac4d64b379ed89a3de2c08/einx-0.4.3.tar.gz", hash = "sha256:be7d81ea1908b9f00e4a467840998fc483c33aa32aaaaa3ada6c8386f693edf9", size = 120087, upload-time = "2026-04-01T09:50:41.473Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d0/28/6768d342b2b888f9facdddbd430daf015cab936e2598281ab436b1be1b4a/einx-0.4.3-py3-none-any.whl", hash = "sha256:47ce54a0144f6dffcfacdd8fe2cc9e2e5e6485dda2471330ab75ee747dd22f39", size = 163766, upload-time = "2026-04-01T09:50:40.165Z" },
+]
+
+[[package]]
 name = "ema-pytorch"
 version = "0.8.3"
 source = { registry = "https://pypi.org/simple" }
@@ -938,6 +952,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/34/3b/214dcc19ee31d3d38fb5ad2755c11ef0514e5dc300bbaf41c0b69f393799/fonttools-4.63.0-cp314-cp314t-win32.whl", hash = "sha256:948428a275741f0b64b113c955425a953314f4b9ab9997f73a72c83e68e569c8", size = 2359326, upload-time = "2026-05-14T12:04:24.22Z" },
     { url = "https://files.pythonhosted.org/packages/dd/1e/3ff1a9b523058c2eeb6a9d50f5574e2a738200d0d94107d5bc4105e8da3f/fonttools-4.63.0-cp314-cp314t-win_amd64.whl", hash = "sha256:6d4741eb179121cab9eea4cb2393d24492373a260d7945006358c08cfbf45419", size = 2425829, upload-time = "2026-05-14T12:04:26.829Z" },
     { url = "https://files.pythonhosted.org/packages/2c/47/c99d5268f354002ce80f8d029cd9d7d872969da1de8b93d32de4dc56d6f4/fonttools-4.63.0-py3-none-any.whl", hash = "sha256:445af2eab030a16b9171ea8bdda7ebf7d96bda2df88ee182a464252f6e05e20d", size = 1164562, upload-time = "2026-05-14T12:04:29.092Z" },
+]
+
+[[package]]
+name = "frozendict"
+version = "2.4.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/b2/2a3d1374b7780999d3184e171e25439a8358c47b481f68be883c14086b4c/frozendict-2.4.7.tar.gz", hash = "sha256:e478fb2a1391a56c8a6e10cc97c4a9002b410ecd1ac28c18d780661762e271bd", size = 317082, upload-time = "2025-11-11T22:40:14.251Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/74/f94141b38a51a553efef7f510fc213894161ae49b88bffd037f8d2a7cb2f/frozendict-2.4.7-py3-none-any.whl", hash = "sha256:972af65924ea25cf5b4d9326d549e69a9a4918d8a76a9d3a7cd174d98b237550", size = 16264, upload-time = "2025-11-11T22:40:12.836Z" },
 ]
 
 [[package]]
@@ -1636,6 +1659,7 @@ dependencies = [
     { name = "torchvision" },
     { name = "uncertainty-toolbox" },
     { name = "vbll" },
+    { name = "vector-quantize-pytorch" },
 ]
 
 [package.optional-dependencies]
@@ -1714,6 +1738,7 @@ requires-dist = [
     { name = "ty", marker = "extra == 'style'", specifier = ">=0.0.73" },
     { name = "uncertainty-toolbox", specifier = ">=0.1.1" },
     { name = "vbll", specifier = ">=0.4.9" },
+    { name = "vector-quantize-pytorch", specifier = ">=1.14" },
 ]
 provides-extras = ["style", "tests", "docs", "all"]
 
@@ -3489,6 +3514,19 @@ wheels = [
 ]
 
 [[package]]
+name = "torch-einops-utils"
+version = "0.1.22"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "einops" },
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/93/03/33fa0c18ed8300f1565d39fc1dc6b076a85f5e70fddab6816ac75e3e3322/torch_einops_utils-0.1.22.tar.gz", hash = "sha256:e641120b93c098383fc6c088cd6bdcfe628a54b492773b12b4a92c79c75e03a0", size = 21033, upload-time = "2026-08-27T16:41:57.36Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/e3/6f2d4f9309094bbabc069f541f3c929fca08b088ddffb873ba1e73dac87c/torch_einops_utils-0.1.22-py3-none-any.whl", hash = "sha256:a394c47193c98bcd4ec3783c5e4c700791baf54251fd00c56f0095a6848f888d", size = 14277, upload-time = "2026-08-27T16:41:56.282Z" },
+]
+
+[[package]]
 name = "torchmetrics"
 version = "1.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3689,6 +3727,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/b6/3b/a9b38c085e87e984920843efd5f6f98fb410ded037b92154e23ad81e1593/vbll-0.4.9.tar.gz", hash = "sha256:ba6891c5576a6e39e12d7e050356e85670dc4460bb15e4a0f0c36262c2cdbd02", size = 13224, upload-time = "2025-05-14T17:35:58.441Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/07/83/04c1b447d0831e86f3aaa8fa4a35e0255b9e279188ce5e2452f1e131fba9/vbll-0.4.9-py3-none-any.whl", hash = "sha256:dc54d78233399f47beebad49a0b98be6e175a2e7aae6538faab442bd8028631c", size = 16250, upload-time = "2025-05-14T17:35:57.579Z" },
+]
+
+[[package]]
+name = "vector-quantize-pytorch"
+version = "1.31.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "einops" },
+    { name = "einx" },
+    { name = "torch" },
+    { name = "torch-einops-utils" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/35/db/2fcef3e9aef40aafd03ce98ac4a44386ac59510e123f607e53ef34ff88c5/vector_quantize_pytorch-1.31.1.tar.gz", hash = "sha256:7be73b4a5d1e7b8eb2e18933aed6c6d1a39e1412bcd3e199f1fa2a986216b23f", size = 57650, upload-time = "2026-08-02T17:58:08.664Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/63/0e/30a83535da0c7e886b0b65e921724b91e1f3b6cc5d97694c972cf4bd6bf9/vector_quantize_pytorch-1.31.1-py3-none-any.whl", hash = "sha256:8625d55a4c0af359369d5be02c73c9da05bf7edb5cbc5c9c6d68c8ef043d7be6", size = 63397, upload-time = "2026-08-02T17:58:07.506Z" },
 ]
 
 [[package]]

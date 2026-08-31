@@ -32,6 +32,8 @@ model_config_paths = [
     "tests/configs/pixelwise_regression/vae_conv_encoder.yaml",
     "tests/configs/pixelwise_regression/vae_vit_encoder.yaml",
     "tests/configs/pixelwise_regression/vae_conditional.yaml",
+    "tests/configs/pixelwise_regression/vqvae_conv_encoder.yaml",
+    "tests/configs/pixelwise_regression/vqvae_vit_encoder.yaml",
 ]
 
 data_config_paths = ["tests/configs/pixelwise_regression/toy_pixelwise_regression.yaml"]
@@ -328,6 +330,11 @@ frozen_vae_paths = [
     "tests/configs/pixelwise_regression/vae_conditional.yaml",
 ]
 
+frozen_vqvae_paths = [
+    "tests/configs/pixelwise_regression/vqvae_conv_encoder.yaml",
+    "tests/configs/pixelwise_regression/vqvae_vit_encoder.yaml",
+]
+
 
 class TestFrozenVAE:
     @pytest.mark.parametrize("model_config_path", frozen_vae_paths)
@@ -345,3 +352,311 @@ class TestFrozenVAE:
         assert all(
             param.requires_grad is False for param in module.decoder.parameters()
         )
+
+
+class TestFrozenVQVAE:
+    @pytest.mark.parametrize("model_config_path", frozen_vqvae_paths)
+    def test_freeze_encoder(self, model_config_path: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        module = instantiate(model_conf.uq_method, freeze_backbone=True)
+        assert all(
+            param.requires_grad is False for param in module.encoder.parameters()
+        )
+
+    @pytest.mark.parametrize("model_config_path", frozen_vqvae_paths)
+    def test_freeze_decoder(self, model_config_path: str) -> None:
+        model_conf = OmegaConf.load(model_config_path)
+        module = instantiate(model_conf.uq_method, freeze_decoder=True)
+        assert all(
+            param.requires_grad is False for param in module.decoder.parameters()
+        )
+
+
+class TestVQVAE:
+    """Tests for behaviour specific to the discrete latent."""
+
+    @pytest.fixture
+    def module(self) -> Any:
+        model_conf = OmegaConf.load(
+            "tests/configs/pixelwise_regression/vqvae_conv_encoder.yaml"
+        )
+        return instantiate(model_conf.uq_method)
+
+    def test_latent_is_a_spatial_grid(self, module: Any) -> None:
+        """The indices must form a grid, which is what makes a PixelCNN prior possible."""
+        X = torch.randn(2, 3, module.img_size, module.img_size)
+        quantized, indices, commit_loss = module.encode_img_to_latent(X)
+
+        grid = module.latent_feature_dim
+        assert indices.shape == (2, grid, grid)
+        assert quantized.shape == (2, module.latent_channels, grid, grid)
+        assert commit_loss.ndim == 0
+
+    def test_indices_round_trip_to_quantized(self, module: Any) -> None:
+        """Ancestral sampling depends on mapping indices back to codebook vectors."""
+        module.eval()
+        X = torch.randn(2, 3, module.img_size, module.img_size)
+        with torch.no_grad():
+            quantized, indices, _ = module.encode_img_to_latent(X)
+            recovered = module.vq_module.get_output_from_indices(indices)
+
+        assert torch.allclose(recovered, quantized, atol=1e-5)
+
+    def test_commit_loss_is_zero_in_eval_mode(self, module: Any) -> None:
+        """Pin a library behaviour that makes ``val_commit_loss`` uninformative.
+
+        ``VectorQuantize`` computes the commitment loss only in training mode and
+        returns exactly 0.0 in eval. That is why ``val_commit_loss`` is always
+        0.0, ``val_loss`` equals ``val_rec_loss`` during validation, and the
+        metric is excluded from seed aggregation. If a library upgrade ever
+        starts computing it in eval, this test fails and the docs and the
+        aggregation script need revisiting.
+        """
+        X = torch.randn(2, 3, module.img_size, module.img_size)
+
+        module.train()
+        _, _, commit_train = module.encode_img_to_latent(X)
+
+        module.eval()
+        with torch.no_grad():
+            _, _, commit_eval = module.encode_img_to_latent(X)
+
+        assert commit_train > 0.0, "commitment loss should be live in train mode"
+        assert commit_eval == 0.0, "commitment loss is not computed in eval mode"
+
+    def test_training_uses_deterministic_code_assignment(self, module: Any) -> None:
+        """Training must quantize to the true nearest codebook entry.
+
+        ``stochastic_sample_codes=True`` is gated on ``module.training``, so
+        enabling it on the codebook perturbs the *training* assignment with
+        Gumbel noise. The distance margin between the best and second-best code
+        is around 0.01 while that noise has standard deviation ~1.28, so the
+        assignment becomes very nearly uniform over the codebook and both the
+        EMA update and the logged perplexity describe the noise rather than the
+        model. Stochastic sampling belongs only in ``predict_step``, which
+        rebinds it for the duration of the call.
+
+        The encoder is bypassed here because its batch norm legitimately makes
+        train and eval latents differ; this pins the quantizer alone.
+        """
+        latent = torch.randn(4, module.latent_channels, 2, 2)
+
+        module.train()
+        with torch.no_grad():
+            _, indices_train, _ = module.vq_module(latent, freeze_codebook=True)
+
+        module.eval()
+        with torch.no_grad():
+            _, indices_eval, _ = module.vq_module(latent)
+
+        assert torch.equal(indices_train, indices_eval), (
+            "training assignments differ from the deterministic nearest-neighbour "
+            "assignment, which means codes are being sampled stochastically during "
+            "training"
+        )
+
+    def test_quantizer_forward_is_exactly_a_codebook_entry(self, module: Any) -> None:
+        """The quantized output must be the selected codebook vector, bit for bit.
+
+        This is the defining property of vector quantization: anything that leaks
+        the continuous encoder output into the forward pass would make the decoder
+        train against a representation the ancestral sampler can never produce,
+        since sampling reaches the decoder only through codebook indices. Stage 2
+        would then degrade for reasons invisible in stage-1 metrics.
+        """
+        latent = torch.randn(4, module.latent_channels, 2, 2)
+        module.eval()
+        with torch.no_grad():
+            quantized, indices, _ = module.vq_module(latent)
+
+        expected = module.vq_module._codebook.embed[0][indices].permute(0, 3, 1, 2)
+        assert torch.allclose(quantized, expected, atol=1e-5)
+
+        # the same lookup the ancestral sampler uses must agree with the forward pass
+        round_trip = module.vq_module.get_output_from_indices(indices)
+        assert torch.allclose(round_trip, quantized, atol=1e-5), (
+            "get_output_from_indices disagrees with the forward pass, so decoding "
+            "sampled indices in stage 2 would not match training-time quantization"
+        )
+
+    def test_gradient_estimator_is_the_configured_one(self, module: Any) -> None:
+        """The quantizer must use the gradient estimator that was asked for.
+
+        vector_quantize_pytorch silently enables the rotation trick of Fifty et al.
+        2024 for any ``dim > 1``, replacing the identity straight-through estimator
+        of van den Oord et al. The forward pass is identical under both, so no
+        reconstruction, shape, or codebook-usage test can detect the substitution --
+        only the backward pass differs. This pins it to the declared setting.
+        """
+        assert module.vq_module.rotation_trick == module.rotation_trick
+
+        latent = torch.randn(4, module.latent_channels, 2, 2, requires_grad=True)
+        module.train()
+        quantized, _, _ = module.vq_module(latent, freeze_codebook=True)
+        grad = torch.autograd.grad(quantized.sum(), latent)[0]
+
+        if module.rotation_trick:
+            # the rotation trick reshapes the gradient, so identity would mean it
+            # silently did not apply
+            assert not torch.allclose(grad, torch.ones_like(grad))
+        else:
+            # the paper's estimator copies the gradient through unchanged
+            assert torch.allclose(grad, torch.ones_like(grad), atol=1e-5)
+
+        # under either estimator the encoder must actually receive gradient
+        assert grad.abs().max() > 0, "no gradient reaches the encoder"
+
+    def test_predict_step_uncertainty_is_non_zero(self, module: Any) -> None:
+        """Regression test: stochastic codebook sampling is gated on module.training.
+
+        In eval mode, which is where predict_step runs, every draw would otherwise be
+        the same deterministic nearest-neighbour lookup and pred_uct would be
+        identically zero without any error being raised.
+        """
+        module.eval()
+        X = torch.randn(2, 3, module.img_size, module.img_size)
+        out = module.predict_step(X)
+
+        assert out["pred"].shape == (2, module.out_channels, 64, 64)
+        assert out["pred_uct"].shape == out["pred"].shape
+        assert not torch.isnan(out["pred_uct"]).any()
+        assert out["pred_uct"].abs().sum() > 0
+
+    def test_predict_step_leaves_codebook_untouched(self, module: Any) -> None:
+        """Prediction must not drift the codebook via its EMA update.
+
+        With ``kmeans_init=True`` the codebook is all zeros until the first
+        forward pass populates it from k-means centroids, so a first
+        ``predict_step`` legitimately changes ``embed``. That one-off
+        initialization is not the drift this guards against, hence the warm-up
+        call before the snapshot.
+        """
+        module.eval()
+        X = torch.randn(2, 3, module.img_size, module.img_size)
+
+        # warm-up: trigger the k-means initialization so the comparison below
+        # sees a settled codebook
+        module.predict_step(X)
+        assert bool(module.vq_module._codebook.initted), (
+            "codebook should be initialized after one forward pass"
+        )
+
+        before = module.vq_module._codebook.embed.clone()
+        was_training = module.vq_module._codebook.training
+
+        module.predict_step(X)
+
+        assert torch.equal(module.vq_module._codebook.embed, before)
+        assert module.vq_module._codebook.training == was_training
+
+    def test_single_sample_uncertainty_is_not_nan(self) -> None:
+        """The unbiased std of a single draw is nan, so it must be special cased."""
+        model_conf = OmegaConf.load(
+            "tests/configs/pixelwise_regression/vqvae_conv_encoder.yaml"
+        )
+        module = instantiate(
+            model_conf.uq_method, num_samples=1, sample_codebook_temp=0.0
+        )
+        module.eval()
+        out = module.predict_step(torch.randn(2, 3, module.img_size, module.img_size))
+
+        assert not torch.isnan(out["pred_uct"]).any()
+        assert torch.all(out["pred_uct"] == 0)
+
+    def test_deterministic_multi_sample_is_rejected(self) -> None:
+        """num_samples > 1 with a zero temperature would give zero uncertainty."""
+        model_conf = OmegaConf.load(
+            "tests/configs/pixelwise_regression/vqvae_conv_encoder.yaml"
+        )
+        # hydra wraps the ValueError raised by the constructor
+        with pytest.raises(Exception, match="sample_codebook_temp"):
+            instantiate(model_conf.uq_method, num_samples=2, sample_codebook_temp=0.0)
+
+    def test_sample_points_at_the_prior(self, module: Any) -> None:
+        """A stage one VQ-VAE has no prior over the latent to sample from."""
+        with pytest.raises(NotImplementedError, match="VQVAEPrior"):
+            module.sample(4)
+
+    def test_outputs_are_contiguous(self, module: Any) -> None:
+        """Regression test: torchmetrics calls .view(-1) on the reconstruction.
+
+        With accept_image_fmap=True the codebook lookup permutes the channel axis
+        back into place and returns a non-contiguous view, which propagates through
+        the decoder and makes that .view(-1) raise at the end of the first epoch.
+        """
+        X = torch.randn(2, 3, module.img_size, module.img_size)
+        quantized, _, _ = module.encode_img_to_latent(X)
+        x_recon, _, _ = module.forward(X)
+
+        assert quantized.is_contiguous()
+        assert x_recon.is_contiguous()
+
+        module.eval()
+        assert module.predict_step(X)["pred"].is_contiguous()
+
+    def test_configure_model_is_idempotent(self, module: Any) -> None:
+        """Lightning re-invokes configure_model, which must not rebuild the modules."""
+        vq_module, decoder = module.vq_module, module.decoder
+        module.configure_model()
+
+        assert module.vq_module is vq_module
+        assert module.decoder is decoder
+
+
+class TestVQVAEPrior:
+    @pytest.fixture
+    def prior(self) -> Any:
+        model_conf = OmegaConf.load(
+            "tests/configs/pixelwise_regression/vqvae_prior.yaml"
+        )
+        return instantiate(model_conf.uq_method)
+
+    def test_vq_vae_is_frozen(self, prior: Any) -> None:
+        assert all(param.requires_grad is False for param in prior.vq_vae.parameters())
+        assert not prior.vq_vae.training
+
+    def test_optimizer_only_receives_prior_params(self, prior: Any) -> None:
+        """Frozen VQ-VAE parameters must not land in the optimizer."""
+        optimizer = prior.configure_optimizers()["optimizer"]
+        optimized = {id(p) for group in optimizer.param_groups for p in group["params"]}
+
+        assert optimized == {id(p) for p in prior.pixel_cnn.parameters()}
+        assert not any(id(p) in optimized for p in prior.vq_vae.parameters())
+
+    def test_ancestral_sample_shape_and_dtype(self, prior: Any) -> None:
+        """The piece the PR was missing: sampling a fresh latent grid and decoding it."""
+        samples = prior.sample(num_samples=2)
+
+        img_size = prior.vq_vae.img_size
+        assert samples.shape == (2, prior.vq_vae.out_channels, img_size, img_size)
+        assert samples.dtype == torch.float32
+        assert torch.isfinite(samples).all()
+
+    def test_forward_logits_shape(self, prior: Any) -> None:
+        grid = prior.vq_vae.latent_feature_dim
+        indices = torch.randint(0, prior.vq_vae.codebook_size, (2, grid, grid))
+
+        logits = prior(indices)
+
+        assert logits.shape == (2, prior.vq_vae.codebook_size, grid, grid)
+
+    def test_fit_leaves_vq_vae_bit_identical(
+        self, prior: Any, tmp_path: Path, accelerator_config: dict
+    ) -> None:
+        """Lightning re-invokes configure_model at fit, which must not reset weights."""
+        before = {
+            name: param.clone() for name, param in prior.vq_vae.named_parameters()
+        }
+
+        datamodule = ToyPixelwiseRegressionDataModule(
+            num_images=2, batch_size=2, image_size=prior.vq_vae.img_size
+        )
+        trainer = Trainer(**minimal_trainer_kwargs(accelerator_config, tmp_path))
+        trainer.fit(prior, datamodule)
+
+        after = dict(prior.vq_vae.named_parameters())
+        assert set(after) == set(before)
+        for name, param in before.items():
+            assert torch.equal(after[name].cpu(), param.cpu()), (
+                f"VQ-VAE parameter {name} changed during prior training"
+            )

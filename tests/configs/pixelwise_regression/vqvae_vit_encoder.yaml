@@ -1,0 +1,23 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.VQVAE
+  encoder:
+    _target_: segmentation_models_pytorch.encoders.TimmUniversalEncoder
+    name: swin_tiny_patch4_window7_224
+    in_channels: 3
+    depth: 4
+  # transformer encoders report a dummy 0 channel stage in `out_channels`,
+  # so the decoder channels cannot be inferred from the encoder
+  decoder_channels: [384, 192, 96, 48, 1]
+  img_size: 224
+  out_channels: 1
+  num_samples: 2
+  codebook_size: 32
+  sample_codebook_temp: 1.0
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+
+data:
+  _target_: lightning_uq_box.datamodules.ToyPixelwiseRegressionDataModule
+  image_size: 224

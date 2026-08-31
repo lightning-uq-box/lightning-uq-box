@@ -80,7 +80,9 @@ dependencies = [
     # exponential moving average for pytorch models
     "ema-pytorch>=0.7.0",
     # vbll
-    "vbll>=0.4.9"
+    "vbll>=0.4.9",
+    # vector quantization for VQ-VAE
+    "vector-quantize-pytorch>=1.14"
 ]
 
 [project.optional-dependencies]
