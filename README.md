@@ -96,6 +96,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Classification And Regression Diffusion (CARD)|     ✅     |       ✅       |      ❌      |          ❌           |
 | Probabilistic UNet                            |     ❌     |       ❌       |      ✅      |          ❌           |       |
 | Variational Auto-Encoder (VAE)                |     ❌     |       ❌       |      ❌      |          ✅           |
+| Vector Quantized VAE (VQ-VAE)                 |     ❌     |       ❌       |      ❌      |          ✅           |
 
 ### Post-Hoc methods
 

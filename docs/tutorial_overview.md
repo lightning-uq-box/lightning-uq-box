@@ -29,6 +29,16 @@ These tutorials present the classification methods on a Two Moons toy dataset. H
 tutorials/classification
 ```
 
+## Image Generation
+
+These tutorials cover generative models that learn a distribution over images and can draw novel samples from it. The VAE tutorials use a continuous latent; the VQ-VAE tutorial uses a discrete one and needs a second-stage prior before it can generate at all.
+
+```{toctree}
+:maxdepth: 1
+
+tutorials/generation
+```
+
 ## Earth Observation Applications
 
 ```{toctree}
