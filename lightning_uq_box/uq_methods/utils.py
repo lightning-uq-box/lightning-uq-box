@@ -3,6 +3,7 @@
 
 """Utilities for UQ-Method Implementations."""
 
+import json
 import os
 from collections import OrderedDict
 from collections.abc import Callable
@@ -75,16 +76,19 @@ def identity(x: Tensor, dim: int | None = None) -> Tensor:
     return x
 
 
-def default_regression_metrics(prefix: str):
-    """Return a set of default regression metrics."""
-    return MetricCollection(
-        {
-            "RMSE": MeanSquaredError(squared=False),
-            "MAE": MeanAbsoluteError(),
-            "R2": R2Score(),
-        },
-        prefix=prefix,
-    )
+def default_regression_metrics(prefix: str, include_r2: bool = True):
+    """Return a set of default regression metrics.
+
+    Args:
+        prefix: prefix prepended to metric names.
+        include_r2: include R² when a lifecycle guarantees at least two
+            accumulated observations.  Canonical task runtimes leave it out so
+            a valid one-item batch can be counted and completed.
+    """
+    metrics = {"RMSE": MeanSquaredError(squared=False), "MAE": MeanAbsoluteError()}
+    if include_r2:
+        metrics["R2"] = R2Score()
+    return MetricCollection(metrics, prefix=prefix)
 
 
 def default_px_regression_metrics(prefix: str):
@@ -115,6 +119,18 @@ def default_classification_metrics(prefix: str, task: str, num_classes: int):
             {
                 "Acc": Accuracy(task=task, num_labels=num_classes),
                 "F1Score": F1Score(task=task, num_labels=num_classes),
+            },
+            prefix=prefix,
+        )
+    if task == "binary":
+        # EmpiricalCoverage is defined over a class-set axis and cannot be
+        # updated from the one-logit ``[batch]`` representation.  Omitting it
+        # here lets canonical one-logit BCE models count every batch,
+        # including batch size one, rather than skipping those batches.
+        return MetricCollection(
+            {
+                "Acc": Accuracy(task="binary"),
+                "Calibration": CalibrationError(task="binary"),
             },
             prefix=prefix,
         )
@@ -210,6 +226,7 @@ def process_classification_prediction(
     aggregate_fn: Callable = torch.mean,
     eps: float = 1e-7,
     task: str = "multiclass",
+    binary_encoding: str = "two_logit",
 ) -> dict[str, Tensor]:
     """Process classification predictions.
 
@@ -219,11 +236,20 @@ def process_classification_prediction(
     sigmoid is applied per label and the uncertainty is the sum of the
     per-label binary entropies.
 
+    .. versionchanged:: 0.4.0
+
+       Canonical callers can pass an explicit one-logit or two-logit binary
+       encoding. The default remains two-logit to preserve legacy callers.
+
     Args:
         logits: prediction logits tensor of shape [batch_size, num_classes, num_samples]
         aggregate_fn: function to aggregate over the samples
         eps: small value to prevent log of 0
         task: one of "binary", "multiclass" or "multilabel"
+        binary_encoding: binary probability encoding; canonical callers pass
+            ``"one_logit"`` for BCE/sigmoid and ``"two_logit"`` for
+            CE/softmax.  The legacy default preserves historical two-logit
+            behavior.
 
     Returns:
         dictionary with aggregated class probabilities [batch_size, num_classes]
@@ -234,6 +260,12 @@ def process_classification_prediction(
         mean = mean.clamp(eps, 1 - eps)
         entropy = -(mean * mean.log() + (1 - mean) * (1 - mean).log()).sum(dim=-1)
         return {"pred": mean, "pred_uct": entropy, "logits": logits}
+
+    if task == "binary" and binary_encoding == "one_logit":
+        mean = aggregate_fn(torch.sigmoid(logits), dim=-1)
+        mean = mean.clamp(eps, 1 - eps)
+        entropy = -(mean * mean.log() + (1 - mean) * (1 - mean).log())
+        return {"pred": mean, "pred_uct": entropy.squeeze(1), "logits": logits}
 
     mean = aggregate_fn(nn.functional.softmax(logits, dim=1), dim=-1)
     # prevent log of 0 -> nan
@@ -247,6 +279,7 @@ def process_segmentation_prediction(
     aggregate_fn: Callable = torch.mean,
     eps: float = 1e-7,
     task: str = "multiclass",
+    binary_encoding: str = "two_logit",
 ) -> dict[str, Tensor]:
     """Process segmentation predictions.
 
@@ -256,12 +289,21 @@ def process_segmentation_prediction(
     sigmoid is applied per label and the uncertainty is the sum of the
     per-label binary entropies.
 
+    .. versionchanged:: 0.4.0
+
+       Canonical callers can pass an explicit one-logit or two-logit binary
+       encoding. The default remains two-logit to preserve legacy callers.
+
     Args:
         logits: prediction logits tensor of shape
             [batch_size, num_classes, height, width, num_samples]
         aggregate_fn: function to aggregate over the samples
         eps: small value to prevent log of 0
         task: one of "binary", "multiclass" or "multilabel"
+        binary_encoding: binary probability encoding; canonical callers pass
+            ``"one_logit"`` for BCE/sigmoid and ``"two_logit"`` for
+            CE/softmax.  The legacy default preserves historical two-logit
+            behavior.
 
     Returns:
         dictionary with pixel class probabilities
@@ -272,6 +314,12 @@ def process_segmentation_prediction(
         mean = aggregate_fn(torch.sigmoid(logits), dim=-1)
         mean = mean.clamp(eps, 1 - eps)
         entropy = -(mean * mean.log() + (1 - mean) * (1 - mean).log()).sum(dim=1)
+        return {"pred": mean, "pred_uct": entropy, "logits": logits}
+
+    if task == "binary" and binary_encoding == "one_logit":
+        mean = aggregate_fn(torch.sigmoid(logits), dim=-1)
+        mean = mean.clamp(eps, 1 - eps)
+        entropy = -(mean * mean.log() + (1 - mean) * (1 - mean).log()).squeeze(1)
         return {"pred": mean, "pred_uct": entropy, "logits": logits}
 
     mean = aggregate_fn(nn.functional.softmax(logits, dim=1), dim=-1)
@@ -287,8 +335,59 @@ def change_inplace_activation(module):
         module.inplace = False
 
 
+def _distributed_path(path: str) -> str:
+    """Return a rank-sharded path and publish a lightweight root manifest.
+
+    Single-process callers keep their historical filename.  In distributed
+    prediction each rank writes only to its own file/directory, avoiding the
+    append and HDF5 collisions caused by a shared path.  The manifest is an
+    intentionally simple discovery record; dataset-index information remains
+    in the persisted ``index`` auxiliary field when a datamodule provides it.
+    """
+    if not torch.distributed.is_available() or not torch.distributed.is_initialized():
+        return path
+    world_size = torch.distributed.get_world_size()
+    if world_size == 1:
+        return path
+    rank = torch.distributed.get_rank()
+    root, extension = os.path.splitext(path)
+    sharded = f"{root}.rank-{rank}{extension}"
+    if rank == 0:
+        manifest_path = f"{root}.manifest.json"
+        with open(manifest_path, "w", encoding="utf-8") as manifest:
+            json.dump(
+                {
+                    "version": 1,
+                    "world_size": world_size,
+                    "shards": [
+                        os.path.basename(f"{root}.rank-{worker}{extension}")
+                        for worker in range(world_size)
+                    ],
+                },
+                manifest,
+            )
+    return sharded
+
+
+def _writer_array(value: Tensor | object) -> np.ndarray:
+    """Convert one writer value without deleting a one-item batch axis."""
+    array = (
+        value.detach().cpu().numpy() if isinstance(value, Tensor) else np.array(value)
+    )
+    if array.ndim >= 2 and array.shape[-1] == 1:
+        return np.squeeze(array, axis=-1)
+    if array.ndim == 0:
+        return array.reshape(1)
+    return array
+
+
 def save_image_predictions(outputs: STEP_OUTPUT, batch_idx: int, save_dir: str) -> None:
     """Save segmentation predictions to separate hdf5 files.
+
+    .. versionchanged:: 0.4.0
+
+       Distributed runs write rank-sharded dense predictions and a root
+       manifest instead of allowing multiple ranks to overwrite one file.
 
     Args:
         outputs: metrics and values to be saved
@@ -302,6 +401,8 @@ def save_image_predictions(outputs: STEP_OUTPUT, batch_idx: int, save_dir: str) 
     # Lightning types the hook argument as STEP_OUTPUT; the UQ methods always
     # return a dict from test_step, so narrow once here rather than at every hook.
     assert isinstance(outputs, dict)
+    save_dir = _distributed_path(save_dir)
+    os.makedirs(save_dir, exist_ok=True)
     for sample_idx in range(outputs["pred"].shape[0]):
         with h5py.File(
             f"{save_dir}/batch_{batch_idx}_sample_{sample_idx}.hdf5", "w"
@@ -320,6 +421,11 @@ def save_image_predictions(outputs: STEP_OUTPUT, batch_idx: int, save_dir: str) 
 def save_regression_predictions(outputs: STEP_OUTPUT, path: str) -> None:
     """Save regression predictions to csv file.
 
+    .. versionchanged:: 0.4.0
+
+       The writer copies the output mapping and preserves one-item batch axes;
+       it no longer consumes ``samples`` from the caller's result dictionary.
+
     Args:
         outputs: metrics and values to be saved
             - pred: predictions of shape [batch_size]
@@ -333,21 +439,28 @@ def save_regression_predictions(outputs: STEP_OUTPUT, path: str) -> None:
     # Lightning types the hook argument as STEP_OUTPUT; the UQ methods always
     # return a dict from test_step, so narrow once here rather than at every hook.
     assert isinstance(outputs, dict)
+    # Writers are observers: callers often use the same output object for
+    # logging/callbacks after this hook, so never pop or otherwise mutate it.
+    copied_outputs = dict(outputs)
+    path = _distributed_path(path)
+    parent_dir = os.path.dirname(path)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
     cpu_outputs = {}
-    if "samples" in outputs:
-        samples = outputs.pop("samples")
+    if "samples" in copied_outputs:
+        samples = copied_outputs.pop("samples")
         for i in range(samples.shape[-1]):
-            sample = samples[..., i].squeeze(-1).cpu().numpy()
+            sample = _writer_array(samples[..., i])
             # mve prediction
             if sample.ndim == 2 and sample.shape[-1] == 2:
                 sample = sample[:, 0]
             cpu_outputs[f"sample_{i}"] = sample
 
-    for key, val in outputs.items():
+    for key, val in copied_outputs.items():
         if isinstance(val, Tensor):
-            cpu_outputs[key] = val.squeeze(-1).cpu().numpy()
+            cpu_outputs[key] = _writer_array(val)
         else:
-            cpu_outputs[key] = np.array(val)
+            cpu_outputs[key] = _writer_array(val)
 
     df = pd.DataFrame.from_dict(cpu_outputs)
 
@@ -359,9 +472,17 @@ def save_regression_predictions(outputs: STEP_OUTPUT, path: str) -> None:
 
 
 def save_classification_predictions(
-    outputs: STEP_OUTPUT, path: str, task: str = "multiclass"
+    outputs: STEP_OUTPUT,
+    path: str,
+    task: str = "multiclass",
+    binary_encoding: str = "two_logit",
 ) -> None:
     """Save classification predictions to csv file.
+
+    .. versionchanged:: 0.4.0
+
+       The writer is non-mutating, handles a one-logit binary task explicitly,
+       and rank-shards distributed output to avoid append collisions.
 
     For the "multilabel" task the labels are not mutually exclusive, so instead
     of a single ``pred`` column there is one ``pred_i`` column per label,
@@ -376,35 +497,42 @@ def save_classification_predictions(
             - pred_uct: predictive uncertainty of shape [batch_size]
         path: path where csv should be saved
         task: one of "binary", "multiclass" or "multilabel"
+        binary_encoding: binary probability encoding for the one-logit CSV
+            thresholding case.
     """
     # Lightning types the hook argument as STEP_OUTPUT; the UQ methods always
     # return a dict from test_step, so narrow once here rather than at every hook.
     assert isinstance(outputs, dict)
-    if "samples" in outputs:
-        _ = outputs.pop("samples")
-    if "logits" in outputs:
-        _ = outputs.pop("logits")
+    copied_outputs = dict(outputs)
+    path = _distributed_path(path)
+    parent_dir = os.path.dirname(path)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+    if "samples" in copied_outputs:
+        _ = copied_outputs.pop("samples")
+    if "logits" in copied_outputs:
+        _ = copied_outputs.pop("logits")
 
-    pred_set_true = "pred_set" in outputs
+    pred_set_true = "pred_set" in copied_outputs
 
     if pred_set_true:
         pred_set = [
-            str(tensor.cpu().numpy().tolist()) for tensor in outputs.pop("pred_set")
+            str(tensor.cpu().numpy().tolist())
+            for tensor in copied_outputs.pop("pred_set")
         ]
         df_pred_set = pd.DataFrame(pred_set, columns=["pred_set"])
 
     # save inidividual predictions as class probs
-    class_probs = outputs.pop("pred")
+    class_probs = copied_outputs.pop("pred")
+    if task == "binary" and binary_encoding == "one_logit" and class_probs.ndim == 1:
+        class_probs = class_probs.unsqueeze(1)
 
     for i in range(class_probs.shape[1]):
-        outputs[f"class_prob_{i}"] = class_probs[:, i]
+        copied_outputs[f"class_prob_{i}"] = class_probs[:, i]
 
     cpu_outputs = {}
-    for key, val in outputs.items():
-        if isinstance(val, Tensor):
-            val = val.squeeze(-1).cpu().numpy()
-        else:
-            val = np.array(val)
+    for key, val in copied_outputs.items():
+        val = _writer_array(val)
         # per-label targets and the like need one column each
         if val.ndim == 2:
             for i in range(val.shape[1]):
@@ -417,6 +545,9 @@ def save_classification_predictions(
         df_pred = pd.DataFrame(
             preds, columns=[f"pred_{i}" for i in range(preds.shape[1])]
         )
+    elif task == "binary" and binary_encoding == "one_logit":
+        pred_class = (class_probs[:, 0] > 0.5).int().cpu().numpy()
+        df_pred = pd.DataFrame(pred_class, columns=["pred"])
     else:
         pred_class = torch.argmax(class_probs, dim=1).cpu().numpy()
         df_pred = pd.DataFrame(pred_class, columns=["pred"])

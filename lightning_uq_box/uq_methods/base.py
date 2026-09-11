@@ -4,6 +4,7 @@
 """Base Model for UQ methods."""
 
 import os
+from collections.abc import Mapping
 from typing import Any, ClassVar
 
 import torch
@@ -14,6 +15,17 @@ from omegaconf import OmegaConf
 from torch import Tensor, nn
 from torchmetrics import MetricCollection
 
+from ._deprecated import warn_legacy_adapter
+from .method_specs import DETERMINISTIC_SPEC
+from .task_runtime import TaskRuntime
+from .tasks import (
+    ClassificationTask,
+    PixelRegressionTask,
+    RegressionTask,
+    SegmentationTask,
+    TaskSpec,
+    normalize_task,
+)
 from .utils import (
     _get_num_inputs,
     _get_num_outputs,
@@ -30,6 +42,11 @@ from .utils import (
     save_image_predictions,
     save_regression_predictions,
 )
+
+# ``DeterministicModel`` and its subclasses below are the 0.4 compatibility
+# implementation.  Canonical task-aware methods intentionally live beside them
+# until every historical class has an adapter; changing this base in place would
+# alter old constructor signatures and state-dict prefixes.
 
 
 class BaseModule(LightningModule):
@@ -306,9 +323,31 @@ class DeterministicModel(BaseModule):
 
 
 class DeterministicRegression(DeterministicModel):
-    """Deterministic Base Trainer for regression as LightningModule."""
+    """Deprecated deterministic regression compatibility adapter.
+
+    .. versionchanged:: 0.4.0
+
+       Use :class:`Deterministic` with :class:`RegressionTask` for new code.
+       This adapter keeps its historical constructor and state-dict prefixes
+       through 0.4 and emits :class:`DeprecationWarning` when constructed.
+    """
 
     pred_file_name = "preds.csv"
+
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        freeze_backbone: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable | None = None,
+    ) -> None:
+        """Initialize the deprecated regression adapter with its old signature."""
+        if type(self) is DeterministicRegression:
+            warn_legacy_adapter(
+                "DeterministicRegression", "Deterministic(..., task=RegressionTask())"
+            )
+        super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -333,7 +372,14 @@ class DeterministicRegression(DeterministicModel):
 
 
 class DeterministicClassification(DeterministicModel):
-    """Deterministic Base Trainer for classification as LightningModule."""
+    """Deprecated deterministic classification compatibility adapter.
+
+    .. versionchanged:: 0.4.0
+
+       Use :class:`Deterministic` with :class:`ClassificationTask` for new
+       code. This adapter retains the historical string ``task`` argument and
+       state-dict prefixes through 0.4.
+    """
 
     pred_file_name = "preds.csv"
 
@@ -359,6 +405,11 @@ class DeterministicClassification(DeterministicModel):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
+        if type(self) is DeterministicClassification:
+            warn_legacy_adapter(
+                "DeterministicClassification",
+                "Deterministic(..., task=ClassificationTask(...))",
+            )
         self.num_classes = _get_num_outputs(model)
         assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
         self.task = task
@@ -423,7 +474,14 @@ class DeterministicClassification(DeterministicModel):
 
 
 class DeterministicSegmentation(DeterministicClassification):
-    """Deterministic Base Trainer for segmentation as LightningModule."""
+    """Deprecated deterministic segmentation compatibility adapter.
+
+    .. versionchanged:: 0.4.0
+
+       Use :class:`Deterministic` with :class:`SegmentationTask` for new code.
+       The adapter preserves the old constructor, dense prediction path, and
+       state-dict prefixes through 0.4.
+    """
 
     pred_dir_name = "preds"
 
@@ -453,6 +511,11 @@ class DeterministicSegmentation(DeterministicClassification):
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
         """
+        if type(self) is DeterministicSegmentation:
+            warn_legacy_adapter(
+                "DeterministicSegmentation",
+                "Deterministic(..., task=SegmentationTask(...))",
+            )
         self.freeze_backbone = freeze_backbone
         self.freeze_decoder = freeze_decoder
         super().__init__(model, loss_fn, task, freeze_backbone, optimizer, lr_scheduler)
@@ -518,7 +581,14 @@ class DeterministicSegmentation(DeterministicClassification):
 
 
 class DeterministicPixelRegression(DeterministicRegression):
-    """Deterministic Base Trainer for pixel regression as LightningModule."""
+    """Deprecated deterministic pixel-regression compatibility adapter.
+
+    .. versionchanged:: 0.4.0
+
+       Use :class:`Deterministic` with :class:`PixelRegressionTask` for new
+       code. The adapter preserves dense output persistence and its historical
+       constructor/state-dict surface through 0.4.
+    """
 
     pred_dir_name = "preds"
 
@@ -543,6 +613,11 @@ class DeterministicPixelRegression(DeterministicRegression):
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
         """
+        if type(self) is DeterministicPixelRegression:
+            warn_legacy_adapter(
+                "DeterministicPixelRegression",
+                "Deterministic(..., task=PixelRegressionTask())",
+            )
         self.freeze_decoder = freeze_decoder
         super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
         self.save_preds = save_preds
@@ -580,6 +655,331 @@ class DeterministicPixelRegression(DeterministicRegression):
         """
         if self.save_preds:
             save_image_predictions(outputs, batch_idx, self.pred_dir)
+
+
+class TaskMethodBase(BaseModule):
+    """Small base class for canonical methods with an explicit task value.
+
+    This class deliberately has no shape-based task inference.  A concrete
+    canonical method owns its model rewrites and then calls
+    :meth:`initialize_task_runtime`, which validates the declared capability
+    and eagerly registers the private runtime child.
+
+    .. versionadded:: 0.4.0
+    """
+
+    method_spec = None
+
+    def __init__(self, task: TaskSpec | Mapping[str, Any] | None = None) -> None:
+        """Initialize a canonical task-aware module.
+
+        Args:
+            task: immutable task value, a supported config mapping, or ``None``.
+                Concrete methods decide what ``None`` means; no task object is
+                used as a Python default.
+        """
+        super().__init__()
+        self.task = task
+        self.task_runtime: TaskRuntime
+        self._output_schema: Any
+
+    def initialize_task_runtime(
+        self, task: TaskSpec | Mapping[str, Any] | None, *, default_task: TaskSpec
+    ) -> None:
+        """Validate a task and register its eager, non-persistent runtime.
+
+        Args:
+            task: public constructor task argument.
+            default_task: freshly created fallback selected by the method.
+
+        Raises:
+            ValueError: if this canonical method has no declared capability for
+                the supplied task.
+        """
+        normalized = normalize_task(task, default=default_task)
+        assert normalized is not None
+        if self.method_spec is None:
+            raise TypeError("Canonical methods must declare a MethodSpec.")
+        capability = self.method_spec.capability_for(normalized)
+        self.task = normalized
+        self._output_schema = capability.schema
+        self.task_runtime = TaskRuntime(
+            normalized, capability.schema, _get_num_outputs(self.model)
+        )
+
+    @property
+    def output_schema(self) -> Any:
+        """Return the selected immutable output schema."""
+        return self._output_schema
+
+    def supports_task(self, task: TaskSpec | Mapping[str, Any]) -> bool:
+        """Return whether a task mapping/value is a declared capability."""
+        normalized = normalize_task(task)
+        assert normalized is not None
+        try:
+            self.method_spec.capability_for(normalized)
+        except ValueError:
+            return False
+        return True
+
+    def save_task_hyperparameters(self, values: Mapping[str, Any]) -> None:
+        """Save only a serializable mapping for the task in hyperparameters."""
+        if not isinstance(self.task, TaskSpec):
+            raise TypeError("Task runtime must be initialized before saving hparams.")
+        hparams = dict(values)
+        hparams["task"] = self.task.to_mapping()
+        self.save_hyperparameters(hparams)
+
+    @property
+    def train_metrics(self) -> MetricCollection:
+        """Expose run-only training metrics for Lightning and callers."""
+        return self.task_runtime.train_metrics
+
+    @property
+    def val_metrics(self) -> MetricCollection:
+        """Expose run-only validation metrics for Lightning and callers."""
+        return self.task_runtime.val_metrics
+
+    @property
+    def test_metrics(self) -> MetricCollection:
+        """Expose run-only test metrics for Lightning and callers."""
+        return self.task_runtime.test_metrics
+
+
+class Deterministic(TaskMethodBase):
+    """Canonical deterministic method parameterized by a task value.
+
+    The legacy ``Deterministic*`` classes remain available during 0.4.  New
+    callers should use this class with a :mod:`uq_methods.tasks` value, for
+    example ``Deterministic(model, nn.MSELoss(), task=RegressionTask())``.
+
+    .. versionchanged:: 0.4.0
+
+       Deterministic execution is now selected by an explicit immutable task
+       value. Task normalization, metrics, test results, and persistence are
+       delegated to a registered runtime; loss, model execution, freezing, and
+       output conversion remain owned by this method.
+    """
+
+    method_spec = DETERMINISTIC_SPEC
+    pred_file_name = "preds.csv"
+    pred_dir_name = "preds"
+
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        *,
+        task: TaskSpec | Mapping[str, Any] | None = None,
+        freeze_backbone: bool = False,
+        freeze_decoder: bool = False,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable | None = None,
+        save_preds: bool = False,
+    ) -> None:
+        """Initialize the canonical deterministic method.
+
+        Args:
+            model: a model whose output matches the declared task contract.
+            loss_fn: method-owned optimization loss.
+            task: task semantics as a value or config mapping.  ``None`` uses
+                ``RegressionTask()`` for a backwards-friendly canonical default.
+            freeze_backbone: freeze the model backbone before training.
+            freeze_decoder: freeze a segmentation decoder when present.
+            optimizer: optimizer factory.
+            lr_scheduler: optional learning-rate scheduler factory.
+            save_preds: persist dense test predictions for segmentation/pixel
+                regression tasks.
+        """
+        super().__init__(task)
+        self.model = model
+        self.loss_fn = loss_fn
+        self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
+        self.freeze_backbone = freeze_backbone
+        self.freeze_decoder = freeze_decoder
+        self.save_preds = save_preds
+
+        # Method-owned model preparation is complete before this creates the
+        # registered runtime and well before a Trainer, device, or checkpoint.
+        self.initialize_task_runtime(task, default_task=RegressionTask())
+        self.freeze_model()
+        self.save_task_hyperparameters(
+            {
+                "freeze_backbone": freeze_backbone,
+                "freeze_decoder": freeze_decoder,
+                "save_preds": save_preds,
+            }
+        )
+        self.pred_dir: str | None = None
+
+    def freeze_model(self) -> None:
+        """Apply the task-appropriate legacy-compatible freezing operation."""
+        if isinstance(self.task, SegmentationTask | PixelRegressionTask):
+            freeze_segmentation_model(
+                self.model, self.freeze_backbone, self.freeze_decoder
+            )
+        elif self.freeze_backbone:
+            freeze_model_backbone(self.model)
+
+    def forward(self, X: Tensor) -> Any:
+        """Run the owning model on an input tensor."""
+        return self.model(X)
+
+    def _validate_raw_output(self, out: Tensor) -> None:
+        """Validate explicit binary encoding without inferring it from shape."""
+        if not isinstance(self.task, ClassificationTask) or self.task.mode != "binary":
+            return
+        expected_channels = 1 if self.task.binary_encoding == "one_logit" else 2
+        if out.ndim < 2 or out.shape[1] != expected_channels:
+            raise ValueError(
+                f"{self.task.binary_encoding} binary task requires {expected_channels} "
+                f"logit channel(s) at axis 1, got shape {tuple(out.shape)}."
+            )
+
+    def metric_prediction(self, raw_output: Tensor, stage: str) -> Tensor:
+        """Return the method-declared metric input for a raw model output.
+
+        ``stage`` is part of the public conversion hook so sampling and
+        distributional methods can keep their own lifecycle semantics.
+        """
+        del stage
+        self._validate_raw_output(raw_output)
+        if (
+            isinstance(self.task, ClassificationTask)
+            and self.task.mode == "binary"
+            and self.task.binary_encoding == "one_logit"
+        ):
+            return raw_output.select(1, 0)
+        return raw_output
+
+    def prediction_payload(self, raw_output: Tensor) -> dict[str, Tensor]:
+        """Convert one deterministic raw output to its declared public payload."""
+        self._validate_raw_output(raw_output)
+        if not isinstance(self.task, ClassificationTask):
+            return {"pred": raw_output}
+
+        if self.task.mode == "multilabel":
+            probabilities = torch.sigmoid(raw_output)
+            entropy = -(
+                probabilities.clamp_min(1e-7).log() * probabilities
+                + (1 - probabilities).clamp_min(1e-7).log() * (1 - probabilities)
+            ).sum(dim=1)
+        elif self.task.mode == "binary" and self.task.binary_encoding == "one_logit":
+            probabilities = torch.sigmoid(raw_output)
+            clipped = probabilities.clamp(1e-7, 1 - 1e-7)
+            entropy = -(
+                clipped * clipped.log() + (1 - clipped) * (1 - clipped).log()
+            ).select(1, 0)
+        else:
+            probabilities = torch.softmax(raw_output, dim=1).clamp_min(1e-7)
+            entropy = -(probabilities * probabilities.log()).sum(dim=1)
+        return {"pred": probabilities, "pred_uct": entropy, "logits": raw_output}
+
+    def _step_loss_and_metrics(self, batch: dict[str, Tensor], stage: str) -> Tensor:
+        """Run a train/validation batch and update the runtime metrics."""
+        raw_output = self.forward(batch[self.input_key])
+        if not isinstance(raw_output, Tensor):
+            raise TypeError("Canonical Deterministic requires a Tensor model output.")
+        loss = self.loss_fn(
+            raw_output,
+            self.task_runtime.target_for_loss(batch[self.target_key], raw_output),
+        )
+        self.task_runtime.update_metrics(
+            stage, self.metric_prediction(raw_output, stage), batch[self.target_key]
+        )
+        return loss
+
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute the canonical deterministic training loss."""
+        del batch_idx, dataloader_idx
+        loss = self._step_loss_and_metrics(batch, "train")
+        self.log("train_loss", loss, batch_size=batch[self.input_key].shape[0])
+        return loss
+
+    def validation_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute the canonical deterministic validation loss."""
+        del batch_idx, dataloader_idx
+        loss = self._step_loss_and_metrics(batch, "validate")
+        self.log("val_loss", loss, batch_size=batch[self.input_key].shape[0])
+        return loss
+
+    def on_train_epoch_end(self) -> None:
+        """Log and reset runtime-owned training metrics."""
+        self.log_dict(self.task_runtime.compute_and_reset("train"))
+
+    def on_validation_epoch_end(self) -> None:
+        """Log and reset runtime-owned validation metrics."""
+        self.log_dict(self.task_runtime.compute_and_reset("validate"))
+
+    def predict_step(
+        self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Return a contract-checked canonical prediction payload."""
+        del batch_idx, dataloader_idx
+        with torch.no_grad():
+            raw_output = self.forward(X)
+        if not isinstance(raw_output, Tensor):
+            raise TypeError("Canonical Deterministic requires a Tensor model output.")
+        payload = self.prediction_payload(raw_output)
+        self.output_schema.validate_payload(payload)
+        return payload
+
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, Any]:
+        """Create a copied test result while updating runtime metrics."""
+        del batch_idx, dataloader_idx
+        with torch.no_grad():
+            raw_output = self.forward(batch[self.input_key])
+        if not isinstance(raw_output, Tensor):
+            raise TypeError("Canonical Deterministic requires a Tensor model output.")
+        payload = self.prediction_payload(raw_output)
+        self.output_schema.validate_payload(payload)
+        self.task_runtime.update_metrics(
+            "test", self.metric_prediction(raw_output, "test"), batch[self.target_key]
+        )
+        return self.task_runtime.test_result(
+            payload, batch, input_key=self.input_key, target_key=self.target_key
+        )
+
+    def on_test_epoch_end(self) -> None:
+        """Log and reset runtime-owned test metrics."""
+        self.log_dict(self.task_runtime.compute_and_reset("test"))
+
+    def on_test_start(self) -> None:
+        """Delegate dense-prediction directory setup to the task runtime."""
+        self.pred_dir = self.task_runtime.on_test_start(
+            self.trainer.default_root_dir, self.save_preds
+        )
+
+    def on_test_batch_end(
+        self, outputs: STEP_OUTPUT, batch: Any, batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        """Delegate non-mutating canonical prediction persistence."""
+        del batch, dataloader_idx
+        self.task_runtime.write_test_result(
+            outputs,
+            root_dir=self.trainer.default_root_dir,
+            batch_idx=batch_idx,
+            save_predictions=self.save_preds,
+            prediction_dir=self.pred_dir,
+        )
+
+    def configure_optimizers(self) -> OptimizerLRScheduler:
+        """Initialize the owning optimizer and optional scheduler."""
+        optimizer = self.optimizer(self.parameters())
+        if self.lr_scheduler is None:
+            return {"optimizer": optimizer}
+        scheduler = self.lr_scheduler(optimizer)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {"scheduler": scheduler, "monitor": "val_loss"},
+        }
 
 
 class PosthocBase(BaseModule):

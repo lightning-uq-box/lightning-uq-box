@@ -1,6 +1,33 @@
 lightning_uq_box.uq_methods
 ===========================
 
+Canonical method × task API (0.4)
+==================================
+
+.. currentmodule:: lightning_uq_box.uq_methods
+
+Task values and contracts
+-------------------------
+
+.. autoclass:: TaskSpec
+.. autoclass:: RegressionTask
+.. autoclass:: ClassificationTask
+.. autoclass:: SegmentationTask
+.. autoclass:: PixelRegressionTask
+.. autoclass:: OutputSchema
+.. autoclass:: TaskCapability
+.. autoclass:: MethodSpec
+
+Deterministic
+-------------
+
+.. autoclass:: Deterministic
+
+Monte Carlo Dropout
+-------------------
+
+.. autoclass:: MCDropout
+
 Single Forward Pass Methods
 ===========================
 
