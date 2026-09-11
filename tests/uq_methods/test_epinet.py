@@ -5,7 +5,7 @@
 
 import copy
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import torch
@@ -857,3 +857,156 @@ def test_multilabel_prediction_preserves_independent_probabilities() -> None:
     assert torch.isfinite(model.train_metrics.compute()["trainAcc"])
     result = model.eval().predict_step(x)
     torch.testing.assert_close(result["pred"], result["logits"].sigmoid().mean(-1))
+
+
+class TestInputContractValidation:
+    """Cover the guards that reject base networks and arguments the epinet cannot use.
+
+    The epinet wraps an arbitrary base network, so most of these failures are only
+    detectable at construction or on the first forward. Each guard turns a silently
+    wrong result -- a broadcast index, a pooled feature map read as a vector -- into
+    an explicit error, so they are pinned here.
+    """
+
+    def test_rejects_output_layer_without_input_width(self) -> None:
+        """The output layer is picked by out_features, but its input width is needed.
+
+        A module can advertise out_features -- which is what selects it as the output
+        layer -- while exposing no input width at all. The epinet reads from that
+        layer's input, so it cannot size its head and must say so.
+        """
+
+        class OutFeaturesOnly(nn.Module):
+            def __init__(self, out_features: int) -> None:
+                super().__init__()
+                self.out_features = out_features
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                return x
+
+        base = nn.Sequential(nn.Linear(2, 4), OutFeaturesOnly(4))
+        with pytest.raises(ValueError, match="neither in_features nor in_channels"):
+            EpinetRegression(base, nn.MSELoss(), index_dim=2)
+
+    def test_rejects_non_vector_base_output(self) -> None:
+        """The vector contract is [batch_size, num_outputs]; anything else is ambiguous."""
+
+        class ExtraAxis(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.fc = nn.Linear(2, 3)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                return self.fc(x).unsqueeze(-1)
+
+        model = EpinetRegression(
+            ExtraAxis(), nn.MSELoss(), index_dim=2, epinet_hidden_dims=[4]
+        )
+        with pytest.raises(ValueError, match=r"\[batch_size, num_outputs\]"):
+            model.compute_loss(torch.randn(4, 2), torch.randn(4, 3))
+
+    def test_predict_samples_rejects_malformed_indices(self) -> None:
+        model = build_regression_model().eval()
+        x = torch.randn(3, 1)
+        with pytest.raises(ValueError, match=r"\[num_samples, index_dim\]"):
+            model.predict_samples(x, torch.randn(4))
+        with pytest.raises(ValueError, match=r"\[num_samples, index_dim\]"):
+            model.predict_samples(x, torch.randn(2, 7))
+        with pytest.raises(ValueError, match=r"\[num_samples, index_dim\]"):
+            model.predict_samples(x, torch.randn(0, 4))
+
+    def test_rejects_negative_bootstrap_scale(self) -> None:
+        with pytest.raises(ValueError, match="bootstrap_noise_scale must be nonneg"):
+            build_regression_model(bootstrap_noise_scale=-0.1)
+
+    def test_bootstrap_rejects_vector_regression_output(self) -> None:
+        """Equation 9 assumes a scalar target, so a multi-output base is refused."""
+        with pytest.raises(ValueError, match="scalar regression output"):
+            EpinetRegression(
+                MLP(n_inputs=1, n_hidden=[8], n_outputs=2),
+                nn.MSELoss(),
+                index_dim=4,
+                epinet_hidden_dims=[8],
+                prior_hidden_dims=[4],
+                bootstrap_noise_scale=0.2,
+                num_train=10,
+            )
+
+    def test_bootstrap_rejects_non_integer_ids(self) -> None:
+        model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10)
+        with pytest.raises(ValueError, match="one integer ID per example"):
+            model.compute_loss(
+                torch.randn(4, 1), torch.randn(4, 1), torch.zeros(4).float()
+            )
+
+    def test_binary_task_rejects_wrong_logit_count(self) -> None:
+        with pytest.raises(ValueError, match="one or two output logits"):
+            EpinetClassification(
+                MLP(n_inputs=2, n_hidden=[8], n_outputs=3),
+                nn.BCEWithLogitsLoss(),
+                task="binary",
+            )
+
+
+def test_eval_mode_loss_ignores_bootstrap_signatures() -> None:
+    """Outside training the bootstrap term is dropped and the plain loss is used."""
+    model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10).eval()
+    x, y = torch.randn(4, 1), torch.randn(4, 1)
+    # No data_index is supplied, which would raise during training.
+    loss, out, target = model.compute_loss(x, y)
+    assert torch.isfinite(loss)
+    torch.testing.assert_close(loss, nn.MSELoss()(out, target))
+
+
+def test_spatial_features_are_pooled_to_a_vector() -> None:
+    """Features captured with spatial axes are average-pooled before the epinet head.
+
+    When the output layer reads a feature map directly -- a conv classifier head with
+    no Flatten in front of it -- the captured features arrive as [B, C, H, W]. The
+    epinet head is an MLP, so those axes are pooled away rather than flattened, which
+    keeps the head's width tied to the channel count and independent of input size.
+    """
+    base = nn.Sequential(nn.Conv2d(3, 8, 3, padding=1), nn.ReLU(), nn.Conv2d(8, 4, 1))
+    model = EpinetClassification(
+        base,
+        nn.CrossEntropyLoss(),
+        index_dim=4,
+        num_index_samples=2,
+        epinet_hidden_dims=[8],
+        input_prior_scale=0.0,
+        use_input_features=False,
+    )
+    x = torch.randn(2, 3, 8, 8)
+    # Run the base network itself so the hook captures the feature map; the epinet's
+    # own forward would reject this base for not returning a vector.
+    model.model(x)
+    captured = model._features
+    assert captured is not None and captured.ndim == 4
+    features = model.extract_features(x)
+    assert features.shape == (2, 8), "expected mean over the spatial axes"
+    torch.testing.assert_close(features, captured.flatten(2).mean(-1))
+
+
+def test_classification_loss_uses_the_plain_loss_function() -> None:
+    """The base _loss has no bootstrap term; it defers to loss_fn directly."""
+    model = build_classification_model()
+    x, y = torch.randn(6, 2), torch.randint(2, (6,))
+    loss, out, target = model.compute_loss(x, y)
+    torch.testing.assert_close(loss, nn.CrossEntropyLoss()(out, target))
+
+
+def test_configure_optimizers_wires_up_a_scheduler() -> None:
+    """A supplied scheduler is returned in the lr dict and monitors val_loss."""
+    from functools import partial
+
+    model = build_regression_model(
+        optimizer=partial(torch.optim.Adam, lr=1e-3),
+        lr_scheduler=partial(torch.optim.lr_scheduler.StepLR, step_size=1),
+    )
+    # Lightning types configure_optimizers as a wide union whose TypedDict arm has no
+    # lr_scheduler key, so cast to the plain dict this method actually returns.
+    config = cast(dict[str, Any], model.configure_optimizers())
+    assert isinstance(config["optimizer"], torch.optim.Adam)
+    scheduler_config = config["lr_scheduler"]
+    assert scheduler_config["monitor"] == "val_loss"
+    assert isinstance(scheduler_config["scheduler"], torch.optim.lr_scheduler.StepLR)

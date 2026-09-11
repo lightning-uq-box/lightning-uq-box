@@ -219,3 +219,52 @@ def test_kl_respects_zero_probability_events() -> None:
     assert torch.isposinf(
         categorical_kl(torch.tensor([1.0, 0.0]), torch.tensor([0.0, 1.0]))
     )
+
+
+class TestArgumentValidation:
+    """Cover the guards that reject malformed inputs.
+
+    Every metric here validates its arguments before touching the data, because a
+    silently broadcast or transposed tensor yields a plausible-looking number rather
+    than an error. These tests pin each guard so a refactor cannot quietly drop one.
+    """
+
+    def test_average_sampled_log_likelihood_rejects_non_vectors(self) -> None:
+        with pytest.raises(ValueError, match="nonempty vector"):
+            average_sampled_log_likelihood(torch.randn(2, 3))
+        with pytest.raises(ValueError, match="nonempty vector"):
+            average_sampled_log_likelihood(torch.empty(0))
+
+    @pytest.mark.parametrize("metric", [joint_log_likelihood, marginal_log_likelihood])
+    def test_likelihoods_reject_empty_axes(self, metric) -> None:
+        with pytest.raises(ValueError, match="nonempty"):
+            metric(torch.randn(0, 2, 3), torch.zeros(2, dtype=torch.long))
+        with pytest.raises(ValueError, match="nonempty"):
+            metric(torch.randn(2, 2, 0), torch.zeros(2, dtype=torch.long))
+
+    def test_marginal_log_likelihood_rejects_wrong_shapes(self) -> None:
+        with pytest.raises(ValueError, match="num_samples, tau, num_classes"):
+            marginal_log_likelihood(torch.randn(3, 4), torch.tensor([0]))
+        with pytest.raises(ValueError, match="to match the tau axis"):
+            marginal_log_likelihood(torch.randn(2, 3, 4), torch.tensor([0]))
+
+    def test_dyadic_batch_indices_rejects_nonpositive_tau(self) -> None:
+        with pytest.raises(ValueError, match="tau must be at least 1"):
+            dyadic_batch_indices(10, tau=0)
+
+    def test_joint_log_loss_dyadic_rejects_empty_axes(self) -> None:
+        with pytest.raises(ValueError, match="nonempty"):
+            joint_log_loss_dyadic(
+                torch.randn(2, 3, 0), torch.zeros(3, dtype=torch.long)
+            )
+
+    def test_joint_log_loss_dyadic_rejects_mismatched_targets(self) -> None:
+        with pytest.raises(ValueError, match=r"targets must have shape"):
+            joint_log_loss_dyadic(
+                torch.randn(2, 3, 4), torch.zeros(5, dtype=torch.long)
+            )
+
+    def test_categorical_kl_rejects_negative_eps(self) -> None:
+        p = torch.tensor([0.5, 0.5])
+        with pytest.raises(ValueError, match="eps must be nonnegative"):
+            categorical_kl(p, p, eps=-1e-9)
