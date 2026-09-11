@@ -811,3 +811,49 @@ def test_linear_gaussian_epinet_matches_bayesian_posterior() -> None:
     torch.testing.assert_close(
         samples.std(correction=0), expected_std, atol=0.01, rtol=0.2
     )
+
+
+@pytest.mark.parametrize("num_outputs", [1, 2])
+def test_binary_classification_loss_metrics_and_prediction(num_outputs: int) -> None:
+    from unittest.mock import patch
+
+    criterion = nn.BCEWithLogitsLoss() if num_outputs == 1 else nn.CrossEntropyLoss()
+    model = EpinetClassification(
+        MLP(n_inputs=2, n_hidden=[8], n_outputs=num_outputs),
+        criterion,
+        task="binary",
+        num_index_samples=2,
+        num_pred_samples=5,
+    )
+    x, y = torch.randn(6, 2), torch.tensor([0, 1, 0, 1, 1, 0])
+    with patch.object(model, "log"):
+        loss = model.training_step({"input": x, "target": y}, 0)
+    loss.backward()
+    assert torch.isfinite(loss)
+    assert torch.isfinite(model.train_metrics.compute()["trainAcc"])
+    model.eval()
+    result = model.test_step(
+        {"input": x, "target": y[:, None].float() if num_outputs == 1 else y}, 0
+    )
+    assert result["pred"].shape == (6, 2)
+    assert result["logits"].shape == (6, 2, 5)
+    torch.testing.assert_close(result["pred"].sum(-1), torch.ones(6))
+    if num_outputs == 1:
+        expected = result["logits"][:, 1].sigmoid().mean(-1)
+        torch.testing.assert_close(result["pred"][:, 1], expected)
+
+
+def test_multilabel_prediction_preserves_independent_probabilities() -> None:
+    model = EpinetClassification(
+        MLP(n_inputs=2, n_hidden=[8], n_outputs=3),
+        nn.BCEWithLogitsLoss(),
+        task="multilabel",
+        num_pred_samples=5,
+    )
+    x, y = torch.randn(6, 2), torch.randint(2, (6, 3)).float()
+    loss, out, target = model.compute_loss(x, y)
+    loss.backward()
+    model.train_metrics(out, target.long())
+    assert torch.isfinite(model.train_metrics.compute()["trainAcc"])
+    result = model.eval().predict_step(x)
+    torch.testing.assert_close(result["pred"], result["logits"].sigmoid().mean(-1))

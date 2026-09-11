@@ -372,7 +372,7 @@ Epinet Base
 Epinet Regression
 `````````````````
 
-.. autoclass:: EpinetGaussianNoiseLoss
+.. autoclass:: lightning_uq_box.uq_methods.loss_functions.EpinetGaussianNoiseLoss
 
 .. autoclass:: EpinetRegression
 

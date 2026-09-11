@@ -355,6 +355,10 @@ class EpinetBase(DeterministicModel):
 
         return self._loss(out, y_k, index_k, data_index), out, y_k
 
+    def adapt_target_for_metrics(self, target: Tensor) -> Tensor:
+        """Adapt targets without changing the tensors used by the training loss."""
+        return target
+
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
     ) -> Tensor:
@@ -374,7 +378,9 @@ class EpinetBase(DeterministicModel):
         # the index-sample repeat means the effective batch is larger than the input
         self.log("train_loss", loss, batch_size=X.shape[0] * self.num_index_samples)
         if X.shape[0] > 1:
-            self.train_metrics(self.adapt_output_for_metrics(out), y_k)
+            self.train_metrics(
+                self.adapt_output_for_metrics(out), self.adapt_target_for_metrics(y_k)
+            )
 
         return loss
 
@@ -396,7 +402,9 @@ class EpinetBase(DeterministicModel):
 
         self.log("val_loss", loss, batch_size=X.shape[0] * self.num_index_samples)
         if X.shape[0] > 1:
-            self.val_metrics(self.adapt_output_for_metrics(out), y_k)
+            self.val_metrics(
+                self.adapt_output_for_metrics(out), self.adapt_target_for_metrics(y_k)
+            )
 
         return loss
 
@@ -631,6 +639,11 @@ class EpinetRegression(EpinetBase):
 class EpinetClassification(EpinetBase):
     """Epinet for classification tasks.
 
+    Binary models can emit either one logit (with ``BCEWithLogitsLoss``) or two
+    logits (with ``CrossEntropyLoss``). ``predict_step`` always represents binary
+    predictions with two class probabilities and two logits per sample, so the
+    joint categorical metrics work with either base architecture.
+
     If you use this model in your work, please cite:
 
     * https://arxiv.org/abs/2107.08924
@@ -688,7 +701,11 @@ class EpinetClassification(EpinetBase):
                 disable for a head that is linear in the index
         """
         # set before super().__init__, which calls setup_task
-        self.num_classes = _get_num_outputs(model)
+        num_outputs = _get_num_outputs(model)
+        if task == "binary" and num_outputs not in (1, 2):
+            raise ValueError("Binary classification requires one or two output logits.")
+        self._binary_single_logit = task == "binary" and num_outputs == 1
+        self.num_classes = 2 if self._binary_single_logit else num_outputs
         assert task in self.valid_tasks, f"Task must be one of {self.valid_tasks}"
         self.task = task
         super().__init__(
@@ -712,14 +729,16 @@ class EpinetClassification(EpinetBase):
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
+        # Use the two-class representation for accuracy, calibration and coverage.
+        metric_task = "multiclass" if self.task == "binary" else self.task
         self.train_metrics = default_classification_metrics(
-            "train", self.task, self.num_classes
+            "train", metric_task, self.num_classes
         )
         self.val_metrics = default_classification_metrics(
-            "val", self.task, self.num_classes
+            "val", metric_task, self.num_classes
         )
         self.test_metrics = default_classification_metrics(
-            "test", self.task, self.num_classes
+            "test", metric_task, self.num_classes
         )
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
@@ -729,9 +748,33 @@ class EpinetClassification(EpinetBase):
             out: output from the model
 
         Returns:
-            the output unchanged
+            class logits or probabilities of shape [batch_size, num_classes]
         """
+        if self._binary_single_logit and out.shape[1] == 1:
+            return torch.cat([torch.zeros_like(out), out], dim=1)
         return out
+
+    def adapt_target_for_metrics(self, target: Tensor) -> Tensor:
+        """Normalize binary labels to integer class IDs for the two-class metrics."""
+        return target.reshape(-1).long() if self.task == "binary" else target
+
+    def _loss(
+        self, out: Tensor, target: Tensor, index: Tensor, data_index: Tensor | None
+    ) -> Tensor:
+        """Accept either vector or column targets for single-logit binary losses."""
+        if self._binary_single_logit:
+            target = target.to(out.dtype).reshape_as(out)
+        return self.loss_fn(out, target)
+
+    def test_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> dict[str, Tensor]:
+        """Evaluate using normalized binary targets and the standard CSV contract."""
+        batch = {
+            **batch,
+            self.target_key: self.adapt_target_for_metrics(batch[self.target_key]),
+        }
+        return super().test_step(batch, batch_idx, dataloader_idx)
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
@@ -748,6 +791,8 @@ class EpinetClassification(EpinetBase):
             and the raw ENN logits
         """
         samples = self.predict_samples(X)
+        if self._binary_single_logit:
+            samples = torch.cat([torch.zeros_like(samples), samples], dim=1)
         return process_classification_prediction(samples, task=self.task)
 
     def on_test_batch_end(
