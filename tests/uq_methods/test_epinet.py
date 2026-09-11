@@ -453,6 +453,104 @@ class TestEpinetModule:
             EpinetClassification(model, nn.CrossEntropyLoss(), use_input_features=True)
 
 
+class TestConvBaseNetwork:
+    """A conv backbone with a linear head, the shape of every ResNet.
+
+    The flattened input size of an image network is not recoverable from the module
+    tree, so a default MLP prior over the raw input cannot be sized. Sizing it from
+    the classifier head's ``in_features`` instead produces a prior of the wrong width
+    that only fails later, inside its own forward pass, with a matrix-shape error.
+    """
+
+    @staticmethod
+    def conv_base() -> nn.Module:
+        return nn.Sequential(
+            nn.Conv2d(3, 8, 3, stride=2),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d(1),
+            nn.Flatten(),
+            nn.Linear(8, 4),
+        )
+
+    def test_conv_base_without_prior_raises_upfront(self) -> None:
+        with pytest.raises(ValueError, match="cannot be inferred"):
+            EpinetClassification(
+                self.conv_base(),
+                nn.CrossEntropyLoss(),
+                use_input_features=False,
+                input_prior_scale=0.3,
+            )
+
+    def test_conv_base_rejects_input_features(self) -> None:
+        with pytest.raises(ValueError, match="not supported for image inputs"):
+            EpinetClassification(
+                self.conv_base(), nn.CrossEntropyLoss(), use_input_features=True
+            )
+
+    def test_conv_base_with_explicit_conv_prior_runs(self) -> None:
+        model = EpinetClassification(
+            self.conv_base(),
+            nn.CrossEntropyLoss(),
+            index_dim=4,
+            num_index_samples=2,
+            num_pred_samples=3,
+            use_input_features=False,
+            input_prior_scale=1.0,
+            input_prior=ConvEnsemblePriorFunction(
+                in_channels=3, n_outputs=4, num_ensemble=4, input_size=32
+            ),
+        )
+        X = torch.randn(5, 3, 32, 32)
+        out = model.predict_step(X)
+        assert out["pred"].shape == (5, 4)
+        assert out["logits"].shape == (5, 4, 3)
+
+    def test_conv_base_with_only_the_epinet_prior_runs(self) -> None:
+        """input_prior_scale=0 needs no prior over the raw input at all."""
+        model = EpinetClassification(
+            self.conv_base(),
+            nn.CrossEntropyLoss(),
+            index_dim=4,
+            num_index_samples=2,
+            num_pred_samples=3,
+            use_input_features=False,
+            input_prior_scale=0.0,
+            epi_prior_scale=4.0,
+        )
+        assert model.epinet.input_prior is None
+        out = model.predict_step(torch.randn(5, 3, 16, 16))
+        assert out["pred"].shape == (5, 4)
+        assert torch.all(out["pred_uct"] > 0.0)
+
+    def test_conv_base_trains_with_a_frozen_backbone(self) -> None:
+        base = self.conv_base()
+        model = EpinetClassification(
+            base,
+            nn.CrossEntropyLoss(),
+            index_dim=4,
+            num_index_samples=2,
+            use_input_features=False,
+            input_prior_scale=0.0,
+            epi_prior_scale=4.0,
+            freeze_backbone=True,
+        )
+        before = copy.deepcopy(base.state_dict())
+
+        X = torch.randn(6, 3, 16, 16)
+        y = torch.randint(0, 4, (6,))
+        optimizer = torch.optim.Adam(
+            [p for p in model.parameters() if p.requires_grad], lr=1e-2
+        )
+        for _ in range(3):
+            optimizer.zero_grad()
+            loss, _, _ = model.compute_loss(X, y)
+            loss.backward()
+            optimizer.step()
+
+        for key, value in base.state_dict().items():
+            assert torch.equal(before[key], value), f"frozen base {key} changed"
+
+
 class TestConvEnsemblePriorFunction:
     """The image prior, as used by the paper's CIFAR-10 configuration."""
 

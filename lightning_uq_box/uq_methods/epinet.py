@@ -68,6 +68,7 @@ class EpinetBase(DeterministicModel):
         use_input_features: bool = True,
         prior_seed: int = 0,
         freeze_backbone: bool = False,
+        input_prior: nn.Module | None = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
@@ -95,6 +96,11 @@ class EpinetBase(DeterministicModel):
             prior_seed: seed used to initialize the frozen prior networks
             freeze_backbone: whether to freeze the *entire* base network, its head
                 included, leaving only the epinet trainable
+            input_prior: prior module over the raw network input, taking
+                ``(x, index)``. Required for convolutional base networks, where the
+                flattened input size cannot be inferred; pass a
+                :class:`~lightning_uq_box.models.ConvEnsemblePriorFunction`. When
+                ``None`` an MLP ensemble prior is built for MLP-shaped bases.
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -111,6 +117,17 @@ class EpinetBase(DeterministicModel):
             model, use_input_features
         )
 
+        # For a conv base the flattened input size is unknown, so an MLP prior over
+        # the raw input cannot be sized. Say so here rather than failing later with a
+        # matrix-shape error from inside the prior's forward pass.
+        if n_raw_inputs == 0 and input_prior is None and input_prior_scale != 0.0:
+            raise ValueError(
+                "input_prior_scale is non-zero but no input_prior was given, and the "
+                "flattened input size of a convolutional base network cannot be "
+                "inferred. Pass a ConvEnsemblePriorFunction as input_prior, or set "
+                "input_prior_scale=0.0 and rely on epi_prior_scale instead."
+            )
+
         # built before super().__init__ so that its width is known, but assigned
         # after, since nn.Module forbids submodule assignment before its own init
         epinet = Epinet(
@@ -123,6 +140,7 @@ class EpinetBase(DeterministicModel):
             epi_prior_scale=epi_prior_scale,
             input_prior_scale=input_prior_scale,
             seed=prior_seed,
+            input_prior=input_prior,
         )
 
         super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
@@ -145,17 +163,26 @@ class EpinetBase(DeterministicModel):
 
         if hasattr(last_layer, "in_features"):
             n_feature_inputs = int(last_layer.in_features)
-            is_conv = False
         elif hasattr(last_layer, "in_channels"):
             n_feature_inputs = int(last_layer.in_channels)
-            is_conv = True
         else:
             raise ValueError(
                 f"Output layer {last_layer} has neither in_features nor in_channels, "
                 "so the epinet cannot determine its input width."
             )
 
-        if use_input_features and is_conv:
+        # Whether the *input* is an image is decided by the first parameterized layer,
+        # not the last: a conv backbone with a linear classifier head (every ResNet)
+        # still takes images, and its flattened input size is not in the module tree.
+        takes_image_input = False
+        for module in model.modules():
+            if isinstance(module, nn.Conv2d | nn.Conv3d):
+                takes_image_input = True
+                break
+            if isinstance(module, nn.Linear):
+                break
+
+        if use_input_features and takes_image_input:
             raise ValueError(
                 "use_input_features=True flattens the raw network input into the "
                 "epinet, which is not supported for image inputs. Set "
@@ -168,13 +195,16 @@ class EpinetBase(DeterministicModel):
 
         last_layer.register_forward_pre_hook(hook)
 
-        # the raw input width is only needed when a prior over the raw input is built,
-        # and for MLP-shaped models it equals the first layer's input width
+        # The raw input width is only needed to size a default MLP prior over the
+        # input. For an MLP-shaped base it is the first linear layer's input width;
+        # for a conv base the flattened image size is not knowable from the module
+        # tree, so it is left at 0 and the caller must supply its own prior.
         n_raw_inputs = 0
-        for module in model.modules():
-            if hasattr(module, "in_features"):
-                n_raw_inputs = int(module.in_features)
-                break
+        if not takes_image_input:
+            for module in model.modules():
+                if hasattr(module, "in_features"):
+                    n_raw_inputs = int(module.in_features)
+                    break
 
         if use_input_features:
             n_feature_inputs += n_raw_inputs
@@ -465,6 +495,7 @@ class EpinetClassification(EpinetBase):
         use_input_features: bool = True,
         prior_seed: int = 0,
         freeze_backbone: bool = False,
+        input_prior: nn.Module | None = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
     ) -> None:
@@ -486,6 +517,8 @@ class EpinetClassification(EpinetBase):
                 base features handed to the epinet
             prior_seed: seed used to initialize the frozen prior networks
             freeze_backbone: whether to freeze the entire base network
+            input_prior: prior module over the raw network input, required for
+                convolutional base networks
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
         """
@@ -506,6 +539,7 @@ class EpinetClassification(EpinetBase):
             use_input_features,
             prior_seed,
             freeze_backbone,
+            input_prior,
             optimizer,
             lr_scheduler,
         )
