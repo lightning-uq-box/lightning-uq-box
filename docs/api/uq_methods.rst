@@ -359,6 +359,27 @@ Masked Ensemble Classification
 .. autoclass:: MasksemblesClassification
 
 
+Epinet
+------
+
+.. currentmodule:: lightning_uq_box.uq_methods.epinet
+
+Epinet Base
+```````````
+
+.. autoclass:: EpinetBase
+
+Epinet Regression
+`````````````````
+
+.. autoclass:: EpinetRegression
+
+Epinet Classification
+`````````````````````
+
+.. autoclass:: EpinetClassification
+
+
 Density Uncertainty Model
 -------------------------
 
