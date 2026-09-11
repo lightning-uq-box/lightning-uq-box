@@ -44,6 +44,7 @@ model_config_paths = [
     "tests/configs/regression/vbll.yaml",
     "tests/configs/regression/mixture_density.yaml",
     "tests/configs/regression/density_layer.yaml",
+    "tests/configs/regression/epinet.yaml",
 ]
 
 data_config_paths = ["tests/configs/regression/toy_regression.yaml"]

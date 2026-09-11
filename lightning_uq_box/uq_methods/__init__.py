@@ -48,6 +48,7 @@ from .density_uncertainty import (
     DensityLayerModelRegression,
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
+from .epinet import EpinetBase, EpinetClassification, EpinetRegression
 from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
@@ -138,6 +139,9 @@ __all__ = (
     "DensityLayerModelRegression",
     "DensityLayerModelClassification",
     # Masked Ensemble
+    "EpinetBase",
+    "EpinetRegression",
+    "EpinetClassification",
     "MasksemblesBase",
     "MasksemblesRegression",
     "MasksemblesClassification",
