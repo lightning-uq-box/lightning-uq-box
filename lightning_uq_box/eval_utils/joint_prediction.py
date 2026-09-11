@@ -17,6 +17,8 @@ All functions here are pure tensor functions with no Lightning dependency, match
 :mod:`lightning_uq_box.eval_utils.uq_computation`.
 """
 
+import math
+
 import torch
 from torch import Tensor
 
@@ -36,6 +38,8 @@ def average_sampled_log_likelihood(lls: Tensor) -> Tensor:
     Returns:
         scalar averaged log-likelihood
     """
+    if lls.ndim != 1 or lls.numel() == 0:
+        raise ValueError("lls must be a nonempty vector of sampled log-likelihoods.")
     if torch.all(torch.isneginf(lls)):
         return torch.tensor(float("-inf"), dtype=lls.dtype, device=lls.device)
     num_samples = torch.tensor(lls.shape[0], dtype=lls.dtype, device=lls.device)
@@ -62,10 +66,12 @@ def joint_log_likelihood(logits: Tensor, targets: Tensor) -> Tensor:
             f"Expected logits of shape [num_samples, tau, num_classes], "
             f"got shape {tuple(logits.shape)}."
         )
-    if targets.shape[0] != logits.shape[1]:
+    if any(size < 1 for size in logits.shape):
+        raise ValueError("logits axes must be nonempty.")
+    if targets.ndim != 1 or targets.shape[0] != logits.shape[1]:
         raise ValueError(
             f"Expected {logits.shape[1]} targets to match the tau axis of logits, "
-            f"got {targets.shape[0]}."
+            f"got shape {tuple(targets.shape)}."
         )
 
     log_probs = torch.log_softmax(logits.double(), dim=-1)
@@ -99,17 +105,19 @@ def marginal_log_likelihood(logits: Tensor, targets: Tensor) -> Tensor:
             f"Expected logits of shape [num_samples, tau, num_classes], "
             f"got shape {tuple(logits.shape)}."
         )
-    if targets.shape[0] != logits.shape[1]:
+    if any(size < 1 for size in logits.shape):
+        raise ValueError("logits axes must be nonempty.")
+    if targets.ndim != 1 or targets.shape[0] != logits.shape[1]:
         raise ValueError(
             f"Expected {logits.shape[1]} targets to match the tau axis of logits, "
-            f"got {targets.shape[0]}."
+            f"got shape {tuple(targets.shape)}."
         )
 
-    probs = torch.softmax(logits.double(), dim=-1).mean(dim=0)  # [tau, num_classes]
-    target_probs = torch.gather(
-        probs, dim=-1, index=targets.long().view(-1, 1)
+    log_probs = torch.log_softmax(logits.double(), dim=-1)
+    target_ll = log_probs.gather(
+        -1, targets.long()[None, :, None].expand(logits.shape[0], -1, 1)
     ).squeeze(-1)
-    return torch.log(target_probs).sum()
+    return (torch.logsumexp(target_ll, dim=0) - math.log(logits.shape[0])).sum()
 
 
 def dyadic_batch_indices(
@@ -129,7 +137,7 @@ def dyadic_batch_indices(
     Args:
         num_data: size of the evaluation set to draw from
         tau: number of inputs in the batch
-        kappa: number of distinct anchor points
+        kappa: number of anchor draws (with replacement)
         generator: optional random number generator for reproducibility
 
     Returns:
@@ -140,8 +148,11 @@ def dyadic_batch_indices(
     if kappa < 1:
         raise ValueError(f"kappa must be at least 1, got {kappa}.")
 
-    anchors = torch.randint(0, num_data, (kappa,), generator=generator)
-    picks = torch.randint(0, kappa, (tau,), generator=generator)
+    if tau < 1:
+        raise ValueError(f"tau must be at least 1, got {tau}.")
+    device = generator.device if generator is not None else torch.device("cpu")
+    anchors = torch.randint(0, num_data, (kappa,), generator=generator, device=device)
+    picks = torch.randint(0, kappa, (tau,), generator=generator, device=device)
     return anchors[picks]
 
 
@@ -164,7 +175,7 @@ def joint_log_loss_dyadic(
             [num_samples, num_data, num_classes]
         targets: class indices of shape [num_data]
         tau: number of inputs per dyadic batch
-        kappa: number of distinct anchor points per batch
+        kappa: number of anchor draws (with replacement) per batch
         num_batches: number of dyadic batches to average over
         generator: optional random number generator for reproducibility
 
@@ -177,6 +188,13 @@ def joint_log_loss_dyadic(
             f"got shape {tuple(logits.shape)}."
         )
 
+    if num_batches < 1 or tau < 1:
+        raise ValueError("num_batches and tau must be positive.")
+    if any(size < 1 for size in logits.shape):
+        raise ValueError("logits axes must be nonempty.")
+    if targets.ndim != 1 or targets.shape[0] != logits.shape[1]:
+        raise ValueError("targets must have shape [num_data].")
+    targets = targets.to(logits.device)
     num_data = logits.shape[1]
     total = torch.zeros((), dtype=torch.float64, device=logits.device)
     for _ in range(num_batches):
@@ -201,17 +219,20 @@ def marginal_log_loss(logits: Tensor, targets: Tensor) -> Tensor:
     return -marginal_log_likelihood(logits, targets) / logits.shape[1]
 
 
-def categorical_kl(p: Tensor, q: Tensor, eps: float = 1e-12) -> Tensor:
+def categorical_kl(p: Tensor, q: Tensor, eps: float = 0.0) -> Tensor:
     """KL divergence between two batches of categorical distributions.
 
     Args:
         p: reference probabilities of shape [..., num_classes]
         q: comparison probabilities of shape [..., num_classes]
-        eps: floor applied to both distributions to keep the logarithms finite
+        eps: optional floor for comparison probabilities; zero preserves infinite
+            divergence when q assigns zero mass to an event with positive p
 
     Returns:
         KL divergence of shape [...], summed over the class axis
     """
-    p = p.double().clamp_min(eps)
+    if eps < 0:
+        raise ValueError("eps must be nonnegative.")
+    p = p.double()
     q = q.double().clamp_min(eps)
-    return (p * (p.log() - q.log())).sum(dim=-1)
+    return (torch.special.xlogy(p, p) - torch.special.xlogy(p, q)).sum(dim=-1)

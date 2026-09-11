@@ -372,6 +372,8 @@ Epinet Base
 Epinet Regression
 `````````````````
 
+.. autoclass:: EpinetGaussianNoiseLoss
+
 .. autoclass:: EpinetRegression
 
 Epinet Classification

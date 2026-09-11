@@ -15,6 +15,7 @@ from torch import Tensor, nn
 from lightning_uq_box.models.epinet import Epinet
 
 from .base import DeterministicModel
+from .loss_functions import EpinetGaussianNoiseLoss
 from .utils import (
     _get_num_outputs,
     _get_output_layer_name_and_module,
@@ -71,6 +72,7 @@ class EpinetBase(DeterministicModel):
         input_prior: nn.Module | None = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
+        epinet_concat_index: bool = True,
     ) -> None:
         """Initialize a new instance of the Epinet base class.
 
@@ -103,7 +105,14 @@ class EpinetBase(DeterministicModel):
                 ``None`` an MLP ensemble prior is built for MLP-shaped bases.
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            epinet_concat_index: concatenate the index to the epinet MLP input;
+                disable for a head that is linear in the index
         """
+        if index_dim < 1 or num_index_samples < 1 or num_pred_samples < 2:
+            raise ValueError(
+                "index_dim and num_index_samples must be positive; "
+                "num_pred_samples must be at least 2."
+            )
         # plain attributes rather than self.hparams, which does not survive
         # the DeterministicModel init reliably
         self.index_dim = index_dim
@@ -111,9 +120,9 @@ class EpinetBase(DeterministicModel):
         self.num_pred_samples = num_pred_samples
         self.use_input_features = use_input_features
 
-        # attach the feature hook before super().__init__, which calls setup_task
+        # Infer widths before initialization; register the hook only after validation.
         self._features: Tensor | None = None
-        n_feature_inputs, n_raw_inputs = self._setup_feature_hook(
+        n_feature_inputs, n_raw_inputs = self._feature_dimensions(
             model, use_input_features
         )
 
@@ -141,16 +150,35 @@ class EpinetBase(DeterministicModel):
             input_prior_scale=input_prior_scale,
             seed=prior_seed,
             input_prior=input_prior,
+            concat_index=epinet_concat_index,
         )
 
         super().__init__(model, loss_fn, freeze_backbone, optimizer, lr_scheduler)
 
         self.epinet = epinet
+        _, last_layer = _get_output_layer_name_and_module(model)
+        self._feature_hook = last_layer.register_forward_pre_hook(
+            self._capture_features
+        )
+        self.save_hyperparameters(
+            ignore=["model", "loss_fn", "input_prior", "optimizer", "lr_scheduler"]
+        )
 
-    def _setup_feature_hook(
+    def _capture_features(self, module: nn.Module, args: tuple[Any, ...]) -> None:
+        """Capture detached features without retaining the base computation graph."""
+        self._features = args[0].detach()
+
+    def train(self, mode: bool = True) -> "EpinetBase":
+        """Keep a frozen backbone's BatchNorm and dropout in evaluation mode."""
+        super().train(mode)
+        if self.freeze_backbone:
+            self.model.eval()
+        return self
+
+    def _feature_dimensions(
         self, model: nn.Module, use_input_features: bool
     ) -> tuple[int, int]:
-        """Register the forward pre-hook that captures the base network's features.
+        """Infer feature and raw input widths without mutating the base network.
 
         Args:
             model: the base network
@@ -190,11 +218,6 @@ class EpinetBase(DeterministicModel):
                 "input prior instead."
             )
 
-        def hook(_module: nn.Module, args: tuple[Any, ...]) -> None:
-            self._features = args[0]
-
-        last_layer.register_forward_pre_hook(hook)
-
         # The raw input width is only needed to size a default MLP prior over the
         # input. For an MLP-shaped base it is the first linear layer's input width;
         # for a conv base the flattened image size is not knowable from the module
@@ -222,6 +245,7 @@ class EpinetBase(DeterministicModel):
         if self.freeze_backbone:
             for param in self.model.parameters():
                 param.requires_grad = False
+            self.model.eval()
 
     def sample_index(self, num_samples: int, device: torch.device) -> Tensor:
         r"""Draw epistemic indices from the reference distribution.
@@ -234,7 +258,7 @@ class EpinetBase(DeterministicModel):
             indices of shape [num_samples, index_dim], drawn from
             :math:`\mathcal{N}(0, I_{D_Z})`
         """
-        return torch.randn(num_samples, self.index_dim, device=device)
+        return torch.randn(num_samples, self.index_dim, device=device, dtype=self.dtype)
 
     def extract_features(self, X: Tensor) -> Tensor:
         r"""Build the stop-gradiented feature vector handed to the epinet.
@@ -253,7 +277,9 @@ class EpinetBase(DeterministicModel):
                 "No features were captured. The base network must be run before the "
                 "epinet features are read."
             )
-        features = torch.flatten(self._features, 1).detach()
+        features = self._features.detach()
+        if features.ndim > 2:
+            features = features.flatten(2).mean(-1)
         if self.use_input_features:
             features = torch.cat([features, torch.flatten(X, 1).detach()], dim=-1)
         return features
@@ -269,13 +295,31 @@ class EpinetBase(DeterministicModel):
         Returns:
             output of shape [batch_size, num_outputs]
         """
-        logits = self.model(X)
+        logits = self._base_forward(X)
         features = self.extract_features(X)
         if index is None:
             index = self.sample_index(X.shape[0], X.device)
         return logits + self.epinet(features, X.detach(), index)
 
-    def compute_loss(self, X: Tensor, y: Tensor) -> tuple[Tensor, Tensor, Tensor]:
+    def _base_forward(self, X: Tensor) -> Tensor:
+        """Run the base and reject outputs outside the vector prediction contract."""
+        self._features = None
+        logits = self.model(X)
+        if logits.ndim != 2:
+            raise ValueError(
+                "Epinet requires base outputs of shape [batch_size, num_outputs]."
+            )
+        return logits
+
+    def _loss(
+        self, out: Tensor, target: Tensor, index: Tensor, data_index: Tensor | None
+    ) -> Tensor:
+        """Score repeated outputs, optionally using persistent bootstrap signatures."""
+        return self.loss_fn(out, target)
+
+    def compute_loss(
+        self, X: Tensor, y: Tensor, data_index: Tensor | None = None
+    ) -> tuple[Tensor, Tensor, Tensor]:
         """Run the base network once and the epinet over several indices.
 
         The base network is evaluated a single time and its output and features are
@@ -285,6 +329,8 @@ class EpinetBase(DeterministicModel):
         Args:
             X: input tensor of shape [batch_size, ...]
             y: target tensor of shape [batch_size, ...]
+            data_index: stable training example IDs of shape [batch_size], required
+                only for Gaussian bootstrap regression
 
         Returns:
             the loss, the combined outputs and the repeated targets
@@ -292,7 +338,7 @@ class EpinetBase(DeterministicModel):
         batch_size = X.shape[0]
         num_samples = self.num_index_samples
 
-        logits = self.model(X)
+        logits = self._base_forward(X)
         features = self.extract_features(X)
 
         # one index per sample, shared across the batch, following the paper
@@ -307,7 +353,7 @@ class EpinetBase(DeterministicModel):
         out = logits_k + self.epinet(features_k, x_k, index_k)
         y_k = repeat(y, "b ... -> (k b) ...", k=num_samples)
 
-        return self.loss_fn(out, y_k), out, y_k
+        return self._loss(out, y_k, index_k, data_index), out, y_k
 
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
@@ -323,7 +369,7 @@ class EpinetBase(DeterministicModel):
             training loss
         """
         X, y = batch[self.input_key], batch[self.target_key]
-        loss, out, y_k = self.compute_loss(X, y)
+        loss, out, y_k = self.compute_loss(X, y, batch.get("index"))
 
         # the index-sample repeat means the effective batch is larger than the input
         self.log("train_loss", loss, batch_size=X.shape[0] * self.num_index_samples)
@@ -354,24 +400,37 @@ class EpinetBase(DeterministicModel):
 
         return loss
 
-    def predict_samples(self, X: Tensor) -> Tensor:
+    def predict_samples(self, X: Tensor, indices: Tensor | None = None) -> Tensor:
         r"""Draw ENN samples for a batch of inputs.
+
+        Reuse the same ``indices`` for every batch of an evaluation set before
+        concatenating samples for joint metrics. Independently resampling indices
+        for each batch destroys the dependence between predictions.
 
         Args:
             X: input tensor of shape [batch_size, \*input_shape]
+            indices: optional shared indices of shape [num_samples, index_dim]
 
         Returns:
-            samples of shape [batch_size, num_outputs, num_pred_samples], the layout
+            samples of shape [batch_size, num_outputs, num_samples], the layout
             the ``process_*_prediction`` helpers expect
         """
         batch_size = X.shape[0]
-        num_samples = self.num_pred_samples
+        if indices is None:
+            indices = self.sample_index(self.num_pred_samples, X.device)
+        if (
+            indices.ndim != 2
+            or indices.shape[1] != self.index_dim
+            or indices.shape[0] < 1
+        ):
+            raise ValueError("indices must have shape [num_samples, index_dim].")
+        num_samples = indices.shape[0]
 
         with torch.no_grad():
-            logits = self.model(X)
+            logits = self._base_forward(X)
             features = self.extract_features(X)
 
-            index = self.sample_index(num_samples, X.device)
+            index = indices.to(device=X.device, dtype=features.dtype)
             features_k = repeat(features, "b f -> (k b) f", k=num_samples)
             x_k = repeat(X, "b ... -> (k b) ...", k=num_samples)
             index_k = repeat(index, "k d -> (k b) d", b=batch_size)
@@ -413,6 +472,109 @@ class EpinetRegression(EpinetBase):
     """
 
     pred_file_name = "preds.csv"
+
+    def __init__(
+        self,
+        model: nn.Module,
+        loss_fn: nn.Module,
+        index_dim: int = 8,
+        num_index_samples: int = 8,
+        num_pred_samples: int = 100,
+        epinet_hidden_dims: list[int] | None = None,
+        prior_hidden_dims: list[int] | None = None,
+        epi_prior_scale: float = 0.0,
+        input_prior_scale: float = 0.3,
+        use_input_features: bool = True,
+        prior_seed: int = 0,
+        freeze_backbone: bool = False,
+        input_prior: nn.Module | None = None,
+        optimizer: OptimizerCallable = torch.optim.Adam,
+        lr_scheduler: LRSchedulerCallable | None = None,
+        epinet_concat_index: bool = True,
+        bootstrap_noise_scale: float = 0.0,
+        num_train: int | None = None,
+    ) -> None:
+        """Initialize regression, optionally with equation 9 Gaussian bootstrapping.
+
+        Args:
+            model: base regression network
+            loss_fn: unperturbed regression loss; bootstrap training uses squared error
+            index_dim: dimension of the Gaussian index
+            num_index_samples: shared index draws per training batch
+            num_pred_samples: prediction draws
+            epinet_hidden_dims: epinet hidden widths
+            prior_hidden_dims: input prior hidden widths
+            epi_prior_scale: feature prior multiplier
+            input_prior_scale: raw input prior multiplier
+            use_input_features: include raw inputs in the epinet features
+            prior_seed: fixed prior and bootstrap signature seed
+            freeze_backbone: freeze the entire base including its running statistics
+            input_prior: optional frozen prior over raw inputs
+            optimizer: optimizer factory
+            lr_scheduler: scheduler factory
+            epinet_concat_index: include the index in the MLP input
+            bootstrap_noise_scale: observation standard deviation; zero disables bootstrap
+            num_train: number of stable training IDs, required when bootstrap is enabled
+        """
+        if bootstrap_noise_scale < 0:
+            raise ValueError("bootstrap_noise_scale must be nonnegative.")
+        if bootstrap_noise_scale > 0 and (num_train is None or num_train < 1):
+            raise ValueError(
+                "Gaussian bootstrap requires num_train > 0 and stable batch 'index' IDs."
+            )
+        self.bootstrap_noise_scale = bootstrap_noise_scale
+        super().__init__(
+            model=model,
+            loss_fn=loss_fn,
+            index_dim=index_dim,
+            num_index_samples=num_index_samples,
+            num_pred_samples=num_pred_samples,
+            epinet_hidden_dims=epinet_hidden_dims,
+            prior_hidden_dims=prior_hidden_dims,
+            epi_prior_scale=epi_prior_scale,
+            input_prior_scale=input_prior_scale,
+            use_input_features=use_input_features,
+            prior_seed=prior_seed,
+            freeze_backbone=freeze_backbone,
+            input_prior=input_prior,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            epinet_concat_index=epinet_concat_index,
+        )
+        if bootstrap_noise_scale > 0 and _get_num_outputs(model) != 1:
+            raise ValueError("Gaussian bootstrap supports a scalar regression output.")
+        generator = torch.Generator().manual_seed(prior_seed)
+        signatures = torch.randn(num_train or 0, index_dim, generator=generator)
+        self.register_buffer(
+            "bootstrap_signatures", nn.functional.normalize(signatures, dim=-1)
+        )
+        self.bootstrap_loss = EpinetGaussianNoiseLoss(bootstrap_noise_scale)
+
+    bootstrap_signatures: Tensor
+
+    def _loss(
+        self, out: Tensor, target: Tensor, index: Tensor, data_index: Tensor | None
+    ) -> Tensor:
+        """Use fixed per-example signatures only during bootstrap training."""
+        if self.bootstrap_noise_scale == 0 or not self.training:
+            return self.loss_fn(out, target)
+        if data_index is None:
+            raise ValueError(
+                "Gaussian bootstrap requires stable example IDs in batch['index']."
+            )
+        batch_size = out.shape[0] // self.num_index_samples
+        if data_index.shape != (batch_size,) or data_index.dtype not in (
+            torch.int32,
+            torch.int64,
+        ):
+            raise ValueError("batch['index'] must contain one integer ID per example.")
+        if (data_index < 0).any() or (
+            data_index >= self.bootstrap_signatures.shape[0]
+        ).any():
+            raise ValueError("batch['index'] IDs must lie in [0, num_train).")
+        signature = self.bootstrap_signatures[data_index]
+        signature = repeat(signature, "b d -> (k b) d", k=self.num_index_samples)
+        return self.bootstrap_loss(out, target, signature, index)
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -498,6 +660,7 @@ class EpinetClassification(EpinetBase):
         input_prior: nn.Module | None = None,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
+        epinet_concat_index: bool = True,
     ) -> None:
         """Initialize a new instance of the Epinet classification model.
 
@@ -521,6 +684,8 @@ class EpinetClassification(EpinetBase):
                 convolutional base networks
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
+            epinet_concat_index: concatenate the index to the epinet MLP input;
+                disable for a head that is linear in the index
         """
         # set before super().__init__, which calls setup_task
         self.num_classes = _get_num_outputs(model)
@@ -542,6 +707,7 @@ class EpinetClassification(EpinetBase):
             input_prior,
             optimizer,
             lr_scheduler,
+            epinet_concat_index=epinet_concat_index,
         )
 
     def setup_task(self) -> None:

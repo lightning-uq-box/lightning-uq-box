@@ -13,6 +13,8 @@ head :math:`\sigma_\eta` that additionally consumes an *epistemic index*
 *joint* predictions over several inputs rather than only marginals.
 """
 
+import math
+
 import torch
 from torch import Tensor, nn
 
@@ -63,6 +65,7 @@ class ProjectedMLP(nn.Module):
             layers += [nn.Linear(layer_sizes[idx - 1], layer_sizes[idx]), nn.ReLU()]
         layers += [nn.Linear(layer_sizes[-1], n_outputs * index_dim)]
         self.mlp = nn.Sequential(*layers)
+        _reinit_with_generator(self.mlp)
 
     def forward(self, features: Tensor, index: Tensor) -> Tensor:
         """Forward pass.
@@ -154,7 +157,8 @@ class ConvEnsemblePriorFunction(nn.Module):
     The image counterpart of :class:`EnsemblePriorFunction`, matching the CIFAR-10
     prior of the reference implementation: three ``5 x 5`` stride-2 convolutions with
     output channels ``(4, 8, 4)``, ReLU in between, flattened into a linear read-out.
-    As with the MLP ensemble every member is frozen and checkpointed.
+    Images are resized to ``input_size`` and convolutions use Haiku's asymmetric
+    SAME padding. As with the MLP ensemble every member is frozen and checkpointed.
 
     .. versionadded:: 0.4
     """
@@ -191,16 +195,18 @@ class ConvEnsemblePriorFunction(nn.Module):
         self.n_outputs = n_outputs
         self.num_ensemble = num_ensemble
 
-        # spatial size after the convolution stack, with the default
-        # `padding=0` of nn.Conv2d
-        size = input_size
-        for _ in channels:
-            size = (size - kernel_size) // stride + 1
-        if size < 1:
+        if input_size < 1 or not channels or kernel_size < 1 or stride < 1:
             raise ValueError(
-                f"Input size {input_size} is too small for {len(channels)} "
-                f"convolutions with kernel_size={kernel_size} and stride={stride}."
+                "input_size, channels, kernel_size and stride must be positive."
             )
+        self.input_size = input_size
+        size = input_size
+        paddings = []
+        for _ in channels:
+            next_size = math.ceil(size / stride)
+            total = max((next_size - 1) * stride + kernel_size - size, 0)
+            paddings.append((total // 2, total - total // 2))
+            size = next_size
         flat_dim = channels[-1] * size * size
 
         generator = torch.Generator().manual_seed(seed)
@@ -208,8 +214,9 @@ class ConvEnsemblePriorFunction(nn.Module):
         for _ in range(num_ensemble):
             layers: list[nn.Module] = []
             prev = in_channels
-            for out_channels in channels:
+            for out_channels, (before, after) in zip(channels, paddings, strict=True):
                 layers += [
+                    nn.ZeroPad2d((before, after, before, after)),
                     nn.Conv2d(prev, out_channels, kernel_size, stride=stride),
                     nn.ReLU(),
                 ]
@@ -232,6 +239,14 @@ class ConvEnsemblePriorFunction(nn.Module):
         Returns:
             output of shape [batch_size, n_outputs]
         """
+        if x.shape[-2:] != (self.input_size, self.input_size):
+            x = nn.functional.interpolate(
+                x,
+                size=(self.input_size, self.input_size),
+                mode="bilinear",
+                align_corners=False,
+                antialias=True,
+            )
         outs = torch.stack([member(x) for member in self.members], dim=0)
         return torch.einsum("nbo,bn->bo", outs, index)
 
@@ -266,6 +281,7 @@ class Epinet(nn.Module):
         input_prior_scale: float = 0.3,
         seed: int = 0,
         input_prior: nn.Module | None = None,
+        concat_index: bool = True,
     ) -> None:
         r"""Initialize a new instance of Epinet.
 
@@ -283,6 +299,7 @@ class Epinet(nn.Module):
             input_prior_scale: scale of the additive prior over the raw input, which is
                 skipped entirely when this is ``0.0``
             seed: seed used to initialize the frozen prior networks
+            concat_index: concatenate indices to features; disable for linear-in-index heads
             input_prior: optional prior module over the raw input, for instance a
                 :class:`ConvEnsemblePriorFunction` for image inputs. When ``None`` an
                 :class:`EnsemblePriorFunction` is built from ``prior_hidden_dims``.
@@ -300,11 +317,21 @@ class Epinet(nn.Module):
         self.input_prior_scale = input_prior_scale
 
         self.train_epinet = ProjectedMLP(
-            n_feature_inputs, hidden_dims, n_outputs, index_dim
+            n_feature_inputs,
+            hidden_dims,
+            n_outputs,
+            index_dim,
+            concat_index=concat_index,
         )
 
         # the epinet's own prior: same shape, frozen, separately initialized
-        epi_prior = ProjectedMLP(n_feature_inputs, hidden_dims, n_outputs, index_dim)
+        epi_prior = ProjectedMLP(
+            n_feature_inputs,
+            hidden_dims,
+            n_outputs,
+            index_dim,
+            concat_index=concat_index,
+        )
         _reinit_with_generator(epi_prior, torch.Generator().manual_seed(seed + 1))
         epi_prior.requires_grad_(False)
         self.epi_prior = epi_prior
@@ -319,6 +346,15 @@ class Epinet(nn.Module):
             )
         else:
             self.input_prior = None
+        self.train(self.training)
+
+    def train(self, mode: bool = True) -> "Epinet":
+        """Keep all frozen prior functions deterministic during training."""
+        super().train(mode)
+        self.epi_prior.eval()
+        if self.input_prior is not None:
+            self.input_prior.eval()
+        return self
 
     def forward(self, features: Tensor, x: Tensor, index: Tensor) -> Tensor:
         r"""Forward pass.
@@ -336,16 +372,18 @@ class Epinet(nn.Module):
         out = self.train_epinet(features, index)
         if self.epi_prior_scale != 0.0:
             out = out + self.epi_prior_scale * self.epi_prior(features, index)
-        if self.input_prior is not None:
+        if self.input_prior is not None and self.input_prior_scale != 0.0:
             out = out + self.input_prior_scale * self.input_prior(x, index)
         return out
 
 
-def _reinit_with_generator(module: nn.Module, generator: torch.Generator) -> None:
+def _reinit_with_generator(
+    module: nn.Module, generator: torch.Generator | None = None
+) -> None:
     """Re-initialize the parameters of a module from a seeded generator.
 
     Gives every ensemble member independent, reproducible weights without disturbing
-    the global RNG state, which callers may be relying on for their own seeding.
+    the global RNG state when a private generator is supplied.
 
     Args:
         module: module whose ``Linear``/``Conv2d`` parameters are re-initialized
@@ -354,8 +392,14 @@ def _reinit_with_generator(module: nn.Module, generator: torch.Generator) -> Non
     for layer in module.modules():
         if isinstance(layer, nn.Linear | nn.Conv2d):
             fan_in = layer.weight[0].numel()
-            bound = 1.0 / (fan_in**0.5)
+            std = fan_in**-0.5
             with torch.no_grad():
-                layer.weight.uniform_(-bound, bound, generator=generator)
+                # Haiku Linear/Conv2D defaults: N(0, 1/fan_in), truncated at
+                # two standard deviations, with zero biases. Inverse-CDF sampling
+                # accepts a private generator on all supported PyTorch versions.
+                layer.weight.uniform_(
+                    -0.9544997361036416, 0.9544997361036416, generator=generator
+                )
+                layer.weight.erfinv_().mul_(math.sqrt(2) * std)
                 if layer.bias is not None:
-                    layer.bias.uniform_(-bound, bound, generator=generator)
+                    layer.bias.zero_()

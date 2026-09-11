@@ -233,6 +233,14 @@ class TestIndexSensitivity:
         index = torch.randn(6, 4)
         assert torch.allclose(model.forward(X, index), model.forward(X, index))
 
+    def test_omitted_index_is_sampled_per_example(self) -> None:
+        """forward() without an index draws one internally, per the docstring."""
+        model = build_regression_model()
+        X = torch.randn(6, 1)
+        out = model.forward(X)
+        assert out.shape == model.forward(X, model.sample_index(6, X.device)).shape
+        assert torch.isfinite(out).all()
+
     def test_zero_index_recovers_the_base_network(self) -> None:
         """The epinet is linear in z, so z = 0 leaves only mu(x)."""
         model = build_regression_model(epi_prior_scale=1.0, input_prior_scale=0.3)
@@ -576,7 +584,8 @@ class TestConvEnsemblePriorFunction:
         )
         first, second = prior.members[0], prior.members[1]
         assert isinstance(first, nn.Sequential) and isinstance(second, nn.Sequential)
-        first_conv, second_conv = first[0], second[0]
+        first_conv = next(m for m in first if isinstance(m, nn.Conv2d))
+        second_conv = next(m for m in second if isinstance(m, nn.Conv2d))
         assert isinstance(first_conv, nn.Conv2d) and isinstance(second_conv, nn.Conv2d)
         assert not torch.equal(first_conv.weight, second_conv.weight)
 
@@ -587,9 +596,18 @@ class TestConvEnsemblePriorFunction:
         index = torch.randn(2, 2)
         assert torch.allclose(a(x, index), b(x, index))
 
-    def test_rejects_input_too_small_for_the_conv_stack(self) -> None:
-        with pytest.raises(ValueError, match="too small"):
-            ConvEnsemblePriorFunction(3, 5, 2, input_size=8)
+    def test_same_padding_and_resize(self) -> None:
+        prior = ConvEnsemblePriorFunction(3, 5, 2)
+        member = prior.members[0]
+        assert isinstance(member, nn.Sequential)
+        final = member[-1]
+        assert isinstance(final, nn.Linear)
+        assert final.in_features == 4 * 4 * 4
+        assert prior(torch.randn(2, 3, 16, 16), torch.randn(2, 2)).shape == (2, 5)
+
+    def test_rejects_invalid_input_size(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            ConvEnsemblePriorFunction(3, 5, 2, input_size=0)
 
 
 class TestCustomInputPrior:
@@ -613,3 +631,183 @@ class TestCustomInputPrior:
 
         out = epinet(torch.randn(2, 16), torch.randn(2, 3, 32, 32), torch.randn(2, 4))
         assert out.shape == (2, 10)
+
+
+class TestJointPredictionContract:
+    def test_shared_indices_agree_across_batches(self) -> None:
+        model = build_regression_model().eval()
+        x = torch.randn(12, 1)
+        z = model.sample_index(7, x.device)
+        whole = model.predict_samples(x, z)
+        chunks = torch.cat([model.predict_samples(chunk, z) for chunk in x.split(4)])
+        torch.testing.assert_close(chunks, whole)
+        for k in range(len(z)):
+            torch.testing.assert_close(whole[..., k], model(x, z[k].expand(len(x), -1)))
+
+    def test_float64_internally_sampled_indices(self) -> None:
+        model = build_regression_model().double()
+        x = torch.randn(4, 1, dtype=torch.float64)
+        assert model(x).dtype == torch.float64
+        assert model.predict_samples(x).dtype == torch.float64
+
+    def test_deepcopy_hook_belongs_to_the_copy(self) -> None:
+        original = build_regression_model()
+        cloned = copy.deepcopy(original)
+        cloned(torch.randn(3, 1))
+        assert cloned._features is not None
+        assert original._features is None
+
+    def test_base_runs_once_per_training_or_prediction_batch(self) -> None:
+        model = build_regression_model()
+        calls = []
+        handle = model.model.register_forward_hook(lambda *args: calls.append(1))
+        model.compute_loss(torch.randn(4, 1), torch.randn(4, 1))
+        assert len(calls) == 1
+        model.predict_samples(torch.randn(4, 1))
+        assert len(calls) == 2
+        handle.remove()
+
+    @pytest.mark.parametrize(
+        "kwargs", [{"index_dim": 0}, {"num_index_samples": 0}, {"num_pred_samples": 1}]
+    )
+    def test_invalid_sample_counts(self, kwargs: dict) -> None:
+        with pytest.raises(ValueError):
+            build_regression_model(**kwargs)
+
+
+class TestFrozenRunningState:
+    def test_batchnorm_dropout_and_parameters_remain_fixed(self) -> None:
+        base = nn.Sequential(
+            nn.Linear(2, 8), nn.BatchNorm1d(8), nn.Dropout(0.8), nn.Linear(8, 2)
+        )
+        model = EpinetClassification(base, nn.CrossEntropyLoss(), freeze_backbone=True)
+        x, y = torch.randn(6, 2), torch.randint(2, (6,))
+        before = copy.deepcopy(base.state_dict())
+        expected = base(x).detach().clone()
+        model.train()
+        optimizer = torch.optim.Adam(model.epinet.train_epinet.parameters())
+        loss, _, _ = model.compute_loss(x, y)
+        loss.backward()
+        optimizer.step()
+        assert not base.training
+        assert model.epinet.train_epinet.training
+        assert not model.epinet.epi_prior.training
+        for key, value in base.state_dict().items():
+            torch.testing.assert_close(value, before[key], rtol=0, atol=0)
+        torch.testing.assert_close(base(x), expected, rtol=0, atol=0)
+
+
+class TestGaussianBootstrap:
+    def test_loss_matches_equation_nine(self) -> None:
+        from lightning_uq_box.uq_methods import EpinetGaussianNoiseLoss
+
+        loss = EpinetGaussianNoiseLoss(0.5)
+        preds, targets = torch.tensor([[2.0], [3.0]]), torch.tensor([[1.0], [2.0]])
+        c = torch.eye(2)
+        z = torch.tensor([[2.0, 4.0], [2.0, 4.0]])
+        assert loss(preds, targets, c, z).item() == pytest.approx(0.5)
+
+    def test_bootstrap_requires_training_ids(self) -> None:
+        with pytest.raises(ValueError, match="num_train"):
+            build_regression_model(bootstrap_noise_scale=0.2)
+        model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10)
+        with pytest.raises(ValueError, match="stable example IDs"):
+            model.compute_loss(torch.randn(4, 1), torch.randn(4, 1))
+        with pytest.raises(ValueError, match="num_train"):
+            model.compute_loss(
+                torch.randn(4, 1), torch.randn(4, 1), torch.tensor([0, 1, 2, 10])
+            )
+
+    def test_signatures_stable_and_checkpointed(self, tmp_path: Path) -> None:
+        model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10)
+        signatures = model.bootstrap_signatures.clone()
+        torch.testing.assert_close(signatures.norm(dim=-1), torch.ones(10))
+        model.compute_loss(torch.randn(4, 1), torch.randn(4, 1), torch.arange(4))[
+            0
+        ].backward()
+        torch.testing.assert_close(model.bootstrap_signatures, signatures)
+        trainer = Trainer(default_root_dir=str(tmp_path), logger=False)
+        trainer.strategy.connect(model)
+        path = tmp_path / "bootstrap.ckpt"
+        trainer.save_checkpoint(path)
+        loaded = EpinetRegression.load_from_checkpoint(
+            path,
+            model=MLP(n_inputs=1, n_hidden=[16], n_outputs=1),
+            loss_fn=nn.MSELoss(),
+        )
+        x, z = torch.randn(4, 1), torch.randn(4, 4)
+        torch.testing.assert_close(loaded(x, z), model(x, z))
+        torch.testing.assert_close(loaded.bootstrap_signatures, signatures)
+        assert loaded.bootstrap_noise_scale == 0.2
+
+    def test_validation_uses_unperturbed_targets(self) -> None:
+        model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10).eval()
+        loss, out, target = model.compute_loss(torch.randn(4, 1), torch.randn(4, 1))
+        torch.testing.assert_close(loss, nn.MSELoss()(out, target))
+
+    def test_loss_respects_estimator_major_ids(self) -> None:
+        from unittest.mock import patch
+
+        model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10)
+        x, y, ids = torch.randn(3, 1), torch.randn(3, 1), torch.tensor([9, 1, 9])
+        z = torch.randn(2, 4)
+        with patch.object(model, "sample_index", return_value=z):
+            loss, out, target = model.compute_loss(x, y, ids)
+        c = model.bootstrap_signatures[ids].repeat(2, 1)
+        noise = 0.2 * (c * z.repeat_interleave(3, dim=0)).sum(-1, keepdim=True)
+        torch.testing.assert_close(loss, (out - target - noise).square().mean())
+
+
+@pytest.mark.slow
+def test_linear_gaussian_epinet_matches_bayesian_posterior() -> None:
+    """Optimize equation 9 using exact Gaussian second moments (linear head)."""
+    from unittest.mock import patch
+
+    torch.manual_seed(5)
+    n, dim, sigma = 16, 128, 0.3
+    x = torch.linspace(-1, 1, n).unsqueeze(1)
+    y = 0.7 * x + sigma * torch.randn_like(x)
+    model = EpinetRegression(
+        nn.Linear(1, 1, bias=False),
+        nn.MSELoss(),
+        index_dim=dim,
+        num_index_samples=2 * dim,
+        epinet_hidden_dims=[],
+        use_input_features=False,
+        epinet_concat_index=False,
+        input_prior_scale=0,
+        epi_prior_scale=1,
+        bootstrap_noise_scale=sigma,
+        num_train=n,
+    )
+    head = model.epinet.train_epinet.mlp[0]
+    prior = model.epinet.epi_prior.mlp[0]
+    assert isinstance(head, nn.Linear) and isinstance(prior, nn.Linear)
+    with torch.no_grad():
+        head.weight.zero_()
+        head.bias.zero_()
+        prior.weight.normal_(std=dim**-0.5)
+        prior.bias.zero_()
+    head.bias.requires_grad_(False)
+    params = [p for p in model.parameters() if p.requires_grad]
+    optimizer = torch.optim.LBFGS(
+        params, max_iter=50, tolerance_grad=1e-9, tolerance_change=1e-12
+    )
+    z = torch.cat([torch.eye(dim), -torch.eye(dim)]) * dim**0.5
+
+    def closure() -> torch.Tensor:
+        optimizer.zero_grad()
+        with patch.object(model, "sample_index", return_value=z):
+            loss = model.compute_loss(x, y, torch.arange(n))[0]
+        loss = loss + sigma**2 / n * sum(p.square().sum() for p in params)
+        loss.backward()
+        return loss
+
+    optimizer.step(closure)
+    samples = model.eval().predict_samples(torch.ones(1, 1), z).flatten()
+    expected_mean = (x * y).sum() / (x.square().sum() + sigma**2)
+    expected_std = (sigma**2 / (x.square().sum() + sigma**2)).sqrt()
+    torch.testing.assert_close(samples.mean(), expected_mean, atol=1e-3, rtol=1e-3)
+    torch.testing.assert_close(
+        samples.std(correction=0), expected_std, atol=0.01, rtol=0.2
+    )

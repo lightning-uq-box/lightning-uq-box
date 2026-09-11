@@ -355,3 +355,45 @@ class MixtureDensityLoss(nn.Module):
         ) - torch.sum(torch.log(sigma), dim=-1)
         loglik = torch.logsumexp(log_pi + normal_loglik, dim=-1)
         return -loglik.mean()
+
+
+class EpinetGaussianNoiseLoss(nn.Module):
+    r"""Gaussian bootstrap squared error from ENN equation 9.
+
+    Persistent unit-sphere signatures ``c`` and Gaussian indices ``z`` perturb the
+    targets by ``noise_scale * c.T @ z``. Regularization belongs in the optimizer.
+    """
+
+    def __init__(self, noise_scale: float = 0.0) -> None:
+        """Initialize with the nonnegative observation standard deviation."""
+        super().__init__()
+        if noise_scale < 0:
+            raise ValueError("noise_scale must be nonnegative.")
+        self.noise_scale = noise_scale
+
+    def forward(
+        self, preds: Tensor, target: Tensor, signature: Tensor, index: Tensor
+    ) -> Tensor:
+        """Return mean squared error against the perturbed scalar targets.
+
+        Args:
+            preds: scalar predictions [batch_size, 1]
+            target: scalar observations [batch_size, 1]
+            signature: fixed unit-sphere vectors [batch_size, index_dim]
+            index: epistemic indices [batch_size, index_dim]
+
+        Returns:
+            scalar mean squared error
+        """
+        if preds.ndim != 2 or preds.shape[1] != 1 or target.shape != preds.shape:
+            raise ValueError("preds and target must have shape [batch_size, 1].")
+        if (
+            signature.ndim != 2
+            or signature.shape != index.shape
+            or signature.shape[0] != preds.shape[0]
+        ):
+            raise ValueError(
+                "signature and index must have shape [batch_size, index_dim]."
+            )
+        noise = self.noise_scale * (signature * index).sum(-1, keepdim=True)
+        return (preds - target - noise).square().mean()

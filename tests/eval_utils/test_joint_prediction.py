@@ -190,3 +190,32 @@ class TestCategoricalKL:
         assert out.shape == (2,)
         assert out[0].item() == pytest.approx(0.0, abs=1e-10)
         assert out[1].item() > 0.0
+
+
+@pytest.mark.parametrize("metric", [joint_log_likelihood, marginal_log_likelihood])
+def test_extreme_logits_stay_in_log_domain(metric) -> None:
+    logits = torch.tensor([[[0.0, -10000.0]], [[0.0, -10002.0]]])
+    result = metric(logits, torch.tensor([1]))
+    expected = torch.logsumexp(
+        torch.tensor([-10000.0, -10002.0], dtype=torch.float64), 0
+    ) - math.log(2)
+    torch.testing.assert_close(result, expected)
+
+
+@pytest.mark.parametrize(
+    "kwargs", [{"tau": 0}, {"num_batches": 0}, {"num_batches": -1}]
+)
+def test_dyadic_rejects_empty_averages(kwargs) -> None:
+    with pytest.raises(ValueError):
+        joint_log_loss_dyadic(
+            torch.zeros(2, 3, 2), torch.zeros(3, dtype=torch.long), **kwargs
+        )
+
+
+def test_kl_respects_zero_probability_events() -> None:
+    assert (
+        categorical_kl(torch.tensor([1.0, 0.0]), torch.tensor([1.0, 0.0])).item() == 0
+    )
+    assert torch.isposinf(
+        categorical_kl(torch.tensor([1.0, 0.0]), torch.tensor([0.0, 1.0]))
+    )

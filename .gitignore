@@ -6,6 +6,7 @@
 /output/
 *.pdf
 /results/
+/figures/
 lightning_logs/
 checkpoints/
 /slurm_out/
