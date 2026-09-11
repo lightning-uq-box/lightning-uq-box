@@ -12,8 +12,8 @@ from .cards import (
 from .density_layers import DensityConv2d, DensityLinear
 from .epinet import (
     ConvEnsemblePriorFunction,
-    Epinet,
     EnsemblePriorFunction,
+    Epinet,
     ProjectedMLP,
 )
 from .fc_resnet import FCResNet
