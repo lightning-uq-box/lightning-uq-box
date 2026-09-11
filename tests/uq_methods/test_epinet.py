@@ -16,7 +16,7 @@ from lightning_uq_box.datamodules import (
     ToyHeteroscedasticDatamodule,
     TwoMoonsDataModule,
 )
-from lightning_uq_box.models import MLP, Epinet, ProjectedMLP
+from lightning_uq_box.models import MLP, ConvEnsemblePriorFunction, Epinet, ProjectedMLP
 from lightning_uq_box.uq_methods import EpinetClassification, EpinetRegression
 
 
@@ -451,3 +451,67 @@ class TestEpinetModule:
         model = nn.Sequential(nn.Conv2d(3, 8, 3), nn.ReLU(), nn.Conv2d(8, 2, 3))
         with pytest.raises(ValueError, match="not supported for image inputs"):
             EpinetClassification(model, nn.CrossEntropyLoss(), use_input_features=True)
+
+
+class TestConvEnsemblePriorFunction:
+    """The image prior, as used by the paper's CIFAR-10 configuration."""
+
+    def test_output_shape_and_frozen(self) -> None:
+        prior = ConvEnsemblePriorFunction(
+            in_channels=3, n_outputs=10, num_ensemble=4, input_size=32
+        )
+        out = prior(torch.randn(6, 3, 32, 32), torch.randn(6, 4))
+        assert out.shape == (6, 10)
+        assert all(not p.requires_grad for p in prior.parameters())
+
+    def test_linear_in_the_index(self) -> None:
+        prior = ConvEnsemblePriorFunction(
+            in_channels=3, n_outputs=5, num_ensemble=3, input_size=32
+        )
+        x = torch.randn(2, 3, 32, 32)
+        index = torch.randn(2, 3)
+        assert torch.allclose(prior(x, 2.0 * index), 2.0 * prior(x, index), atol=1e-4)
+
+    def test_members_are_independently_initialized(self) -> None:
+        prior = ConvEnsemblePriorFunction(
+            in_channels=3, n_outputs=5, num_ensemble=2, input_size=32
+        )
+        first, second = prior.members[0], prior.members[1]
+        assert isinstance(first, nn.Sequential) and isinstance(second, nn.Sequential)
+        first_conv, second_conv = first[0], second[0]
+        assert isinstance(first_conv, nn.Conv2d) and isinstance(second_conv, nn.Conv2d)
+        assert not torch.equal(first_conv.weight, second_conv.weight)
+
+    def test_seed_makes_it_reproducible(self) -> None:
+        a = ConvEnsemblePriorFunction(3, 5, 2, input_size=32, seed=7)
+        b = ConvEnsemblePriorFunction(3, 5, 2, input_size=32, seed=7)
+        x = torch.randn(2, 3, 32, 32)
+        index = torch.randn(2, 2)
+        assert torch.allclose(a(x, index), b(x, index))
+
+    def test_rejects_input_too_small_for_the_conv_stack(self) -> None:
+        with pytest.raises(ValueError, match="too small"):
+            ConvEnsemblePriorFunction(3, 5, 2, input_size=8)
+
+
+class TestCustomInputPrior:
+    """Passing an explicit prior module, the CIFAR-10 configuration's shape."""
+
+    def test_conv_prior_is_used_and_frozen(self) -> None:
+        conv_prior = ConvEnsemblePriorFunction(
+            in_channels=3, n_outputs=10, num_ensemble=4, input_size=32
+        )
+        epinet = Epinet(
+            n_feature_inputs=16,
+            n_raw_inputs=0,
+            n_outputs=10,
+            index_dim=4,
+            epi_prior_scale=4.0,
+            input_prior_scale=1.0,
+            input_prior=conv_prior,
+        )
+        assert epinet.input_prior is conv_prior
+        assert all(not p.requires_grad for p in epinet.input_prior.parameters())
+
+        out = epinet(torch.randn(2, 16), torch.randn(2, 3, 32, 32), torch.randn(2, 4))
+        assert out.shape == (2, 10)
