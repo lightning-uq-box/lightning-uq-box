@@ -1,0 +1,20 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.HierarchicalProbUNet
+  model:
+    _target_: lightning_uq_box.models.HierarchicalProbUNet
+    encoder_name: resnet18
+    encoder_weights: null
+    classes: 4
+    in_channels: 3
+    decoder_channels: [32, 16, 8, 4, 2]
+    latent_dims: [1, 1]
+    blocks_per_level: 1
+  num_classes: 4
+  num_samples: 2
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.0001
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ConstantLR
+    _partial_: true
