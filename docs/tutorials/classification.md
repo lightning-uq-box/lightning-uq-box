@@ -15,4 +15,5 @@ classification/masksembles
 classification/mc_dropout
 classification/zigzag_mnist
 classification/bnn_vi_elbo
+classification/epinet
 ```

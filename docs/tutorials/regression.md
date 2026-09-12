@@ -27,4 +27,5 @@ regression/zigzag
 regression/evaluation_uncertainty
 regression/mixture_density
 regression/density_layer
+regression/epinet
 ```

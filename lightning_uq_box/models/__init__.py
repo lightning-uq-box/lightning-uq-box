@@ -10,6 +10,12 @@ from .cards import (
     DiffusionSequential,
 )
 from .density_layers import DensityConv2d, DensityLinear
+from .epinet import (
+    ConvEnsemblePriorFunction,
+    EnsemblePriorFunction,
+    Epinet,
+    ProjectedMLP,
+)
 from .fc_resnet import FCResNet
 from .mixture_density import MixtureDensityLayer
 from .mlp import MLP
@@ -29,4 +35,9 @@ __all__ = (
     "DensityConv2d",
     # Fully Connected Residual Network
     "FCResNet",
+    # Epinet
+    "Epinet",
+    "ProjectedMLP",
+    "EnsemblePriorFunction",
+    "ConvEnsemblePriorFunction",
 )

@@ -32,6 +32,7 @@ model_config_paths = [
     "tests/configs/image_classification/masked_ensemble.yaml",
     "tests/configs/image_classification/zigzag.yaml",
     "tests/configs/image_classification/density_layer.yaml",
+    "tests/configs/image_classification/epinet.yaml",
 ]
 
 data_config_paths = ["tests/configs/image_classification/toy_classification.yaml"]

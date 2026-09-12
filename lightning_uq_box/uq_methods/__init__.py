@@ -48,10 +48,18 @@ from .density_uncertainty import (
     DensityLayerModelRegression,
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
+from .epinet import EpinetBase, EpinetClassification, EpinetRegression
 from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
-from .loss_functions import NLL, DERLoss, PinballLoss, VAELoss, VQVAELoss
+from .loss_functions import (
+    NLL,
+    DERLoss,
+    EpinetGaussianNoiseLoss,
+    PinballLoss,
+    VAELoss,
+    VQVAELoss,
+)
 from .masked_ensemble import (
     MasksemblesBase,
     MasksemblesClassification,
@@ -138,6 +146,9 @@ __all__ = (
     "DensityLayerModelRegression",
     "DensityLayerModelClassification",
     # Masked Ensemble
+    "EpinetBase",
+    "EpinetRegression",
+    "EpinetClassification",
     "MasksemblesBase",
     "MasksemblesRegression",
     "MasksemblesClassification",
@@ -206,6 +217,7 @@ __all__ = (
     "ProbUNet",
     # Loss Functions
     "NLL",
+    "EpinetGaussianNoiseLoss",
     "DERLoss",
     "PinballLoss",
     "VAELoss",
