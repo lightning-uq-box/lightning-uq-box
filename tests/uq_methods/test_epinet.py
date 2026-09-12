@@ -1,145 +1,252 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the Apache License 2.0.
 
-"""Test the Epinet method."""
+"""Epinet tests for behaviour the config sweeps cannot reach.
+
+``tests/configs/{regression,classification,image_classification}/epinet.yaml`` are in
+the sweeps of ``test_regression.py``, ``test_classification.py`` and
+``test_image_classification.py``, which already cover fit, test and the prediction
+file for both the MLP and the convolutional base. What is left here is behaviour a
+one-epoch smoke run cannot see: the stop-gradient on the captured features, freezing
+the base *head* as well as its body (unlike ``freeze_model_backbone``, which is why
+epinet is absent from ``frozen_config_paths``), the shared-index joint prediction
+contract, Gaussian bootstrapping, which needs the stable ``batch["index"]`` IDs that no
+toy datamodule provides, and the guards that turn a silently wrong result into an error.
+"""
 
 import copy
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
+from unittest.mock import patch
 
 import pytest
 import torch
+from conftest import minimal_trainer_kwargs
 from lightning import Trainer
-from torch import nn
+from torch import Tensor, nn
 
-from lightning_uq_box.datamodules import (
-    ToyHeteroscedasticDatamodule,
-    TwoMoonsDataModule,
+from lightning_uq_box.datamodules import TwoMoonsDataModule
+from lightning_uq_box.models import MLP, ConvEnsemblePriorFunction
+from lightning_uq_box.uq_methods import (
+    EpinetClassification,
+    EpinetGaussianNoiseLoss,
+    EpinetRegression,
 )
-from lightning_uq_box.models import MLP, ConvEnsemblePriorFunction, Epinet, ProjectedMLP
-from lightning_uq_box.uq_methods import EpinetClassification, EpinetRegression
+
+Task = Literal["regression", "multiclass", "binary", "multilabel"]
 
 
-def build_regression_model(**kwargs: Any) -> EpinetRegression:
-    """Build a small EpinetRegression for testing."""
+def _epinet_model(
+    task: Task = "regression", n_outputs: int | None = None, **kwargs: Any
+) -> EpinetRegression | EpinetClassification:
+    """Build a small epinet over an MLP base network.
+
+    Args:
+        task: ``"regression"`` builds an :class:`EpinetRegression`, the others an
+            :class:`EpinetClassification` with that task
+        n_outputs: width of the base network output, defaulting to one per task
+        **kwargs: forwarded to the model, overriding the small test defaults
+
+    Returns:
+        the constructed epinet model
+    """
     defaults: dict[str, Any] = {
         "index_dim": 4,
         "num_index_samples": 2,
         "num_pred_samples": 5,
         "epinet_hidden_dims": [8],
         "prior_hidden_dims": [4],
-    }
-    defaults.update(kwargs)
-    return EpinetRegression(
-        MLP(n_inputs=1, n_hidden=[16], n_outputs=1), nn.MSELoss(), **defaults
+    } | kwargs
+    if task == "regression":
+        base = MLP(n_inputs=1, n_hidden=[16], n_outputs=n_outputs or 1)
+        return EpinetRegression(base, nn.MSELoss(), **defaults)
+    n_outputs = n_outputs or (3 if task == "multilabel" else 2)
+    loss: nn.Module = (
+        nn.BCEWithLogitsLoss()
+        if task == "multilabel" or n_outputs == 1
+        else nn.CrossEntropyLoss()
+    )
+    base = MLP(n_inputs=2, n_hidden=[16], n_outputs=n_outputs)
+    return EpinetClassification(base, loss, task=task, **defaults)
+
+
+def _conv_base(n_outputs: int = 4) -> nn.Module:
+    """Conv backbone with a linear head, the shape of every ResNet."""
+    return nn.Sequential(
+        nn.Conv2d(3, 8, 3, stride=2),
+        nn.ReLU(),
+        nn.AdaptiveAvgPool2d(1),
+        nn.Flatten(),
+        nn.Linear(8, n_outputs),
     )
 
 
-def build_classification_model(**kwargs: Any) -> EpinetClassification:
-    """Build a small EpinetClassification for testing."""
-    defaults: dict[str, Any] = {
-        "index_dim": 4,
-        "num_index_samples": 2,
-        "num_pred_samples": 5,
-        "epinet_hidden_dims": [8],
-        "prior_hidden_dims": [4],
-    }
-    defaults.update(kwargs)
-    return EpinetClassification(
-        MLP(n_inputs=2, n_hidden=[16], n_outputs=2), nn.CrossEntropyLoss(), **defaults
-    )
+INDEX_SHAPE = r"\[num_samples, index_dim\]"
+IMAGE_INPUT = "not supported for image"
 
 
-class TestProjectedMLP:
-    def test_einsum_orientation_against_hand_computation(self) -> None:
-        """Pin the reshape orientation with known weights and one-hot indices.
-
-        A transposed ``[batch, index_dim, n_outputs]`` reshape still runs and still
-        trains, so only an explicit hand-computed case rules it out. The final linear
-        layer is set to emit ``[0, 1, ..., 7]`` regardless of input; reshaping that to
-        ``[n_outputs=2, index_dim=4]`` gives rows ``[0, 1, 2, 3]`` and ``[4, 5, 6, 7]``,
-        so contracting with the i-th one-hot index must return ``[i, i + 4]``.
-        """
-        model = ProjectedMLP(
-            in_features=2, hidden_dims=[3], n_outputs=2, index_dim=4, concat_index=False
-        )
-        final = model.mlp[-1]
-        assert isinstance(final, nn.Linear)
-        with torch.no_grad():
-            final.weight.zero_()
-            final.bias.copy_(torch.arange(8, dtype=torch.float))
-
-        features = torch.zeros(1, 2)
-        for i in range(4):
-            index = torch.zeros(1, 4)
-            index[0, i] = 1.0
-            out = model(features, index)
-            expected = torch.tensor([[float(i), float(i + 4)]])
-            assert torch.allclose(out, expected), (
-                f"one-hot index {i} gave {out.tolist()}, expected {expected.tolist()}. "
-                "The reshape in ProjectedMLP.forward is likely transposed."
-            )
-
-    def test_linear_in_the_index(self) -> None:
-        """The projection is linear in z, so scaling z scales the output."""
-        model = ProjectedMLP(4, [8], 2, 3, concat_index=False)
-        features = torch.randn(5, 4)
-        index = torch.randn(5, 3)
-        assert torch.allclose(
-            model(features, 2.0 * index), 2.0 * model(features, index), atol=1e-5
-        )
-
-    def test_output_shape(self) -> None:
-        model = ProjectedMLP(4, [8, 8], 3, 6)
-        out = model(torch.randn(7, 4), torch.randn(7, 6))
-        assert out.shape == (7, 3)
+def _predict_with_index(indices: Tensor) -> Tensor:
+    """Draw prediction samples with an explicitly supplied index tensor."""
+    return _epinet_model().eval().predict_samples(torch.randn(3, 1), indices)
 
 
-class TestFeatureCapture:
-    def test_hook_captures_expected_width(self) -> None:
-        """The pre-hook stashes the input of the base network's output layer."""
-        model = build_regression_model(use_input_features=False)
-        X = torch.randn(6, 1)
-        model.model(X)
-        features = model.extract_features(X)
-        # the MLP's output layer takes the 16-wide hidden representation
-        assert features.shape == (6, 16)
+def _bootstrap_loss(data_index: Tensor | None = None) -> object:
+    """Score a bootstrap model in training mode, with the given example IDs."""
+    model = _epinet_model(bootstrap_noise_scale=0.2, num_train=10)
+    return model.compute_loss(torch.randn(4, 1), torch.randn(4, 1), data_index)
 
-    def test_input_features_are_concatenated(self) -> None:
-        model = build_regression_model(use_input_features=True)
-        X = torch.randn(6, 1)
-        model.model(X)
-        features = model.extract_features(X)
-        assert features.shape == (6, 17)
-        assert torch.allclose(features[:, 16:], X)
 
-    def test_base_network_is_left_untouched(self) -> None:
-        """Attaching an epinet must not change the base network's parameters."""
+def _wrap(base: nn.Module, **kwargs: Any) -> object:
+    """Wrap a base network in an epinet, for guards on the base network itself."""
+    return EpinetClassification(base, nn.CrossEntropyLoss(), **kwargs)
+
+
+class _OutFeaturesOnly(nn.Module):
+    """Advertises out_features but no input width, so the head cannot be sized.
+
+    A module can advertise ``out_features`` -- which is what selects it as the output
+    layer -- while exposing no input width at all.
+    """
+
+    def __init__(self, out_features: int = 4) -> None:
+        super().__init__()
+        self.out_features = out_features
+
+    def forward(self, x: Tensor) -> Tensor:
+        return x
+
+
+class _ExtraAxis(nn.Module):
+    """Returns [batch_size, num_outputs, 1], outside the vector output contract."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.fc = nn.Linear(2, 3)
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.fc(x).unsqueeze(-1)
+
+
+# The epinet wraps an arbitrary base network, so most misuse is only detectable at
+# construction or on the first forward. Each guard turns a silently wrong result -- a
+# broadcast index, a pooled feature map read as a vector, a prior of the wrong width --
+# into an explicit error, so every one of them is pinned here.
+#
+# Two notes on the less obvious rows. The flattened input size of an image network is
+# not recoverable from the module tree, and sizing the default prior from the classifier
+# head's in_features instead produced a prior of the wrong width that only failed later,
+# inside its own forward pass, with an opaque matrix-shape error. Image inputs are
+# detected from the first parameterized layer, which breaks on a Conv2d or a Linear, so
+# a conv body with a linear head and a conv-only network are different traversals and
+# both are covered.
+GUARDS: list[tuple[str, Callable[[], object], str]] = [
+    ("index_dim", lambda: _epinet_model(index_dim=0), "must be positive"),
+    (
+        "num_index_samples",
+        lambda: _epinet_model(num_index_samples=0),
+        "must be positive",
+    ),
+    ("num_pred_samples", lambda: _epinet_model(num_pred_samples=1), "at least 2"),
+    ("negative_bootstrap", lambda: _epinet_model(bootstrap_noise_scale=-0.1), "nonneg"),
+    (
+        "bootstrap_num_train",
+        lambda: _epinet_model(bootstrap_noise_scale=0.2),
+        "num_train",
+    ),
+    # equation 9 assumes a scalar target, so a multi-output base is refused
+    (
+        "bootstrap_vector_output",
+        lambda: _epinet_model(n_outputs=2, bootstrap_noise_scale=0.2, num_train=10),
+        "scalar regression output",
+    ),
+    ("binary_logits", lambda: _epinet_model("binary", 3), "one or two output logits"),
+    (
+        "conv_needs_prior",
+        lambda: _wrap(_conv_base(), use_input_features=False, input_prior_scale=0.3),
+        "cannot be inferred",
+    ),
+    (
+        "conv_head_features",
+        lambda: _wrap(_conv_base(), use_input_features=True),
+        IMAGE_INPUT,
+    ),
+    (
+        "conv_only_features",
+        lambda: _wrap(nn.Sequential(nn.Conv2d(3, 2, 3)), use_input_features=True),
+        IMAGE_INPUT,
+    ),
+    (
+        "no_input_width",
+        lambda: _wrap(nn.Sequential(nn.Linear(2, 4), _OutFeaturesOnly())),
+        "neither in_features nor in_channels",
+    ),
+    (
+        "non_vector_output",
+        lambda: EpinetRegression(
+            _ExtraAxis(), nn.MSELoss(), index_dim=2, epinet_hidden_dims=[4]
+        ).compute_loss(torch.randn(4, 2), torch.randn(4, 3)),
+        r"\[batch_size, num_outputs\]",
+    ),
+    ("index_ndim", lambda: _predict_with_index(torch.randn(4)), INDEX_SHAPE),
+    ("index_width", lambda: _predict_with_index(torch.randn(2, 7)), INDEX_SHAPE),
+    ("index_empty", lambda: _predict_with_index(torch.randn(0, 4)), INDEX_SHAPE),
+    ("ids_missing", _bootstrap_loss, "stable example IDs"),
+    ("ids_not_integer", lambda: _bootstrap_loss(torch.zeros(4)), "one integer ID"),
+    (
+        "ids_out_of_range",
+        lambda: _bootstrap_loss(torch.tensor([0, 1, 2, 10])),
+        r"\[0, num_train\)",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "call,match",
+    [(call, match) for _, call, match in GUARDS],
+    ids=[name for name, _, _ in GUARDS],
+)
+def test_guards(call: Callable[[], object], match: str) -> None:
+    """Reject the arguments, base networks and inputs the epinet cannot use."""
+    with pytest.raises(ValueError, match=match):
+        call()
+
+
+class TestFeatureCaptureAndStopGradient:
+    @pytest.mark.parametrize("use_input_features", [False, True])
+    def test_features_are_captured_without_touching_the_base(
+        self, use_input_features: bool
+    ) -> None:
+        """A forward pre-hook reads the output layer's input, changing nothing."""
         base = MLP(n_inputs=1, n_hidden=[16], n_outputs=1)
         before = copy.deepcopy(base.state_dict())
-        EpinetRegression(base, nn.MSELoss(), index_dim=4)
+        model = EpinetRegression(
+            base, nn.MSELoss(), index_dim=4, use_input_features=use_input_features
+        )
+
         after = base.state_dict()
         assert before.keys() == after.keys()
         for key in before:
             assert torch.equal(before[key], after[key]), f"{key} changed"
 
-    def test_base_module_structure_unchanged(self) -> None:
-        """No layer is replaced, so the module tree is identical."""
-        base = MLP(n_inputs=1, n_hidden=[16], n_outputs=1)
-        names_before = [name for name, _ in base.named_modules()]
-        EpinetRegression(base, nn.MSELoss(), index_dim=4)
-        assert [name for name, _ in base.named_modules()] == names_before
+        X = torch.randn(6, 1)
+        model.model(X)
+        features = model.extract_features(X)
+        # the MLP's output layer takes the 16-wide hidden representation
+        assert features.shape == (6, 17 if use_input_features else 16)
+        if use_input_features:
+            assert torch.allclose(features[:, 16:], X)
 
-    def test_reading_features_before_forward_raises(self) -> None:
-        model = build_regression_model()
+    def test_reading_features_before_a_forward_raises(self) -> None:
+        model = _epinet_model()
         with pytest.raises(RuntimeError, match="No features were captured"):
             model.extract_features(torch.randn(3, 1))
 
-
-class TestStopGradient:
-    def test_epinet_loss_leaves_base_grads_at_zero(self) -> None:
-        """sg[phi(x)] means an epinet-only loss never reaches the base network."""
-        model = build_regression_model(freeze_backbone=False)
+    def test_epinet_loss_leaves_the_base_untouched_but_the_full_loss_does_not(
+        self,
+    ) -> None:
+        """sg[phi(x)] keeps an epinet-only loss off the base; mu(x) still trains it."""
+        model = _epinet_model(freeze_backbone=False)
         assert all(p.requires_grad for p in model.model.parameters())
 
         X = torch.randn(8, 1)
@@ -147,18 +254,13 @@ class TestStopGradient:
         model.model(X)
         features = model.extract_features(X)
         index = model.sample_index(8, X.device)
-        loss = model.epinet(features, X.detach(), index).pow(2).sum()
-        loss.backward()
-
+        model.epinet(features, X.detach(), index).pow(2).sum().backward()
         for name, param in model.model.named_parameters():
             assert param.grad is None or torch.all(param.grad == 0.0), (
                 f"base parameter {name} received a gradient through the epinet, "
                 "so the stop-gradient is missing"
             )
 
-    def test_full_loss_does_reach_the_base_network(self) -> None:
-        """The base network still learns through its own output term."""
-        model = build_regression_model(freeze_backbone=False)
         model.zero_grad()
         loss, _, _ = model.compute_loss(torch.randn(8, 1), torch.randn(8, 1))
         loss.backward()
@@ -166,517 +268,92 @@ class TestStopGradient:
         assert grads, "base network received no gradients at all"
         assert any(torch.any(g != 0.0) for g in grads)
 
+    def test_spatial_features_are_pooled_to_a_vector(self) -> None:
+        """A conv head with no Flatten captures [B, C, H, W], which is mean-pooled.
 
-class TestFrozenPrior:
-    @pytest.mark.parametrize("input_prior_scale", [0.0, 0.3])
-    def test_prior_parameters_do_not_require_grad(
-        self, input_prior_scale: float
-    ) -> None:
-        model = build_regression_model(
-            epi_prior_scale=1.0, input_prior_scale=input_prior_scale
+        Pooling rather than flattening keeps the epinet head's width tied to the
+        channel count and independent of the input size.
+        """
+        base = nn.Sequential(
+            nn.Conv2d(3, 8, 3, padding=1), nn.ReLU(), nn.Conv2d(8, 4, 1)
         )
-        assert all(not p.requires_grad for p in model.epinet.epi_prior.parameters())
-        if model.epinet.input_prior is not None:
-            assert all(
-                not p.requires_grad for p in model.epinet.input_prior.parameters()
-            )
-        assert all(p.requires_grad for p in model.epinet.train_epinet.parameters())
-
-    def test_priors_are_in_the_state_dict(self) -> None:
-        """The prior must be checkpointed, not re-randomized on reload."""
-        model = build_regression_model(epi_prior_scale=1.0, input_prior_scale=0.3)
-        keys = model.state_dict().keys()
-        assert any(k.startswith("epinet.epi_prior.") for k in keys)
-        assert any(k.startswith("epinet.input_prior.") for k in keys)
-
-    def test_checkpoint_round_trip_reproduces_predictions(self, tmp_path: Path) -> None:
-        """A saved and reloaded model gives identical outputs for a fixed index."""
-        model = build_regression_model(epi_prior_scale=1.0, input_prior_scale=0.3)
-        X = torch.randn(5, 1)
-        index = torch.randn(5, 4)
-        expected = model.forward(X, index)
-
-        path = tmp_path / "epinet.ckpt"
-        trainer = Trainer(default_root_dir=str(tmp_path))
-        trainer.strategy.connect(model)
-        trainer.save_checkpoint(path)
-
-        reloaded = build_regression_model(
-            epi_prior_scale=1.0, input_prior_scale=0.3, prior_seed=999
+        model = EpinetClassification(
+            base,
+            nn.CrossEntropyLoss(),
+            index_dim=4,
+            epinet_hidden_dims=[8],
+            input_prior_scale=0.0,
+            use_input_features=False,
         )
-        state = torch.load(path, weights_only=False)["state_dict"]
-        reloaded.load_state_dict(state)
-
-        assert torch.allclose(reloaded.forward(X, index), expected, atol=1e-6)
-
-    def test_prior_moves_with_the_module(self) -> None:
-        """Registered submodules follow .to(), unlike a plain attribute."""
-        model = build_regression_model(epi_prior_scale=1.0, input_prior_scale=0.3)
-        model = model.to(torch.float64)
-        input_prior = model.epinet.input_prior
-        assert input_prior is not None
-        assert next(model.epinet.epi_prior.parameters()).dtype == torch.float64
-        assert next(input_prior.parameters()).dtype == torch.float64
-
-
-class TestIndexSensitivity:
-    def test_different_indices_give_different_outputs(self) -> None:
-        model = build_regression_model()
-        X = torch.randn(6, 1)
-        out_a = model.forward(X, torch.zeros(6, 4))
-        out_b = model.forward(X, torch.ones(6, 4))
-        assert not torch.allclose(out_a, out_b)
-
-    def test_the_same_index_is_deterministic(self) -> None:
-        model = build_regression_model()
-        X = torch.randn(6, 1)
-        index = torch.randn(6, 4)
-        assert torch.allclose(model.forward(X, index), model.forward(X, index))
-
-    def test_omitted_index_is_sampled_per_example(self) -> None:
-        """forward() without an index draws one internally, per the docstring."""
-        model = build_regression_model()
-        X = torch.randn(6, 1)
-        out = model.forward(X)
-        assert out.shape == model.forward(X, model.sample_index(6, X.device)).shape
-        assert torch.isfinite(out).all()
-
-    def test_zero_index_recovers_the_base_network(self) -> None:
-        """The epinet is linear in z, so z = 0 leaves only mu(x)."""
-        model = build_regression_model(epi_prior_scale=1.0, input_prior_scale=0.3)
-        X = torch.randn(6, 1)
-        assert torch.allclose(
-            model.forward(X, torch.zeros(6, 4)), model.model(X), atol=1e-6
-        )
-
-    def test_predict_step_gives_non_degenerate_uncertainty(self) -> None:
-        model = build_regression_model(num_pred_samples=32)
-        out = model.predict_step(torch.randn(10, 1))
-        assert torch.all(out["pred_uct"] > 0.0)
-
-    def test_prior_scales_drive_the_spread(self) -> None:
-        """With both priors off and an untrained epinet, spread is much smaller."""
-        torch.manual_seed(0)
-        with_prior = build_regression_model(
-            num_pred_samples=64, epi_prior_scale=0.0, input_prior_scale=5.0
-        )
-        torch.manual_seed(0)
-        without_prior = build_regression_model(
-            num_pred_samples=64, epi_prior_scale=0.0, input_prior_scale=0.0
-        )
-        X = torch.randn(16, 1)
-        assert (
-            with_prior.predict_step(X)["pred_uct"].mean()
-            > without_prior.predict_step(X)["pred_uct"].mean()
-        )
+        x = torch.randn(2, 3, 8, 8)
+        # Run the base network directly so the hook captures the feature map; the
+        # epinet's own forward would reject this base for not returning a vector.
+        model.model(x)
+        captured = model._features
+        assert captured is not None
+        features = model.extract_features(x)
+        assert features.shape == (2, 8), "expected mean over the spatial axes"
+        torch.testing.assert_close(features, captured.flatten(2).mean(-1))
 
 
 class TestFreezeBackbone:
-    """Replaces a frozen_config_paths entry.
+    """Replaces a ``frozen_config_paths`` entry.
 
-    ``TestFrozenBackbone`` asserts the base network's *head* stays trainable, which is
-    the behaviour of ``freeze_model_backbone``. The epinet freezes the base head too,
-    so it needs its own assertion.
+    ``TestFrozenBackbone`` in the task sweeps asserts the base network's *head* stays
+    trainable, which is the behaviour of ``freeze_model_backbone``. The epinet freezes
+    the base head too, so it needs its own assertions.
     """
 
-    @pytest.mark.parametrize(
-        "builder", [build_regression_model, build_classification_model]
-    )
-    def test_every_base_parameter_is_frozen(self, builder) -> None:
-        model = builder(freeze_backbone=True)
+    @pytest.mark.parametrize("task", ["regression", "multiclass"])
+    def test_the_whole_base_is_frozen_but_the_epinet_is_not(self, task: Task) -> None:
+        model = _epinet_model(task, freeze_backbone=True, epi_prior_scale=1.0)
         for name, param in model.model.named_parameters():
             assert not param.requires_grad, (
                 f"base parameter {name} is trainable; the epinet freezes the whole "
                 "base network, its head included"
             )
-
-    @pytest.mark.parametrize(
-        "builder", [build_regression_model, build_classification_model]
-    )
-    def test_non_prior_epinet_parameters_stay_trainable(self, builder) -> None:
-        model = builder(freeze_backbone=True, epi_prior_scale=1.0)
         assert all(p.requires_grad for p in model.epinet.train_epinet.parameters())
         assert all(not p.requires_grad for p in model.epinet.epi_prior.parameters())
 
     def test_optimizer_only_sees_trainable_parameters(self) -> None:
-        model = build_regression_model(
+        """Frozen priors and a frozen base must not collect updates or weight decay."""
+        model = _epinet_model(
             freeze_backbone=True, epi_prior_scale=1.0, input_prior_scale=0.3
         )
-        config = model.configure_optimizers()
-        assert isinstance(config, dict)
-        optimizer = config["optimizer"]
+        config = cast(dict[str, Any], model.configure_optimizers())
         in_optimizer = {
-            id(p) for group in optimizer.param_groups for p in group["params"]
+            id(p) for group in config["optimizer"].param_groups for p in group["params"]
         }
-        expected = {id(p) for p in model.epinet.train_epinet.parameters()}
-        assert in_optimizer == expected
+        assert in_optimizer == {id(p) for p in model.epinet.train_epinet.parameters()}
 
-    def test_frozen_base_is_unchanged_by_training(self, tmp_path: Path) -> None:
+    def test_frozen_base_is_unchanged_by_a_real_fit(
+        self, tmp_path: Path, accelerator_config: dict
+    ) -> None:
         """The paper's headline use case: train the epinet on a fixed base."""
-        model = build_classification_model(freeze_backbone=True)
+        model = _epinet_model("multiclass", freeze_backbone=True)
         before = copy.deepcopy(model.model.state_dict())
-
-        datamodule = TwoMoonsDataModule(batch_size=16)
-        trainer = Trainer(
-            accelerator="cpu",
-            max_epochs=1,
-            limit_train_batches=2,
-            limit_val_batches=1,
-            num_sanity_val_steps=0,
-            enable_progress_bar=False,
-            enable_model_summary=False,
-            enable_checkpointing=False,
-            logger=False,
-            default_root_dir=str(tmp_path),
-        )
-        trainer.fit(model, datamodule)
-
-        after = model.model.state_dict()
-        for key in before:
-            assert torch.equal(before[key], after[key]), (
+        trainer = Trainer(**minimal_trainer_kwargs(accelerator_config, tmp_path))
+        trainer.fit(model, TwoMoonsDataModule(batch_size=16))
+        for key, value in model.model.state_dict().items():
+            assert torch.equal(before[key], value), (
                 f"frozen base parameter {key} changed during training"
             )
 
-    def test_unfrozen_base_does_change(self, tmp_path: Path) -> None:
-        model = build_classification_model(freeze_backbone=False)
+    def test_an_unfrozen_base_does_change(self) -> None:
+        """The control for the test above, which would also pass for a dead model."""
+        model = _epinet_model("multiclass", freeze_backbone=False)
         before = copy.deepcopy(model.model.state_dict())
-
-        datamodule = TwoMoonsDataModule(batch_size=16)
-        trainer = Trainer(
-            accelerator="cpu",
-            max_epochs=1,
-            limit_train_batches=2,
-            limit_val_batches=1,
-            num_sanity_val_steps=0,
-            enable_progress_bar=False,
-            enable_model_summary=False,
-            enable_checkpointing=False,
-            logger=False,
-            default_root_dir=str(tmp_path),
-        )
-        trainer.fit(model, datamodule)
-
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+        for _ in range(2):
+            optimizer.zero_grad()
+            loss, _, _ = model.compute_loss(torch.randn(8, 2), torch.randint(2, (8,)))
+            loss.backward()
+            optimizer.step()
         after = model.model.state_dict()
         assert any(not torch.equal(before[k], after[k]) for k in before)
 
-
-class TestPredictStep:
-    def test_regression_keys_and_shapes(self) -> None:
-        model = build_regression_model(num_pred_samples=5)
-        out = model.predict_step(torch.randn(9, 1))
-        assert set(out) == {"pred", "pred_uct", "epistemic_uct", "samples"}
-        assert out["pred"].shape == (9, 1)
-        assert out["pred_uct"].shape == (9,)
-        assert out["epistemic_uct"].shape == (9,)
-        assert out["samples"].shape == (9, 1, 5)
-
-    def test_classification_keys_and_shapes(self) -> None:
-        model = build_classification_model(num_pred_samples=5)
-        out = model.predict_step(torch.randn(9, 2))
-        assert set(out) == {"pred", "pred_uct", "logits"}
-        assert out["pred"].shape == (9, 2)
-        assert out["pred_uct"].shape == (9,)
-        assert out["logits"].shape == (9, 2, 5)
-        assert torch.allclose(out["pred"].sum(-1), torch.ones(9), atol=1e-5)
-
-    def test_sample_layout_is_sample_major_on_the_last_axis(self) -> None:
-        """Each slice on the last axis must be one coherent index sample."""
-        model = build_regression_model(num_pred_samples=8)
-        X = torch.randn(4, 1)
-        samples = model.predict_samples(X)
-        assert samples.shape == (4, 1, 8)
-        # different samples genuinely differ
-        assert not torch.allclose(samples[..., 0], samples[..., 1])
-
-
-class TestTrainingLoop:
-    @pytest.mark.parametrize("freeze_backbone", [False, True])
-    def test_regression_fit_and_test(
-        self, tmp_path: Path, freeze_backbone: bool
-    ) -> None:
-        model = build_regression_model(freeze_backbone=freeze_backbone)
-        datamodule = ToyHeteroscedasticDatamodule(batch_size=16)
-        trainer = Trainer(
-            accelerator="cpu",
-            max_epochs=1,
-            limit_train_batches=2,
-            limit_val_batches=1,
-            limit_test_batches=1,
-            num_sanity_val_steps=0,
-            enable_progress_bar=False,
-            enable_model_summary=False,
-            enable_checkpointing=False,
-            logger=False,
-            default_root_dir=str(tmp_path),
-        )
-        trainer.fit(model, datamodule)
-        trainer.test(model, datamodule)
-        assert (tmp_path / model.pred_file_name).exists()
-
-    def test_classification_fit_and_test(self, tmp_path: Path) -> None:
-        model = build_classification_model()
-        datamodule = TwoMoonsDataModule(batch_size=16)
-        trainer = Trainer(
-            accelerator="cpu",
-            max_epochs=1,
-            limit_train_batches=2,
-            limit_val_batches=1,
-            limit_test_batches=1,
-            num_sanity_val_steps=0,
-            enable_progress_bar=False,
-            enable_model_summary=False,
-            enable_checkpointing=False,
-            logger=False,
-            default_root_dir=str(tmp_path),
-        )
-        trainer.fit(model, datamodule)
-        trainer.test(model, datamodule)
-        assert (tmp_path / model.pred_file_name).exists()
-
-    def test_training_step_batch_size_accounts_for_index_repeat(self) -> None:
-        """The logged batch size must reflect the K-fold repeat."""
-        model = build_regression_model(num_index_samples=3)
-        logged: dict[str, int] = {}
-
-        def fake_log(name: str, value: Any, **kwargs: Any) -> None:
-            logged[name] = kwargs.get("batch_size", -1)
-
-        # ty: intentionally swapping the logger out for a recorder
-        model.log = fake_log  # ty: ignore[invalid-assignment]
-        batch = {"input": torch.randn(8, 1), "target": torch.randn(8, 1)}
-        model.training_step(batch, 0)
-        assert logged["train_loss"] == 8 * 3
-
-
-class TestEpinetModule:
-    def test_input_prior_skipped_when_scale_is_zero(self) -> None:
-        epinet = Epinet(
-            n_feature_inputs=4, n_raw_inputs=2, n_outputs=2, input_prior_scale=0.0
-        )
-        assert epinet.input_prior is None
-
-    def test_conv_backbone_rejects_input_features(self) -> None:
-        model = nn.Sequential(nn.Conv2d(3, 8, 3), nn.ReLU(), nn.Conv2d(8, 2, 3))
-        with pytest.raises(ValueError, match="not supported for image inputs"):
-            EpinetClassification(model, nn.CrossEntropyLoss(), use_input_features=True)
-
-
-class TestConvBaseNetwork:
-    """A conv backbone with a linear head, the shape of every ResNet.
-
-    The flattened input size of an image network is not recoverable from the module
-    tree, so a default MLP prior over the raw input cannot be sized. Sizing it from
-    the classifier head's ``in_features`` instead produces a prior of the wrong width
-    that only fails later, inside its own forward pass, with a matrix-shape error.
-    """
-
-    @staticmethod
-    def conv_base() -> nn.Module:
-        return nn.Sequential(
-            nn.Conv2d(3, 8, 3, stride=2),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool2d(1),
-            nn.Flatten(),
-            nn.Linear(8, 4),
-        )
-
-    def test_conv_base_without_prior_raises_upfront(self) -> None:
-        with pytest.raises(ValueError, match="cannot be inferred"):
-            EpinetClassification(
-                self.conv_base(),
-                nn.CrossEntropyLoss(),
-                use_input_features=False,
-                input_prior_scale=0.3,
-            )
-
-    def test_conv_base_rejects_input_features(self) -> None:
-        with pytest.raises(ValueError, match="not supported for image inputs"):
-            EpinetClassification(
-                self.conv_base(), nn.CrossEntropyLoss(), use_input_features=True
-            )
-
-    def test_conv_base_with_explicit_conv_prior_runs(self) -> None:
-        model = EpinetClassification(
-            self.conv_base(),
-            nn.CrossEntropyLoss(),
-            index_dim=4,
-            num_index_samples=2,
-            num_pred_samples=3,
-            use_input_features=False,
-            input_prior_scale=1.0,
-            input_prior=ConvEnsemblePriorFunction(
-                in_channels=3, n_outputs=4, num_ensemble=4, input_size=32
-            ),
-        )
-        X = torch.randn(5, 3, 32, 32)
-        out = model.predict_step(X)
-        assert out["pred"].shape == (5, 4)
-        assert out["logits"].shape == (5, 4, 3)
-
-    def test_conv_base_with_only_the_epinet_prior_runs(self) -> None:
-        """input_prior_scale=0 needs no prior over the raw input at all."""
-        model = EpinetClassification(
-            self.conv_base(),
-            nn.CrossEntropyLoss(),
-            index_dim=4,
-            num_index_samples=2,
-            num_pred_samples=3,
-            use_input_features=False,
-            input_prior_scale=0.0,
-            epi_prior_scale=4.0,
-        )
-        assert model.epinet.input_prior is None
-        out = model.predict_step(torch.randn(5, 3, 16, 16))
-        assert out["pred"].shape == (5, 4)
-        assert torch.all(out["pred_uct"] > 0.0)
-
-    def test_conv_base_trains_with_a_frozen_backbone(self) -> None:
-        base = self.conv_base()
-        model = EpinetClassification(
-            base,
-            nn.CrossEntropyLoss(),
-            index_dim=4,
-            num_index_samples=2,
-            use_input_features=False,
-            input_prior_scale=0.0,
-            epi_prior_scale=4.0,
-            freeze_backbone=True,
-        )
-        before = copy.deepcopy(base.state_dict())
-
-        X = torch.randn(6, 3, 16, 16)
-        y = torch.randint(0, 4, (6,))
-        optimizer = torch.optim.Adam(
-            [p for p in model.parameters() if p.requires_grad], lr=1e-2
-        )
-        for _ in range(3):
-            optimizer.zero_grad()
-            loss, _, _ = model.compute_loss(X, y)
-            loss.backward()
-            optimizer.step()
-
-        for key, value in base.state_dict().items():
-            assert torch.equal(before[key], value), f"frozen base {key} changed"
-
-
-class TestConvEnsemblePriorFunction:
-    """The image prior, as used by the paper's CIFAR-10 configuration."""
-
-    def test_output_shape_and_frozen(self) -> None:
-        prior = ConvEnsemblePriorFunction(
-            in_channels=3, n_outputs=10, num_ensemble=4, input_size=32
-        )
-        out = prior(torch.randn(6, 3, 32, 32), torch.randn(6, 4))
-        assert out.shape == (6, 10)
-        assert all(not p.requires_grad for p in prior.parameters())
-
-    def test_linear_in_the_index(self) -> None:
-        prior = ConvEnsemblePriorFunction(
-            in_channels=3, n_outputs=5, num_ensemble=3, input_size=32
-        )
-        x = torch.randn(2, 3, 32, 32)
-        index = torch.randn(2, 3)
-        assert torch.allclose(prior(x, 2.0 * index), 2.0 * prior(x, index), atol=1e-4)
-
-    def test_members_are_independently_initialized(self) -> None:
-        prior = ConvEnsemblePriorFunction(
-            in_channels=3, n_outputs=5, num_ensemble=2, input_size=32
-        )
-        first, second = prior.members[0], prior.members[1]
-        assert isinstance(first, nn.Sequential) and isinstance(second, nn.Sequential)
-        first_conv = next(m for m in first if isinstance(m, nn.Conv2d))
-        second_conv = next(m for m in second if isinstance(m, nn.Conv2d))
-        assert isinstance(first_conv, nn.Conv2d) and isinstance(second_conv, nn.Conv2d)
-        assert not torch.equal(first_conv.weight, second_conv.weight)
-
-    def test_seed_makes_it_reproducible(self) -> None:
-        a = ConvEnsemblePriorFunction(3, 5, 2, input_size=32, seed=7)
-        b = ConvEnsemblePriorFunction(3, 5, 2, input_size=32, seed=7)
-        x = torch.randn(2, 3, 32, 32)
-        index = torch.randn(2, 2)
-        assert torch.allclose(a(x, index), b(x, index))
-
-    def test_same_padding_and_resize(self) -> None:
-        prior = ConvEnsemblePriorFunction(3, 5, 2)
-        member = prior.members[0]
-        assert isinstance(member, nn.Sequential)
-        final = member[-1]
-        assert isinstance(final, nn.Linear)
-        assert final.in_features == 4 * 4 * 4
-        assert prior(torch.randn(2, 3, 16, 16), torch.randn(2, 2)).shape == (2, 5)
-
-    def test_rejects_invalid_input_size(self) -> None:
-        with pytest.raises(ValueError, match="positive"):
-            ConvEnsemblePriorFunction(3, 5, 2, input_size=0)
-
-
-class TestCustomInputPrior:
-    """Passing an explicit prior module, the CIFAR-10 configuration's shape."""
-
-    def test_conv_prior_is_used_and_frozen(self) -> None:
-        conv_prior = ConvEnsemblePriorFunction(
-            in_channels=3, n_outputs=10, num_ensemble=4, input_size=32
-        )
-        epinet = Epinet(
-            n_feature_inputs=16,
-            n_raw_inputs=0,
-            n_outputs=10,
-            index_dim=4,
-            epi_prior_scale=4.0,
-            input_prior_scale=1.0,
-            input_prior=conv_prior,
-        )
-        assert epinet.input_prior is conv_prior
-        assert all(not p.requires_grad for p in epinet.input_prior.parameters())
-
-        out = epinet(torch.randn(2, 16), torch.randn(2, 3, 32, 32), torch.randn(2, 4))
-        assert out.shape == (2, 10)
-
-
-class TestJointPredictionContract:
-    def test_shared_indices_agree_across_batches(self) -> None:
-        model = build_regression_model().eval()
-        x = torch.randn(12, 1)
-        z = model.sample_index(7, x.device)
-        whole = model.predict_samples(x, z)
-        chunks = torch.cat([model.predict_samples(chunk, z) for chunk in x.split(4)])
-        torch.testing.assert_close(chunks, whole)
-        for k in range(len(z)):
-            torch.testing.assert_close(whole[..., k], model(x, z[k].expand(len(x), -1)))
-
-    def test_float64_internally_sampled_indices(self) -> None:
-        model = build_regression_model().double()
-        x = torch.randn(4, 1, dtype=torch.float64)
-        assert model(x).dtype == torch.float64
-        assert model.predict_samples(x).dtype == torch.float64
-
-    def test_deepcopy_hook_belongs_to_the_copy(self) -> None:
-        original = build_regression_model()
-        cloned = copy.deepcopy(original)
-        cloned(torch.randn(3, 1))
-        assert cloned._features is not None
-        assert original._features is None
-
-    def test_base_runs_once_per_training_or_prediction_batch(self) -> None:
-        model = build_regression_model()
-        calls = []
-        handle = model.model.register_forward_hook(lambda *args: calls.append(1))
-        model.compute_loss(torch.randn(4, 1), torch.randn(4, 1))
-        assert len(calls) == 1
-        model.predict_samples(torch.randn(4, 1))
-        assert len(calls) == 2
-        handle.remove()
-
-    @pytest.mark.parametrize(
-        "kwargs", [{"index_dim": 0}, {"num_index_samples": 0}, {"num_pred_samples": 1}]
-    )
-    def test_invalid_sample_counts(self, kwargs: dict) -> None:
-        with pytest.raises(ValueError):
-            build_regression_model(**kwargs)
-
-
-class TestFrozenRunningState:
-    def test_batchnorm_dropout_and_parameters_remain_fixed(self) -> None:
+    def test_frozen_batchnorm_and_dropout_stay_fixed(self) -> None:
+        """A frozen base must not drift through running statistics or dropout."""
         base = nn.Sequential(
             nn.Linear(2, 8), nn.BatchNorm1d(8), nn.Dropout(0.8), nn.Linear(8, 2)
         )
@@ -684,11 +361,9 @@ class TestFrozenRunningState:
         x, y = torch.randn(6, 2), torch.randint(2, (6,))
         before = copy.deepcopy(base.state_dict())
         expected = base(x).detach().clone()
+
         model.train()
-        optimizer = torch.optim.Adam(model.epinet.train_epinet.parameters())
-        loss, _, _ = model.compute_loss(x, y)
-        loss.backward()
-        optimizer.step()
+        model.compute_loss(x, y)[0].backward()
         assert not base.training
         assert model.epinet.train_epinet.training
         assert not model.epinet.epi_prior.training
@@ -697,72 +372,248 @@ class TestFrozenRunningState:
         torch.testing.assert_close(base(x), expected, rtol=0, atol=0)
 
 
+# (task, n_outputs, expected keys, expected pred/uct/samples shapes at batch size 6)
+PREDICTION_CONTRACTS: list[tuple[Task, int, set[str], tuple[tuple[int, ...], ...]]] = [
+    (
+        "regression",
+        1,
+        {"pred", "pred_uct", "epistemic_uct", "samples"},
+        ((6, 1), (6,), (6, 1, 5)),
+    ),
+    ("multiclass", 2, {"pred", "pred_uct", "logits"}, ((6, 2), (6,), (6, 2, 5))),
+    ("binary", 1, {"pred", "pred_uct", "logits"}, ((6, 2), (6,), (6, 2, 5))),
+    ("binary", 2, {"pred", "pred_uct", "logits"}, ((6, 2), (6,), (6, 2, 5))),
+    ("multilabel", 3, {"pred", "pred_uct", "logits"}, ((6, 3), (6,), (6, 3, 5))),
+]
+
+
+class TestPredictionContract:
+    @pytest.mark.parametrize(
+        "task,n_outputs,expected_keys,shapes",
+        PREDICTION_CONTRACTS,
+        ids=[f"{task}-{n}" for task, n, _, _ in PREDICTION_CONTRACTS],
+    )
+    def test_predict_step_keys_and_shapes(
+        self,
+        task: Task,
+        n_outputs: int,
+        expected_keys: set[str],
+        shapes: tuple[tuple[int, ...], ...],
+    ) -> None:
+        """Every task returns the documented keys, shapes and sample layout."""
+        model = _epinet_model(task, n_outputs=n_outputs).eval()
+        out = model.predict_step(torch.randn(6, 1 if task == "regression" else 2))
+        assert set(out) == expected_keys
+
+        samples_key = "samples" if task == "regression" else "logits"
+        assert out["pred"].shape == shapes[0]
+        assert out["pred_uct"].shape == shapes[1]
+        assert out[samples_key].shape == shapes[2]
+        # each slice of the last axis is one coherent index sample, so they differ
+        assert not torch.allclose(out[samples_key][..., 0], out[samples_key][..., 1])
+        assert torch.all(out["pred_uct"] > 0.0)
+        if task in ("multiclass", "binary"):
+            torch.testing.assert_close(out["pred"].sum(-1), torch.ones(6))
+
+    def test_a_single_binary_logit_is_zero_padded(self) -> None:
+        """One logit is padded to two columns, so pred is the mean sigmoid."""
+        model = _epinet_model("binary", n_outputs=1).eval()
+        out = model.predict_step(torch.randn(6, 2))
+        torch.testing.assert_close(
+            out["pred"][:, 1], out["logits"][:, 1].sigmoid().mean(-1)
+        )
+
+    def test_multilabel_probabilities_stay_independent(self) -> None:
+        """Multilabel outputs are sigmoid, not softmax, so they need not sum to one."""
+        model = _epinet_model("multilabel").eval()
+        out = model.predict_step(torch.randn(6, 2))
+        torch.testing.assert_close(out["pred"], out["logits"].sigmoid().mean(-1))
+
+    @pytest.mark.parametrize("n_outputs", [1, 2])
+    def test_binary_targets_are_adapted_for_metrics(self, n_outputs: int) -> None:
+        """Binary targets are normalized for both the loss and the metrics.
+
+        A single-logit model is trained against float targets but scored against
+        integer class labels, so ``test_step`` normalizes them for the CSV contract.
+        """
+        model = _epinet_model("binary", n_outputs=n_outputs)
+        x, y = torch.randn(6, 2), torch.tensor([0, 1, 0, 1, 1, 0])
+        with patch.object(model, "log"):
+            loss = model.training_step({"input": x, "target": y}, 0)
+        loss.backward()
+        assert torch.isfinite(loss)
+        assert torch.isfinite(model.train_metrics.compute()["trainAcc"])
+
+        model.eval()
+        target = y[:, None].float() if n_outputs == 1 else y
+        result = model.test_step({"input": x, "target": target}, 0)
+        assert result["pred"].shape == (6, 2)
+        torch.testing.assert_close(result["pred"].sum(-1), torch.ones(6))
+
+    def test_zero_index_recovers_the_base_network(self) -> None:
+        """The epinet is linear in z, so z = 0 leaves only mu(x)."""
+        model = _epinet_model(epi_prior_scale=1.0, input_prior_scale=0.3)
+        X = torch.randn(6, 1)
+        assert torch.allclose(
+            model.forward(X, torch.zeros(6, 4)), model.model(X), atol=1e-6
+        )
+
+    def test_an_omitted_index_is_sampled_per_example(self) -> None:
+        model = _epinet_model()
+        X = torch.randn(6, 1)
+        out = model.forward(X)
+        assert out.shape == model.forward(X, model.sample_index(6, X.device)).shape
+        assert torch.isfinite(out).all()
+
+    def test_conv_base_with_an_explicit_conv_prior(self) -> None:
+        """An image prior passed as input_prior, the CIFAR-10 configuration's shape."""
+        model = EpinetClassification(
+            _conv_base(),
+            nn.CrossEntropyLoss(),
+            index_dim=4,
+            num_pred_samples=3,
+            use_input_features=False,
+            input_prior_scale=1.0,
+            input_prior=ConvEnsemblePriorFunction(
+                in_channels=3, n_outputs=4, num_ensemble=4, input_size=32
+            ),
+        )
+        out = model.eval().predict_step(torch.randn(5, 3, 32, 32))
+        assert out["pred"].shape == (5, 4)
+        assert out["logits"].shape == (5, 4, 3)
+
+
+class TestJointPredictionContract:
+    def test_shared_indices_agree_across_batches(self) -> None:
+        """Joint predictions need one index set reused across batches, not resampled."""
+        model = _epinet_model().eval()
+        x = torch.randn(12, 1)
+        z = model.sample_index(7, x.device)
+        whole = model.predict_samples(x, z)
+        chunks = torch.cat([model.predict_samples(chunk, z) for chunk in x.split(4)])
+        torch.testing.assert_close(chunks, whole)
+        for k in range(len(z)):
+            torch.testing.assert_close(whole[..., k], model(x, z[k].expand(len(x), -1)))
+
+    def test_internally_sampled_indices_follow_the_model_dtype(self) -> None:
+        model = _epinet_model().double()
+        x = torch.randn(4, 1, dtype=torch.float64)
+        assert model(x).dtype == torch.float64
+        assert model.predict_samples(x).dtype == torch.float64
+
+    def test_the_capture_hook_belongs_to_a_deepcopy(self) -> None:
+        """A hook closing over the original would write into it from the copy."""
+        original = _epinet_model()
+        cloned = copy.deepcopy(original)
+        cloned(torch.randn(3, 1))
+        assert cloned._features is not None
+        assert original._features is None
+
+    def test_the_base_runs_once_per_batch(self) -> None:
+        """Repeating the batch for K indices must not rerun the base K times."""
+        model = _epinet_model()
+        calls: list[int] = []
+        handle = model.model.register_forward_hook(lambda *args: calls.append(1))
+        model.compute_loss(torch.randn(4, 1), torch.randn(4, 1))
+        assert len(calls) == 1
+        model.predict_samples(torch.randn(4, 1))
+        assert len(calls) == 2
+        handle.remove()
+
+    def test_the_logged_batch_size_accounts_for_the_index_repeat(self) -> None:
+        """Training repeats the batch K times, which the logged batch size must match."""
+        model = _epinet_model(num_index_samples=3)
+        with patch.object(model, "log") as log:
+            model.training_step(
+                {"input": torch.randn(8, 1), "target": torch.randn(8, 1)}, 0
+            )
+        assert log.call_args.kwargs["batch_size"] == 8 * 3
+
+
 class TestGaussianBootstrap:
     def test_loss_matches_equation_nine(self) -> None:
-        from lightning_uq_box.uq_methods import EpinetGaussianNoiseLoss
-
         loss = EpinetGaussianNoiseLoss(0.5)
         preds, targets = torch.tensor([[2.0], [3.0]]), torch.tensor([[1.0], [2.0]])
         c = torch.eye(2)
         z = torch.tensor([[2.0, 4.0], [2.0, 4.0]])
         assert loss(preds, targets, c, z).item() == pytest.approx(0.5)
 
-    def test_bootstrap_requires_training_ids(self) -> None:
-        with pytest.raises(ValueError, match="num_train"):
-            build_regression_model(bootstrap_noise_scale=0.2)
-        model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10)
-        with pytest.raises(ValueError, match="stable example IDs"):
-            model.compute_loss(torch.randn(4, 1), torch.randn(4, 1))
-        with pytest.raises(ValueError, match="num_train"):
-            model.compute_loss(
-                torch.randn(4, 1), torch.randn(4, 1), torch.tensor([0, 1, 2, 10])
-            )
+    def test_signatures_and_priors_survive_a_checkpoint(self, tmp_path: Path) -> None:
+        """Signatures and priors are buffers and submodules, so they are restored.
 
-    def test_signatures_stable_and_checkpointed(self, tmp_path: Path) -> None:
-        model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10)
-        signatures = model.bootstrap_signatures.clone()
+        The reloaded model is built with a different ``prior_seed``, so identical
+        predictions prove the priors came from the checkpoint rather than being
+        re-randomized on load.
+        """
+        model = _epinet_model(
+            bootstrap_noise_scale=0.2,
+            num_train=10,
+            epi_prior_scale=1.0,
+            input_prior_scale=0.3,
+        )
+        # a registered buffer is typed as the union Tensor | Module, so narrow it
+        signatures = cast(Tensor, model.bootstrap_signatures).clone()
         torch.testing.assert_close(signatures.norm(dim=-1), torch.ones(10))
+
+        # a buffer registered as a parameter would drift once gradients flow
         model.compute_loss(torch.randn(4, 1), torch.randn(4, 1), torch.arange(4))[
             0
         ].backward()
         torch.testing.assert_close(model.bootstrap_signatures, signatures)
+
+        path = tmp_path / "bootstrap.ckpt"
         trainer = Trainer(default_root_dir=str(tmp_path), logger=False)
         trainer.strategy.connect(model)
-        path = tmp_path / "bootstrap.ckpt"
         trainer.save_checkpoint(path)
         loaded = EpinetRegression.load_from_checkpoint(
             path,
             model=MLP(n_inputs=1, n_hidden=[16], n_outputs=1),
             loss_fn=nn.MSELoss(),
+            prior_seed=999,
         )
+
         x, z = torch.randn(4, 1), torch.randn(4, 4)
         torch.testing.assert_close(loaded(x, z), model(x, z))
         torch.testing.assert_close(loaded.bootstrap_signatures, signatures)
         assert loaded.bootstrap_noise_scale == 0.2
 
-    def test_validation_uses_unperturbed_targets(self) -> None:
-        model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10).eval()
+    def test_eval_mode_drops_the_bootstrap_term(self) -> None:
+        """Outside training the plain loss is used on unperturbed targets, with no IDs."""
+        model = _epinet_model(bootstrap_noise_scale=0.2, num_train=10).eval()
         loss, out, target = model.compute_loss(torch.randn(4, 1), torch.randn(4, 1))
         torch.testing.assert_close(loss, nn.MSELoss()(out, target))
 
-    def test_loss_respects_estimator_major_ids(self) -> None:
-        from unittest.mock import patch
-
-        model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10)
+    def test_the_loss_respects_estimator_major_ids(self) -> None:
+        """A batch-major repeat would pair the wrong signature with the wrong index."""
+        model = _epinet_model(bootstrap_noise_scale=0.2, num_train=10)
         x, y, ids = torch.randn(3, 1), torch.randn(3, 1), torch.tensor([9, 1, 9])
         z = torch.randn(2, 4)
         with patch.object(model, "sample_index", return_value=z):
             loss, out, target = model.compute_loss(x, y, ids)
-        c = model.bootstrap_signatures[ids].repeat(2, 1)
+        c = cast(Tensor, model.bootstrap_signatures)[ids].repeat(2, 1)
         noise = 0.2 * (c * z.repeat_interleave(3, dim=0)).sum(-1, keepdim=True)
         torch.testing.assert_close(loss, (out - target - noise).square().mean())
+
+
+def test_configure_optimizers_wires_up_a_scheduler() -> None:
+    """A supplied scheduler is returned in the lr dict and monitors val_loss."""
+    from functools import partial
+
+    model = _epinet_model(
+        optimizer=partial(torch.optim.Adam, lr=1e-3),
+        lr_scheduler=partial(torch.optim.lr_scheduler.StepLR, step_size=1),
+    )
+    # Lightning types configure_optimizers as a wide union whose TypedDict arm has no
+    # lr_scheduler key, so cast to the plain dict this method actually returns.
+    config = cast(dict[str, Any], model.configure_optimizers())
+    scheduler_config = config["lr_scheduler"]
+    assert scheduler_config["monitor"] == "val_loss"
+    assert isinstance(scheduler_config["scheduler"], torch.optim.lr_scheduler.StepLR)
 
 
 @pytest.mark.slow
 def test_linear_gaussian_epinet_matches_bayesian_posterior() -> None:
     """Optimize equation 9 using exact Gaussian second moments (linear head)."""
-    from unittest.mock import patch
-
     torch.manual_seed(5)
     n, dim, sigma = 16, 128, 0.3
     x = torch.linspace(-1, 1, n).unsqueeze(1)
@@ -811,202 +662,3 @@ def test_linear_gaussian_epinet_matches_bayesian_posterior() -> None:
     torch.testing.assert_close(
         samples.std(correction=0), expected_std, atol=0.01, rtol=0.2
     )
-
-
-@pytest.mark.parametrize("num_outputs", [1, 2])
-def test_binary_classification_loss_metrics_and_prediction(num_outputs: int) -> None:
-    from unittest.mock import patch
-
-    criterion = nn.BCEWithLogitsLoss() if num_outputs == 1 else nn.CrossEntropyLoss()
-    model = EpinetClassification(
-        MLP(n_inputs=2, n_hidden=[8], n_outputs=num_outputs),
-        criterion,
-        task="binary",
-        num_index_samples=2,
-        num_pred_samples=5,
-    )
-    x, y = torch.randn(6, 2), torch.tensor([0, 1, 0, 1, 1, 0])
-    with patch.object(model, "log"):
-        loss = model.training_step({"input": x, "target": y}, 0)
-    loss.backward()
-    assert torch.isfinite(loss)
-    assert torch.isfinite(model.train_metrics.compute()["trainAcc"])
-    model.eval()
-    result = model.test_step(
-        {"input": x, "target": y[:, None].float() if num_outputs == 1 else y}, 0
-    )
-    assert result["pred"].shape == (6, 2)
-    assert result["logits"].shape == (6, 2, 5)
-    torch.testing.assert_close(result["pred"].sum(-1), torch.ones(6))
-    if num_outputs == 1:
-        expected = result["logits"][:, 1].sigmoid().mean(-1)
-        torch.testing.assert_close(result["pred"][:, 1], expected)
-
-
-def test_multilabel_prediction_preserves_independent_probabilities() -> None:
-    model = EpinetClassification(
-        MLP(n_inputs=2, n_hidden=[8], n_outputs=3),
-        nn.BCEWithLogitsLoss(),
-        task="multilabel",
-        num_pred_samples=5,
-    )
-    x, y = torch.randn(6, 2), torch.randint(2, (6, 3)).float()
-    loss, out, target = model.compute_loss(x, y)
-    loss.backward()
-    model.train_metrics(out, target.long())
-    assert torch.isfinite(model.train_metrics.compute()["trainAcc"])
-    result = model.eval().predict_step(x)
-    torch.testing.assert_close(result["pred"], result["logits"].sigmoid().mean(-1))
-
-
-class TestInputContractValidation:
-    """Cover the guards that reject base networks and arguments the epinet cannot use.
-
-    The epinet wraps an arbitrary base network, so most of these failures are only
-    detectable at construction or on the first forward. Each guard turns a silently
-    wrong result -- a broadcast index, a pooled feature map read as a vector -- into
-    an explicit error, so they are pinned here.
-    """
-
-    def test_rejects_output_layer_without_input_width(self) -> None:
-        """The output layer is picked by out_features, but its input width is needed.
-
-        A module can advertise out_features -- which is what selects it as the output
-        layer -- while exposing no input width at all. The epinet reads from that
-        layer's input, so it cannot size its head and must say so.
-        """
-
-        class OutFeaturesOnly(nn.Module):
-            def __init__(self, out_features: int) -> None:
-                super().__init__()
-                self.out_features = out_features
-
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
-                return x
-
-        base = nn.Sequential(nn.Linear(2, 4), OutFeaturesOnly(4))
-        with pytest.raises(ValueError, match="neither in_features nor in_channels"):
-            EpinetRegression(base, nn.MSELoss(), index_dim=2)
-
-    def test_rejects_non_vector_base_output(self) -> None:
-        """The vector contract is [batch_size, num_outputs]; anything else is ambiguous."""
-
-        class ExtraAxis(nn.Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.fc = nn.Linear(2, 3)
-
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
-                return self.fc(x).unsqueeze(-1)
-
-        model = EpinetRegression(
-            ExtraAxis(), nn.MSELoss(), index_dim=2, epinet_hidden_dims=[4]
-        )
-        with pytest.raises(ValueError, match=r"\[batch_size, num_outputs\]"):
-            model.compute_loss(torch.randn(4, 2), torch.randn(4, 3))
-
-    def test_predict_samples_rejects_malformed_indices(self) -> None:
-        model = build_regression_model().eval()
-        x = torch.randn(3, 1)
-        with pytest.raises(ValueError, match=r"\[num_samples, index_dim\]"):
-            model.predict_samples(x, torch.randn(4))
-        with pytest.raises(ValueError, match=r"\[num_samples, index_dim\]"):
-            model.predict_samples(x, torch.randn(2, 7))
-        with pytest.raises(ValueError, match=r"\[num_samples, index_dim\]"):
-            model.predict_samples(x, torch.randn(0, 4))
-
-    def test_rejects_negative_bootstrap_scale(self) -> None:
-        with pytest.raises(ValueError, match="bootstrap_noise_scale must be nonneg"):
-            build_regression_model(bootstrap_noise_scale=-0.1)
-
-    def test_bootstrap_rejects_vector_regression_output(self) -> None:
-        """Equation 9 assumes a scalar target, so a multi-output base is refused."""
-        with pytest.raises(ValueError, match="scalar regression output"):
-            EpinetRegression(
-                MLP(n_inputs=1, n_hidden=[8], n_outputs=2),
-                nn.MSELoss(),
-                index_dim=4,
-                epinet_hidden_dims=[8],
-                prior_hidden_dims=[4],
-                bootstrap_noise_scale=0.2,
-                num_train=10,
-            )
-
-    def test_bootstrap_rejects_non_integer_ids(self) -> None:
-        model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10)
-        with pytest.raises(ValueError, match="one integer ID per example"):
-            model.compute_loss(
-                torch.randn(4, 1), torch.randn(4, 1), torch.zeros(4).float()
-            )
-
-    def test_binary_task_rejects_wrong_logit_count(self) -> None:
-        with pytest.raises(ValueError, match="one or two output logits"):
-            EpinetClassification(
-                MLP(n_inputs=2, n_hidden=[8], n_outputs=3),
-                nn.BCEWithLogitsLoss(),
-                task="binary",
-            )
-
-
-def test_eval_mode_loss_ignores_bootstrap_signatures() -> None:
-    """Outside training the bootstrap term is dropped and the plain loss is used."""
-    model = build_regression_model(bootstrap_noise_scale=0.2, num_train=10).eval()
-    x, y = torch.randn(4, 1), torch.randn(4, 1)
-    # No data_index is supplied, which would raise during training.
-    loss, out, target = model.compute_loss(x, y)
-    assert torch.isfinite(loss)
-    torch.testing.assert_close(loss, nn.MSELoss()(out, target))
-
-
-def test_spatial_features_are_pooled_to_a_vector() -> None:
-    """Features captured with spatial axes are average-pooled before the epinet head.
-
-    When the output layer reads a feature map directly -- a conv classifier head with
-    no Flatten in front of it -- the captured features arrive as [B, C, H, W]. The
-    epinet head is an MLP, so those axes are pooled away rather than flattened, which
-    keeps the head's width tied to the channel count and independent of input size.
-    """
-    base = nn.Sequential(nn.Conv2d(3, 8, 3, padding=1), nn.ReLU(), nn.Conv2d(8, 4, 1))
-    model = EpinetClassification(
-        base,
-        nn.CrossEntropyLoss(),
-        index_dim=4,
-        num_index_samples=2,
-        epinet_hidden_dims=[8],
-        input_prior_scale=0.0,
-        use_input_features=False,
-    )
-    x = torch.randn(2, 3, 8, 8)
-    # Run the base network itself so the hook captures the feature map; the epinet's
-    # own forward would reject this base for not returning a vector.
-    model.model(x)
-    captured = model._features
-    assert captured is not None and captured.ndim == 4
-    features = model.extract_features(x)
-    assert features.shape == (2, 8), "expected mean over the spatial axes"
-    torch.testing.assert_close(features, captured.flatten(2).mean(-1))
-
-
-def test_classification_loss_uses_the_plain_loss_function() -> None:
-    """The base _loss has no bootstrap term; it defers to loss_fn directly."""
-    model = build_classification_model()
-    x, y = torch.randn(6, 2), torch.randint(2, (6,))
-    loss, out, target = model.compute_loss(x, y)
-    torch.testing.assert_close(loss, nn.CrossEntropyLoss()(out, target))
-
-
-def test_configure_optimizers_wires_up_a_scheduler() -> None:
-    """A supplied scheduler is returned in the lr dict and monitors val_loss."""
-    from functools import partial
-
-    model = build_regression_model(
-        optimizer=partial(torch.optim.Adam, lr=1e-3),
-        lr_scheduler=partial(torch.optim.lr_scheduler.StepLR, step_size=1),
-    )
-    # Lightning types configure_optimizers as a wide union whose TypedDict arm has no
-    # lr_scheduler key, so cast to the plain dict this method actually returns.
-    config = cast(dict[str, Any], model.configure_optimizers())
-    assert isinstance(config["optimizer"], torch.optim.Adam)
-    scheduler_config = config["lr_scheduler"]
-    assert scheduler_config["monitor"] == "val_loss"
-    assert isinstance(scheduler_config["scheduler"], torch.optim.lr_scheduler.StepLR)

@@ -1,0 +1,21 @@
+model:
+  _target_: lightning_uq_box.uq_methods.EpinetClassification
+  model:
+    _target_: timm.create_model
+    model_name: resnet18
+    num_classes: 4
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  loss_fn:
+    _target_: torch.nn.CrossEntropyLoss
+  index_dim: 4
+  num_index_samples: 2
+  num_pred_samples: 5
+  # image input: the raw input cannot be flattened into the epinet, and the epinet's
+  # own prior over the features replaces the prior over the raw input
+  use_input_features: false
+  input_prior_scale: 0.0
+  epi_prior_scale: 4.0
+  freeze_backbone: true
