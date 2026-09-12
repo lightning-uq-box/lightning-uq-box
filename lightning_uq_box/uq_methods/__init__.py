@@ -49,6 +49,7 @@ from .density_uncertainty import (
 )
 from .deterministic_uncertainty_estimation import DUEClassification, DUERegression
 from .epinet import EpinetBase, EpinetClassification, EpinetRegression
+from .hierarchical_prob_unet import HierarchicalProbUNet
 from .img2img_conformal import Img2ImgConformal
 from .inference_time_augmentation import TTABase, TTAClassification, TTARegression
 from .laplace_model import LaplaceBase, LaplaceClassification, LaplaceRegression
@@ -104,6 +105,7 @@ from .vq_vae import VQVAE, VQVAEPrior
 from .zigzag import ZigZagBase, ZigZagClassification, ZigZagRegression
 
 __all__ = (
+    "HierarchicalProbUNet",
     # Base Module
     "BaseModule",
     "PosthocBase",
