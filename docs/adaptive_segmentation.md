@@ -43,3 +43,15 @@ target. Their reported metrics assign empty masks recall zero while their traini
 soft recall assigns one; here hard recall consistently assigns one. These choices
 must be disclosed when comparing empirical results. See the
 [paper](https://openreview.net/forum?id=Gd2AiWes1J).
+
+## COAT
+
+Replace AT with `COAT(model=fitted_binary_unet, alpha=0.1, temperature=0.05)`
+and train the threshold network for 60 epochs with learning rate `5e-4` (defaults).
+Calibration and test calls remain identical. COAT learns directly from masks:
+`sigmoid((phat - tau) / temperature)` relaxes the hard foreground set, and the
+loss is the mean squared gap between each image's soft recall and `1-alpha`.
+The denominator adds `eps=1e-6`; empty masks contribute a constant loss with
+zero gradient. This soft-loss convention differs from the hard recall convention
+(one for empty masks). The vectorized formula follows the paper's epsilon loss;
+the live reference code uses an explicit empty-mask branch instead.

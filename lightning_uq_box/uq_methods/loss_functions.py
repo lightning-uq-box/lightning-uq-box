@@ -3,6 +3,8 @@
 
 """Loss Functions specific to UQ-methods."""
 
+import math
+
 import torch
 from torch import Tensor, nn
 
@@ -355,3 +357,41 @@ class MixtureDensityLoss(nn.Module):
         ) - torch.sum(torch.log(sigma), dim=-1)
         loglik = torch.logsumexp(log_pi + normal_loglik, dim=-1)
         return -loglik.mean()
+
+
+class SoftMiscoverageLoss(nn.Module):
+    """Squared per-image gap between relaxed positive-pixel recall and its target."""
+
+    def __init__(
+        self, temperature: float = 0.05, target_coverage: float = 0.9, eps: float = 1e-6
+    ) -> None:
+        """Initialize sigmoid temperature (divisor), target recall, and denominator guard."""
+        super().__init__()
+        if not math.isfinite(temperature) or temperature <= 0:
+            raise ValueError("temperature must be finite and positive.")
+        if not 0 < target_coverage < 1 or not math.isfinite(eps) or eps <= 0:
+            raise ValueError("Invalid target coverage or eps.")
+        self.temperature = temperature
+        self.target_coverage = target_coverage
+        self.eps = eps
+
+    def forward(self, phat: Tensor, labels: Tensor, predicted_tau: Tensor) -> Tensor:
+        """Return scalar loss for maps [B,1,H,W] or [B,H,W] and thresholds [B].
+
+        Empty foreground masks have soft recall zero under the paper's epsilon
+        formula, contributing a constant loss and zero threshold gradient.
+        """
+        from .segmentation_conformal_utils import binary_segmentation_inputs
+
+        phat, labels = binary_segmentation_inputs(phat, labels)
+        if (
+            predicted_tau.shape != (phat.shape[0],)
+            or not torch.isfinite(predicted_tau).all()
+        ):
+            raise ValueError("Expected finite per-image thresholds [B].")
+        soft_mask = torch.sigmoid(
+            (phat - predicted_tau[:, None, None, None]) / self.temperature
+        )
+        positives = labels.flatten(1).sum(1)
+        soft_tpr = (soft_mask * labels).flatten(1).sum(1) / (positives + self.eps)
+        return ((soft_tpr - self.target_coverage) ** 2).mean()
