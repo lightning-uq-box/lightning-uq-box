@@ -3,6 +3,7 @@
 
 """UQ-Regression-Box Models."""
 
+from .adaptive_threshold import ThresholdPredictor
 from .cards import (
     ConditionalGuidedConvModel,
     ConditionalGuidedLinearModel,
@@ -15,6 +16,8 @@ from .mixture_density import MixtureDensityLayer
 from .mlp import MLP
 
 __all__ = (
+    # Adaptive Thresholding
+    "ThresholdPredictor",
     # Toy Example architecture
     "MLP",
     # Mixture Density Layer

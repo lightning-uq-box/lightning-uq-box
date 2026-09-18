@@ -626,7 +626,7 @@ class PosthocBase(BaseModule):
     @torch.no_grad()
     def training_step(
         self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
-    ) -> None:
+    ) -> STEP_OUTPUT:
         """Single gathering step of model logits and targets.
 
         Args:

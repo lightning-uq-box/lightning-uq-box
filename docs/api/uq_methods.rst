@@ -457,3 +457,11 @@ Image to Image Conformal
 .. currentmodule:: lightning_uq_box.uq_methods.img2img_conformal
 
 .. autoclass:: Img2ImgConformal
+
+Adaptive Thresholding (AT)
+--------------------------
+
+.. autoclass:: AdaptiveThresholding
+   :members:
+
+See :doc:`../adaptive_segmentation` for the two-stage workflow and coverage assumptions.

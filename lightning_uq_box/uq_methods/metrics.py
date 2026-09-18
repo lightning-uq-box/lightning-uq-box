@@ -108,3 +108,49 @@ class SetSize(EmpiricalCoverageBase):
             The set size of the prediction sets.
         """
         return torch.tensor(self.set_size / self.total)
+
+
+class PerImageCoverage(Metric):
+    """Mean positive-pixel recall, weighting every image equally."""
+
+    coverage_sum: Tensor
+    image_count: Tensor
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize distributed sum/count states."""
+        super().__init__(**kwargs)
+        self.add_state("coverage_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("image_count", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(self, pred_mask: Tensor, labels: Tensor) -> None:
+        """Accumulate recall for masks and labels [B,1,H,W] or [B,H,W]."""
+        from .segmentation_conformal_utils import per_image_coverage
+
+        if pred_mask.shape != labels.shape:
+            raise ValueError("Prediction and label shapes must match.")
+        coverage = per_image_coverage(pred_mask, labels)
+        self.coverage_sum += self._values(coverage).sum()
+        self.image_count += coverage.numel()
+
+    def _values(self, coverage: Tensor) -> Tensor:
+        """Return the per-image quantity to accumulate."""
+        return coverage
+
+    def compute(self) -> Tensor:
+        """Return mean per-image recall."""
+        return self.coverage_sum / self.image_count.clamp_min(1)
+
+
+class CoverageGap(PerImageCoverage):
+    """Mean absolute per-image recall gap, rather than gap of the mean recall."""
+
+    def __init__(self, target_coverage: float = 0.9, **kwargs: Any) -> None:
+        """Initialize the target coverage."""
+        if not 0 < target_coverage < 1:
+            raise ValueError("Target coverage must lie in (0,1).")
+        super().__init__(**kwargs)
+        self.target_coverage = target_coverage
+
+    def _values(self, coverage: Tensor) -> Tensor:
+        """Return absolute distance to target per image."""
+        return (coverage - self.target_coverage).abs()

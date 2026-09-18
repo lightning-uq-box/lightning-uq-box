@@ -3,6 +3,7 @@
 
 """UQ-Methods as Lightning Modules."""
 
+from .adaptive_thresholding import AdaptiveThresholding
 from .base import (
     BaseModule,
     DeterministicClassification,
@@ -96,6 +97,8 @@ from .vq_vae import VQVAE, VQVAEPrior
 from .zigzag import ZigZagBase, ZigZagClassification, ZigZagRegression
 
 __all__ = (
+    # Adaptive Thresholding
+    "AdaptiveThresholding",
     # Base Module
     "BaseModule",
     "PosthocBase",
