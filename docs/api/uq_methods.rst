@@ -465,3 +465,11 @@ Adaptive Thresholding (AT)
    :members:
 
 See :doc:`../adaptive_segmentation` for the two-stage workflow and coverage assumptions.
+
+COAT
+----
+
+.. autoclass:: lightning_uq_box.uq_methods.COAT
+   :members:
+
+Uses the same two-stage calibration workflow as Adaptive Thresholding.

@@ -27,6 +27,7 @@ from .bnn_vi_elbo import (
     BNN_VI_ELBO_Segmentation,
 )
 from .cards import CARDBase, CARDClassification, CARDRegression, NoiseScheduler
+from .coat import COAT
 from .conformal_qr import ConformalQR
 from .deep_ensemble import (
     DeepEnsemble,
@@ -97,6 +98,8 @@ from .vq_vae import VQVAE, VQVAEPrior
 from .zigzag import ZigZagBase, ZigZagClassification, ZigZagRegression
 
 __all__ = (
+    # Conditional Optimization for Adaptive Thresholding
+    "COAT",
     # Adaptive Thresholding
     "AdaptiveThresholding",
     # Base Module
