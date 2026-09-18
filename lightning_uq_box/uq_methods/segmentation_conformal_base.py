@@ -49,6 +49,7 @@ class SegmentationPosthocBase(PosthocBase):
         if not 0 < alpha < 1 or lr <= 0:
             raise ValueError("alpha must lie in (0,1) and lr must be positive.")
         super().__init__(model)
+        self.save_hyperparameters({"alpha": alpha, "lr": lr, "save_preds": save_preds})
         self.threshold_model = threshold_model
         self.alpha = alpha
         self.lr = lr

@@ -44,6 +44,12 @@ class AdaptiveThresholding(SegmentationPosthocBase):
             lr_scheduler,
             save_preds,
         )
+        self.save_hyperparameters(
+            {
+                "max_epochs": max_epochs,
+                "pretrained_threshold_net": pretrained_threshold_net,
+            }
+        )
         self.max_epochs = max_epochs
 
     def _training_step_network(self, batch: dict[str, Tensor]) -> Tensor:

@@ -461,7 +461,7 @@ Image to Image Conformal
 Adaptive Thresholding (AT)
 --------------------------
 
-.. autoclass:: AdaptiveThresholding
+.. autoclass:: lightning_uq_box.uq_methods.AdaptiveThresholding
    :members:
 
 See :doc:`../adaptive_segmentation` for the two-stage workflow and coverage assumptions.
