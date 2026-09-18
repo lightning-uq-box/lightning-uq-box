@@ -134,6 +134,8 @@ def run_two_stage(method: SegmentationPosthocBase, tmp_path: Path) -> None:
             pretrained_threshold_net=False,
         )
     assert restored.post_hoc_fitted and restored._network_trained
+    assert restored.alpha == method.alpha
+    assert restored.lr == method.lr
     torch.testing.assert_close(restored.t_prime, method.t_prime)
     X = torch.rand(2, 3, 16, 16)
     restored.eval()
@@ -147,6 +149,8 @@ def test_two_stage(tmp_path: Path) -> None:
     ):
         method = AdaptiveThresholding(
             nn.Sequential(nn.Conv2d(3, 1, 1), nn.BatchNorm2d(1)),
+            alpha=0.2,
+            lr=0.003,
             pretrained_threshold_net=False,
             save_preds=True,
         )
