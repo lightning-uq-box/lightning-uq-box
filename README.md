@@ -109,6 +109,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Regularized Adaptive Prediction Sets (RAPS)   |     ❌     |       ✅       |      ❌      |          ❌           |
 | Image to Image Conformal                      |     ❌     |       ❌       |      ❌      |          ✅           |
 | Adaptive Thresholding (AT) | ❌ | ❌ | ✅ | ❌ |
+| COAT | ❌ | ❌ | ✅ | ❌ |
 
 # Tutorials
 
