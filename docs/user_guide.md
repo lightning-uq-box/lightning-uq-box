@@ -57,6 +57,43 @@ The following aims to explain the design choices behind the implementations foun
   implemented in the subclasses but can be util functions that could still be utilized by users for their own usage
 - try to integrate existing implementations into this framework to not reinvent the wheel
 
+## Canonical method × task API (0.4)
+
+Newly migrated methods use one method class and an explicit immutable task value.
+The first canonical methods are `Deterministic` and `MCDropout`:
+
+```python
+from torch import nn
+
+from lightning_uq_box.uq_methods import MCDropout, SegmentationTask
+
+method = MCDropout(
+    model,
+    num_mc_samples=20,
+    loss_fn=nn.CrossEntropyLoss(),
+    task=SegmentationTask(mode="multiclass"),
+)
+```
+
+Supported values are `RegressionTask`, `ClassificationTask`,
+`SegmentationTask`, and `PixelRegressionTask`. Classification has explicit
+`binary`, `multiclass`, and `multilabel` modes. Binary tasks also declare
+`binary_encoding="one_logit"` (BCE/sigmoid) or `"two_logit"`
+(CE/softmax); the library never infers this choice from tensor shape.
+
+Canonical methods save a versioned allow-listed mapping under `task` in their
+checkpoint hyperparameters, rather than serializing a task object. Hydra's
+`_target_` syntax and LightningCLI's `class_path`/`init_args` syntax are both
+accepted. A `MethodSpec` declares each exposed task/mode capability and its
+output schema, so unsupported pairs fail during construction.
+
+The historical concrete task classes remain import-compatible during 0.4 while
+their canonical replacement is introduced. They are the compatibility route;
+new code should use the canonical method/task form. Prediction writers copy the
+step output before persistence. Single-process tabular outputs remain
+`preds.csv` and dense outputs remain HDF5 under `preds/`; distributed writers
+create rank shards plus a root manifest to avoid collisions.
+
 ## Pytorch and Lightning
 - use [PyTorch](https://pytorch.org/docs/stable/index.html), because:
   - wide adaptation in research community

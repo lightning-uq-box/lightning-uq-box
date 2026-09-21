@@ -16,6 +16,13 @@ We welcome contributions and suggestions to this open-source project. This could
     ```
 4. Open a Pull Request (PR)
 
+## Stacked method-task migration
+
+The method/task API redesign is being delivered as a stack of focused pull
+requests. See the [method × task transition roadmap](method_task_transition.md)
+for the dependency order, compatibility policy, and required checks for each
+PR.
+
 ## Development environment
 
 We use [uv](https://docs.astral.sh/uv/) to install dependencies, both locally and in CI. It reads the extras declared in `pyproject.toml` and resolves them against the checked-in `uv.lock`, so the packages you get locally are the same versions CI runs against.

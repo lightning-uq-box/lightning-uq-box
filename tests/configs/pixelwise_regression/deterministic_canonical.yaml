@@ -1,0 +1,21 @@
+uq_method:
+  _target_: lightning_uq_box.uq_methods.Deterministic
+  model:
+    _target_: segmentation_models_pytorch.Unet
+    encoder_name: resnet18
+    encoder_weights: null
+    classes: 1
+    in_channels: 3
+    encoder_depth: 2
+    decoder_channels: [16, 8]
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.003
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.ConstantLR
+    _partial_: true
+  loss_fn:
+    _target_: torch.nn.MSELoss
+  task:
+    _target_: lightning_uq_box.uq_methods.PixelRegressionTask
