@@ -50,3 +50,16 @@ def test_multiclass_and_invalid_probabilities() -> None:
     )
     with pytest.raises(ValueError, match="hard label"):
         generalized_energy_distance(pred[:, None].float(), target[:, None], 3)
+
+
+def test_reconstruction_excludes_empty_targets() -> None:
+    target = torch.tensor([[[0]], [[1]], [[0]], [[1]]])
+    background = torch.zeros_like(target)
+    scores = reconstruction_iou(background, target, 2)
+    torch.testing.assert_close(scores, torch.zeros(2))
+    unrestricted = reconstruction_iou(
+        background, target, 2, foreground_restricted=False
+    )
+    assert unrestricted.mean() == 0.5
+    assert reconstruction_iou(background, background, 2).numel() == 0
+    torch.testing.assert_close(reconstruction_iou(target, target, 2), torch.ones(2))

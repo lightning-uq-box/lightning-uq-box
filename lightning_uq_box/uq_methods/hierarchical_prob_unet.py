@@ -88,6 +88,28 @@ def hierarchical_ce_loss(
     }
 
 
+class _ScaleGradient(torch.autograd.Function):
+    """Scale the gradient flowing to the input, mirroring ``snt.scale_gradient``.
+
+    The reference GECO implementation (``sonnet`` v1
+    ``optimization_constraints.get_lagrange_multiplier``) makes the Lagrange
+    multiplier a *trainable variable* and scales its gradient by ``-rate``. The
+    negative factor turns the optimizer's descent step into ascent on the
+    multiplier, so a single optimizer solves the min-max problem.
+    """
+
+    @staticmethod
+    def forward(ctx, x: Tensor, scale: float) -> Tensor:
+        """Return ``x`` unchanged, remembering the scale for the backward pass."""
+        ctx.scale = scale
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, *grad_outputs: Tensor) -> tuple[Tensor, None]:
+        """Scale the incoming gradient by the stored factor."""
+        return grad_outputs[0] * ctx.scale, None
+
+
 class HierarchicalProbUNet(BaseModule):
     """Train an SMP spatial latent hierarchy with GECO (default) or ELBO.
 
@@ -111,6 +133,7 @@ class HierarchicalProbUNet(BaseModule):
         decay: float = 0.99,
         rate: float = 1e-2,
         lagrange_init: float = 1.0,
+        geco_impl: str = "buffer",
         beta: float = 1.0,
         top_k_percentage: float | None = 0.02,
         deterministic_top_k: bool = False,
@@ -132,6 +155,11 @@ class HierarchicalProbUNet(BaseModule):
             decay: Reconstruction exponential moving-average decay.
             rate: Multiplicative GECO update rate in log space.
             lagrange_init: Positive initial Lagrange multiplier.
+            geco_impl: "buffer" keeps the manual log-space buffer update.
+                "reference" reproduces sonnet's ``get_lagrange_multiplier``:
+                ``lambda = softplus(w) ** 2`` with ``w`` a trainable parameter
+                carried by the model optimizer and its gradient scaled by
+                ``-rate``. Use "reference" to match the paper.
             beta: KL weight for ELBO.
             top_k_percentage: Hard-pixel fraction or None to use all pixels.
             deterministic_top_k: Disable Gumbel perturbation in pixel selection.
@@ -189,8 +217,21 @@ class HierarchicalProbUNet(BaseModule):
             lr_scheduler,
             save_preds,
         )
+        if geco_impl not in ("buffer", "reference"):
+            raise ValueError(
+                f"geco_impl must be 'buffer' or 'reference', got {geco_impl}."
+            )
+        self.geco_impl = geco_impl
         self.register_buffer("log_lagmul", torch.tensor(math.log(lagrange_init)))
         self.register_buffer("ma_rec_loss", torch.tensor(float("nan")))
+        if geco_impl == "reference":
+            # w such that softplus(w) ** 2 == lagrange_init, i.e. the inverse of
+            # the reference's _squared_softplus parametrization. softplus_inverse
+            # (y) = y + log(-expm1(-y)) for y > 0.
+            y = math.sqrt(lagrange_init)
+            self.lagmul_w = nn.Parameter(
+                torch.tensor(y + math.log(-math.expm1(-y)), dtype=torch.float32)
+            )
         self.train_metrics = default_segmentation_metrics(
             prefix="train", num_classes=num_classes, task=task
         )
@@ -241,20 +282,33 @@ class HierarchicalProbUNet(BaseModule):
     @torch.no_grad()
     def _update_geco(self, constraint: Tensor, ma: Tensor) -> None:
         self.ma_rec_loss.copy_(ma)
+        if self.geco_impl == "reference":
+            # The multiplier is a trainable parameter stepped by the model
+            # optimizer, so only the reconstruction moving average is updated
+            # here (sonnet's get_lagrange_multiplier owns the multiplier).
+            return
         self.log_lagmul.add_(self.rate * constraint.detach()).clamp_(
             math.log(1e-5), math.log(1e5)
         )
 
     def compute_loss(self, batch: dict[str, Tensor]) -> dict[str, Tensor]:
-        """Return loss, per-scale KL nats and [B, C, H, W] reconstruction logits."""
+        """Return losses and logits, honoring optional ``valid_mask`` [B, H, W]."""
+        # Outside training the loss should be a deterministic function of the
+        # weights and the data, because it is what ``ModelCheckpoint`` and the
+        # LR scheduler monitor. Two independent sources of noise have to be
+        # switched off for that, and gating only one leaves the monitor just as
+        # random as before: the posterior latent draw here, and the
+        # Gumbel-perturbed pixel mining below.
+        deterministic = not self.training
         logits, q, p = self.reconstruct(
-            batch[self.input_key], self._targets(batch[self.target_key])
+            batch[self.input_key], self._targets(batch[self.target_key]), deterministic
         )
         rec = hierarchical_ce_loss(
             logits,
             self._targets(batch[self.target_key]),
             self.top_k_percentage,
-            self.deterministic_top_k,
+            deterministic_top_k=self.deterministic_top_k or deterministic,
+            mask=batch.get("valid_mask"),
         )
         out = {
             f"kl_{i}": kl_divergence(qi, pi).flatten(1).sum(1).mean()
@@ -271,11 +325,20 @@ class HierarchicalProbUNet(BaseModule):
             constraint, ma = self._geco_constraint(
                 rec["sum"], rec["mask"].sum(1).mean()
             )
+            if self.geco_impl == "reference":
+                # lambda = softplus(w) ** 2, with dL/dw scaled by -rate so the
+                # model optimizer ascends on w while descending on the network
+                # weights (sonnet get_lagrange_multiplier / _parametrize).
+                lagmul = (
+                    F.softplus(_ScaleGradient.apply(self.lagmul_w, -self.rate)) ** 2
+                )
+            else:
+                lagmul = self.log_lagmul.exp()
             out.update(
-                loss=self.log_lagmul.exp() * constraint + kl_sum,
+                loss=lagmul * constraint + kl_sum,
                 constraint=constraint,
                 ma=ma,
-                lagmul=self.log_lagmul.exp(),
+                lagmul=lagmul.detach(),
             )
         else:
             out["loss"] = rec["sum"] + self.beta * kl_sum
@@ -376,7 +439,22 @@ class HierarchicalProbUNet(BaseModule):
 
     def configure_optimizers(self) -> OptimizerLRScheduler:
         """Configure the network optimizer, keeping the GECO multiplier separate."""
-        optimizer = self.optimizer(p for p in self.parameters() if p.requires_grad)
+        if self.geco_impl == "reference":
+            # Sonnet regularizes convolution weights/biases, not its multiplier.
+            optimizer = self.optimizer(
+                [
+                    {
+                        "params": [
+                            p
+                            for name, p in self.named_parameters()
+                            if p.requires_grad and name != "lagmul_w"
+                        ]
+                    },
+                    {"params": [self.lagmul_w], "weight_decay": 0.0},
+                ]
+            )
+        else:
+            optimizer = self.optimizer(p for p in self.parameters() if p.requires_grad)
         if self.lr_scheduler is not None:
             return {
                 "optimizer": optimizer,

@@ -115,7 +115,21 @@ def hungarian_matched_iou(
 
 
 def reconstruction_iou(
-    pred: Tensor, target: Tensor, num_classes: int, ignore_background: bool = True
+    pred: Tensor,
+    target: Tensor,
+    num_classes: int,
+    ignore_background: bool = True,
+    foreground_restricted: bool = True,
 ) -> Tensor:
-    """Return posterior reconstruction IoU_rec [B] for hard maps [B, H, W]."""
-    return iou_with_empty_convention(pred, target, num_classes, ignore_background)
+    """Return posterior reconstruction IoUs for hard maps [B, H, W].
+
+    By default return the diagnostic restricted to nonempty target images.
+    The returned vector has one entry per scored image (possibly empty);
+    aggregate by its length across batches/graders. For paper-comparable LIDC
+    IoU_rec, set foreground_restricted=False: Appendix B.2 excludes the
+    background class, but includes empty-vs-empty predictions with IoU=1.
+    """
+    scores = iou_with_empty_convention(pred, target, num_classes, ignore_background)
+    if foreground_restricted:
+        scores = scores[(target > 0).flatten(1).any(1)]
+    return scores

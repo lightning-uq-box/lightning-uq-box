@@ -1,6 +1,8 @@
 # Copyright (c) 2023 lightning-uq-box. All rights reserved.
 # Licensed under the Apache License 2.0.
 
+import math
+
 import pytest
 import torch
 from torch.distributions import kl_divergence
@@ -167,3 +169,128 @@ def test_extreme_scales_remain_finite_under_autocast(
     for qi, pi in zip(q, p, strict=True):
         assert qi.mean.dtype == torch.float32
         assert torch.isfinite(kl_divergence(qi, pi)).all()
+
+
+def scale_decoder(bound: float, bias: float) -> HierarchicalUnetDecoder:
+    decoder = HierarchicalUnetDecoder(
+        encoder_channels=(3, 4, 8, 16),
+        decoder_channels=(8, 4, 2),
+        n_blocks=3,
+        latent_dims=(1, 1),
+        use_norm=False,
+        log_sigma_bound=bound,
+    )
+    with torch.no_grad():
+        for head in decoder.latent_heads:
+            assert isinstance(head, torch.nn.Conv2d) and head.bias is not None
+            head.weight.zero_()
+            head.bias.zero_()
+            head.bias[1:].fill_(bias)
+    return decoder
+
+
+def scale_features() -> list[torch.Tensor]:
+    return [torch.ones(2, c, s, s) for c, s in [(3, 32), (4, 16), (8, 8), (16, 4)]]
+
+
+def test_log_sigma_bound_limits_kl() -> None:
+    values = []
+    for bound in (4.0, 10.0):
+        q = scale_decoder(bound, 20)(scale_features(), mean=True)
+        p = scale_decoder(bound, -20)(scale_features(), z_q=q.used_latents)
+        values.append(
+            torch.stack(
+                [
+                    kl_divergence(qi, pi).mean()
+                    for qi, pi in zip(q.distributions, p.distributions, strict=True)
+                ]
+            )
+        )
+        # With equal means, KL <= (exp(4*bound) - 1 - 4*bound)/2.
+        ceiling = (torch.exp(torch.tensor(4 * bound)) - 1 - 4 * bound) / 2
+        assert (values[-1] <= ceiling).all()
+    assert (values[1] > values[0] * 1e6).all()
+
+
+def test_log_sigma_bound_preserves_recovery_gradient() -> None:
+    torch.manual_seed(42)
+    decoder = scale_decoder(4.0, -20.0)
+    out = decoder(scale_features(), mean=True)
+    sum(d.base_dist.scale.log().sum() for d in out.distributions).backward()
+    for head in decoder.latent_heads:
+        assert isinstance(head, torch.nn.Conv2d)
+        assert head.weight.grad is not None
+        # Only scale rows: mean gradients cannot disguise a clamp trap.
+        assert head.weight.grad[1:].abs().sum() > 0
+        assert torch.isfinite(head.weight.grad).all()
+
+
+@pytest.mark.parametrize("bias", [-0.5, 0.0, 0.5])
+def test_log_sigma_bound_is_near_identity_in_healthy_range(bias: float) -> None:
+    decoder = scale_decoder(4.0, bias)
+    for dist in decoder(scale_features(), mean=True).distributions:
+        torch.testing.assert_close(
+            dist.base_dist.scale,
+            torch.full_like(dist.base_dist.scale, math.exp(bias)),
+            rtol=0.02,
+            atol=0,
+        )
+
+
+@pytest.mark.parametrize("bound", [0.0, -1.0, float("nan"), float("inf")])
+def test_invalid_log_sigma_bound(bound: float) -> None:
+    with pytest.raises(ValueError, match="log_sigma_bound"):
+        scale_decoder(bound, 0)
+    with pytest.raises(ValueError, match="log_sigma_bound"):
+        HierarchicalProbUNet(encoder_weights=None, log_sigma_bound=bound)
+
+
+@pytest.mark.parametrize("factor", [1, 4])
+def test_pooled_latent_conditioning_and_gradients(factor: int) -> None:
+    torch.manual_seed(42)
+    model = HierarchicalProbUNet(
+        encoder_name="resnet18",
+        encoder_weights=None,
+        in_channels=1,
+        decoder_channels=(16, 8, 4, 4, 2),
+        decoder_use_norm=False,
+        latent_pool_factor=factor,
+    ).eval()
+    x = torch.randn(2, 1, 128, 128)
+    features = model.prior_encoder(x)
+    q = model.prior_decoder(features, mean=True)
+    p = model.prior_decoder(features, z_q=q.used_latents)
+    for i, (qi, pi) in enumerate(zip(q.distributions, p.distributions, strict=True)):
+        size = 4 * 2**i // factor
+        assert qi.batch_shape == (2, size, size)
+        torch.testing.assert_close(
+            kl_divergence(qi, pi), torch.zeros_like(qi.mean[..., 0])
+        )
+        assert p.used_latents[i] is q.used_latents[i]
+    changed = list(q.used_latents)
+    changed[0] = changed[0] + 1
+    intervention = model.prior_decoder(features, z_q=changed)
+    assert not torch.equal(intervention.distributions[1].mean, q.distributions[1].mean)
+    logits, posterior, prior = model.reconstruct(x, torch.randn(2, 2, 128, 128))
+    assert logits.shape == (2, 2, 128, 128)
+    loss = logits.square().mean() + sum(
+        kl_divergence(qi, pi).mean() for qi, pi in zip(posterior, prior, strict=True)
+    )
+    loss.backward()
+    for head in model.posterior_decoder.latent_heads:
+        assert isinstance(head, torch.nn.Conv2d)
+        assert head.weight.grad is not None
+        assert torch.isfinite(head.weight.grad).all()
+        assert head.weight.grad.abs().sum() > 0
+
+
+@pytest.mark.parametrize("factor", [0, -1, 1.5, True])
+def test_invalid_latent_pool_factor(factor: int) -> None:
+    with pytest.raises(ValueError, match="latent_pool_factor"):
+        HierarchicalUnetDecoder(
+            encoder_channels=(3, 4, 8, 16),
+            decoder_channels=(8, 4, 2),
+            n_blocks=3,
+            latent_dims=(1, 1),
+            latent_pool_factor=factor,
+        )

@@ -7,4 +7,5 @@
 
 earth_observation/raps
 earth_observation/hierarchical_prob_unet
+earth_observation/flair2_prob_unet_comparison
 ```

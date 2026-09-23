@@ -15,6 +15,7 @@ from segmentation_models_pytorch.decoders.unet.decoder import (
 from segmentation_models_pytorch.encoders import get_encoder
 from torch import Tensor, nn
 from torch.distributions import Independent, Normal
+from torch.nn import functional as F
 
 from .prob_unet import init_weights_orthogonal_normal
 
@@ -86,13 +87,27 @@ class HierarchicalUnetDecoder(UnetDecoder):
         convs_per_block: int = 3,
         blocks_per_level: int = 1,
         posterior: bool = False,
+        log_sigma_bound: float = 4.0,
+        latent_pool_factor: int = 1,
     ) -> None:
         """Initialize stochastic stages and a deterministic stitching tail.
 
         The posterior stops at its last distribution: subsequent decoder blocks
         cannot affect any posterior latent and would be unused trainable weights.
         Additional residual blocks refine each stochastic feature before its head.
+        Log standard deviations are smoothly bounded by log_sigma_bound (> 0).
+        This deviates from DeepMind, which uses unbounded tf.exp(logsigma).
         """
+        if not 0 < log_sigma_bound < float("inf"):
+            raise ValueError("log_sigma_bound must be finite and positive.")
+        if (
+            isinstance(latent_pool_factor, bool)
+            or not isinstance(latent_pool_factor, int)
+            or latent_pool_factor < 1
+        ):
+            raise ValueError("latent_pool_factor must be a positive integer.")
+        self.latent_pool_factor = latent_pool_factor
+        self.log_sigma_bound = log_sigma_bound
         if not 0 < len(latent_dims) < n_blocks or any(d < 1 for d in latent_dims):
             raise ValueError(
                 "latent_dims must be positive and leave at least one deterministic stitching stage."
@@ -171,16 +186,23 @@ class HierarchicalUnetDecoder(UnetDecoder):
         for i in range(max(len(self.blocks), len(self.latent_dims))):
             if i < len(self.latent_dims):
                 x = self.refinements[i](x)
-                mu, log_sigma = self.latent_heads[i](x).chunk(2, dim=1)
+                head_features = x
+                if self.latent_pool_factor > 1:
+                    if any(size % self.latent_pool_factor for size in x.shape[-2:]):
+                        raise ValueError(
+                            "Latent feature sizes must be divisible by latent_pool_factor."
+                        )
+                    head_features = F.avg_pool2d(x, self.latent_pool_factor)
+                mu, log_sigma = self.latent_heads[i](head_features).chunk(2, dim=1)
                 # Channels form the event; spatial locations remain batch axes.
                 # Bound log scales and compute distributions in FP32 to prevent
                 # exp/variance overflow under mixed precision or early GECO updates.
+                bound = self.log_sigma_bound
+                log_sigma = -bound + 2 * bound * torch.sigmoid(
+                    log_sigma.float() * (2 / bound)
+                )
                 dist = Independent(
-                    Normal(
-                        mu.float().movedim(1, -1),
-                        log_sigma.float().clamp(-10, 10).movedim(1, -1).exp(),
-                    ),
-                    1,
+                    Normal(mu.float().movedim(1, -1), log_sigma.movedim(1, -1).exp()), 1
                 )
                 z = (
                     z_q[i]
@@ -193,7 +215,12 @@ class HierarchicalUnetDecoder(UnetDecoder):
                     )
                 distributions.append(dist)
                 latents.append(z)
-                x = torch.cat([x, z], dim=1)
+                injected_z = (
+                    F.interpolate(z, size=x.shape[-2:], mode="nearest")
+                    if self.latent_pool_factor > 1
+                    else z
+                )
+                x = torch.cat([x, injected_z], dim=1)
             if i < len(self.blocks):
                 skip = (
                     reversed_features[i + 1] if i + 1 < len(reversed_features) else None
@@ -222,6 +249,8 @@ class HierarchicalProbUNet(nn.Module):
         blocks_per_level: int = 1,
         decoder_use_norm: str | bool = "batchnorm",
         decoder_interpolation: str = "nearest",
+        log_sigma_bound: float = 4.0,
+        latent_pool_factor: int = 1,
     ) -> None:
         """Build two encoders, spatial latent decoders and the prior's output head.
 
@@ -237,8 +266,15 @@ class HierarchicalProbUNet(nn.Module):
             blocks_per_level: Pre-head residual blocks at each stochastic scale.
             decoder_use_norm: SMP decoder normalization; False disables it.
             decoder_interpolation: SMP upsampling interpolation mode.
+            latent_pool_factor: Average-pool pre-head features by this factor and
+                broadcast sampled latents back to decoder resolution. Factor 4 gives
+                1, 2, 4, 8 spatial sizes for 128-pixel inputs with depth 5.
+            log_sigma_bound: Positive finite smooth bound on log standard deviations.
+                Unlike the unbounded DeepMind reference, limits variance collapse.
         """
         super().__init__()
+        if not 0 < log_sigma_bound < float("inf"):
+            raise ValueError("log_sigma_bound must be finite and positive.")
         if classes < 1 or in_channels < 1:
             raise ValueError("classes and in_channels must be positive.")
         if (
@@ -272,6 +308,8 @@ class HierarchicalProbUNet(nn.Module):
             decoder_interpolation,
             convs_per_block,
             blocks_per_level,
+            log_sigma_bound=log_sigma_bound,
+            latent_pool_factor=latent_pool_factor,
         )
         self.posterior_decoder = HierarchicalUnetDecoder(
             self.posterior_encoder.out_channels,
@@ -283,6 +321,8 @@ class HierarchicalProbUNet(nn.Module):
             convs_per_block,
             blocks_per_level,
             posterior=True,
+            log_sigma_bound=log_sigma_bound,
+            latent_pool_factor=latent_pool_factor,
         )
         self.segmentation_head = SegmentationHead(
             decoder_channels[-1], classes, kernel_size=3

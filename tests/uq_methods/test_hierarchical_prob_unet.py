@@ -142,3 +142,92 @@ def test_geco_updates_only_training_step(monkeypatch: pytest.MonkeyPatch) -> Non
         method.validation_step(batch, 0)
     torch.testing.assert_close(saved[0], method.log_lagmul)
     torch.testing.assert_close(saved[1], method.ma_rec_loss)
+
+
+def test_batch_validity_mask_reaches_reconstruction_loss(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Invalid padded pixels must affect neither reconstruction CE nor its gradient."""
+    from torch.distributions import Independent, Normal
+
+    method = make_method(top_k_percentage=None)
+    logits = torch.zeros(2, 2, 4, 4, requires_grad=True)
+    distribution = Independent(
+        Normal(torch.zeros(2, 1, 1, 1), torch.ones(2, 1, 1, 1)), 1
+    )
+    monkeypatch.setattr(
+        method, "reconstruct", lambda *args: (logits, [distribution], [distribution])
+    )
+    valid = torch.zeros(2, 4, 4)
+    valid[:, :2] = 1
+    out = method.compute_loss(
+        {
+            "input": torch.zeros(2, 3, 4, 4),
+            "target": torch.zeros(2, 4, 4, dtype=torch.long),
+            "valid_mask": valid,
+        }
+    )
+    torch.testing.assert_close(
+        out["rec_loss_sum"], torch.tensor(8 * torch.log(torch.tensor(2.0)).item())
+    )
+    out["loss"].backward()
+    assert logits.grad is not None
+    assert logits.grad[:, :, 2:].count_nonzero() == 0
+    assert logits.grad[:, :, :2].count_nonzero() > 0
+
+
+def test_reference_multiplier_is_not_weight_decayed() -> None:
+    from functools import partial
+
+    method = make_method(
+        geco_impl="reference",
+        optimizer=partial(torch.optim.Adam, lr=1e-4, weight_decay=1e-5),
+    )
+    configured = method.configure_optimizers()
+    assert isinstance(configured, dict)
+    optimizer = configured["optimizer"]
+    groups = optimizer.param_groups
+    assert groups[0]["weight_decay"] == 1e-5
+    assert groups[1]["weight_decay"] == 0
+    assert groups[1]["params"] == [method.lagmul_w]
+    assert all(p is not method.lagmul_w for p in groups[0]["params"])
+
+
+def test_validation_loss_is_deterministic() -> None:
+    """Outside training the loss must be a function of the weights and data.
+
+    ``val_loss`` is what ``ModelCheckpoint`` and the LR scheduler monitor, so a
+    stochastic value makes checkpoint selection partly a coin flip. Two
+    independent sources of noise have to be gated for this, and switching off
+    only the Gumbel-perturbed mining leaves the posterior latent draw -- the
+    larger of the two -- still running.
+    """
+    method = make_method(loss_type="elbo", beta=1e-3)
+    batch = {
+        "input": torch.randn(2, 3, 32, 32),
+        "target": torch.randint(2, (2, 32, 32)),
+    }
+
+    method.eval()
+    with torch.no_grad():
+        keys = ["loss", "rec_loss_sum", "rec_loss_mean", "kl_sum"]
+        runs = [
+            {key: float(method.compute_loss(batch)[key]) for key in keys}
+            for _ in range(3)
+        ]
+    for key in keys:
+        assert len({run[key] for run in runs}) == 1, f"{key} is stochastic in eval"
+
+
+def test_training_loss_keeps_its_stochasticity() -> None:
+    """Determinism outside training must not disable exploration inside it."""
+    method = make_method(loss_type="elbo", beta=1e-3)
+    batch = {
+        "input": torch.randn(2, 3, 32, 32),
+        "target": torch.randint(2, (2, 32, 32)),
+    }
+
+    method.train()
+    with torch.no_grad():
+        losses = {float(method.compute_loss(batch)["loss"]) for _ in range(3)}
+    assert len(losses) > 1, "training-time sampling was lost"
