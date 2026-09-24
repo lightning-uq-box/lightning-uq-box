@@ -252,6 +252,11 @@ def process_segmentation_prediction(
 
     Applies softmax to logit and computes mean over the samples and entropy.
 
+    For the "binary" task the logits carry a single channel, so a sigmoid is
+    applied and the uncertainty is the binary entropy. Passing such logits
+    through the softmax branch would return a constant 1.0 with zero entropy,
+    because a softmax over one channel is degenerate.
+
     For the "multilabel" task the labels are not mutually exclusive, so a
     sigmoid is applied per label and the uncertainty is the sum of the
     per-label binary entropies.
@@ -272,6 +277,12 @@ def process_segmentation_prediction(
         mean = aggregate_fn(torch.sigmoid(logits), dim=-1)
         mean = mean.clamp(eps, 1 - eps)
         entropy = -(mean * mean.log() + (1 - mean) * (1 - mean).log()).sum(dim=1)
+        return {"pred": mean, "pred_uct": entropy, "logits": logits}
+
+    if task == "binary":
+        mean = aggregate_fn(torch.sigmoid(logits), dim=-1)
+        mean = mean.clamp(eps, 1 - eps)
+        entropy = -(mean * mean.log() + (1 - mean) * (1 - mean).log()).squeeze(1)
         return {"pred": mean, "pred_uct": entropy, "logits": logits}
 
     mean = aggregate_fn(nn.functional.softmax(logits, dim=1), dim=-1)
