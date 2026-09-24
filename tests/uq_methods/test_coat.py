@@ -10,7 +10,11 @@ from torch import nn
 
 from lightning_uq_box.uq_methods import COAT
 from lightning_uq_box.uq_methods.loss_functions import SoftMiscoverageLoss
-from tests.uq_methods.test_adaptive_thresholding import TinyThreshold, run_two_stage
+from tests.uq_methods.test_adaptive_thresholding import (
+    TinyThreshold,
+    assert_reload_matches,
+    run_two_stage,
+)
 
 
 def test_loop_equivalence() -> None:
@@ -118,3 +122,13 @@ def test_config_instantiation() -> None:
     assert torch.isfinite(loss)
     assert any(p.grad is not None for p in method.threshold_model.parameters())
     assert all(p.grad is None for p in method.model.parameters())
+
+
+def test_reload_six_channels(tmp_path: Path) -> None:
+    method = COAT(
+        nn.Sequential(nn.Conv2d(6, 1, 1), nn.BatchNorm2d(1)),
+        pretrained_threshold_net=False,
+    )
+    # The threshold network sizes its stem from the first batch it sees.
+    method.threshold_model(torch.rand(2, 6, 16, 16), torch.rand(2, 1, 16, 16))
+    assert_reload_matches(method, tmp_path / "coat.ckpt")

@@ -32,6 +32,22 @@ class COAT(SegmentationPosthocBase):
 
         Configure the first Trainer with max_epochs (recommended 60) explicitly;
         use a fresh Trainer(max_epochs=1) for independent calibration data.
+
+        Args:
+            model: fitted base model mapping [batch_size x C x H x W] images to
+                binary logits [batch_size x 1 x H x W]
+            alpha: target false-negative rate in (0, 1)
+            lr: learning rate of the threshold network
+            max_epochs: recommended epochs for the first Trainer
+            temperature: divisor of the soft foreground indicator
+            pretrained_threshold_net: whether the threshold ResNet-50 starts from
+                ImageNet weights
+            optimizer: optimizer for the threshold network
+            lr_scheduler: optional scheduler monitoring ``val_loss``
+            save_preds: whether to save test predictions as HDF5 files
+
+        Raises:
+            ValueError: if max_epochs is not positive
         """
         if max_epochs < 1:
             raise ValueError("max_epochs must be positive.")
@@ -56,7 +72,14 @@ class COAT(SegmentationPosthocBase):
         self.soft_miscoverage_loss = loss
 
     def _training_step_network(self, batch: dict[str, Tensor]) -> Tensor:
-        """Optimize squared soft recall gaps without oracle threshold labels."""
+        """Optimize squared soft recall gaps without oracle threshold labels.
+
+        Args:
+            batch: images [batch_size x C x H x W] and binary masks
+
+        Returns:
+            scalar soft miscoverage loss
+        """
         X = batch[self.input_key]
         phat = self._probabilities(X)
         return self.soft_miscoverage_loss(
