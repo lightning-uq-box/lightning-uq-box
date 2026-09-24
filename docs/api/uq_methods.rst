@@ -441,6 +441,51 @@ Probabilistic UNet
 
 
 
+Hierarchical Probabilistic UNet
+-------------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.hierarchical_prob_unet
+
+.. autoclass:: HierarchicalProbUNet
+
+.. autofunction:: hierarchical_ce_loss
+
+This SMP adaptation of `Kohl et al. (2019) <https://arxiv.org/abs/1905.13077>`_
+uses separate image prior and image/segmentation posterior encoders. Posterior
+samples condition the prior at every latent scale for reconstruction and KL.
+Prediction samples only the prior. ``mean`` can be a boolean per scale to explore
+coarse-to-fine interventions.
+
+GECO is the default: reconstruction CE is summed over selected pixels and
+averaged over images; ``kappa`` is scaled by the selected pixel count. Hard pixel
+mining selects 2% over the whole batch with Gumbel-perturbed ranking. The moving
+average uses a straight-through reconstruction gradient. The multiplier is a
+checkpointed buffer updated once per training batch, independently of optimizer
+and scheduler, and synchronized across distributed ranks. A sustained multiplier
+at its 1e5 cap suggests an unattainable reconstruction target. Set
+``loss_type="elbo"`` for fixed-beta training. Binary tasks use one sigmoid logit;
+multiclass tasks use one logit per class.
+
+For a small dataset, use ``encoder_weights="imagenet"`` with
+``freeze_backbone=True`` to train the latent hierarchy with frozen encoders.
+``freeze_decoder=True`` freezes only the prior's deterministic stitching tail
+and segmentation head; stochastic stages remain trainable.
+
+The SMP backbone and decoder differ from the paper's eight-scale residual
+architecture. ``blocks_per_level`` and ``convs_per_block`` control residual
+refinement before each latent head; SMP blocks perform upsampling and skip
+fusion. The posterior ends at its last distribution, and training omits the
+unused free-prior pass from the reference. Report parameter counts and training
+settings when comparing to the paper; paper-level LIDC scores are not implied
+by architecture or smoke tests.
+
+Distributional evaluation uses integer maps ``[B, N, H, W]``, obtained by argmax
+of individual sampled logits (threshold for binary). The functions in
+``lightning_uq_box.eval_utils`` provide reconstruction IoU, squared GED and
+balanced Hungarian IoU with empty-vs-empty IoU equal to one. Always report the
+GED diversity term ``d_ss`` alongside GED. For non-divisible sample/grader counts,
+Hungarian evaluation repeats both sets to their least common multiple.
+
 UQ Calibration Methods
 ======================
 

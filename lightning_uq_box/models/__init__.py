@@ -17,10 +17,18 @@ from .epinet import (
     ProjectedMLP,
 )
 from .fc_resnet import FCResNet
+from .hierarchical_prob_unet import (
+    HierarchicalProbUNet,
+    HierarchicalUnetDecoder,
+    PreActResBlock,
+)
 from .mixture_density import MixtureDensityLayer
 from .mlp import MLP
 
 __all__ = (
+    "HierarchicalProbUNet",
+    "HierarchicalUnetDecoder",
+    "PreActResBlock",
     # Toy Example architecture
     "MLP",
     # Mixture Density Layer
