@@ -1,7 +1,12 @@
 # Adaptive conformal segmentation
 
-AT supports RGB images and binary masks. The fitted base segmentation model emits
-raw logits `[B,1,H,W]`; it remains in evaluation mode and receives no gradients.
+AT supports binary masks. The fitted base segmentation model emits raw logits
+`[B,1,H,W]`; it remains in evaluation mode and receives no gradients. The threshold
+network sees the same images as the base model, with three channels by default. Set
+`threshold_in_channels` for other inputs, e.g. `threshold_in_channels=6` for a
+bitemporal change-detection pair stacked along the channel axis. The value is saved
+with the hyperparameters, so `load_from_checkpoint(path, model=base_model)` rebuilds
+the matching network.
 The threshold network predicts one sigmoid threshold per image. AT regresses the
 largest oracle threshold attaining at least `1-alpha` positive-pixel recall.
 Discrete recall and tied probabilities can prevent exact attainment.

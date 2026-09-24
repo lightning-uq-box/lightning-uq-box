@@ -7,10 +7,12 @@ from typing import Any, cast
 from unittest.mock import patch
 
 import h5py
+import lightning
 import pytest
 import torch
 from lightning import Trainer
 from torch import Tensor, nn
+from torchvision.models import resnet50
 
 from lightning_uq_box.datamodules import ToySegmentationDataModule
 from lightning_uq_box.models import ThresholdPredictor
@@ -85,6 +87,71 @@ def test_threshold_predictor() -> None:
         tau = model(torch.randn(2, 3, 32, 32), torch.rand(2, 16, 16))
     assert tau.shape == (2,)
     assert ((tau >= 0) & (tau <= 1)).all()
+
+
+def test_threshold_predictor_rgb_stem_unchanged() -> None:
+    torch.manual_seed(0)
+    model = ThresholdPredictor(pretrained=False)
+    torch.manual_seed(0)
+    original = resnet50(weights=None).conv1.weight
+    weight = model.resnet.conv1.weight
+    assert torch.equal(weight[:, :3], original)
+    assert torch.equal(weight[:, 3:], original.mean(dim=1, keepdim=True))
+
+
+def test_threshold_predictor_in_channels() -> None:
+    model = ThresholdPredictor(pretrained=False, in_channels=6).eval()
+    weight = model.resnet.conv1.weight
+    assert weight.shape[1] == 7
+    torch.testing.assert_close(weight[:, :3], weight[:, 3:6])
+    torch.testing.assert_close(
+        weight[:, 6:7], 2 * weight[:, :3].mean(dim=1, keepdim=True)
+    )
+    with torch.no_grad():
+        tau = model(torch.randn(2, 6, 32, 32), torch.rand(2, 1, 32, 32))
+    assert tau.shape == (2,)
+    with pytest.raises(ValueError, match=r"\[B,6,H,W\]"):
+        model(torch.randn(2, 3, 32, 32), torch.rand(2, 1, 32, 32))
+    with pytest.raises(ValueError, match="positive"):
+        ThresholdPredictor(pretrained=False, in_channels=0)
+
+
+def save_calibrated_checkpoint(method: SegmentationPosthocBase, path: Path) -> None:
+    """Write the checkpoint Trainer.save_checkpoint would write after calibration."""
+    method._network_trained = True
+    method.post_hoc_fitted = True
+    method.t_prime.fill_(0.125)
+    checkpoint: dict[str, Any] = {
+        "state_dict": method.state_dict(),
+        "hyper_parameters": dict(method.hparams),
+        "pytorch-lightning_version": lightning.__version__,
+    }
+    method.on_save_checkpoint(checkpoint)
+    torch.save(checkpoint, path)
+
+
+def assert_reload_matches(method: SegmentationPosthocBase, path: Path) -> None:
+    base = method.model
+    save_calibrated_checkpoint(method, path)
+    restored = type(method).load_from_checkpoint(path, model=base)
+    assert restored.hparams["threshold_in_channels"] == 6
+    assert restored.post_hoc_fitted and restored._network_trained
+    torch.testing.assert_close(restored.t_prime, method.t_prime)
+    method.eval()
+    restored.eval()
+    X = torch.rand(2, 6, 16, 16)
+    expected, actual = method(X), restored(X)
+    for key in ("pred", "tau"):
+        torch.testing.assert_close(actual[key], expected[key])
+
+
+def test_reload_six_channels(tmp_path: Path) -> None:
+    method = AdaptiveThresholding(
+        nn.Sequential(nn.Conv2d(6, 1, 1), nn.BatchNorm2d(1)),
+        pretrained_threshold_net=False,
+        threshold_in_channels=6,
+    )
+    assert_reload_matches(method, tmp_path / "at.ckpt")
 
 
 def run_two_stage(method: SegmentationPosthocBase, tmp_path: Path) -> None:

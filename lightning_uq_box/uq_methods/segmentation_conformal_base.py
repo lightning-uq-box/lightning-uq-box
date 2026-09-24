@@ -182,7 +182,17 @@ class SegmentationPosthocBase(PosthocBase):
     def adjust_model_logits(
         self, model_output: tuple[Tensor, Tensor]
     ) -> dict[str, Tensor]:
-        """Apply the subtraction shift to probabilities [B,1,H,W] and thresholds [B]."""
+        """Apply the calibrated subtraction shift to the predicted thresholds.
+
+        Args:
+            model_output: probabilities [batch_size x 1 x H x W] and predicted
+                thresholds [batch_size]
+
+        Returns:
+            dictionary with boolean masks ``pred`` [batch_size x 1 x H x W],
+            probabilities ``phat``, and calibrated thresholds ``tau`` and
+            ``pred_uct`` [batch_size]
+        """
         phat, predicted_tau = model_output
         tau = (predicted_tau - self.t_prime).clamp(0, 1)
         return {
@@ -194,7 +204,19 @@ class SegmentationPosthocBase(PosthocBase):
 
     @torch.no_grad()
     def forward(self, X: Tensor) -> dict[str, Tensor]:
-        """Return calibrated masks [B,1,H,W], probabilities and thresholds [B]."""
+        """Predict calibrated binary masks.
+
+        Args:
+            X: images of shape [batch_size x C x H x W]
+
+        Returns:
+            dictionary with boolean masks ``pred`` [batch_size x 1 x H x W],
+            probabilities ``phat``, and calibrated thresholds ``tau`` and
+            ``pred_uct`` [batch_size]
+
+        Raises:
+            RuntimeError: if the method has not been calibrated
+        """
         if not self.post_hoc_fitted:
             raise RuntimeError(
                 "Model has not been post hoc fitted; train the threshold network, then fit on calibration data."
@@ -205,7 +227,16 @@ class SegmentationPosthocBase(PosthocBase):
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
     ) -> dict[str, Tensor]:
-        """Predict calibrated binary masks for images [B,3,H,W]."""
+        """Predict calibrated binary masks.
+
+        Args:
+            X: images of shape [batch_size x C x H x W]
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
+
+        Returns:
+            the output of :meth:`forward`
+        """
         return self(X)
 
     def test_step(
