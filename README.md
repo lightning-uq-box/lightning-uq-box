@@ -95,7 +95,7 @@ The following sections aims to give an overview of different UQ-Methods by group
 | UQ-Method                                     | Regression | Classification | Segmentation | Pixel Wise Regression |
 |-----------------------------------------------|:----------:|:--------------:|:------------:|:---------------------:|
 | Classification And Regression Diffusion (CARD)|     ✅     |       ✅       |      ❌      |          ❌           |
-| Probabilistic UNet                            |     ❌     |       ❌       |      ✅      |          ❌           |       |
+| Probabilistic UNet                            |     ❌     |       ❌       |      ✅      |          ❌           |
 | Variational Auto-Encoder (VAE)                |     ❌     |       ❌       |      ❌      |          ✅           |
 | Vector Quantized VAE (VQ-VAE)                 |     ❌     |       ❌       |      ❌      |          ✅           |
 
@@ -108,8 +108,8 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Conformal Quantile Regression (Conformal QR)  |     ✅     |       ❌       |      ❌      |          ⏳           |
 | Regularized Adaptive Prediction Sets (RAPS)   |     ❌     |       ✅       |      ❌      |          ❌           |
 | Image to Image Conformal                      |     ❌     |       ❌       |      ❌      |          ✅           |
-| Adaptive Thresholding (AT) | ❌ | ❌ | ✅ | ❌ |
-| COAT | ❌ | ❌ | ✅ | ❌ |
+| Adaptive Thresholding (AT)                    |     ❌     |       ❌       |      ✅      |          ❌           |
+| COAT                                          |     ❌     |       ❌       |      ✅      |          ❌           |
 
 # Tutorials
 

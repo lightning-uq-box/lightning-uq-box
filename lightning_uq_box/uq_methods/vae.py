@@ -56,7 +56,7 @@ class VAE(DeterministicPixelRegression):
             img_size: The size of the input image, needed to configure the decoder by infering
                 the output size of the encoder.
             decoder_channels: The decoder channel sizes, excluding the output layer for the
-                :calss:`~.models.vae.VAEDecoder`., needs to match the encoder depth + 1. For example,
+                :class:`~.models.vae.VAEDecoder`., needs to match the encoder depth + 1. For example,
                 with the standard resnet18 encoder, this would be [512, 256, 128, 64, 32, 16].
             loss_fn: The loss function, by default :class:`~.loss_functions.VAELoss`. The kl_scale
                 factor in that loss function can have a significant impact on the performance of the VAE.
@@ -387,7 +387,7 @@ class ConditionalVAE(VAE):
             num_conditions: The number of discrete conditions, for example
                 class labels (in the case of MNIST or EuroSAT this would be 10)
             decoder_channels: The decoder channel sizes, excluding the output layer for the
-                :calss:`~.models.vae.VAEDecoder`., needs to match the encoder depth + 1. For example,
+                :class:`~.models.vae.VAEDecoder`., needs to match the encoder depth + 1. For example,
                 with the standard resnet18 encoder, this would be [512, 256, 128, 64, 32, 16].
             loss_fn: The loss function, by default :class:`~.loss_functions.VAELoss`.
             freeze_backbone: Whether to freeze the backbone.
