@@ -2,11 +2,12 @@
 
 AT supports binary masks. The fitted base segmentation model emits raw logits
 `[B,1,H,W]`; it remains in evaluation mode and receives no gradients. The threshold
-network sees the same images as the base model, with three channels by default. Set
-`threshold_in_channels` for other inputs, e.g. `threshold_in_channels=6` for a
-bitemporal change-detection pair stacked along the channel axis. The value is saved
-with the hyperparameters, so `load_from_checkpoint(path, model=base_model)` rebuilds
-the matching network.
+network sees the same images as the base model and reads their number of channels
+from the first batch, so RGB, multispectral and stacked bitemporal inputs need no
+extra setting. `load_from_checkpoint(path, model=base_model)` restores the network
+at the width stored in the checkpoint. Multi-GPU training with
+DistributedDataParallel needs the width before any data is seen; for that, assign
+`method.threshold_model = ThresholdPredictor(in_channels=C)` before fitting.
 The threshold network predicts one sigmoid threshold per image. AT regresses the
 largest oracle threshold attaining at least `1-alpha` positive-pixel recall.
 Discrete recall and tied probabilities can prevent exact attainment.

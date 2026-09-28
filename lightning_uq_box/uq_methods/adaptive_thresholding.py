@@ -27,7 +27,6 @@ class AdaptiveThresholding(SegmentationPosthocBase):
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
-        threshold_in_channels: int = 3,
     ) -> None:
         """Initialize AT; configure Trainer(max_epochs=max_epochs) for the first fit.
 
@@ -45,8 +44,6 @@ class AdaptiveThresholding(SegmentationPosthocBase):
             optimizer: optimizer for the threshold network
             lr_scheduler: optional scheduler monitoring ``val_loss``
             save_preds: whether to save test predictions as HDF5 files
-            threshold_in_channels: number of image channels C seen by the
-                threshold network, e.g. 6 for a stacked bitemporal pair
 
         Raises:
             ValueError: if max_epochs is not positive
@@ -55,7 +52,7 @@ class AdaptiveThresholding(SegmentationPosthocBase):
             raise ValueError("max_epochs must be positive.")
         super().__init__(
             model,
-            ThresholdPredictor(pretrained_threshold_net, threshold_in_channels),
+            ThresholdPredictor(pretrained_threshold_net),
             alpha,
             lr,
             optimizer,
@@ -66,7 +63,6 @@ class AdaptiveThresholding(SegmentationPosthocBase):
             {
                 "max_epochs": max_epochs,
                 "pretrained_threshold_net": pretrained_threshold_net,
-                "threshold_in_channels": threshold_in_channels,
             }
         )
         self.max_epochs = max_epochs
