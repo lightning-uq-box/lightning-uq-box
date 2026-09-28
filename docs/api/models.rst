@@ -12,3 +12,9 @@ lightning_uq_box.models
 .. autoclass:: EnsemblePriorFunction
 
 .. autoclass:: ConvEnsemblePriorFunction
+
+Adaptive Thresholding
+---------------------
+
+.. autoclass:: ThresholdPredictor
+   :members:
