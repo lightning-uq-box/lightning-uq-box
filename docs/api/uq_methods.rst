@@ -440,6 +440,42 @@ Probabilistic UNet
 .. autoclass:: ProbUNet
 
 
+Variational Auto-Encoder (VAE)
+------------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.vae
+
+VAE
+```
+
+.. autoclass:: VAE
+
+Conditional VAE
+```````````````
+
+.. autoclass:: ConditionalVAE
+
+.. autoclass:: lightning_uq_box.uq_methods.loss_functions.VAELoss
+
+
+Vector Quantized VAE (VQ-VAE)
+-----------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.vq_vae
+
+VQ-VAE
+``````
+
+.. autoclass:: VQVAE
+
+.. autoclass:: lightning_uq_box.uq_methods.loss_functions.VQVAELoss
+
+VQ-VAE Prior
+````````````
+
+.. autoclass:: VQVAEPrior
+
+
 
 UQ Calibration Methods
 ======================
