@@ -12,6 +12,7 @@ import pytest
 import torch
 from lightning import Trainer
 from torch import Tensor, nn
+from torch.utils.data import DataLoader, Dataset
 from torchvision.models import resnet50
 
 from lightning_uq_box.datamodules import ToySegmentationDataModule
@@ -80,40 +81,69 @@ def test_gap_is_mean_absolute_gap() -> None:
 
 def test_threshold_predictor() -> None:
     model = ThresholdPredictor(pretrained=False).eval()
-    weight = model.resnet.conv1.weight
-    assert weight.shape[1] == 4
-    torch.testing.assert_close(weight[:, 3:4], weight[:, :3].mean(1, keepdim=True))
+    assert model.in_channels is None
     with torch.no_grad():
         tau = model(torch.randn(2, 3, 32, 32), torch.rand(2, 16, 16))
     assert tau.shape == (2,)
     assert ((tau >= 0) & (tau <= 1)).all()
+    assert model.in_channels == 3
+    weight = model.resnet.conv1.weight
+    torch.testing.assert_close(weight[:, 3:4], weight[:, :3].mean(1, keepdim=True))
 
 
-def test_threshold_predictor_rgb_stem_unchanged() -> None:
+@pytest.mark.parametrize("in_channels", [None, 3])
+def test_threshold_predictor_rgb_stem_unchanged(in_channels: int | None) -> None:
     torch.manual_seed(0)
-    model = ThresholdPredictor(pretrained=False)
+    model = ThresholdPredictor(pretrained=False, in_channels=in_channels)
     torch.manual_seed(0)
     original = resnet50(weights=None).conv1.weight
+    model(torch.randn(2, 3, 32, 32), torch.rand(2, 1, 32, 32))
     weight = model.resnet.conv1.weight
     assert torch.equal(weight[:, :3], original)
     assert torch.equal(weight[:, 3:], original.mean(dim=1, keepdim=True))
 
 
-def test_threshold_predictor_in_channels() -> None:
-    model = ThresholdPredictor(pretrained=False, in_channels=6).eval()
+@pytest.mark.parametrize("in_channels", [None, 6])
+def test_threshold_predictor_six_channels(in_channels: int | None) -> None:
+    model = ThresholdPredictor(pretrained=False, in_channels=in_channels).eval()
+    with torch.no_grad():
+        tau = model(torch.randn(2, 6, 32, 32), torch.rand(2, 1, 32, 32))
+    assert tau.shape == (2,)
+    assert model.in_channels == 6
     weight = model.resnet.conv1.weight
     assert weight.shape[1] == 7
     torch.testing.assert_close(weight[:, :3], weight[:, 3:6])
     torch.testing.assert_close(
         weight[:, 6:7], 2 * weight[:, :3].mean(dim=1, keepdim=True)
     )
-    with torch.no_grad():
-        tau = model(torch.randn(2, 6, 32, 32), torch.rand(2, 1, 32, 32))
-    assert tau.shape == (2,)
     with pytest.raises(ValueError, match=r"\[B,6,H,W\]"):
         model(torch.randn(2, 3, 32, 32), torch.rand(2, 1, 32, 32))
+
+
+def test_threshold_predictor_invalid_channels() -> None:
     with pytest.raises(ValueError, match="positive"):
         ThresholdPredictor(pretrained=False, in_channels=0)
+
+
+def test_threshold_predictor_optimizer_before_first_batch() -> None:
+    # Lightning builds the optimizer before any batch; the inferred stem must train.
+    model = ThresholdPredictor(pretrained=False)
+    optimizer = torch.optim.SGD(model.parameters(), lr=1.0)
+    model(torch.randn(2, 6, 32, 32), torch.rand(2, 1, 32, 32)).sum().backward()
+    before = model.resnet.conv1.weight.detach().clone()
+    optimizer.step()
+    assert not torch.equal(model.resnet.conv1.weight, before)
+
+
+def test_threshold_predictor_reload_before_first_batch() -> None:
+    trained = ThresholdPredictor(pretrained=False).eval()
+    X, phat = torch.randn(2, 6, 32, 32), torch.rand(2, 1, 32, 32)
+    trained(X, phat)
+    restored = ThresholdPredictor(pretrained=False).eval()
+    restored.load_state_dict(trained.state_dict())
+    assert restored.in_channels == 6
+    with torch.no_grad():
+        torch.testing.assert_close(restored(X, phat), trained(X, phat))
 
 
 def save_calibrated_checkpoint(method: SegmentationPosthocBase, path: Path) -> None:
@@ -133,8 +163,10 @@ def save_calibrated_checkpoint(method: SegmentationPosthocBase, path: Path) -> N
 def assert_reload_matches(method: SegmentationPosthocBase, path: Path) -> None:
     base = method.model
     save_calibrated_checkpoint(method, path)
-    restored = type(method).load_from_checkpoint(path, model=base)
-    assert restored.hparams["threshold_in_channels"] == 6
+    restored = type(method).load_from_checkpoint(
+        path, model=base, threshold_model=ThresholdPredictor(pretrained=False)
+    )
+    assert cast(ThresholdPredictor, restored.threshold_model).in_channels == 6
     assert restored.post_hoc_fitted and restored._network_trained
     torch.testing.assert_close(restored.t_prime, method.t_prime)
     method.eval()
@@ -148,10 +180,57 @@ def assert_reload_matches(method: SegmentationPosthocBase, path: Path) -> None:
 def test_reload_six_channels(tmp_path: Path) -> None:
     method = AdaptiveThresholding(
         nn.Sequential(nn.Conv2d(6, 1, 1), nn.BatchNorm2d(1)),
-        pretrained_threshold_net=False,
-        threshold_in_channels=6,
+        threshold_model=ThresholdPredictor(pretrained=False),
     )
+    # The threshold network sizes its stem from the first batch it sees.
+    method.threshold_model(torch.rand(2, 6, 16, 16), torch.rand(2, 1, 16, 16))
     assert_reload_matches(method, tmp_path / "at.ckpt")
+
+
+def test_six_channel_fit_infers_threshold_width(tmp_path: Path) -> None:
+    torch.manual_seed(0)
+    samples = [
+        {"input": torch.rand(6, 16, 16), "target": torch.rand(16, 16) > 0.5}
+        for _ in range(6)
+    ]
+
+    class SixChannels(Dataset[dict[str, Tensor]]):
+        def __len__(self) -> int:
+            return len(samples)
+
+        def __getitem__(self, index: int) -> dict[str, Tensor]:
+            return samples[index]
+
+    data = DataLoader(SixChannels(), batch_size=2)
+    method = AdaptiveThresholding(
+        nn.Sequential(nn.Conv2d(6, 1, 1), nn.BatchNorm2d(1)),
+        lr=1e-3,
+        threshold_model=ThresholdPredictor(pretrained=False),
+    )
+    settings: dict[str, Any] = {
+        "max_epochs": 1,
+        "logger": False,
+        "enable_checkpointing": False,
+        "enable_progress_bar": False,
+        "default_root_dir": str(tmp_path),
+        "accelerator": "cpu",
+    }
+    Trainer(**settings).fit(method, train_dataloaders=data)
+    assert cast(ThresholdPredictor, method.threshold_model).in_channels == 6
+    second = Trainer(**settings)
+    second.fit(method, train_dataloaders=data)
+    assert method.post_hoc_fitted
+    checkpoint = tmp_path / "six.ckpt"
+    second.save_checkpoint(checkpoint)
+    restored = AdaptiveThresholding.load_from_checkpoint(
+        checkpoint,
+        model=method.model,
+        threshold_model=ThresholdPredictor(pretrained=False),
+    )
+    method.eval()
+    restored.eval()
+    X = torch.stack([sample["input"] for sample in samples[:2]])
+    torch.testing.assert_close(restored(X)["tau"], method(X)["tau"])
 
 
 def run_two_stage(method: SegmentationPosthocBase, tmp_path: Path) -> None:
@@ -192,14 +271,11 @@ def run_two_stage(method: SegmentationPosthocBase, tmp_path: Path) -> None:
         assert "tau" in f.attrs
     checkpoint = tmp_path / "calibrated.ckpt"
     second.save_checkpoint(checkpoint)
-    with patch(
-        f"{type(method).__module__}.ThresholdPredictor", return_value=TinyThreshold()
-    ):
-        restored = type(method).load_from_checkpoint(
-            checkpoint,
-            model=nn.Sequential(nn.Conv2d(3, 1, 1), nn.BatchNorm2d(1)),
-            pretrained_threshold_net=False,
-        )
+    restored = type(method).load_from_checkpoint(
+        checkpoint,
+        model=nn.Sequential(nn.Conv2d(3, 1, 1), nn.BatchNorm2d(1)),
+        threshold_model=TinyThreshold(),
+    )
     assert restored.post_hoc_fitted and restored._network_trained
     assert restored.alpha == method.alpha
     assert restored.lr == method.lr
@@ -210,18 +286,43 @@ def run_two_stage(method: SegmentationPosthocBase, tmp_path: Path) -> None:
 
 
 def test_two_stage(tmp_path: Path) -> None:
+    method = AdaptiveThresholding(
+        nn.Sequential(nn.Conv2d(3, 1, 1), nn.BatchNorm2d(1)),
+        alpha=0.2,
+        lr=0.003,
+        save_preds=True,
+        threshold_model=TinyThreshold(),
+    )
+    run_two_stage(method, tmp_path)
+
+
+def test_default_threshold_model() -> None:
+    # The default is the paper's network with ImageNet weights; avoid the download.
     with patch(
         "lightning_uq_box.uq_methods.adaptive_thresholding.ThresholdPredictor",
         return_value=TinyThreshold(),
-    ):
-        method = AdaptiveThresholding(
-            nn.Sequential(nn.Conv2d(3, 1, 1), nn.BatchNorm2d(1)),
-            alpha=0.2,
-            lr=0.003,
-            pretrained_threshold_net=False,
-            save_preds=True,
-        )
-    run_two_stage(method, tmp_path)
+    ) as default:
+        method = AdaptiveThresholding(nn.Conv2d(3, 1, 1))
+    default.assert_called_once_with()
+    assert method.threshold_model is default.return_value
+
+
+class WrongShapeThreshold(nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.value = nn.Parameter(torch.tensor(0.0))
+
+    def forward(self, image: Tensor, phat: Tensor) -> Tensor:
+        return self.value.sigmoid().expand(image.shape[0], 1)
+
+
+def test_threshold_model_shape_checked() -> None:
+    method = AdaptiveThresholding(
+        nn.Conv2d(3, 1, 1), threshold_model=WrongShapeThreshold()
+    )
+    batch = {"input": torch.rand(2, 3, 8, 8), "target": torch.rand(2, 8, 8) > 0.5}
+    with pytest.raises(ValueError, match=r"thresholds \[B\]=2, got \(2, 1\)"):
+        method._training_step_network(batch)
 
 
 def test_config_instantiation() -> None:

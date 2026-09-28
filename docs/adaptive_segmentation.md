@@ -2,12 +2,20 @@
 
 AT supports binary masks. The fitted base segmentation model emits raw logits
 `[B,1,H,W]`; it remains in evaluation mode and receives no gradients. The threshold
-network sees the same images as the base model, with three channels by default. Set
-`threshold_in_channels` for other inputs, e.g. `threshold_in_channels=6` for a
-bitemporal change-detection pair stacked along the channel axis. The value is saved
-with the hyperparameters, so `load_from_checkpoint(path, model=base_model)` rebuilds
-the matching network.
-The threshold network predicts one sigmoid threshold per image. AT regresses the
+network is a second, trainable model that maps the image and the base model's
+probabilities to one threshold per image. By default it is
+`ThresholdPredictor`, the paper's ImageNet-pretrained ResNet-50 with a linear
+sigmoid head. Any module with the same inputs, returning thresholds in `[0,1]` of
+shape `[B]`, can be passed as `threshold_model`, for example
+`ThresholdPredictor(pretrained=False)` or a smaller network.
+`ThresholdPredictor` reads the number of image channels from the first batch, so
+RGB, multispectral and stacked bitemporal inputs need no extra setting.
+Multi-GPU training with DistributedDataParallel needs the width before any data is
+seen; pass `threshold_model=ThresholdPredictor(in_channels=C)` in that case.
+`load_from_checkpoint(path, model=base_model, threshold_model=network)` restores
+both stages; `network` must have the same architecture as the saved one, and a
+`ThresholdPredictor` takes its width from the checkpoint.
+The threshold network predicts one threshold per image. AT regresses the
 largest oracle threshold attaining at least `1-alpha` positive-pixel recall.
 Discrete recall and tied probabilities can prevent exact attainment.
 
@@ -48,3 +56,19 @@ target. Their reported metrics assign empty masks recall zero while their traini
 soft recall assigns one; here hard recall consistently assigns one. These choices
 must be disclosed when comparing empirical results. See the
 [paper](https://openreview.net/forum?id=Gd2AiWes1J).
+
+## COAT
+
+Replace AT with `COAT(model=fitted_binary_unet, alpha=0.1, temperature=0.05)`
+and train the threshold network for 60 epochs with learning rate `5e-4` (defaults).
+Calibration and test calls remain identical. COAT learns directly from masks:
+`sigmoid((phat - tau) / temperature)` relaxes the hard foreground set, and the
+loss is the mean squared gap between each image's soft recall and `1-alpha`.
+The denominator adds `eps=1e-6`; empty masks contribute a constant loss with
+zero gradient. This soft-loss convention differs from the hard recall convention
+(one for empty masks). The vectorized formula follows the paper's epsilon loss;
+the live reference code uses an explicit empty-mask branch instead.
+
+The [change detection tutorial](tutorials/earth_observation/change_detection_coat.ipynb)
+applies AT, COAT and a CRC baseline to bitemporal LEVIR-CD+ image pairs stacked
+into six channels.

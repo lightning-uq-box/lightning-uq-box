@@ -110,6 +110,27 @@ class SegmentationPosthocBase(PosthocBase):
             raise ValueError("Base model must emit binary logits [B,1,H,W].")
         return phat
 
+    def _thresholds(self, X: Tensor, phat: Tensor) -> Tensor:
+        """Predict one threshold per image with the threshold network.
+
+        Args:
+            X: images of shape [batch_size x C x H x W]
+            phat: foreground probabilities of shape [batch_size x 1 x H x W]
+
+        Returns:
+            thresholds of shape [batch_size]
+
+        Raises:
+            ValueError: if the threshold network does not return shape [batch_size]
+        """
+        tau = self.threshold_model(X, phat)
+        if tau.shape != (X.shape[0],):
+            raise ValueError(
+                f"threshold_model must return thresholds [B]={X.shape[0]}, "
+                f"got {tuple(tau.shape)}."
+            )
+        return tau
+
     def _training_step_network(self, batch: dict[str, Tensor]) -> Tensor:
         """Compute the subclass-specific threshold-network loss."""
         raise NotImplementedError
@@ -132,7 +153,7 @@ class SegmentationPosthocBase(PosthocBase):
             )
             self._phat.append(phat.cpu())
             self._labels.append(labels.cpu())
-            self._tau.append(self.threshold_model(batch[self.input_key], phat).cpu())
+            self._tau.append(self._thresholds(batch[self.input_key], phat).cpu())
         return None
 
     def validation_step(
@@ -222,7 +243,7 @@ class SegmentationPosthocBase(PosthocBase):
                 "Model has not been post hoc fitted; train the threshold network, then fit on calibration data."
             )
         phat = self._probabilities(X)
-        return self.adjust_model_logits((phat, self.threshold_model(X, phat)))
+        return self.adjust_model_logits((phat, self._thresholds(X, phat)))
 
     def predict_step(
         self, X: Tensor, batch_idx: int = 0, dataloader_idx: int = 0
