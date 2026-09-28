@@ -7,4 +7,5 @@
 
 earth_observation/raps
 earth_observation/flair2_prob_unet_comparison
+earth_observation/change_detection_coat
 ```

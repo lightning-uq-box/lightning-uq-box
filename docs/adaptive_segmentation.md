@@ -61,3 +61,7 @@ The denominator adds `eps=1e-6`; empty masks contribute a constant loss with
 zero gradient. This soft-loss convention differs from the hard recall convention
 (one for empty masks). The vectorized formula follows the paper's epsilon loss;
 the live reference code uses an explicit empty-mask branch instead.
+
+The [change detection tutorial](tutorials/earth_observation/change_detection_coat.ipynb)
+applies AT, COAT and a CRC baseline to bitemporal LEVIR-CD+ image pairs stacked
+into six channels.
