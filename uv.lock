@@ -1772,6 +1772,19 @@ wheels = [
 ]
 
 [[package]]
+name = "loguru"
+version = "0.7.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "colorama", marker = "sys_platform == 'win32'" },
+    { name = "win32-setctime", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3a/05/a1dae3dffd1116099471c643b8924f5aa6524411dc6c63fdae648c4f1aca/loguru-0.7.3.tar.gz", hash = "sha256:19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6", size = 63559, upload-time = "2024-12-06T11:20:56.608Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/29/0348de65b8cc732daa3e33e67806420b2ae89bdce2b04af740289c5c6c8c/loguru-0.7.3-py3-none-any.whl", hash = "sha256:31a33c10c8e1e10422bfd431aeb5d351c7cf7fa671e3c4df004162264b28220c", size = 61595, upload-time = "2024-12-06T11:20:54.538Z" },
+]
+
+[[package]]
 name = "markdown-it-py"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3769,17 +3782,18 @@ wheels = [
 
 [[package]]
 name = "vector-quantize-pytorch"
-version = "1.31.4"
+version = "1.31.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "einops" },
     { name = "einx" },
+    { name = "loguru" },
     { name = "torch" },
     { name = "torch-einops-utils" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/32/89/93e75119b808f45de5ccdc2a9429cc230606182f67c7663325bcb0381b2d/vector_quantize_pytorch-1.31.4.tar.gz", hash = "sha256:183af342111d945a053102f855dce2864a54063da80c76ba0c11ddfc59337c09", size = 58287, upload-time = "2026-09-02T16:01:42.233Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/e3/d34311f0994f838b3561805fd0c0a55a4774bdf5c1efa1972192e7e1979c/vector_quantize_pytorch-1.31.6.tar.gz", hash = "sha256:0a0e8033058468d7e1e53615d38b3dfb9cb6059a994d54aa3085bf04a30213bc", size = 58603, upload-time = "2026-09-24T04:04:26.701Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/65/f6/5478c5a4da598c5d4251101af6a5dfb195ab3c16898a43910be1662609a7/vector_quantize_pytorch-1.31.4-py3-none-any.whl", hash = "sha256:1496c85eed92afdc5dd1cd70b9c31a757d319923005f9598e3091c7c3f9631e8", size = 63731, upload-time = "2026-09-02T16:01:40.866Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/fb/52c369d0c4d78d272a3129d3a0870275de66d53936b9cddb7ea88c6c9fb9/vector_quantize_pytorch-1.31.6-py3-none-any.whl", hash = "sha256:d3c2746989dbb7f7361344b6f6b6c25e1b911503eeb5c839379abefe7206aec0", size = 64024, upload-time = "2026-09-24T04:04:25.497Z" },
 ]
 
 [[package]]
@@ -3819,6 +3833,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/bf/60/bc7a980fc78837d6ef8f5940cca4cadc433364503a4c4d42e2a7a0de3231/widgetsnbextension-4.0.16.tar.gz", hash = "sha256:adeea0ae78f0856ee4945f413299801b82a0a01416303301f39a704282a37b73", size = 1111094, upload-time = "2026-08-18T08:52:55.859Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/34/95/40e17e20046b7bc820d29d09ae84ec157ec8dd6e6f6cd722626292c31b2e/widgetsnbextension-4.0.16-py3-none-any.whl", hash = "sha256:a31a8774885b96fe825462f5d6496166f0c7cae111195b6465c801d230eb5a4e", size = 2225148, upload-time = "2026-08-18T08:52:53.736Z" },
+]
+
+[[package]]
+name = "win32-setctime"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/8f/705086c9d734d3b663af0e9bb3d4de6578d08f46b1b101c2442fd9aecaa2/win32_setctime-1.2.0.tar.gz", hash = "sha256:ae1fdf948f5640aae05c511ade119313fb6a30d7eabe25fef9764dca5873c4c0", size = 4867, upload-time = "2024-12-07T15:28:28.314Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/07/c6fe3ad3e685340704d314d765b7912993bcb8dc198f0e7a89382d37974b/win32_setctime-1.2.0-py3-none-any.whl", hash = "sha256:95d644c4e708aba81dc3704a116d8cbc974d70b3bdb8be1d150e36be6e9d1390", size = 4083, upload-time = "2024-12-07T15:28:26.465Z" },
 ]
 
 [[package]]
