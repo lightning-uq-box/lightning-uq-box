@@ -2,13 +2,20 @@
 
 AT supports binary masks. The fitted base segmentation model emits raw logits
 `[B,1,H,W]`; it remains in evaluation mode and receives no gradients. The threshold
-network sees the same images as the base model and reads their number of channels
-from the first batch, so RGB, multispectral and stacked bitemporal inputs need no
-extra setting. `load_from_checkpoint(path, model=base_model)` restores the network
-at the width stored in the checkpoint. Multi-GPU training with
-DistributedDataParallel needs the width before any data is seen; for that, assign
-`method.threshold_model = ThresholdPredictor(in_channels=C)` before fitting.
-The threshold network predicts one sigmoid threshold per image. AT regresses the
+network is a second, trainable model that maps the image and the base model's
+probabilities to one threshold per image. By default it is
+`ThresholdPredictor`, the paper's ImageNet-pretrained ResNet-50 with a linear
+sigmoid head. Any module with the same inputs, returning thresholds in `[0,1]` of
+shape `[B]`, can be passed as `threshold_model`, for example
+`ThresholdPredictor(pretrained=False)` or a smaller network.
+`ThresholdPredictor` reads the number of image channels from the first batch, so
+RGB, multispectral and stacked bitemporal inputs need no extra setting.
+Multi-GPU training with DistributedDataParallel needs the width before any data is
+seen; pass `threshold_model=ThresholdPredictor(in_channels=C)` in that case.
+`load_from_checkpoint(path, model=base_model, threshold_model=network)` restores
+both stages; `network` must have the same architecture as the saved one, and a
+`ThresholdPredictor` takes its width from the checkpoint.
+The threshold network predicts one threshold per image. AT regresses the
 largest oracle threshold attaining at least `1-alpha` positive-pixel recall.
 Discrete recall and tied probabilities can prevent exact attainment.
 

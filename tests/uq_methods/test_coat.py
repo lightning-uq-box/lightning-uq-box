@@ -2,12 +2,12 @@
 # Licensed under the Apache License 2.0.
 
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 import torch
 from torch import nn
 
+from lightning_uq_box.models import ThresholdPredictor
 from lightning_uq_box.uq_methods import COAT
 from lightning_uq_box.uq_methods.loss_functions import SoftMiscoverageLoss
 from tests.uq_methods.test_adaptive_thresholding import (
@@ -85,27 +85,20 @@ def test_empty_foreground() -> None:
 
 
 def test_two_stage_coat(tmp_path: Path) -> None:
-    with patch(
-        "lightning_uq_box.uq_methods.coat.ThresholdPredictor",
-        return_value=TinyThreshold(),
-    ):
-        method = COAT(
-            nn.Sequential(nn.Conv2d(3, 1, 1), nn.BatchNorm2d(1)),
-            alpha=0.2,
-            lr=0.003,
-            temperature=0.07,
-            pretrained_threshold_net=False,
-            save_preds=True,
-        )
+    method = COAT(
+        nn.Sequential(nn.Conv2d(3, 1, 1), nn.BatchNorm2d(1)),
+        alpha=0.2,
+        lr=0.003,
+        temperature=0.07,
+        save_preds=True,
+        threshold_model=TinyThreshold(),
+    )
     run_two_stage(method, tmp_path)
-    with patch(
-        "lightning_uq_box.uq_methods.coat.ThresholdPredictor",
-        return_value=TinyThreshold(),
-    ):
-        restored = COAT.load_from_checkpoint(
-            tmp_path / "calibrated.ckpt",
-            model=nn.Sequential(nn.Conv2d(3, 1, 1), nn.BatchNorm2d(1)),
-        )
+    restored = COAT.load_from_checkpoint(
+        tmp_path / "calibrated.ckpt",
+        model=nn.Sequential(nn.Conv2d(3, 1, 1), nn.BatchNorm2d(1)),
+        threshold_model=TinyThreshold(),
+    )
     assert restored.soft_miscoverage_loss.temperature == 0.07
     assert restored.soft_miscoverage_loss.target_coverage == 0.8
 
@@ -127,7 +120,7 @@ def test_config_instantiation() -> None:
 def test_reload_six_channels(tmp_path: Path) -> None:
     method = COAT(
         nn.Sequential(nn.Conv2d(6, 1, 1), nn.BatchNorm2d(1)),
-        pretrained_threshold_net=False,
+        threshold_model=ThresholdPredictor(pretrained=False),
     )
     # The threshold network sizes its stem from the first batch it sees.
     method.threshold_model(torch.rand(2, 6, 16, 16), torch.rand(2, 1, 16, 16))

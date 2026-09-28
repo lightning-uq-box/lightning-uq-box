@@ -23,10 +23,10 @@ class COAT(SegmentationPosthocBase):
         lr: float = 5e-4,
         max_epochs: int = 60,
         temperature: float = 0.05,
-        pretrained_threshold_net: bool = True,
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
+        threshold_model: nn.Module | None = None,
     ) -> None:
         """Initialize COAT with temperature as the sigmoid divisor.
 
@@ -40,11 +40,15 @@ class COAT(SegmentationPosthocBase):
             lr: learning rate of the threshold network
             max_epochs: recommended epochs for the first Trainer
             temperature: divisor of the soft foreground indicator
-            pretrained_threshold_net: whether the threshold ResNet-50 starts from
-                ImageNet weights
             optimizer: optimizer for the threshold network
             lr_scheduler: optional scheduler monitoring ``val_loss``
             save_preds: whether to save test predictions as HDF5 files
+            threshold_model: network mapping images [batch_size x C x H x W] and
+                probabilities [batch_size x 1 x H x W] to thresholds in [0, 1] of
+                shape [batch_size]; ``None`` builds the paper's ImageNet-pretrained
+                :class:`~lightning_uq_box.models.ThresholdPredictor`, which may
+                download weights. Pass the same kind of network again to
+                ``load_from_checkpoint``.
 
         Raises:
             ValueError: if max_epochs is not positive
@@ -54,7 +58,7 @@ class COAT(SegmentationPosthocBase):
         loss = SoftMiscoverageLoss(temperature, 1 - alpha)
         super().__init__(
             model,
-            ThresholdPredictor(pretrained_threshold_net),
+            ThresholdPredictor() if threshold_model is None else threshold_model,
             alpha,
             lr,
             optimizer,
@@ -62,11 +66,7 @@ class COAT(SegmentationPosthocBase):
             save_preds,
         )
         self.save_hyperparameters(
-            {
-                "max_epochs": max_epochs,
-                "temperature": temperature,
-                "pretrained_threshold_net": pretrained_threshold_net,
-            }
+            {"max_epochs": max_epochs, "temperature": temperature}
         )
         self.max_epochs = max_epochs
         self.soft_miscoverage_loss = loss
@@ -83,5 +83,5 @@ class COAT(SegmentationPosthocBase):
         X = batch[self.input_key]
         phat = self._probabilities(X)
         return self.soft_miscoverage_loss(
-            phat, batch[self.target_key], self.threshold_model(X, phat)
+            phat, batch[self.target_key], self._thresholds(X, phat)
         )

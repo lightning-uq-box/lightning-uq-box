@@ -1,6 +1,8 @@
 uq_method:
   _target_: lightning_uq_box.uq_methods.COAT
-  pretrained_threshold_net: false
+  threshold_model:
+    _target_: lightning_uq_box.models.ThresholdPredictor
+    pretrained: false
   model:
     _target_: segmentation_models_pytorch.Unet
     encoder_name: resnet18
