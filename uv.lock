@@ -1649,7 +1649,6 @@ name = "lightning-uq-box"
 version = "0.5.0.dev0"
 source = { editable = "." }
 dependencies = [
-    { name = "curvlinops-for-pytorch" },
     { name = "einops" },
     { name = "ema-pytorch" },
     { name = "gpytorch" },
@@ -1715,7 +1714,6 @@ tests = [
 
 [package.metadata]
 requires-dist = [
-    { name = "curvlinops-for-pytorch", specifier = "==2.0.0" },
     { name = "einops", specifier = ">=0.3" },
     { name = "ema-pytorch", specifier = ">=0.7.0" },
     { name = "gpytorch", specifier = ">=1.11" },
