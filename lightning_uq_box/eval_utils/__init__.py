@@ -12,6 +12,12 @@ from .joint_prediction import (
     marginal_log_likelihood,
     marginal_log_loss,
 )
+from .segmentation_distribution import (
+    generalized_energy_distance,
+    hungarian_matched_iou,
+    iou_with_empty_convention,
+    reconstruction_iou,
+)
 from .uq_computation import (
     compute_aleatoric_uncertainty,
     compute_empirical_coverage,
@@ -22,6 +28,11 @@ from .uq_computation import (
 )
 
 __all__ = (
+    # segmentation distribution metrics
+    "generalized_energy_distance",
+    "hungarian_matched_iou",
+    "iou_with_empty_convention",
+    "reconstruction_iou",
     # evaluation utils 1d regression
     "compute_aleatoric_uncertainty",
     "compute_empirical_coverage",

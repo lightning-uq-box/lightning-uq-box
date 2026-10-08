@@ -10,7 +10,7 @@ build-backend = "uv_build"
 name = "lightning-uq-box"
 # uv_build does not support dynamic versions. lightning_uq_box.__version__ reads
 # this value back at runtime via importlib.metadata.
-version = "0.4.0.dev0"
+version = "0.5.0.dev0"
 description = "Lightning-UQ-Box: A toolbox for uncertainty quantification in deep learning"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -75,8 +75,6 @@ dependencies = [
     "timm>=1.0",
     # smp for segmentation, pixelwise regression
     "segmentation-models-pytorch>=0.5.0",
-    # tutorial artifacts (cached logits, pretrained checkpoints) hosted on the Hub
-    "huggingface-hub>=0.34",
     # saving pixelwise and segmentation predictions
     "h5py>=3.12.1",
     # exponential moving average for pytorch models
@@ -129,6 +127,8 @@ docs = [
     "jupytext>=1.15.2",
     # ipykernel to run notebooks
     "ipykernel>=6.29.3",
+    # tutorial artifacts (cached logits, pretrained checkpoints) hosted on the Hub
+    "huggingface-hub>=0.34",
 ]
 
 all = [

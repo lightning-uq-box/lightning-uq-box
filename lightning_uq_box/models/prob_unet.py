@@ -145,6 +145,7 @@ class AxisAlignedConvGaussian(nn.Module):
         no_convs_per_block: int,
         latent_dim: int,
         posterior: bool = False,
+        log_sigma_bound: float = 4.0,
     ) -> None:
         """Initialize a new instance of AxisAlignedConvGaussian.
 
@@ -155,8 +156,18 @@ class AxisAlignedConvGaussian(nn.Module):
             latent_dim: Dimension of the latent space
             initializers: dictionary of initializers for the layers
             posterior: Whether this is a posterior network or not
+            log_sigma_bound: Log standard deviations are smoothly bounded to
+                ``(-log_sigma_bound, log_sigma_bound)`` (> 0). This deviates
+                from Kohl et al. (2018), which uses an unbounded exponential
+                and can diverge when the latent is pushed hard.
+
+        Raises:
+            ValueError: If log_sigma_bound is not finite and positive.
         """
+        if not 0 < log_sigma_bound < float("inf"):
+            raise ValueError("log_sigma_bound must be finite and positive.")
         super().__init__()
+        self.log_sigma_bound = log_sigma_bound
         self.input_channels = input_channels
         self.channel_axis = 1
         self.num_filters = num_filters
@@ -219,6 +230,11 @@ class AxisAlignedConvGaussian(nn.Module):
 
         mu = mu_log_sigma[:, : self.latent_dim]
         log_sigma = mu_log_sigma[:, self.latent_dim :]
+
+        # Bound log scales so the scale cannot diverge; the squash has
+        # gradient 1 at the origin and is identity-like in normal operation.
+        bound = self.log_sigma_bound
+        log_sigma = -bound + 2 * bound * torch.sigmoid(log_sigma.float() * (2 / bound))
 
         # This is a multivariate normal with diagonal covariance matrix sigma
         # https://github.com/pytorch/pytorch/pull/11178

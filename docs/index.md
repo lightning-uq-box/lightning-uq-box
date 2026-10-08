@@ -73,6 +73,8 @@ The following sections aims to give an overview of different UQ-Methods by group
 | Conformal Quantile Regression (Conformal QR)  |     ✅     |       ❌       |      ❌      |          ⏳           |
 | Regularized Adaptive Prediction Sets (RAPS)   |     ❌     |       ✅       |      ❌      |          ❌           |
 | Image to Image Conformal                      |     ❌     |       ❌       |      ❌      |          ✅           |
+| Adaptive Thresholding (AT) | ❌ | ❌ | ✅ | ❌ |
+| COAT | ❌ | ❌ | ✅ | ❌ |
 
 
 ## Table of contents
@@ -84,6 +86,7 @@ installation
 user_guide
 tutorial_overview
 running_experiments
+adaptive_segmentation
 api/index
 contribute
 GitHub Repository <https://github.com/lightning-uq-box/lightning-uq-box>

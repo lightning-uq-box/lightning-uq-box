@@ -440,6 +440,42 @@ Probabilistic UNet
 .. autoclass:: ProbUNet
 
 
+Variational Auto-Encoder (VAE)
+------------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.vae
+
+VAE
+```
+
+.. autoclass:: VAE
+
+Conditional VAE
+```````````````
+
+.. autoclass:: ConditionalVAE
+
+.. autoclass:: lightning_uq_box.uq_methods.loss_functions.VAELoss
+
+
+Vector Quantized VAE (VQ-VAE)
+-----------------------------
+
+.. currentmodule:: lightning_uq_box.uq_methods.vq_vae
+
+VQ-VAE
+``````
+
+.. autoclass:: VQVAE
+
+.. autoclass:: lightning_uq_box.uq_methods.loss_functions.VQVAELoss
+
+VQ-VAE Prior
+````````````
+
+.. autoclass:: VQVAEPrior
+
+
 
 UQ Calibration Methods
 ======================
@@ -480,3 +516,19 @@ Image to Image Conformal
 .. currentmodule:: lightning_uq_box.uq_methods.img2img_conformal
 
 .. autoclass:: Img2ImgConformal
+
+Adaptive Thresholding (AT)
+--------------------------
+
+.. autoclass:: lightning_uq_box.uq_methods.AdaptiveThresholding
+   :members:
+
+See :doc:`../adaptive_segmentation` for the two-stage workflow and coverage assumptions.
+
+COAT
+----
+
+.. autoclass:: lightning_uq_box.uq_methods.COAT
+   :members:
+
+Uses the same two-stage calibration workflow as Adaptive Thresholding.
