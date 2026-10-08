@@ -766,19 +766,22 @@ nvtx = [
 
 [[package]]
 name = "curvlinops-for-pytorch"
-version = "2.0.0"
+version = "3.0.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "backpack-for-pytorch" },
     { name = "einconv" },
     { name = "einops" },
+    { name = "linear-operator" },
+    { name = "numpy" },
+    { name = "opt-einsum" },
     { name = "scipy" },
     { name = "torch" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c2/67/c46349c9de75dd3bbdabcd7fb16b890e4f7efa01d4b534e6742d2ec1bfde/curvlinops_for_pytorch-2.0.0.tar.gz", hash = "sha256:01f9925db9454fc9b0a31c7b83fc8ec2534c2eb12b7de7825a5298fc14e460e7", size = 141515, upload-time = "2024-08-15T18:52:00.432Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/bf/d6af0f519f0918c3b8b3558a1987bc401a02fcfc2599a1b2b602f89c8b90/curvlinops_for_pytorch-3.0.1.tar.gz", hash = "sha256:916dd1f1a145d2fed062fcbbcc860561164bbe28b3e02174f8c7d78a006f54a7", size = 1960924, upload-time = "2026-01-14T18:39:09.167Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/41/6b1b26a54aca296e01903fcd5f3a6bd9487ea9dff5a2a019d8672c6243a0/curvlinops_for_pytorch-2.0.0-py3-none-any.whl", hash = "sha256:ba2b0516642b4403e70350a4b94009a5ec4ee4377e0d345d30ae03bee86c462b", size = 67169, upload-time = "2024-08-15T18:51:58.851Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/6a/53874c03fd9a5aa2aa2b73d9f67aaa17e3571f62bddc26565d8b6c89d2ce/curvlinops_for_pytorch-3.0.1-py3-none-any.whl", hash = "sha256:4b9adcc31fb65614bf3ba95afdf353a18fa14e150927721b9526a4f626d87d8e", size = 89585, upload-time = "2026-01-14T18:39:07.931Z" },
 ]
 
 [[package]]
@@ -1606,7 +1609,7 @@ wheels = [
 
 [[package]]
 name = "laplace-torch"
-version = "0.2.2.2"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asdfghjkl" },
@@ -1618,9 +1621,9 @@ dependencies = [
     { name = "torchmetrics" },
     { name = "torchvision" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/73/89/e970014576693a6aaa99349118511ea308ca5d3dc70cd1630b49052416f3/laplace_torch-0.2.2.2.tar.gz", hash = "sha256:7898a24b7d143bc8f23b69817767277b8d9e260682a62b4d172a58deeed6dd87", size = 93807, upload-time = "2024-11-27T11:45:46.681Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/98/183add69927f954ac957f10dd35cf7f976985b950dada67eb34f29805b9a/laplace_torch-0.2.3.tar.gz", hash = "sha256:c0dc635e4cdd597d149677f51cfc5d91799fbf8251c0714025c675e9d9633451", size = 97881, upload-time = "2026-10-03T19:37:40.123Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/20/f0/1b8ad3e604d09fc20f676963a3b42ddeea9fc8cc9f80c7e87f24c7afba9a/laplace_torch-0.2.2.2-py3-none-any.whl", hash = "sha256:1def878c8ac5f2a195d2801ac582a9e93a600269cde0f3cdbb257baaba3b724f", size = 77435, upload-time = "2024-11-27T11:45:44.984Z" },
+    { url = "https://files.pythonhosted.org/packages/42/ed/f3e254ffe3197c5c1c7b73e15429e2f20c4c4d2fe2f47ec74128e2284371/laplace_torch-0.2.3-py3-none-any.whl", hash = "sha256:cb99b7598f6862dd283b3fabdf00f4c6e71c3ed3045376595be471012b9f69c5", size = 79140, upload-time = "2026-10-03T19:37:38.826Z" },
 ]
 
 [[package]]
@@ -1648,7 +1651,6 @@ name = "lightning-uq-box"
 version = "0.5.0.dev0"
 source = { editable = "." }
 dependencies = [
-    { name = "curvlinops-for-pytorch" },
     { name = "einops" },
     { name = "ema-pytorch" },
     { name = "gpytorch" },
@@ -1714,7 +1716,6 @@ tests = [
 
 [package.metadata]
 requires-dist = [
-    { name = "curvlinops-for-pytorch", specifier = "==2.0.0" },
     { name = "einops", specifier = ">=0.3" },
     { name = "ema-pytorch", specifier = ">=0.7.0" },
     { name = "gpytorch", specifier = ">=1.11" },
@@ -1726,7 +1727,7 @@ requires-dist = [
     { name = "jsonargparse", extras = ["signatures"], specifier = ">=4.28.0" },
     { name = "jupytext", marker = "extra == 'docs'", specifier = ">=1.15.2" },
     { name = "kornia", specifier = ">=0.6.9" },
-    { name = "laplace-torch", specifier = ">=0.2.1" },
+    { name = "laplace-torch", specifier = ">=0.2.3" },
     { name = "lightning", specifier = ">=2.4.0" },
     { name = "lightning-uq-box", extras = ["docs", "style", "tests"], marker = "extra == 'all'" },
     { name = "matplotlib", specifier = ">=3.7.3" },

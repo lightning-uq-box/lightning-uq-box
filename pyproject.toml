@@ -60,13 +60,9 @@ dependencies = [
     # for deep kernel learning and other GP models
     "gpytorch>=1.11",
     # Laplace Approximation
-    "laplace-torch>=0.2.1",
-    # curvlinops 2.0.1 caps numpy<2, which has no Python 3.12+ wheels, and
-    # curvlinops 3 dropped APIs laplace-torch still uses (KFACLinearOperator
-    # ._compute_kfac, curvlinops._base._LinearOperator). laplace-torch is
-    # unmaintained, so 2.0.0 is the only version that satisfies both.
+    # laplace-torch 0.2.3 supports curvlinops 3, which has numpy 2 / Python 3.12+ wheels
     # https://github.com/aleximmer/Laplace/issues/285
-    "curvlinops-for-pytorch==2.0.0",
+    "laplace-torch>=0.2.3",
     # Uncertainty toolbox metrics
     "uncertainty-toolbox>=0.1.1",
     # Kornia for Test Time Augmentations and other image processing
