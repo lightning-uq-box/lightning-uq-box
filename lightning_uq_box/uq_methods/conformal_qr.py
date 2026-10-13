@@ -36,7 +36,7 @@ def compute_q_hat_with_cqr(
         q_hat the computed quantile by which prediction intervals
         can be adjusted according to cqr
     """
-    cal_labels = cal_labels.squeeze()
+    cal_labels = torch.atleast_1d(cal_labels.squeeze())
     n = cal_labels.shape[0]
 
     # Get scores. cal_upper.shape[0] == cal_lower.shape[0] == n
