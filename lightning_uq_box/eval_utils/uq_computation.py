@@ -38,8 +38,7 @@ def compute_epistemic_uncertainty(sample_mean_preds: Tensor) -> Tensor:
     Returns:
       epistemic uncertainty for each sample
     """
-    right_term = sample_mean_preds.mean(-1) ** 2
-    return torch.sqrt((sample_mean_preds**2).mean(dim=-1) - right_term)
+    return sample_mean_preds.var(dim=-1, unbiased=False).sqrt()
 
 
 def compute_aleatoric_uncertainty(sample_sigma_preds: Tensor) -> Tensor:
@@ -72,8 +71,7 @@ def compute_predictive_uncertainty(
     """
     return torch.sqrt(
         (sample_sigma_preds**2.0).mean(-1)
-        + (sample_mean_preds**2).mean(-1)
-        - (sample_mean_preds.mean(-1) ** 2)
+        + sample_mean_preds.var(dim=-1, unbiased=False)
     )
 
 
