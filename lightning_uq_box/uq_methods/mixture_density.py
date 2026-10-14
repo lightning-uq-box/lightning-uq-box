@@ -267,8 +267,9 @@ class MDNRegression(DeterministicRegression):
             of mixture components
         """
         cum_pi = torch.cumsum(torch.exp(log_pi), dim=-1)
-        rvs = torch.rand(len(X), 1).to(X)
-        rand_pi = torch.searchsorted(cum_pi, rvs).unsqueeze(-1)
+        cum_pi = cum_pi / cum_pi[:, -1:]
+        rvs = torch.rand(len(X), 1, device=log_pi.device, dtype=log_pi.dtype)
+        rand_pi = torch.searchsorted(cum_pi, rvs, right=True).unsqueeze(-1)
         return rand_pi
 
     def sample(self, X: Tensor) -> Tensor:
