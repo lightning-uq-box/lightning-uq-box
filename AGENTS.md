@@ -2,6 +2,24 @@
 
 A toolbox for uncertainty quantification in deep learning, built on PyTorch and Lightning.
 
+## AI contributions and pull requests
+
+Follow the [AI contribution policy](AI_POLICY.md). AI tools may prepare changes
+locally, but must not open a pull request (including a draft) until a human has
+reviewed and understood the specific changes and approved their submission.
+Do not post unsupervised responses to maintainers or check human-review boxes on
+a contributor's behalf.
+
+Whenever an LLM drafts or submits a pull request description, append this exact
+line to the description, including when submission is approved by a human:
+
+```text
+AI-PR-MARKER: lightning-uq-box-agent-assisted
+```
+
+This marker discloses that an agent prepared the description. It does not certify
+human review or prove that the contribution was submitted autonomously.
+
 ## Commands
 
 Dependencies are managed with [uv](https://docs.astral.sh/uv/). Run everything through `uv run` so

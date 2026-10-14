@@ -2,6 +2,18 @@
 
 We welcome contributions and suggestions to this open-source project. This could be bugs you found, improvements to the documentation or tutorials, as well as new features and methods. The following guide aims to explain the process of contributing to the lightning-uq-box.
 
+## AI contributions
+
+AI-assisted contributions are welcome under our [AI contribution policy](https://github.com/lightning-uq-box/lightning-uq-box/blob/main/AI_POLICY.md).
+Fully autonomous contributions are not accepted. Before opening a pull request,
+including a draft, a human must review and understand all changes and verify the
+relevant validation results. The same requirements apply to subsequent updates.
+
+Disclose material AI assistance in the pull request description, explain your
+changes in your own words, and respond to maintainer feedback yourself.
+AI-assisted proofreading and translation are permitted. Please complete the
+pull request template and keep contributions focused and concise.
+
 ## Git
 
 1. Fork the [repository](https://github.com/lightning-uq-box/lightning-uq-box)
