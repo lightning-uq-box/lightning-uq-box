@@ -17,9 +17,6 @@ line to the description, including when submission is approved by a human:
 AI-PR-MARKER: lightning-uq-box-agent-assisted
 ```
 
-This marker discloses that an agent prepared the description. It does not certify
-human review or prove that the contribution was submitted autonomously.
-
 ## Commands
 
 Dependencies are managed with [uv](https://docs.astral.sh/uv/). Run everything through `uv run` so
