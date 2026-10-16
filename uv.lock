@@ -1609,7 +1609,7 @@ wheels = [
 
 [[package]]
 name = "laplace-torch"
-version = "0.2.3"
+version = "0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asdfghjkl" },
@@ -1617,13 +1617,15 @@ dependencies = [
     { name = "curvlinops-for-pytorch" },
     { name = "numpy" },
     { name = "opt-einsum" },
+    { name = "scipy" },
     { name = "torch" },
     { name = "torchmetrics" },
     { name = "torchvision" },
+    { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/76/98/183add69927f954ac957f10dd35cf7f976985b950dada67eb34f29805b9a/laplace_torch-0.2.3.tar.gz", hash = "sha256:c0dc635e4cdd597d149677f51cfc5d91799fbf8251c0714025c675e9d9633451", size = 97881, upload-time = "2026-10-03T19:37:40.123Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d2/ac/77b0ca59f820e41b4541b82c894846e5b6296fdb2b3d207587319db10c71/laplace_torch-0.3.tar.gz", hash = "sha256:ba4315b9692b3065470e5e5a1e4a917edb8b40141e5eea4b6a4044ec79b087c7", size = 93591, upload-time = "2026-10-13T00:38:06.879Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/42/ed/f3e254ffe3197c5c1c7b73e15429e2f20c4c4d2fe2f47ec74128e2284371/laplace_torch-0.2.3-py3-none-any.whl", hash = "sha256:cb99b7598f6862dd283b3fabdf00f4c6e71c3ed3045376595be471012b9f69c5", size = 79140, upload-time = "2026-10-03T19:37:38.826Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/ea/ad111b4807fb27c0d19c57ae2aaf3b102c7fbc05c28a5d37f7014710b852/laplace_torch-0.3-py3-none-any.whl", hash = "sha256:297867a130aa35d73799916101b3ad2bfa1f2585430d5618c0503a925e989033", size = 105452, upload-time = "2026-10-13T00:38:05.853Z" },
 ]
 
 [[package]]
