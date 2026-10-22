@@ -109,7 +109,7 @@ class ConditionalGuidedLinearModel(nn.Module):
             data_dim += x_dim
         if self.cat_y_pred:
             data_dim += y_dim
-        layer_sizes = [data_dim] + n_hidden
+        layer_sizes = [data_dim, *n_hidden]
         layers = []
         for idx in range(1, len(layer_sizes)):
             layers += [
