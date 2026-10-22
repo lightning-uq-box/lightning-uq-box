@@ -190,6 +190,11 @@ USE_IOMP = "0"
 [tool.ty.src]
 include = ["lightning_uq_box", "tests"]
 
+[tool.ty.rules]
+# Permanent. torch declares nn.Module.forward as a mutable `Callable[..., Any]` attribute,
+# so every `def forward` override is flagged. On by default since ty 0.0.87.
+invalid-mutable-override = "ignore"
+
 # uq_methods is checked, but the rules it currently trips are muted so they can be fixed
 # a family at a time. Every other rule is enforced there from now on, so new code cannot
 # introduce a fresh class of problem. Each follow-up deletes one line from this block.
