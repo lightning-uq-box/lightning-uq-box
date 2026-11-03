@@ -47,6 +47,7 @@ class MVEBase(DeterministicModel):
             lr_scheduler: learning rate scheduler
         """
         super().__init__(model, NLL(), freeze_backbone, optimizer, lr_scheduler)
+        self.burnin_epochs = burnin_epochs
 
     def setup_task(self) -> None:
         """Set up task specific attributes."""
@@ -69,7 +70,7 @@ class MVEBase(DeterministicModel):
         """
         out = self.forward(batch[self.input_key])
 
-        if self.current_epoch < self.hparams.burnin_epochs:
+        if self.current_epoch < self.burnin_epochs:
             loss = nn.functional.mse_loss(
                 self.adapt_output_for_metrics(out), batch[self.target_key]
             )
@@ -173,6 +174,7 @@ class MVEPxRegression(DeterministicPixelRegression):
         optimizer: OptimizerCallable = torch.optim.Adam,
         lr_scheduler: LRSchedulerCallable | None = None,
         save_preds: bool = False,
+        burnin_epochs: int = 0,
     ) -> None:
         """Initialize a new instance of MVE for Pixelwise Regression.
 
@@ -183,11 +185,49 @@ class MVEPxRegression(DeterministicPixelRegression):
             optimizer: optimizer used for training
             lr_scheduler: learning rate scheduler
             save_preds: whether to save predictions
+            burnin_epochs: number of burnin epochs before switiching to NLL
         """
         super().__init__(
             model, NLL(), freeze_backbone, freeze_decoder, optimizer, lr_scheduler
         )
+        self.burnin_epochs = burnin_epochs
         self.save_preds = save_preds
+
+    def training_step(
+        self, batch: dict[str, Tensor], batch_idx: int, dataloader_idx: int = 0
+    ) -> Tensor:
+        """Compute and return the training loss.
+
+        During the burnin epochs only the mean output is trained with MSE,
+        afterwards the full Gaussian output is trained with the NLL loss,
+        mirroring :class:`MVEBase`.
+
+        Args:
+            batch: the output of your DataLoader
+            batch_idx: the index of this batch
+            dataloader_idx: the index of the dataloader
+
+        Returns:
+            training loss
+        """
+        out = self.forward(batch[self.input_key])
+
+        if self.current_epoch < self.burnin_epochs:
+            loss = nn.functional.mse_loss(
+                self.adapt_output_for_metrics(out), batch[self.target_key]
+            )
+        else:
+            loss = self.loss_fn(out, batch[self.target_key])
+
+        self.log(
+            "train_loss", loss, batch_size=batch[self.input_key].shape[0]
+        )  # logging to Logger
+        if batch[self.input_key].shape[0] > 1:
+            self.train_metrics(
+                self.adapt_output_for_metrics(out), batch[self.target_key]
+            )
+
+        return loss
 
     def adapt_output_for_metrics(self, out: Tensor) -> Tensor:
         """Adapt model output to be compatible for metric computation.
