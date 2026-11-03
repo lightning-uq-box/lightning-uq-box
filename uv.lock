@@ -1257,14 +1257,14 @@ wheels = [
 
 [[package]]
 name = "hydra-core"
-version = "1.4.0rc1"
+version = "1.4.0rc3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "omegaconf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/eb/44/f2aa54343593132838e9f72992fcef627d168a6b2a4a7f4e4bca3e0ad96f/hydra_core-1.4.0rc1.tar.gz", hash = "sha256:a00aa0b9ba4ce3f012fdda5b600b535c1a40bc8b6c894de4b1c4fb3d5b2fedf8", size = 3373272, upload-time = "2026-10-10T07:46:48.444Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/3c/74eef117ed30f7d35b85c7b4027560da6059e6d0c18f3a214301af4c45a3/hydra_core-1.4.0rc3.tar.gz", hash = "sha256:c9cae4b6cd21e86cb9f4095f5d7f276115c1a92448936ca48aad8f02a5feccc1", size = 3375483, upload-time = "2026-10-25T15:25:53.562Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/e6/37ca8e464e6786103edbd87d7f964bbbd8dd666254ff3dbf3106f1344efa/hydra_core-1.4.0rc1-py3-none-any.whl", hash = "sha256:0c158b4b3b3daa07a10a1e144f28e13cbbdfe054b174621ad108e3c53a54d312", size = 196222, upload-time = "2026-10-10T07:46:37.803Z" },
+    { url = "https://files.pythonhosted.org/packages/11/27/6c832963c39a2d09dd83972992bcd32b625eb9d91769753e8bf3a16aae0a/hydra_core-1.4.0rc3-py3-none-any.whl", hash = "sha256:96c4fe930b14d944f63a13161c32adf2d6728391a2038cc70a0c996766c5ea38", size = 198282, upload-time = "2026-10-25T15:25:42.949Z" },
 ]
 
 [[package]]
@@ -2515,14 +2515,14 @@ wheels = [
 
 [[package]]
 name = "omegaconf"
-version = "2.4.0"
+version = "2.4.1rc2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cc/10/1cabf3188a4d9684a06568c7fd76f9536eede625733c8399cf1f5337b83e/omegaconf-2.4.0.tar.gz", hash = "sha256:7e219a70bea371da250285b9c01c7db027bc421722799c2cc4ff14bc4a2a753b", size = 3544508, upload-time = "2026-10-09T12:44:02.326Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/40/11/1cd1b9135e1ccef7bf7438bc1a527846037381b3720f301a2b845fc8d97a/omegaconf-2.4.1rc2.tar.gz", hash = "sha256:5d44556d785cd6df60419ea1bca74740517e54877d5a50daed92a3c2a478f922", size = 3545933, upload-time = "2026-10-28T12:22:06.364Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/bd/0d9f8247b0819385213d09564eda5c52d3673313c2414d51f72883ec24cd/omegaconf-2.4.0-py3-none-any.whl", hash = "sha256:f141a664c777582405e3cc6e0545ecc79429e79f844995b1a6e71c35946a025c", size = 254152, upload-time = "2026-10-09T12:43:59.764Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/0f/eea98e0a6c516c4d5f28ab9de29bf6dc00bb68e334d1f22e2af1bd1cb499/omegaconf-2.4.1rc2-py3-none-any.whl", hash = "sha256:4c7dbb92683503480617be4378b61df3d2765ccd1d2035dbe0d795325c10c143", size = 259143, upload-time = "2026-10-28T12:22:03.622Z" },
 ]
 
 [[package]]
