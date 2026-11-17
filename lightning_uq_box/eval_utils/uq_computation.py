@@ -112,20 +112,20 @@ def compute_quantiles_from_std(
 
     Args:
       means: mean prediction vector
-      stds: mean std vector
+      stds: mean std vector; zero standard deviation collapses interior
+        quantiles to the corresponding mean
       quantiles: desired quantiles
 
     Returns:
       desired quantiles stacked
     """
-    # define the normal distribution and PDF
-    dists = [stats.norm(loc=mean, scale=sigma) for mean, sigma in np.c_[means, stds]]
-
     # calculate PPFs
     ppfs = defaultdict(list)
-    for dist in dists:
+    for mean, sigma in np.c_[means, stds]:
+        dist = stats.norm(loc=mean, scale=sigma)
         for ppf in quantiles:
-            p = dist.ppf(ppf)
+            # SciPy rejects scale=0, but identical predictions have a point mass.
+            p = mean if sigma == 0 and 0 < ppf < 1 else dist.ppf(ppf)
             ppfs[ppf].append(p)
 
     return np.stack(list(ppfs.values()), axis=-1)
