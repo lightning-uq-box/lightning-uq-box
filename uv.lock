@@ -3666,15 +3666,15 @@ wheels = [
 
 [[package]]
 name = "torch-einops-utils"
-version = "0.1.22"
+version = "0.2.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "einops" },
     { name = "torch" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/93/03/33fa0c18ed8300f1565d39fc1dc6b076a85f5e70fddab6816ac75e3e3322/torch_einops_utils-0.1.22.tar.gz", hash = "sha256:e641120b93c098383fc6c088cd6bdcfe628a54b492773b12b4a92c79c75e03a0", size = 21033, upload-time = "2026-08-27T16:41:57.36Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ef/36/a25614ee7b6947f04b87ca85ba279e78ea350b640714f030d707f37dba69/torch_einops_utils-0.2.9.tar.gz", hash = "sha256:9bac65ec51b4a99f5df7f9dde501ad4ab4698f3f978cf1cb451e55fe6764987b", size = 47120, upload-time = "2026-11-22T17:34:28.97Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b8/e3/6f2d4f9309094bbabc069f541f3c929fca08b088ddffb873ba1e73dac87c/torch_einops_utils-0.1.22-py3-none-any.whl", hash = "sha256:a394c47193c98bcd4ec3783c5e4c700791baf54251fd00c56f0095a6848f888d", size = 14277, upload-time = "2026-08-27T16:41:56.282Z" },
+    { url = "https://files.pythonhosted.org/packages/14/43/fdc7411baf5fedee10ff2cb4fb4a6f4be1a14d196f3b44175bd00a8b11a0/torch_einops_utils-0.2.9-py3-none-any.whl", hash = "sha256:92d2e4749e4f6f06403f50087befcb5acb16ef72c6dafa78029d583fc27efc9d", size = 30409, upload-time = "2026-11-22T17:34:27.77Z" },
 ]
 
 [[package]]
@@ -3910,7 +3910,7 @@ wheels = [
 
 [[package]]
 name = "vector-quantize-pytorch"
-version = "1.31.6"
+version = "1.34.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "einops" },
@@ -3919,9 +3919,9 @@ dependencies = [
     { name = "torch" },
     { name = "torch-einops-utils" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a2/e3/d34311f0994f838b3561805fd0c0a55a4774bdf5c1efa1972192e7e1979c/vector_quantize_pytorch-1.31.6.tar.gz", hash = "sha256:0a0e8033058468d7e1e53615d38b3dfb9cb6059a994d54aa3085bf04a30213bc", size = 58603, upload-time = "2026-09-24T04:04:26.701Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/30/16/566ce23ee0026595858ecec1cc6420f6104933093c606a8581b422fd7a32/vector_quantize_pytorch-1.34.1.tar.gz", hash = "sha256:940ec5220bdcffec0f52a5184f120a63930ce15476b6e6137bb2cb96c098d18f", size = 62417, upload-time = "2026-11-17T22:01:59.822Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/fb/52c369d0c4d78d272a3129d3a0870275de66d53936b9cddb7ea88c6c9fb9/vector_quantize_pytorch-1.31.6-py3-none-any.whl", hash = "sha256:d3c2746989dbb7f7361344b6f6b6c25e1b911503eeb5c839379abefe7206aec0", size = 64024, upload-time = "2026-09-24T04:04:25.497Z" },
+    { url = "https://files.pythonhosted.org/packages/b6/25/1a48d824c57f65720caedf0205db241964ccf86b3798c7cca5758e77e5fc/vector_quantize_pytorch-1.34.1-py3-none-any.whl", hash = "sha256:823776f0ca2f43e9d3623feecc4bbd8769eacaaf6395b9cabba30f1b4c85f979", size = 66925, upload-time = "2026-11-17T22:01:58.104Z" },
 ]
 
 [[package]]
