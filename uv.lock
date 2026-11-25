@@ -1478,7 +1478,7 @@ wheels = [
 
 [[package]]
 name = "jupytext"
-version = "1.19.6"
+version = "1.19.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown-it-py" },
@@ -1487,9 +1487,9 @@ dependencies = [
     { name = "packaging" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/79/7f/5d2cc9618eca61dbc2d76628da3622a311702abd6b15c824bbf2b53e0db6/jupytext-1.19.6.tar.gz", hash = "sha256:ba1d143bb3751e054d3164376b148ee8fa74e1a860fc9411e1da93ff588b8a17", size = 4603767, upload-time = "2026-10-04T21:00:31.103Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/73/d5/b3bea5a85c57f79affd632b1a844417dc3f99063a99463f1a725b8c6c4a1/jupytext-1.19.7.tar.gz", hash = "sha256:5d440c437d7784edee1b2ff3a652420164c30f110cd8441189dfc2df766fde68", size = 4619152, upload-time = "2026-11-21T23:05:02.734Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/70/c3/c4eff5bdbe79b688dda8f06f2b66dbcf9a483cf660e5ced0b2dd5c21623d/jupytext-1.19.6-py3-none-any.whl", hash = "sha256:eb725d66841f1a91707bdcf4703b194a53151a060ecb3fd31d78139cc9ec090a", size = 230809, upload-time = "2026-10-04T21:00:29.143Z" },
+    { url = "https://files.pythonhosted.org/packages/bd/39/91092aadbcf43fb137492134f2509279355f826954304f9e8ef15c41e78c/jupytext-1.19.7-py3-none-any.whl", hash = "sha256:bbd4724f403841b4f3c439b64fcfb0a674b874e0e0ae02f2a23b7ba77382ada2", size = 233071, upload-time = "2026-11-21T23:05:00.678Z" },
 ]
 
 [[package]]
