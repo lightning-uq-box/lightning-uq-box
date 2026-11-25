@@ -221,19 +221,6 @@ wheels = [
 ]
 
 [[package]]
-name = "asdfghjkl"
-version = "0.1a4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "torch" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c5/73/c81489fe1ed8b12099c8e034e8e623374016e5e6db2010c38d8f386acc2d/asdfghjkl-0.1a4.tar.gz", hash = "sha256:a934411a0ffdee6fcdccb19672196498ea6a8e55e3e67abbe67200c84b46ddee", size = 75744, upload-time = "2024-08-15T20:46:42.375Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/32/9a/7548968acfacb162c88dd9c2247a54f36136221ebb13d457016b28d47523/asdfghjkl-0.1a4-py3-none-any.whl", hash = "sha256:9cedec38494d7907075941d03d018d8c2b64047e6c41713a49f30e3790816c51", size = 89694, upload-time = "2024-08-15T20:46:40.62Z" },
-]
-
-[[package]]
 name = "asttokens"
 version = "3.0.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1642,11 +1629,9 @@ wheels = [
 
 [[package]]
 name = "laplace-torch"
-version = "0.3"
+version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "asdfghjkl" },
-    { name = "backpack-for-pytorch" },
     { name = "curvlinops-for-pytorch" },
     { name = "numpy" },
     { name = "opt-einsum" },
@@ -1656,9 +1641,9 @@ dependencies = [
     { name = "torchvision" },
     { name = "tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d2/ac/77b0ca59f820e41b4541b82c894846e5b6296fdb2b3d207587319db10c71/laplace_torch-0.3.tar.gz", hash = "sha256:ba4315b9692b3065470e5e5a1e4a917edb8b40141e5eea4b6a4044ec79b087c7", size = 93591, upload-time = "2026-10-13T00:38:06.879Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f7/bc/8f3a613ee2e2eb75830fbfd021afe0181a8ccb9d3bd06ff28d36e2610cfb/laplace_torch-0.5.1.tar.gz", hash = "sha256:c6f88d0a3080a782a5810de1de2641fcecf60d6a19944ba2cbe2bded5efddf06", size = 147959, upload-time = "2026-11-10T01:04:03.312Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/ea/ad111b4807fb27c0d19c57ae2aaf3b102c7fbc05c28a5d37f7014710b852/laplace_torch-0.3-py3-none-any.whl", hash = "sha256:297867a130aa35d73799916101b3ad2bfa1f2585430d5618c0503a925e989033", size = 105452, upload-time = "2026-10-13T00:38:05.853Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/34/21c7e91edcc64182de35c8497880b10f36d0c72737dade0c1bc9ba70835f/laplace_torch-0.5.1-py3-none-any.whl", hash = "sha256:72b304d2226dc544496b1c0ff252e0279042646899ba1a824fa513114910f032", size = 161777, upload-time = "2026-11-10T01:04:04.596Z" },
 ]
 
 [[package]]
